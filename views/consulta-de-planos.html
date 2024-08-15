@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+	<meta http-equiv="refresh" content="10800;url=/"> <!-- 3 horas em segundos -->
+	<title>Intervip - Consulta de Planos</title>
+
+	<!-- CSS -->
+	<link href="stylesheets/bootstrap.min.css" rel="stylesheet">
+	<link rel="stylesheet" type="text/css" href="stylesheets/style.css">
+
+	<!-- JS -->
+	<script src="javascripts/index.js"></script>
+	<script src="javascripts/jquery.js"></script>
+	<script src="javascripts/bootstrap.bundle.min.js"></script>
+	<script src="javascripts/bootstrap-autocomplete.min.js"></script>
+	<script src="javascripts/consulta-de-planos.js"></script>
+</head>
+
+<body class="colsultaDePlanos-body">
+
+	<top-header>
+		<header>
+
+			<div class="container-fluid">
+
+				<div class="row">
+
+					<div class="col-12 col-sm-2 col-md-3 logo-wrapper">
+						<!-- <div class="logo"></div> -->
+						<a href="../main"><img class="logo" src="images/logo.png"></a>
+					</div>
+
+					<div class="col-12 col-sm-8 col-md-6" id="cabecalho">
+						<h2>Consulta de Planos</h2>
+					</div>
+					<div class="col-12 col-sm-2 col-md-3">
+
+					</div>
+
+				</div>
+			</div>
+
+		</header>
+	</top-header>
+
+	<main>
+		<div class="container-fluid">
+			<div class="container">
+				<form action="javascript:void(0);" id="main-form">
+					<div class="card border border-dark bg-light">
+						<div class="card-body">
+							<div class="input-group">
+								<label for="input-condo" class="form-label d-block w-100">
+									<h3 class="card-title">Informe o prédio:</h3>
+								</label>
+								<input type="text" class="form-control form-control-lg" id="input-condo"
+									placeholder="Insira o nome do condominio" autocomplete="off">
+							</div>
+						</div>
+						<section class="row">
+							<div class="col-md-6">
+								<h3 class="planos-title">Informações do condomínio</h3>
+								<table id="tbl-informacoes" class="table table-hover">
+									<thead class="thead-dark">
+										<tr>
+											<th></th>
+											<th></th>
+										</tr>
+									</thead>
+
+									<tbody>
+										<!--tr class="table-primary" hidden>
+											<th scope="row">CEP:</th>
+											<td id="dados-condo-cep"></td>
+										</tr>
+										<tr class="table-primary" >
+											<th scope="row">Endereço:</th>
+											<td id="dados-condo-endereco"></td>
+										</tr>
+										<tr class="table-primary">
+											<th scope="row">Número:</th>
+											<td id="dados-condo-numero"></td>
+										</tr>
+										<tr class="table-primary">
+											<th scope="row">Cidade:</th>
+											<td id="dados-condo-cidade"></td>
+										</tr>
+										<tr class="table-primary">
+											<th scope="row">Bairro:</th>
+											<td id="dados-condo-bairro"></td>
+										</tr-->
+										<th class="table-primary" hidden>
+											<th id="coluna-temporaria" scope="row">Favor informar o prédio primeiro</th>
+										</th>
+										<tr id="linha-blocos" class="table-primary" hidden>
+											<th scope="row">Bloco/Torre:</th>
+											<td>
+												<div class="dropdown">
+													<button id="botao-blocos"
+														class="btn btn-secondary dropdown-toggle scroll-menu"
+														type="button" data-toggle="dropdown" aria-haspopup="true"
+														aria-expanded="false">Selecione o Bloco</button>
+													<div id="blocos-lista" class="dropdown-menu"
+														aria-labelledby="dropdown-blocos">
+
+													</div>
+												</div>
+											</td>
+										</tr>
+										<tr id="linha-apartamentos" class="table-primary" hidden>
+											<th scope="row">Apartamento:</th>
+											<td>
+												<button id="botao-apartamentos" class="btn btn-secondary" type="button"
+													data-toggle="modal" data-target="#selecionar-apartamento">Selecione
+													o Apartamento</button>
+												<div id="selecionar-apartamento" class="modal" tabindex="-1">
+													<div class="modal-dialog modal-dialog-scrollable">
+														<div class="modal-content">
+															<div class="modal-header">
+																<h5 class="modal-title">Selecione o apartamento</h5>
+																<button type="button" class="close" data-dismiss="modal"
+																	aria-label="Close">
+																	<span aria-hidden="true">&times;</span>
+																</button>
+															</div>
+															<div id="apartamento-lista" class="modal-body">
+															</div>
+															<div class="modal-footer">
+																<button type="button" class="btn btn-secondary"
+																	data-dismiss="modal">Cancelar</button>
+															</div>
+														</div>
+													</div>
+												</div>
+											</td>
+										</tr>
+										<tr id="linha-casas" class="table-primary" hidden>
+											<th scope="row">Casa:</th>
+											<td>
+												<input id="numero-casa" class="form-control form-control-sm mb-1"
+													placeholder="Insira o número" autocomplete="off">
+											</td>
+										</tr>
+										<tr id="linha-complemento" class="table-primary" hidden>
+											<th scope="row">Complemento IXC:</th>
+											<td>
+												<input id="complemento"
+													class="form-control form-control-sm mb-1 text-center"
+													readonly="readonly">
+												<button id="copiar-complemento" type="button"
+													class="btn btn-sm btn-secondary" onclick="copiar()">Copiar</button>
+											</td>
+										</tr>
+									</tbody>
+
+									<thead class="thead-dark">
+										<tr>
+											<th></th>
+											<th></th>
+										</tr>
+									</thead>
+								</table>
+							</div>
+							<div class="col-md-6">
+								<h3 class="planos-title">Planos Disponíveis</h3>
+								<table id="tbl-planos" class="table table-hover">
+									<thead class="thead-dark">
+										<tr>
+											<th>Estrutura do Prédio:</th>
+											<th id="estrutura"></th>
+										</tr>
+									</thead>
+
+									<tbody id="planos-disponiveis">
+										<tr class="fundo-cinza">
+											<th>Tipo</th>
+											<th>Valor (R$)</th>
+										</tr>
+									</tbody>
+
+									<thead class="thead-dark">
+										<tr>
+											<th></th>
+											<th></th>
+										</tr>
+									</thead>
+								</table>
+								<h3><a href="consulta-de-planos" class="btn btn-primary"
+										style="margin-right:-75%;">Limpar</a></h3>
+							</div>
+						</section>
+						<br><br><br><br><br>
+					</div>
+				</form>
+			</div>
+		</div>
+	</main>
+</body>
+<footer class="footer navbar-fixed-bottom">
+	<div class="container-fluid">
+		<div class="row">
+			<div class="col-md-12 align-items-center" style="font-size: 12px; text-align: center;">
+				<a href="../"><img class="logo" src="images/logo.png"></a>
+				<p>© 2021 Gerencia Intervip | Densenvolvido por <a>Guilherme Wallace</a>. Todos os direitos reservados a
+					Intervip.</p>
+			</div>
+		</div>
+	</div>
+</footer>
+
+</html>

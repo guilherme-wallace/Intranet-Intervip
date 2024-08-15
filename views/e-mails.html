@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<htMl>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+		<meta http-equiv="refresh" content="10800;url=/"> <!-- 3 horas em segundos -->
+		<title>E-mails Intervip</title>
+		<!-- CSS -->
+		<link href="stylesheets/bootstrap.min.css" rel="stylesheet">
+		<link rel="stylesheet" type="text/css" href="stylesheets/style.css">
+		<!-- JS -->
+		<script src="javascripts/index.js"></script>
+		<script src="javascripts/jquery.js"></script>
+		<script src="javascripts/e-mails.js"></script>
+		<script src="javascripts/bootstrap.bundle.min.js"></script>
+		<script src="javascripts/bootstrap-autocomplete.min.js"></script>
+	</head>
+
+	<body class="emails-body">
+		<top-header>
+			<header>
+				<div class="container-fluid">
+					<div class="row">
+						<div class="col-12 col-sm-2 col-md-3 logo-wrapper">
+							<a href="../main"><img class="logo" src="images/logo.png"></a>
+						</div>
+						<div class="col-12 col-sm-8 col-md-6" id="cabecalho">
+							<h2>E-mails Intervip</h2>
+						</div>
+						<div class="col-12 col-sm-2 col-md-3"></div>
+					</div>
+				</div>
+			</header>
+		</top-header>
+		<main>
+			<div class="container-fluid">
+				<div class="container">
+					<div class="card border border-dark bg-light">
+						<div class="card-body" id="centralizar">
+							<div class="row" >
+								<div class="col-md-2"></div>
+								<div class="col-md-8" style="text-align: center;">
+									<hr>
+									<div class="row dropdown-menu-tipo-email">
+										<div class="col-sm-12">
+											<div class="dropdown">
+												<button class="btn btn-primary dropdown-toggle" id="selecaoDropdown" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Selecione uma opção</button>
+												<div id="dropdown-emails" class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+													<a id="dropdown-clientes-fora-do-ar-PTC" class="dropdown-item">Clientes fora do ar - PTC</a>
+													<a id="dropdown-clientes-fora-do-ar-FIBRA" class="dropdown-item">Clientes fora do ar - Fibra</a>
+													<a id="dropdown-recolher-equipamento-PTC" class="dropdown-item">Recolher equipamento - PTC</a>
+													<a id="dropdown-recolher-equipamento-FIBRA" class="dropdown-item">Recolher equipamento - Fibra</a>
+													<!---a id="dropdown-portabilidade" class="dropdown-item">Solicitação de portabilidade</a-->
+												</div>
+											</div>
+										</div>
+									</div>
+									<div id="corpoEmail-clientes-fora-do-ar-PTC" hidden>
+										<div class="row" style=" margin-top: 30px"  id="h4-clientes-fora-do-ar-PTC">
+											<div class="col-sm-12">
+												<h4>Clientes fora do ar - PTC</h4>
+											</div>
+										</div>
+										<hr>
+										<div class="row" >
+											<div class="col-sm-5">Local:</div>
+											<div class="col-sm-7">
+												<input type="text" maxlength="100" id="local-clientes-fora-do-ar-PTC" name="local-clientes-fora-do-ar-PTC" class="form-control form-control-sm center cleaner" placeholder="Villagio Manguinhos San Remo" autocomplete="off">
+											</div>
+										</div>
+										<hr>
+										<div class="row" >
+											<div class="col-sm-5">Problema:</div>
+											<div class="col-sm-7">
+												<input type="text" maxlength="100" id="problema-clientes-fora-do-ar-PTC" name="problema-clientes-fora-do-ar-PTC" class="form-control form-control-sm center cleaner" placeholder="ONU bloco 3 off-line" autocomplete="off">
+											</div>
+										</div>
+										<hr>
+										<div class="row">
+											<div class="col-sm-5">Prioridade:</div>
+											<div class="dropdown">
+												<button class="btn btn-secondary dropdown-toggle" id="prioridade-clientes-fora-do-ar-PTC" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="    margin-inline-start: 1rem;">Selecione uma opção</button>
+												<div id="dropdown-prioridade-clientes-fora-do-ar-PTC" class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+													<a id="dropdown-prioridade-clientes-fora-do-ar-PTC-baixa" class="dropdown-item">Baixa</a>
+													<a id="dropdown-prioridade-clientes-fora-do-ar-PTC-media" class="dropdown-item">Média</a>
+													<a id="dropdown-prioridade-clientes-fora-do-ar-PTC-alta" class="dropdown-item">Alta</a>
+													<a id="dropdown-prioridade-clientes-fora-do-ar-PTC-emergencial" class="dropdown-item">Emergêncial</a>
+												</div>
+											</div>
+										</div>
+										<hr>
+										<div class="row" >
+											<div class="col-sm-5">Observações:</div>
+											<div class="col-sm-7">
+												<textarea type="text" maxlength="1500" id="observacoes-clientes-fora-do-ar-PTC" name="observacoes-clientes-fora-do-ar-PTC" class="form-control form-control-sm center cleaner" placeholder="ONU apresenta falha elétrica." autocomplete="off" style="height: 126px;"></textarea>
+											</div>
+										</div>
+										<hr>
+										<div class="row" >
+											<div class="col-sm-5">Operador:</div>
+											<div class="col-sm-7">
+												<input type="text" maxlength="100" id="operador-clientes-fora-do-ar-PTC" name="operador-clientes-fora-do-ar-PTC" class="form-control form-control-sm center cleaner" placeholder="Guilherme Wallace" autocomplete="off">
+											</div>
+										</div>
+									</div>
+									<div id="corpoEmail-clientes-fora-do-ar-FIBRA" hidden>
+										<div class="row" style=" margin-top: 30px"  id="h4-clientes-fora-do-ar-Fibra">
+											<div class="col-sm-12">
+												<h4>Clientes fora do ar - Fibra</h4>
+											</div>
+										</div>
+										<hr>
+										<div class="row" >
+											<div class="col-sm-5">Local:</div>
+											<div class="col-sm-7">
+												<input type="text" maxlength="100" id="local-clientes-fora-do-ar-FIBRA" name="local-clientes-fora-do-ar-FIBRA" class="form-control form-control-sm center cleaner" placeholder="Casas do bairro José de Anchieta" autocomplete="off">
+											</div>
+										</div>
+										<hr>
+										<div class="row" >
+											<div class="col-sm-5">Problema:</div>
+											<div class="col-sm-7">
+												<input type="text" maxlength="100" id="problema-clientes-fora-do-ar-FIBRA" name="problema-clientes-fora-do-ar-FIBRA" class="form-control form-control-sm center cleaner" placeholder="10 clientes off-line" autocomplete="off">
+											</div>
+										</div>
+										<hr>
+										<div class="row">
+											<div class="col-sm-5">Prioridade:</div>
+											<div class="dropdown">
+												<button class="btn btn-secondary dropdown-toggle" id="prioridade-clientes-fora-do-ar-FIBRA" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="    margin-inline-start: 1rem;">Selecione uma opção</button>
+												<div id="dropdown-prioridade-clientes-fora-do-ar-FIBRA" class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+													<a id="dropdown-prioridade-clientes-fora-do-ar-FIBRA-baixa" class="dropdown-item">Baixa</a>
+													<a id="dropdown-prioridade-clientes-fora-do-ar-FIBRA-media" class="dropdown-item">Média</a>
+													<a id="dropdown-prioridade-clientes-fora-do-ar-FIBRA-alta" class="dropdown-item">Alta</a>
+													<a id="dropdown-prioridade-clientes-fora-do-ar-FIBRA-emergencial" class="dropdown-item">Emergêncial</a>
+												</div>
+											</div>
+										</div>
+										<hr>
+										<div class="row" >
+											<div class="col-sm-5">Observações:</div>
+											<div class="col-sm-7">
+												<textarea type="text" maxlength="1500" id="observacoes-clientes-fora-do-ar-FIBRA" name="observacoes-clientes-fora-do-ar-FIBRA" class="form-control form-control-sm center cleaner" placeholder="ONUs apresentam perda do sinal óptico. Códigos..." autocomplete="off" style="height: 126px;"></textarea>
+											</div>
+										</div>
+										<hr>
+										<div class="row" >
+											<div class="col-sm-5">Operador:</div>
+											<div class="col-sm-7">
+												<input type="text" maxlength="100" id="operador-clientes-fora-do-ar-FIBRA" name="operador-clientes-fora-do-ar-FIBRA" class="form-control form-control-sm center cleaner" placeholder="Guilherme Wallace" autocomplete="off">
+											</div>
+										</div>
+									</div>
+									<div id="corpoEmail-recolher-equipamento-PTC" hidden>
+										<div class="row" style=" margin-top: 30px"  id="h4-recolher-equipamentos">
+											<div class="col-sm-12">
+												<h4>Recolher equipamento - PTC</h4>
+											</div>
+										</div>
+										<hr>
+										<div class="row" >
+											<div class="col-sm-5">Local:</div>
+											<div class="col-sm-7">
+												<input type="text" maxlength="100" id="local-recolher-equipamento-PTC" name="local-recolher-equipamento-PTC" class="form-control form-control-sm center cleaner" placeholder="Villa Aribiri Residencial Clube Bloco A" autocomplete="off">
+											</div>
+										</div>
+										<hr>
+										<div class="row" >
+											<div class="col-sm-5">Dispositivo:</div>
+											<div class="col-sm-7">
+												<input type="text" maxlength="100" id="dispositivo-recolher-equipamento-PTC" name="dispositivo-recolher-equipamento-PTC" class="form-control form-control-sm center cleaner" placeholder="ONU - EG8010H" autocomplete="off">
+											</div>
+										</div>
+										<hr>
+										<div class="row" >
+											<div class="col-sm-5">Motivo:</div>
+											<div class="col-sm-7">
+												<input type="text" maxlength="100" id="motivo-recolher-equipamento-PTC" name="motivo-recolher-equipamento-PTC" class="form-control form-control-sm center cleaner" placeholder="Recolher ONU sem cliente ativo." autocomplete="off">
+											</div>
+										</div>
+										<hr>
+										<div class="row" >
+											<div class="col-sm-5">SN / MAC:</div>
+											<div class="col-sm-7">
+												<input type="text" maxlength="100" id="sn-mac-recolher-equipamento-PTC" name="sn-mac-recolher-equipamento-PTC" class="form-control form-control-sm center cleaner" placeholder="485754434173A1B1" autocomplete="off">
+											</div>
+										</div>
+										<hr>
+										<div class="row">
+											<div class="col-sm-5">Prioridade:</div>
+											<div class="dropdown">
+												<button class="btn btn-secondary dropdown-toggle" id="prioridade-recolher-equipamento-PTC" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="    margin-inline-start: 1rem;">Selecione uma opção</button>
+												<div id="dropdown-prioridade-recolher-equipamento-PTC" class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+													<a id="dropdown-prioridade-recolher-equipamento-PTC-baixa" class="dropdown-item">Baixa</a>
+													<a id="dropdown-prioridade-recolher-equipamento-PTC-alta" class="dropdown-item">Alta</a>
+												</div>
+											</div>
+										</div>
+										<hr>
+										<div class="row" >
+											<div class="col-sm-5">Operador:</div>
+											<div class="col-sm-7">
+												<input type="text" maxlength="100" id="operador-recolher-equipamento-PTC" name="operador-recolher-equipamento-PTC" class="form-control form-control-sm center cleaner" placeholder="Guilherme Wallace" autocomplete="off">
+											</div>
+										</div>
+									</div>
+									<div id="corpoEmail-recolher-equipamento-FIBRA" hidden>
+										<div class="row" style=" margin-top: 30px"  id="h4-recolher-equipamentos">
+											<div class="col-sm-12">
+												<h4>Recolher equipamento - Fibra</h4>
+											</div>
+										</div>
+										<hr>
+										<div class="row" >
+											<div class="col-sm-5">Cliente:</div>
+											<div class="col-sm-7">
+												<input type="text" maxlength="100" id="cliente-recolher-equipamento-FIBRA" name="cliente-recolher-equipamento-FIBRA" class="form-control form-control-sm center cleaner" placeholder="Intervip contrato (99999)" autocomplete="off">
+											</div>
+										</div>
+										<hr>
+										<div class="row" >
+											<div class="col-sm-5">Dispositivo:</div>
+											<div class="col-sm-7">
+												<input type="text" maxlength="100" id="dispositivo-recolher-equipamento-FIBRA"  name="dispositivo-recolher-equipamento-FIBRA" class="form-control form-control-sm center cleaner" placeholder="ONU - EG8145V5" autocomplete="off">
+											</div>
+										</div>
+										<hr>
+										<div class="row" >
+											<div class="col-sm-5">Motivo:</div>
+											<div class="col-sm-7">
+												<input type="text" maxlength="100" id="motivo-recolher-equipamento-FIBRA" name="motivo-recolher-equipamento-FIBRA" class="form-control form-control-sm center cleaner" placeholder="Cliente cancelou o contrato" autocomplete="off">
+											</div>
+										</div>
+										<hr>
+										<div class="row" >
+											<div class="col-sm-5">SN / MAC:</div>
+											<div class="col-sm-7">
+												<input type="text" maxlength="100" id="sn-mac-recolher-equipamento-FIBRA" name="sn-mac-recolher-equipamento-FIBRA" class="form-control form-control-sm center cleaner" placeholder="485754434173A1B1" autocomplete="off">
+											</div>
+										</div>
+										<hr>
+										<div class="row" >
+											<div class="col-sm-5">Endereço:</div>
+											<div class="col-sm-7">
+												<input type="text" maxlength="100" id="endereco-recolher-equipamento-FIBRA" name="endereco-recolher-equipamento-FIBRA" class="form-control form-control-sm center cleaner" placeholder="Rua dos Uirapurus - S/N Ed. Intervip - Morada de Laranjeiras, Serra - ES, 29166-710" autocomplete="off">
+											</div>
+										</div>
+										<hr>
+										<div class="row">
+											<div class="col-sm-5">Prioridade:</div>
+											<div class="dropdown">
+												<button class="btn btn-secondary dropdown-toggle" id="prioridade-recolher-equipamento-FIBRA" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="    margin-inline-start: 1rem;">Selecione uma opção</button>
+												<div id="dropdown-prioridade-recolher-equipamento-FIBRA" class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+													<a id="dropdown-prioridade-recolher-equipamento-FIBRA-baixa" class="dropdown-item">Baixa</a>
+													<a id="dropdown-prioridade-recolher-equipamento-FIBRA-alta" class="dropdown-item">Alta</a>
+												</div>
+											</div>
+										</div>
+										<hr>
+										<div class="row" >
+											<div class="col-sm-5">Operador:</div>
+											<div class="col-sm-7">
+												<input type="text" maxlength="100" id="operador-recolher-equipamento-FIBRA" name="operador-recolher-equipamento-FIBRA" class="form-control form-control-sm center cleaner" placeholder="Guilherme Wallace" autocomplete="off">
+											</div>
+										</div>
+									</div>
+									<!--div id="corpoEmail-portabilidade" hidden>
+										<div class="row" style=" margin-top: 30px"  id="h4-portabilidade">
+											<div class="col-sm-12">
+												<h4>Solicitação de portabilidade</h4>
+											</div>
+										</div>
+										<hr>
+										<div class="row" >
+											<div class="col-sm-5">Linha:</div>
+											<div class="col-sm-7">
+												<input type="text" maxlength="50" id="linha-portabilidade" name="linha-portabilidade" class="form-control form-control-sm center cleaner" placeholder="(27)4009-9100" autocomplete="off">
+											</div>
+										</div>
+										<hr>
+										<div class="row" >
+											<div class="col-sm-5">Nome do cliente:</div>
+											<div class="col-sm-7">
+												<input type="text" maxlength="50" id="nome-portabilidade" name="nome-portabilidade" class="form-control form-control-sm center cleaner" placeholder="Intervip Telecom" autocomplete="off">
+											</div>
+										</div>
+										<hr>
+										<div class="row" >
+											<div class="col-sm-5">CPF / CNPJ:</div>
+											<div class="col-sm-7">
+												<input type="text" maxlength="50" id="cpf-cnpj-portabilidade" name="cpf-cnpj-portabilidade" class="form-control form-control-sm center cleaner" placeholder="02.169.819/0001-02" autocomplete="off">
+											</div>
+										</div>
+										<hr>
+										<div class="row" >
+											<div class="col-sm-5">Endereço:</div>
+											<div class="col-sm-7">
+												<input type="text" maxlength="50" id="endereco-portabilidade" name="endereco-portabilidade" class="form-control form-control-sm center cleaner" placeholder="Rua dos Uirapurus - S/N Ed. Intervip - Morada de Laranjeiras, Serra - ES" autocomplete="off">
+											</div>
+										</div>
+										<hr>
+										<div class="row" >
+											<div class="col-sm-5">CEP:</div>
+											<div class="col-sm-7">
+												<input type="text" maxlength="50" id="CEP-portabilidade" name="CEP-portabilidade" class="form-control form-control-sm center cleaner" placeholder="29166-710" autocomplete="off">
+											</div>
+										</div>
+										<hr>
+										<div class="row" >
+											<div class="col-sm-5">Operador:</div>
+											<div class="col-sm-7">
+												<input type="text" maxlength="50" id="operador-portabilidade" name="operador-portabilidade" class="form-control form-control-sm center cleaner" placeholder="Guilherme Wallace" autocomplete="off">
+											</div>
+										</div>
+										<div class="row" >
+											<div class="col-sm-5">Anexo da última conta:</div>
+											<div class="col-sm-7">
+												<input type="file" id="anexo" class="btn btn-primary" >
+											</div>
+										</div>
+									</div-->
+									<hr>
+								</div>
+								<div class="col-md-2"></div>
+							</div><br>
+							<div class="row" id="e-mail-enviar" style="text-align: center;" hidden>
+								<div class="col-md-2"></div>
+								<div class="col-md-8">
+									<input id="limparDados" type="Reset" class="btn btn-primary" value="Limpar dados">
+									<button type="button" class="btn btn-primary bntclick" name="bntEnviar" id="bntEnviar" data-toggle="modal" data-target="#modalEnviar">
+										Enviar
+									</button>
+									<div class="modal fade" id="modalEnviar" tabindex="-1" role="dialog" aria-labelledby="enviar" aria-hidden="true">
+										<div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+											<div class="modal-content">
+												<div class="modal-header">
+													<h5 class="modal-title" id="enviar" style="margin-left: 18rem">E-mail que será enviado:</h5>
+													<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+													<span aria-hidden="true">&times;</span>
+												</button>
+												</div>
+												<div class="modal-body" style="text-align: center;">
+													<div id="controlRowNomeEnviar">
+														<div id="rowNomeEnviar">
+															<h4>E-mail não poderá ser enviado. Favor verificar com o suporte.</h4>
+														</div>
+													</div>
+												</div>
+												<div class="modal-footer">
+													<button type="button" class="btn btn-secondary" id="bntFecharconfirmarEmail" data-dismiss="modal">Fechar</button>
+													<button type="button" class="btn btn-primary" id="confirmarEmail" data-dismiss="modal" hidden>Confirmar</button>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="col-md-2"></div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</main>
+	</body>
+	<footer class="footer navbar-fixed-bottom">
+		<div class="container-fluid">
+			<div class="row">
+				<div class="col-md-12 align-items-center" style="font-size: 12px; text-align: center;">
+					<a href="../"><img class="logo" src="images/logo.png"></a>
+					<p>© 2023 Gerencia Intervip | Densenvolvido por <a>Guilherme Wallace</a>. Todos os direitos reservados a Intervip.</p>
+				</div>
+			</div>
+		</div>
+	</footer>
+</html>

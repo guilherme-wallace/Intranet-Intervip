@@ -1,0 +1,280 @@
+{
+	"openapi": "3.0.1",
+	"info": {
+		"title": "Intervip API",
+		"description": "This is a sample server Petstore server.  You can find out more about     Swagger at [http://swagger.io](http://swagger.io) or on [irc.freenode.net, #swagger](http://swagger.io/irc/).      For this sample, you can use the api key `special-key` to test the authorization     filters.",
+		"termsOfService": "http://swagger.io/terms/",
+		"contact": {
+			"email": "noc@intervip.net.br"
+	  	},
+	  	"license": {
+			"name": "Apache 2.0",
+			"url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+	  	},
+	  	"version": "1.0.0"
+	},
+	"externalDocs": {
+	  	"description": "Find out more about Swagger",
+		"url": "http://swagger.io"
+	},
+	"servers": [
+		{
+			"url": "/api/v1"
+		}
+	],
+	"tags": [
+		{
+			"name": "sale",
+			"description": "All the information about contract sales, reactivations, cancellations and suspensions",
+			"externalDocs": {
+				"description": "Find out more",
+				"url": "http://infra.intervip.net.br/cadastro-de-vendas"
+			}
+	  	}
+	],
+	"paths": {
+		"/sale/{clientId}": {
+			"get": {
+		  		"tags": [
+					"sale"
+		  		],
+		  		"summary": "Get all contract updates for a specific user",
+		  		"description": "Returns a list of contract updates",
+		  		"operationId": "getSaleByClientId",
+		  		"parameters": [
+					{
+			  			"name": "clientId",
+			  			"in": "path",
+						"description": "The client id",
+						"required": true,
+						"schema": {
+							"type": "integer",
+							"format": "int64"
+						}
+					}
+				],
+		  		"responses": {
+					"200": {
+						"description": "Successful operation",
+						"content": {
+							"application/xml": {
+								"schema": {
+									"$ref": "#/components/schemas/Sale"
+								}
+							},
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Sale"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Invalid ID supplied",
+						"content": {}
+					},
+					"404": {
+						"description": "No contract updates found for the specified user ID",
+						"content": {}
+					}
+				}
+			}
+		}
+	},
+	"components": {
+	  	"schemas": {
+			"Sale": {
+				"required": [
+					"Id"
+				],
+		  		"type": "object",
+		  		"properties": {
+					"Id": {
+						"type": "integer",
+						"format": "int32"
+					},
+					"ClientId": {
+						"type": "integer",
+						"format":"int32"
+					},
+					"Operation": {
+						"type": "string",
+						"description": "",
+						"enum": [
+							"V",
+							"R",
+							"C",
+							"S"
+						]
+					},
+					"Datetime": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"Contract": {
+						"$ref":"#/components/schemas/Contract"
+					},
+					"Group": {
+						"$ref":"#/components/schemas/Group"
+					},
+					"Address": {
+						"$ref":"#/components/schemas/Address"
+					},
+					"Technology": {
+						"$ref":"#/components/schemas/Technology"
+					},
+					"Research": {
+						"$ref":"#/components/schemas/Research"
+					},
+					"Salesperson": {
+						"$ref":"#/components/schemas/Salesperson"
+					}
+				}
+			},
+			"Contract": {
+				"required": [
+					"Id"
+				],
+				"type": "object",
+				"properties": {
+					"Id": {
+						"type": "integer",
+						"format":"int32"
+					},
+					"Name": {
+						"type": "string"
+					},
+					"Bandwidth": {
+						"type": "integer",
+						"format": "int32"
+					},
+					"Cost": {
+						"type": "number",
+						"format": "double"
+					}
+				}
+			},
+			"Group": {
+				"required": [
+					"Id"
+				],
+				"type": "object",
+				"properties": {
+					"Id": {
+						"type": "integer",
+						"format": "int32"
+					},
+					"Name": {
+						"type": "string"
+					}
+				}
+			},
+			"Address": {
+				"required": [
+					"Id"
+				],
+				"type": "object",
+				"properties": {
+					"Id": {
+						"type": "integer",
+						"format": "int32"
+					},
+					"PostalCode": {
+						"type": "integer",
+						"format": "int32"
+					},
+					"Number": {
+						"type": "integer",
+						"format": "int32"
+					},
+					"Complement": {
+						"type": "string"
+					},
+					"Neighbourhood": {
+						"type": "string"
+					},
+					"City": {
+						"type": "string"
+					},
+					"State": {
+						"type": "string"
+					}
+				}
+			},
+			"Technology": {
+				"required": [
+					"Id"
+				],
+				"type": "object",
+				"properties": {
+					"Id": {
+						"type": "integer",
+						"format": "int32"
+					},
+					"Technology": {
+						"type": "string"
+					}
+				}
+			},
+			"Research": {
+				"required": [
+					"Id"
+				],
+				"type": "object",
+				"properties": {
+					"Id": {
+						"type": "integer",
+						"format": "int32"
+					},
+					"HowMetId": {
+						"type": "integer",
+						"format": "int32",
+						"nullable": true
+					},
+					"ReasonId": {
+						"type": "integer",
+						"format": "int32",
+						"nullable": true
+					},
+					"ServiceProviderId": {
+						"type": "integer",
+						"format": "int32",
+						"nullable": true
+					},
+					"SatisfactionId": {
+						"type": "integer",
+						"format": "int32",
+						"nullable": true
+					},
+					"Handout": {
+						"type": "boolean"
+					},
+					"Facebook": {
+						"type": "boolean"
+					},
+					"Instagram": {
+						"type": "boolean"
+					},
+					"Observations": {
+						"type": "string"
+					}
+				}
+			},
+			"Salesperson": {
+				"required": [
+					"Id"
+				],
+				"type": "object",
+				"properties": {
+					"Id": {
+						"type": "integer",
+						"format": "int32"
+					},
+					"Name": {
+						"type": "string"
+					}
+				}
+			}
+		}
+	}
+}

@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<htMl>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+		<meta http-equiv="refresh" content="10800;url=/"> <!-- 3 horas em segundos -->
+		<title>CRI - Teste de Lentidão</title>
+		<!-- CSS -->
+		<link href="stylesheets/bootstrap.min.css" rel="stylesheet">
+		<link rel="stylesheet" type="text/css" href="stylesheets/style.css">
+		<!-- JS -->
+		<script src="javascripts/index.js"></script>
+		<script src="javascripts/jquery.js"></script>
+		<script src="javascripts/teste-de-lentidao.js"></script>
+		<script src="javascripts/bootstrap.bundle.min.js"></script>
+		<script src="javascripts/bootstrap-autocomplete.min.js"></script>
+	</head>
+
+	<body class="testeDeLentidao-body">
+		<top-header>
+			<header>
+				<div class="container-fluid">
+					<div class="row">
+						<div class="col-12 col-sm-2 col-md-3 logo-wrapper">
+							<a href="../main"><img class="logo" src="images/logo.png"></a>
+						</div>
+						<div class="col-12 col-sm-8 col-md-6" id="cabecalho">
+							<h2>Teste de Lentidão</h2>
+						</div>
+						<div class="col-12 col-sm-2 col-md-3"></div>
+					</div>
+				</div>
+			</header>
+		</top-header>
+		<main>
+			<div class="container-fluid">
+				<div class="container">
+					<div class="card border border-dark bg-light">
+						<div class="card-body" id="centralizar">
+							<form name="form_ivp">
+								<div class="row">
+									<div class="col-md-6">
+										<table class="table table-hover">
+											<tbody>
+												<tr class="table">
+													<th scope="row" class="thLeft" style="width: 269px;">Nome do cliente:</th>
+													<td>
+														<input type="text" name="nome_cliente" class="form-control form-control-sm center" placeholder="João / Maria" autocomplete="off">
+													</td>
+												</tr>
+												<tr class="table">
+													<th scope="row" class="thLeft">Telefone / Celular do cliente:</th>
+													<td>
+														<input type="text" maxlength="14" name="telefone" class="form-control form-control-sm center" placeholder="(27)98888-8888" autocomplete="off">
+													</td>
+												</tr>
+												<tr class="table">
+													<th scope="row" class="thLeft">Período preferencial para retorno:</th>
+													<td>
+														<div class="dropdown">
+															<button class="btn btn-secondary dropdown-toggle" id="dropdownPeriodo" name="dropdownPeriodo" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="margin-inline-start: 1rem;">Qualquer período</button>
+															<div id="dropdownPeriodo" class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+																<a id="dropdownPeriodo-Manhã" class="dropdown-item">Qualquer período</a>
+																<a id="dropdownPeriodo-Manhã" class="dropdown-item">Manhã</a>
+																<a id="dropdownPeriodo-Tarde" class="dropdown-item">Tarde</a>
+																<a id="dropdownPeriodo-Noite" class="dropdown-item">Noite</a>
+															</div>
+														</div>
+													</td>
+												</tr>
+												<tr class="table">
+													<th scope="row" class="thLeft">Cliente deseja retorno pelo whatsapp?</th>
+													<td>
+														<input type="text" list="whatsapp" name="whatsapp" class="form-control form-control-sm center" placeholder="Não / Sim" autocomplete="off">
+														<datalist id="whatsapp">
+															<option>Sim</option>
+															<option>Não</option>
+														</datalist>
+													</td>
+												</tr>
+												<tr class="table">
+													<th scope="row" class="thLeft">Modelo do Roteador:</th>
+													<td>
+														<input type="text" list="router" name="mod_router" class="form-control form-control-sm center" placeholder="Huawei - WS5200" autocomplete="off">
+														<datalist id="router">
+															<option>Intelbras - W51200F</option>
+															<option>Intelbras - W51200G</option>
+															<option>Intelbras - RG1200</option>
+															<option>Intelbras - RF1200</option>
+															<option>ONU WIFI</option>
+															<option>Huawei - WS5200</option>
+															<option>Huawei - AX2</option>
+															<option>Mikrotik - RB941n</option>
+															<option>Não soube informar</option>
+														</datalist>
+													</td>
+												</tr>
+												<tr class="table">
+													<th scope="row" class="thLeft">Local de instalção do roteador:</th>
+													<td>
+														<input type="text" list="local_router" name="loc_router" class="form-control form-control-sm center" placeholder="Sala / Quarto" autocomplete="off">
+														<datalist id="local_router">
+															<option>Sala</option>
+															<option>Quarto dos Pais</option>
+															<option>Quarto dos Filhos</option>
+															<option>Escritorio</option>
+															<option>Corredor</option>
+															<option>Cozinha</option>
+														</datalist>
+													</td>
+												</tr>
+												<tr class="table">
+													<th scope="row" class="thLeft">Meio físico:</th>
+													<td>
+														<div class="dropdown">
+															<button class="btn btn-primary dropdown-toggle" id="dropdownMeioFisico" name="dropdownMeioFisico" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="margin-inline-start: 1rem;">Selecione uma opção</button>
+															<div id="dropdownMeioFisico" name="dropdownMeioFisico" class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+																<a id="dropdownMeioFisico-cabo" class="dropdown-item">Cabo</a>
+																<a id="dropdownMeioFisico-wifi" class="dropdown-item">Wifi</a>
+															</div>
+														</div>
+													</td>
+												</tr>
+												<tr class="table" id="local_clienteRow" hidden>
+													<th scope="row" class="thLeft">Localização do cliente durante o teste (WiFi):</th>
+													<td>
+														<input type="text" list="local_cliente" name="local_cliente" class="form-control form-control-sm center" placeholder="Sala / Quarto" autocomplete="off">
+														<datalist id="local_cliente">
+															<option>Sala</option>
+															<option>Quarto dos Pais</option>
+															<option>Quarto dos Filhos</option>
+															<option>Escritorio</option>
+															<option>Corredor</option>
+															<option>Cozinha</option>
+														</datalist>
+													</td>
+												</tr>
+												<tr class="table" id="freq_wifiRow" hidden>
+													<th scope="row" class="thLeft">Frequência WiFi:</th>
+													<td>
+														<div class="dropdown">
+															<button class="btn btn-primary dropdown-toggle" id="dropdownFreqWifi" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="margin-inline-start: 1rem;">Selecione uma opção</button>
+															<div id="dropdownFreqWifi" class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+																<a id="dropdownFreqWifi-24GHz" class="dropdown-item">2.4GHz</a>
+																<a id="dropdownFreqWifi-58GHz" class="dropdown-item">5.8GHz ou maior</a>
+															</div>
+														</div>
+													</td>
+												</tr>
+												<tr class="table">
+													<th scope="row" class="thLeft">Cliente possui repetidor:</th>
+													<td>
+														<div class="dropdown">
+															<button class="btn btn-primary dropdown-toggle" id="dropdownPossuiRepetidor" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="margin-inline-start: 1rem;">Não</button>
+															<div id="dropdownPossuiRepetidor" class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+																<a id="dropdownPossuiRepetidor-sim" class="dropdown-item">Sim</a>
+																<a id="dropdownPossuiRepetidor-nao" class="dropdown-item">Não</a>
+															</div>
+														</div>
+													</td>
+												</tr>
+												<tr class="table" id="obsRepetidorRow" hidden>
+													<td colspan="2"><p><strong>OBS: </strong>Rede em mesh não conta como repetidor de sinal</p></td>
+												</tr>
+												<tr class="table" id="marcaModeloRepetidorRow" hidden>
+													<th scope="row" class="thLeft" style="width: 269px;">Marca e modelo do repetidor:</th>
+													<td>
+														<input type="text" name="marcaModeloRepetidor" class="form-control form-control-sm center" placeholder="Repetidor TP-Link Wi-Fi AC1750" autocomplete="off">
+													</td>
+												</tr>
+												<tr class="table" id="localRepetidorRow" hidden>
+													<th scope="row" class="thLeft" style="width: 269px;">Local do repetidor:</th>
+													<td>
+														<input type="text" name="localRepetidor" class="form-control form-control-sm center" placeholder="Corredor" autocomplete="off">
+													</td>
+												</tr>
+											</tbody>
+										</table>
+									</div>
+									<div class="col-md-6">
+										<table class="table table-hover">
+											<tbody>
+												<tr class="table">
+													<p><strong>OBS</strong> Favor utilizar o site <a href="https://wifiman.com">wifiman.com</a> para os testes de velocidade</p>
+													<th scope="row" class="thLeft">	Sites de Teste:</th>
+													<td>
+														<input type="text" list="site_teste" name="site_teste" class="form-control form-control-sm center" placeholder="wifiman.com" autocomplete="off">
+														<datalist id="site_teste">
+															<option>Wifiman</option>
+															<option>Nperf</option>
+															<option>Minha Conexão</option>
+															<option>Speedtest</option>
+															<option>Simet</option>
+															<option>Brasil Banda Larga</option>
+															<option>Fast</option>
+														</datalist>
+													</td>
+												</tr>
+												<tr class="table">
+													<th scope="row" class="thLeft">	Resultado do Download:</th>
+													<td>
+														<input type="number" name="resul_down" class="form-control form-control-sm center" placeholder="940M" autocomplete="off">
+													</td>
+												</tr>
+												<tr class="table">
+													<th scope="row" class="thLeft">Resultado do Upload:</th>
+													<td>
+														<input type="number" name="resul_up" class="form-control form-control-sm center" placeholder="940M" autocomplete="off">
+													</td>
+												</tr>
+												<tr class="table">
+													<th scope="row" class="thLeft">Latência:</th>
+													<td>
+														<input type="number" name="resul_lat" class="form-control form-control-sm center" placeholder="5ms" autocomplete="off">
+													</td>
+												</tr>
+												<tr class="table">
+														<th scope="row" class="thLeft">Modelo e marca do equipamento que realizou os testes:</th>
+														<td>
+																<input type="text" name="Smartphone_test" class="form-control form-control-sm center" placeholder="Samgung Galaxy A10" autocomplete="off">
+														</td>
+												</tr>
+												<tr class="table">
+													<th scope="row" class="thLeft">Desktops / Notebooks:</th>
+													<td>
+														<input type="number" name="qte_desk" class="form-control form-control-sm center" placeholder="2" autocomplete="off">
+													</td>
+												</tr>
+												<tr class="table">
+													<th scope="row" class="thLeft">Smartphone:</th>
+													<td>
+														<input type="number" name="qte_smart" class="form-control form-control-sm center" placeholder="3" autocomplete="off">
+													</td>
+												</tr>
+												<tr class="table">
+													<th scope="row" class="thLeft">SmartTV:</th>
+													<td>
+														<input type="number" name="qte_tv" class="form-control form-control-sm center" placeholder="1" autocomplete="off">
+													</td>
+												</tr>
+												<tr class="table">
+													<th scope="row" class="thLeft">TVBOX / IPTV:</th>
+													<td>
+														<input type="number" name="qte_iptv" class="form-control form-control-sm center" placeholder="1" autocomplete="off">
+													</td>
+												</tr>
+												<tr class="table">
+													<th scope="row" class="thLeft" style="width: 171px;">Observações:</th>
+													<td>
+														<textarea type="text" maxlength="1200" name="obs" class="form-control form-control-sm center" placeholder="Cliente informa..." autocomplete="off" style="height: 126px;"></textarea>
+													</td>
+												</tr>
+											</tbody>
+										</table>
+									</div>
+								</div>
+								<div class="row">
+									<div class="col-md-12" style="text-align: center;">
+										<b>Resultado para IXC: </b></br><textarea id="resultadoId" name="resultado" cols="90" rows="14"></textarea></br> 
+										<input onClick="controle(form_ivp)" type="button" name="submit" value="Gerar informações"/>
+										<input type="button" id ="copiarIdInfo" name="copiarInfo" value="Copiar informações"/>
+										<input type="Reset" id="limparDados" value="Limpar dados">
+									</div>
+								</div>
+							</form>
+						</div>
+					</div>
+				</div>
+			</div>
+		</main>
+	</body>
+	<footer class="footer navbar-fixed-bottom">
+		<div class="container-fluid">
+			<div class="row">
+				<div class="col-md-12 align-items-center" style="font-size: 12px; text-align: center;">
+					<a href="../"><img class="logo" src="images/logo.png"></a>
+					<p>© 2023 Gerencia Intervip | Densenvolvido por <a>Guilherme Wallace</a>. Todos os direitos reservados a Intervip.</p>
+				</div>
+			</div>
+		</div>
+	</footer>
+	</html>

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+	<meta http-equiv="refresh" content="10800;url=/"> <!-- 3 horas em segundos -->
+	<title>Intervip - Clientes online</title>
+
+	<!-- CSS -->
+	<link href="stylesheets/bootstrap.min.css" rel="stylesheet">
+	<link rel="stylesheet" type="text/css" href="stylesheets/style.css">
+
+	<!-- JS -->
+	<script src="javascripts/index.js"></script>
+	<script src="javascripts/jquery.js"></script>
+	<script src="javascripts/bootstrap.bundle.min.js"></script>
+	<script src="javascripts/bootstrap-autocomplete.min.js"></script>
+	<script src="javascripts/clientes-online.js"></script>
+</head>
+
+<body class="clietesOnline-body">
+	<top-header>
+		<header>
+			<div class="container-fluid">
+				<div class="row">
+					<div class="col-12 col-sm-2 col-md-3 logo-wrapper">
+						<!-- <div class="logo"></div> -->
+						<a href="../main"><img class="logo" src="images/logo.png"></a>
+					</div>
+
+					<div class="col-12 col-sm-8 col-md-6" id="cabecalho">
+						<h2>Clientes online</h2>
+					</div>
+
+					<div class="col-12 col-sm-2 col-md-3">
+					</div>
+				</div>
+			</div>
+		</header>
+	</top-header>
+	<main>
+		<div class="container-fluid">
+			<div class="container">
+				<form action="javascript:void(0);" id="main-form">
+					<div class="card border border-dark bg-light">
+						<div class="card-body">
+							<div class="input-group">
+								<label for="input-condo" class="form-label d-block w-100">
+									<h3 class="card-title">Informe o prédio:</h3>
+								</label>
+								<input type="text" class="form-control form-control-lg" id="input-condo"
+									placeholder="Insira o nome do condominio" autocomplete="off">
+							</div>
+						</div>
+						<section class="row">
+							<div class="col-md-12">
+								<table class="table table-sm table-hover" style="width: 100%; margin: 0;">
+                                                                        <thead class="thead-dark" style="text-align: center;">
+                                                                                <tr>
+                                                                                        <th style="width: 11%;">Status</th>
+                                                                                        <th style="width: 14%;">Código</th>
+                                                                                        <th style="width: auto;">Complemento</th>
+                                                                                        <th style="width: 14%;">IP</th>
+                                                                                        <th style="width: 16%;">Último login</th>
+                                                                                        <th style="width: 16%;">Último Logout</th>
+                                                                                </tr>
+                                                                        </thead>
+                                                                        <tbody id="clientes-lista">
+                                                                                <tr>
+                                                                                        <td colspan="6">Selecione um grupo de clientes</td>
+                                                                                </tr>
+                                                                        </tbody>
+                                                                </table>
+								<div style="background-color: #343a40; height: 10px;">
+								</div>
+							</div>
+						</section>
+						<br><br><br><br><br>
+					</div>
+				</form>
+			</div>
+		</div>
+	</main>
+</body>
+<footer class="footer navbar-fixed-bottom">
+	<div class="container-fluid">
+		<div class="row">
+			<div class="col-md-12 align-items-center" style="font-size: 12px; text-align: center;">
+				<a href="../"><img class="logo" src="images/logo.png"></a>
+				<p>© 2021 Gerencia Intervip | Densenvolvido por <a>Guilherme Wallace</a>. Todos os direitos reservados a
+					Intervip.</p>
+			</div>
+		</div>
+	</div>
+</footer>
+
+</html>

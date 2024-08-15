@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+	<meta http-equiv="refresh" content="10800;url=/"> <!-- 3 horas em segundos -->
+	<title>Intervip - Cadastros de Blocos</title>
+
+	<!-- CSS -->
+	<link href="stylesheets/bootstrap.min.css" rel="stylesheet">
+	<link rel="stylesheet" type="text/css" href="stylesheets/style.css">
+
+	<!-- JS -->
+	<script src="javascripts/index.js"></script>
+	<script src="javascripts/jquery.js"></script>
+	<script src="javascripts/cadastro-de-blocos.js"></script>
+	<script src="javascripts/bootstrap-autocomplete.min.js"></script>
+	<script src="javascripts/bootstrap.bundle.min.js"></script>
+</head>
+
+<body class="cadastros-body">
+	<top-header>
+		<header>
+			<div class="container-fluid">
+				<div class="row">
+					<div class="col-12 col-sm-2 col-md-3 logo-wrapper">
+						<a href="../main"><img class="logo" src="images/logo.png"></a>
+					</div>
+
+					<div class="col-12 col-sm-8 col-md-6" id="cabecalho">
+						<h2>Cadastros de Blocos</h2>
+					</div>
+
+					<div class="col-12 col-sm-2 col-md-3"></div>
+				</div>
+			</div>
+		</header>
+	</top-header>
+
+	<main>
+		<div class="container-fluid">
+			<div class="container">
+				<div class="card border border-dark bg-light">
+					<div class="card-body" id="centralizar">
+						<br>
+						<section class="row">
+							<div class="col-md-12">
+								<div style="margin: 0px 28px;">
+									<div class="row">
+										<div class="input-group">
+											<label for="input-condo" class="form-label d-block w-100">
+												<h3 class="card-title">Cadastro de Blocos:</h3>
+											</label>
+
+											<input type="text" class="form-control form-control-md" id="input-condo"
+												placeholder="Insira o nome do condominio" autocomplete="off" />
+											<input type="text" name="condo" class="" id="input-condo-value"
+												placeholder="ID RBX" style="text-align: center; max-width: 100px;"
+												disabled readonly />
+										</div>
+									</div>
+
+									<div class="row" style="margin-top: 10px;">
+										<div id="destino">
+										</div>
+									</div>
+
+									<div class="row" style="margin-top: 10px;">
+										<div class="input-group">
+											<button type="button" class="input-group-text cor-span" id="btnMais"
+												style="cursor: pointer;" onclick="insereLinhas();">
+												<img src="images/mais.png" style="max-width: 1rem;">
+											</button>
+
+											<button type="button" class="input-group-text cor-span" id="btnMenos"
+												style="cursor: pointer;" onclick="removeLinhas();" hidden>
+												<img src="images/menos.png" style="max-width: 1rem;">
+											</button>
+										</div>
+									</div>
+								</div>
+								<hr>
+								<div style="margin: 0px 10px 10px 0px;">
+									<button type="button" class="btn btn-secondary"
+										onclick="cancelaCadastro();">Cancelar</button>
+									<button type="button" class="btn btn-primary"
+										onclick="cadastraBlocos();">Adicionar</button>
+								</div>
+							</div>
+						</section>
+
+						<section class="row">
+							<div class="col-md-12">
+								<div>
+									<br>
+									<hr>
+									<h3>Blocos já cadastrados<h3>
+								</div>
+
+								<table id="tbl-BlocosCadastrados" class="table table-sm table-hover"
+									style="width: 100%;">
+									<thead class="thead-dark">
+										<tr>
+											<th></th>
+											<th></th>
+											<th></th>
+											<th></th>
+											<th></th>
+											<th></th>
+											<th></th>
+										</tr>
+									</thead>
+
+									<tbody id="blocos-lista">
+										<tr>
+											<th style="width: 36%;">Bloco</th>
+											<th style="width: 14%;">Tipo</th>
+											<th style="width: 14%;">Estrutura</th>
+											<th style="width: 7%;">Andares</th>
+											<th style="width: 12%;">Andar Inicial</th>
+											<th style="width: 8%;">Unidades</th>
+											<th style="width: 8%;">Total</th>
+										</tr>
+									</tbody>
+
+									<thead class="thead-dark">
+										<tr>
+											<th></th>
+											<th></th>
+											<th></th>
+											<th></th>
+											<th></th>
+											<th></th>
+											<th></th>
+										</tr>
+									</thead>
+								</table>
+							</div>
+						</section>
+					</div>
+				</div>
+			</div>
+		</div>
+	</main>
+</body>
+<footer class="footer navbar-fixed-bottom">
+	<div class="container-fluid">
+		<div class="row">
+			<div class="col-md-12 align-items-center" style="font-size: 12px; text-align: center;">
+				<a href="../"><img class="logo" src="images/logo.png"></a>
+				<p>© 2021 Gerencia Intervip | Densenvolvido por <a>Guilherme Wallace</a>. Todos os direitos reservados a
+					Intervip.</p>
+			</div>
+		</div>
+	</div>
+</footer>
+
+</html>

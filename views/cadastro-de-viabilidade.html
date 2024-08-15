@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+	<meta http-equiv="refresh" content="10800;url=/"> <!-- 3 horas em segundos -->
+	<title>Viabilidade</title>
+
+	<!-- CSS -->
+	<link href="stylesheets/bootstrap.min.css" rel="stylesheet">
+	<link rel="stylesheet" type="text/css" href="stylesheets/style.css">
+
+	<!-- JS -->
+	<script src="javascripts/index.js"></script>
+	<script src="javascripts/jquery.js"></script>
+	<script src="javascripts/jquery.numeric.min.js"></script>
+	<script src="javascripts/jquery.validate.min.js"></script>
+	<script src="javascripts/viabilidade.js"></script>
+	<script src="javascripts/bootstrap-autocomplete.min.js"></script>
+	<script src="javascripts/bootstrap.bundle.min.js"></script>
+</head>
+
+<body class="cadastros-vendas">
+	<top-header>
+		<header>
+			<div class="container-fluid">
+				<div class="row">
+					<div class="col-12 col-sm-2 col-md-3 logo-wrapper">
+						<a href="../main"><img class="logo" src="images/logo.png"></a>
+					</div>
+
+					<div class="col-12 col-sm-8 col-md-6" id="cabecalho">
+						<h2>Cadastro de Viabilidade</h2>
+					</div>
+
+					<div class="col-12 col-sm-2 col-md-3"></div>
+				</div>
+			</div>
+		</header>
+	</top-header>
+	<main>
+        <div class="container-fluid">
+			<div class="container" style="text-align: center;">
+				<div class="card border border-dark bg-light">
+					<div class="card-body" id="centralizar">
+                        <form id="formData" method="post">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <p class="pViabilidade">Nome do cliente <span style="color: red; margin: 0; padding: 0;"> * </span></p>
+                                    <input id="clientName" name="clientName" type="text" class="form-control" placeholder="Nome do cliente" aria-label="Nome do cliente" aria-describedby="basic-addon1">
+                                </div>
+                                <div class="col-md-4">
+                                    <p class="pViabilidade">Telefone / Celular  <span style="color: red; margin: 0; padding: 0;"> * </span></p>
+                                    <input id="clientPhone" maxlength="12" name="clientPhone" type="text" class="form-control" placeholder="Telefone / Celular" aria-label="Telefone / Celular" aria-describedby="basic-addon1">
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-9">
+                                    <p class="pViabilidade">Endereço de e-mail</p>
+                                    <input id="clientEmail" name="clientEmail" type="text" class="form-control" placeholder="Endereço de e-mail" aria-label="Endereço de e-mail" aria-describedby="basic-addon1">
+                                </div>
+                                <div class="col-md-3">
+                                    <p class="pViabilidade">CEP <span style="color: red; margin: 0; padding: 0;"> * </span></p>
+                                    <div class="tooltip">
+                                        <input id="clientCep" maxlength="10" name="clientCep" type="text" class="form-control" placeholder="CEP" aria-label="cep" aria-describedby="basic-addon1">
+                                        <span class="tooltiptext">Digite o CEP sem ponto, sem espaço e sem traço</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-10">
+                                    <p class="pViabilidade">Endereço</p>
+                                    <input id="clientAddress" name="clientAddress" type="text" class="form-control" placeholder="Endereço" aria-label="Endereço" aria-describedby="basic-addon1">
+                                </div>
+                                <div class="col-md-2" style="padding-left: calc(10px * 1/3);">
+                                    <p class="pViabilidade">Numero</p>
+                                    <input id="clientAddressNumber" name="clientAddressNumber" type="text" class="form-control" placeholder="Número" aria-label="Número" aria-describedby="basic-addon1">
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <p class="pViabilidade">Cidade</p>
+                                    <input id="clientAddressCity" name="clientAddressCity" type="text" class="form-control" placeholder="Cidade" aria-label="cidade" aria-describedby="basic-addon1">
+                                </div>
+                                <div class="col-md-3">
+                                    <p class="pViabilidade">Bairro</p>
+                                    <input id="clientAddressNeighbourhood" name="clientAddressNeighbourhood" type="text" class="form-control" placeholder="Cidade" aria-label="cidade" aria-describedby="basic-addon1">
+                                </div>
+                                <div class="col-md-1">
+                                    <p class="pViabilidade">UF</p>
+                                    <input id="clientAddressUf" maxlength="2" name="clientAddressUf" type="text" class="form-control" placeholder="UF" aria-label="UF" aria-describedby="basic-addon1">
+                                </div>
+                                <div class="col-md-5">
+                                    <p class="pViabilidade">Complemento</p>
+                                    <input id="clientAddressComplement" name="clientAddressComplement" type="text" class="form-control" placeholder="Complemento" aria-label="Complemento" aria-describedby="basic-addon1">
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-9">
+                                </div>
+                                <div class="col-md-3 ml-auto align-content-bottom">
+                                    <span id="submit-button-wrapper" data-toggle="popover" data-placement="top" data-content="Selecione uma opção no canto superior esquerdo para continuar.">
+                                        <button id="submitButton" class="btn btn-primary" style="width: 100%;" type="submit">Enviar</button>
+                                    </span>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+<footer class="footer navbar-fixed-bottom">
+	<div class="container-fluid">
+		<div class="row">
+			<div class="col-md-12 align-items-center" style="font-size: 12px; text-align: center;">
+				<a href="../"><img class="logo" src="images/logo.png"></a>
+				<p>© 2024 Gerencia Intervip | Densenvolvido por <a>Guilherme Wallace</a>. Todos os direitos reservados a Intervip.</p>
+			</div>
+		</div>
+	</div>
+</footer>
+
+</html>

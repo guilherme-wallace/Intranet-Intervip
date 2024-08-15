@@ -9,7 +9,3 @@ Adiciona oa banco de dados os novos condomínios, prédios ou blocos onde é pos
 
 ## Teste de lentidão
 Formulário para padronizar e organizar chamados de lentidão gerados pela central de relacinamento.
-
-## Envia e-mails NOC
-Formulário para padronizar e organizar o envio e e-mails do NOC.
-

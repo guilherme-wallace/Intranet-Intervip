@@ -1,0 +1,365 @@
+@import url('https://fonts.googleapis.com/css?family=Lato:400,400i,700,700i&subset=latin-ext');
+* {
+	margin:0;
+	padding:0;
+	font-family: 'Lato', sans-serif;
+	
+}
+html, body {
+	height: 100%;
+}
+
+#spinner {
+	display: block;
+	position: fixed;
+	z-index: 1000;
+	top: calc(50% - (3rem / 2));
+	right: calc(50% - (3rem / 2));
+	width: 3rem;
+	height: 3rem;
+}
+
+/*-----###header###-----*/
+.out header, top-header header {
+    background-color: #223A5E;
+    padding: 4px 0px;
+    box-shadow: 0 0.1em 0.2em rgba(0,0,0,0.3);
+    color: rgba(255,255,255,0.8);
+    position: relative;
+    font-size: 1em;
+    border: rgba(0,0,0, 0.8);
+}
+
+header #cabecalho {
+    margin: auto;
+    flex: 0 1 auto;
+    align-items: center;
+    text-align: center;
+}
+
+header #cabecalho h2 {
+    font-weight: 700;
+    font-size: 1.7em;
+    margin-bottom: -15px;
+}
+
+.logo {
+    max-width: 150px;
+    padding: 0.1em;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+@media (max-width: 992px) {
+    .container {
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 575px) {
+    .logo-wrapper {
+        text-align: center;
+    }
+
+    header #cabecalho h2 {
+        margin-bottom: 5px;
+    }
+}
+
+/*-----###Body###-----*/
+main {
+    min-height: calc(100vh - 172px);
+}
+
+h3 {
+    text-align: center;
+    font-size: 1.4em;
+}
+
+.dropdown-menu {
+    max-height: 440px;
+    overflow-y: auto;
+}
+
+label.error {
+    font-size: small;
+    color: red;
+    margin: 0;
+}
+
+/*Login*/
+.login-body {
+    background: #191919;
+}
+.boxLogin {
+    width: 300px;
+    padding: 30px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    background-image: linear-gradient(to bottom right, rgba(0, 61, 112, 0.5), rgba(0, 61, 112, 1));
+    border-radius: 0.5em;
+    border:inset;
+    border-color: whitesmoke;
+    border-width: 2px;
+}
+.boxLogin h1 {
+    color: whitesmoke;
+    text-transform: uppercase;
+    font-weight: 500;
+}
+.boxLogin h3 {
+    color: lightsteelblue;
+    margin: 25px 0 10 0;
+}
+.boxLogin input[type = "text"],.boxLogin input[type = "password"] {
+    border: 0;
+    background: #191919;
+    margin: 10px 0;
+    text-align: center;
+    border: 2px solid rgb(226, 185, 69);
+    padding: 8px 0;
+    width: calc(100% - 4px);
+    outline: none;
+    color: white;
+    border-radius: 0.5em;
+    transition: 0.25s;
+}
+.boxLogin ::placeholder {
+    color: white;
+}
+.boxLogin input[type = "text"]:focus,.boxLogin input[type = "password"]:focus {
+    width: 280px;
+    border-color: rgb(226, 185, 69);
+}
+.boxLogin input[type = "submit"] {
+    border: 0;
+    background: none;
+    margin: 20px 20px 0px 20px;
+    text-align: center;
+    border: 2px solid rgb(226, 185, 69);
+    padding: 8px 40px;
+    outline: none;
+    color: white;
+    border-radius: 0.5em;
+    transition: 0.25s;
+    cursor: pointer;
+}
+.boxLogin input[type = "submit"]:hover {
+    background: rgb(226, 185, 69);
+}
+
+/*Gerência Intervip*/
+.gerenciaIVP-body body {
+    background-color: #cdd3d8;
+}
+
+.gerenciaIVP-body main {
+    text-align: center;
+}
+
+/*Cadastros*/
+.cadastros-body {
+    background-color: #cdd3d8;	
+}
+
+.cadastros-body main {
+    text-align: center;
+}
+
+.cadastros-body .card-body {
+    padding: 0rem;
+}
+
+.cadastros-body .cor-span {
+    color: black;
+}
+
+/*CLientes Online*/
+.clietesOnline-body {
+    background-color: #cdd3d8;
+}
+
+.clietesOnline-body th {
+    font-weight: bold;
+    vertical-align: middle!important;
+    cursor: pointer;
+}
+
+.clietesOnline-body td {
+    text-align: center;
+}
+
+/*Consulta de Planos*/
+.colsultaDePlanos-body {
+    background-color: #cdd3d8;
+}
+
+.colsultaDePlanos-body .planos-title {
+    margin-bottom: 1rem;
+}
+
+.colsultaDePlanos-body th {
+    font-weight: bold;
+    vertical-align: middle!important;
+}
+
+.colsultaDePlanos-body td {
+    text-align: center;
+}
+
+.colsultaDePlanos-body #tbl-planos {
+    text-align: center;
+}
+
+.colsultaDePlanos-body .plano-tipo {
+    font-size: 0.8rem;
+    text-align: left;
+    word-break: break-word;
+}
+.colsultaDePlanos-body .fundo-cinza {
+    background-color:lightgray;
+}
+
+/*Teste de Lentidão*/
+.testeDeLentidao-body{
+    background-color: rgb(244, 244, 244);
+}
+/*Cadastro de Leads*/
+.cadastros-leads .align-center{
+	align-items: center;
+}
+
+/*Cadastros de Vendas*/
+.cadastros-vendas {
+    background-color: rgb(244, 244, 244);
+}
+
+.cadastros-vendas .card-body {
+    padding: 10px;
+}
+
+.cadastros-vendas h3 {
+    text-align: center; 
+    padding: 15px 0px 5px 0px; 
+    margin: 0;
+}
+
+.cadastros-vendas .row {
+    margin: 0;
+}
+
+.cadastros-vendas div[class^="col-md-"] > label {
+    font-size: small;
+    margin: 0;
+}
+
+.cadastros-vendas .mb-3 {
+    margin: 0 !important;
+}
+
+.cadastros-vendas div[class^="col-md-"] {
+    padding: 10px;
+}
+
+.cadastros-vendas .align-content-bottom {
+    display: flex;
+    justify-content: flex-end;
+    flex-direction: column;
+}
+
+.cadastros-vendas .contratos div[class^="col-md-"] {
+    padding: 5px 10px;
+}
+
+.cadastros-vendas .contratos hr {
+    margin: 8px 10px 0px 10px;
+}
+
+.cadastros-vendas .form-check-input {
+    margin-left: -6.365px;
+}
+
+.cadastros-vendas span.radio-button {
+    padding: 6px 6px 6px 14px;
+}
+
+.cadastros-vendas div.custom-control-inline {
+    margin: 0;
+}
+
+.cadastros-vendas .custom-control-label {
+    vertical-align: -webkit-baseline-middle;
+}
+
+.cadastros-vendas input {
+    padding: 6px;
+}
+
+/*-----###Formalario de Viabilidade###-----*/
+.pViabilidade {
+    font-size: small;
+    margin: 0;
+    text-align: left;
+}
+
+.tooltip {
+    position: relative;
+    opacity: unset;
+}
+  
+.tooltip .tooltiptext {
+    visibility: hidden;
+    width: 120px;
+    background-color: black;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px 0;
+    position: absolute;
+    z-index: 1;
+    bottom: 150%;
+    left: 50%;
+    margin-left: -60px;
+}
+  
+.tooltip .tooltiptext::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: black transparent transparent transparent;
+}
+  
+.tooltip:hover .tooltiptext {
+    visibility: visible;
+}
+
+/*-----###E-mails###-----*/
+.emails-body{
+    background-color: rgb(244, 244, 244);
+}
+
+.emails-body .dropdown-menu-tipo-email .dropdown-menu {
+    width: 225px;
+}
+.emails-body .dropdown-menu-tipo-email .dropdown-item {
+    padding: 4px 10px;
+}
+
+/*-----###Footer###-----*/
+footer {
+    border-top: 2px solid rgba(0,0,0, 0.8);
+    background-color: #223A5E;
+    box-shadow: 0 0.1em 0.2em rgba(0,0,0,0.3);
+    color: rgba(255,255,255,0.8);
+    font-size: 1em;
+    margin-top: 7px;
+    position: relative;
+    width: 100%;
+}

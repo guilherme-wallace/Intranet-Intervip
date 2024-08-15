@@ -1,0 +1,16 @@
+{
+    "compilerOptions": {
+        "skipLibCheck": true,
+        "module": "commonjs",
+        "target": "es5",
+        "lib": [
+            "es6",
+            "DOM",
+            "ESNext"
+        ],
+        "sourceMap": false
+    },
+    "exclude": [
+        "node_modules"
+    ]
+}

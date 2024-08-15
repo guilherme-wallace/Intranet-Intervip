@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<htMl>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+        <meta http-equiv="refresh" content="10800;url=/"> <!-- 3 horas em segundos -->
+		<title>CRI - Problemas na Linha Telefônica</title>
+		<!-- CSS -->
+		<link href="stylesheets/bootstrap.min.css" rel="stylesheet">
+		<link rel="stylesheet" type="text/css" href="stylesheets/style.css">
+		<!-- JS -->
+		<script src="javascripts/index.js"></script>
+		<script src="javascripts/jquery.js"></script>
+		<script src="javascripts/problemas-linha-telefonica.js"></script>
+		<script src="javascripts/bootstrap.bundle.min.js"></script>
+		<script src="javascripts/bootstrap-autocomplete.min.js"></script>
+	</head>
+
+	<body class="testeDeLentidao-body">
+		<top-header>
+			<header>
+				<div class="container-fluid">
+					<div class="row">
+						<div class="col-12 col-sm-2 col-md-3 logo-wrapper">
+							<a href="../main"><img class="logo" src="images/logo.png"></a>
+						</div>
+						<div class="col-12 col-sm-8 col-md-6" id="cabecalho">
+							<h2>Problemas na Linha Telefônica</h2>
+						</div>
+						<div class="col-12 col-sm-2 col-md-3"></div>
+					</div>
+				</div>
+			</header>
+		</top-header>
+		<main>
+			<div class="container-fluid">
+				<div class="container">
+					<div class="card border border-dark bg-light">
+						<div class="card-body" id="centralizar">
+							<form name="form_ivp">
+								<div class="row">
+									<div class="col-md-2"></div>
+									<div class="col-md-8">
+                                        <hr style="margin-top: 2px;">
+                                        <div class="row">
+                                            <div class="col-sm-5">Nome do cliente:</div>
+                                            <div class="col-sm-7">
+                                                <input type="text" maxlength="50" name="nome_cliente" class="form-control form-control-sm center" placeholder="João / Maria" autocomplete="off">
+                                            </div>
+                                        </div>
+                                        <hr>
+                                        <div class="row">
+                                            <div class="col-sm-5">Telefone / Celular do cliente:</div>
+                                            <div class="col-sm-7">
+                                                <input type="text" maxlength="14" name="telefone" class="form-control form-control-sm center" placeholder="(27)98888-8888" autocomplete="off">
+                                            </div>
+                                        </div>
+                                        <hr>
+                                        <div class="row">
+                                            <div class="col-sm-5">Período preferencial para retorno:</div>
+                                            <div class="col-sm-7">
+                                                <input type="text" list="periodo" name="periodo" class="form-control form-control-sm center" placeholder="Manhã / Tarde / Noite" autocomplete="off">
+                                                <datalist id="periodo">
+                                                    <option>Manhã</option>
+                                                    <option>Tarde</option>
+                                                    <option>Noite</option>
+                                                </datalist>
+                                            </div>
+                                        </div>
+                                        <hr>
+                                        <div class="row">
+                                            <div class="col-sm-5">Cliente deseja retorno pelo whatsapp?</div>
+                                            <div class="col-sm-7">
+                                                <input type="text" list="whatsapp" name="whatsapp" class="form-control form-control-sm center" placeholder="Não / Sim" autocomplete="off">
+                                                <datalist id="whatsapp">
+                                                    <option>Sim</option>
+                                                    <option>Não</option>
+                                                </datalist>
+                                            </div>
+                                        </div>
+
+                                        <hr>
+                                        <div class="row">
+                                            <div class="col-sm-5">
+                                                 Ramal ou Linha onde o problema ocorre:
+                                            </div>
+                                            <div class="col-sm-7">
+                                                <input type="text" maxlength="15" name="ramal_linha" class="form-control form-control-sm center" placeholder="ramal 1005" autocomplete="off">
+                                            </div>
+                                        </div>
+                                        <hr>
+                                        <!--div class="row">
+                                            <div class="col-sm-5">Qual é o problema:</div>
+                                            <div class="col-sm-7">
+                                                <input type="text" id="qualProblmeaDaLinha" list="qualProblema" name="qual_problema" class="form-control form-control-sm center" placeholder="Linha picotando" autocomplete="off">
+                                                <datalist id="qualProblema">
+                                                    <option value="Não consegue fazer ligação"></option>
+                                                    <option value="Não consegue receber ligação"></option>
+                                                    <option value="Ligação picotando"></option>
+                                                    <option value="Linha muda"></option>
+                                                    <option value="Voz robotizada"></option>
+                                                    <option value="Problema na URA"></option>
+                                                    <option value="Problema na Fila"></option>
+                                                </datalist>
+                                            </div>
+                                        </div>
+                                        <hr-->
+                                        <div class="row">
+                                            <div class="col-sm-5">Qual é o problema:</div>
+                                            <div class="col-sm-7">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="qualProblema" id="naoConsegueFazerLigação">
+                                                    <label class="form-check-label" for="naoConsegueFazerLigação">
+                                                        Não consegue fazer ligação
+                                                    </label>
+                                                  </div>
+                                                  <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="qualProblema" id="naoConsegueRecebeLigação">
+                                                    <label class="form-check-label" for="naoConsegueRecebeLigação">
+                                                        Não consegue receber ligação
+                                                    </label>
+                                                  </div>
+                                                  <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="qualProblema" id="ligacaoPicotando">
+                                                    <label class="form-check-label" for="ligacaoPicotando">
+                                                        Ligação picotando
+                                                    </label>
+                                                  </div>
+                                                  <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="qualProblema" id="ligacaoMuda">
+                                                    <label class="form-check-label" for="ligacaoMuda">
+                                                        Ligação esta muda
+                                                    </label>
+                                                  </div>
+                                                  <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="qualProblema" id="vozRobotizada">
+                                                    <label class="form-check-label" for="vozRobotizada">
+                                                        Voz robotizada
+                                                    </label>
+                                                  </div>
+                                                  <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="qualProblema" id="problemaUra">
+                                                    <label class="form-check-label" for="problemaUra">
+                                                        Problema na URA
+                                                    </label>
+                                                  </div>
+                                                  <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="qualProblema" id="problemaFila">
+                                                    <label class="form-check-label" for="problemaFila">
+                                                        Problema na Fila
+                                                    </label>
+                                                  </div>
+                                            </div>
+                                            <input type="text"  name="qualProblemaAux" id="qualProblemaAuxId" class="form-control form-control-sm center" autocomplete="off" hidden>
+                                        </div>
+                                        <br>
+                                        <div class="row" id="rowNumeroComProblema" hidden>
+                                            <div class="col-sm-5">Quais números o cliente não consegue ligar:</div>
+                                            <div class="col-sm-7">
+                                                <input type="text" maxlength="50" name="numeroComProblema" id="numeroComProblemaId" class="form-control form-control-sm center" placeholder="2740099119, 2740099100" autocomplete="off">
+                                            </div>
+                                        </div>
+                                        <hr>
+                                        <div class="row">
+                                            <div class="col-sm-4">Observações:</div>
+                                            <div class="col-sm-8">
+                                                <textarea type="text" maxlength="1200" name="obs" class="form-control form-control-sm center" placeholder="Cliente informa..." autocomplete="off" style="height: 126px;"></textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+									<div class="col-md-2"></div>
+								</div><br>
+								<div class="row">
+									<div class="col-md-12" style="text-align: center;">
+										<b>Resultado para IXC: </b></br><textarea id="resultadoId" name="resultado" cols="90" rows="14"></textarea></br> 
+										<input onClick="controle(form_ivp)" type="button" name="submit" value="Gerar informações"/>
+										<input type="button" id ="copiarIdInfo" name="copiarInfo" value="Copiar informações"/>
+										<input type="Reset" value="Limpar dados">
+									</div>
+								</div>
+							</form>
+						</div>
+					</div>
+				</div>
+			</div>
+		</main>
+	</body>
+	<footer class="footer navbar-fixed-bottom">
+		<div class="container-fluid">
+			<div class="row">
+				<div class="col-md-12 align-items-center" style="font-size: 12px; text-align: center;">
+					<a href="../"><img class="logo" src="images/logo.png"></a>
+					<p>© 2023 Gerencia Intervip | Densenvolvido por <a>Guilherme Wallace</a>. Todos os direitos reservados a Intervip.</p>
+				</div>
+			</div>
+		</div>
+	</footer>
+</html>

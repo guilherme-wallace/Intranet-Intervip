@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<htMl>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+		<meta http-equiv="refresh" content="10800;url=/"> <!-- 3 horas em segundos -->
+		<title>CRI - Pedidos na Linha Telefônica</title>
+		<!-- CSS -->
+		<link href="stylesheets/bootstrap.min.css" rel="stylesheet">
+		<link rel="stylesheet" type="text/css" href="stylesheets/style.css">
+		<!-- JS -->
+		<script src="javascripts/index.js"></script>
+		<script src="javascripts/jquery.js"></script>
+		<script src="javascripts/pedidos-linha-telefonica.js"></script>
+		<script src="javascripts/bootstrap.bundle.min.js"></script>
+		<script src="javascripts/bootstrap-autocomplete.min.js"></script>
+	</head>
+
+	<body class="testeDeLentidao-body">
+		<top-header>
+			<header>
+				<div class="container-fluid">
+					<div class="row">
+						<div class="col-12 col-sm-2 col-md-3 logo-wrapper">
+							<a href="../main"><img class="logo" src="images/logo.png"></a>
+						</div>
+						<div class="col-12 col-sm-8 col-md-6" id="cabecalho">
+							<h2>Pedidos na Linha Telefônica</h2>
+						</div>
+						<div class="col-12 col-sm-2 col-md-3"></div>
+					</div>
+				</div>
+			</header>
+		</top-header>
+		<main>
+			<div class="container-fluid">
+				<div class="container">
+					<div class="card border border-dark bg-light">
+						<div class="card-body" id="centralizar">
+							<form name="form_ivp">
+								<div class="row">
+									<div class="col-md-2"></div>
+									<div class="col-md-8">
+                                        <hr style="margin-top: 2px;">
+                                        <div class="row">
+                                            <div class="col-sm-5">Nome do cliente:</div>
+                                            <div class="col-sm-7">
+                                                <input type="text" maxlength="50" name="nome_cliente" class="form-control form-control-sm center" placeholder="João / Maria" autocomplete="off">
+                                            </div>
+                                        </div>
+                                        <hr>
+                                        <div class="row">
+                                            <div class="col-sm-5">Telefone / Celular do cliente:</div>
+                                            <div class="col-sm-7">
+                                                <input type="text" maxlength="14" name="telefone" class="form-control form-control-sm center" placeholder="(27)98888-8888" autocomplete="off">
+                                            </div>
+                                        </div>
+                                        <hr>
+                                        <div class="row">
+                                            <div class="col-sm-5">Período preferencial para retorno:</div>
+                                            <div class="col-sm-7">
+                                                <input type="text" list="periodo" name="periodo" class="form-control form-control-sm center" placeholder="Manhã / Tarde / Noite" autocomplete="off">
+                                                <datalist id="periodo">
+                                                    <option>Manhã</option>
+                                                    <option>Tarde</option>
+                                                    <option>Noite</option>
+                                                </datalist>
+                                            </div>
+                                        </div>
+                                        <hr>
+                                        <div class="row">
+                                            <div class="col-sm-5">Cliente deseja retorno pelo Whatsapp?</div>
+                                            <div class="col-sm-7">
+                                                <input type="text" list="whatsapp" name="whatsapp" class="form-control form-control-sm center" placeholder="Sim / Não" autocomplete="off">
+                                                <datalist id="whatsapp">
+                                                    <option>Sim</option>
+                                                    <option>Não</option>
+                                                </datalist>
+                                            </div>
+                                        </div>
+                                        <hr>
+                                        <div class="row">
+                                            <div class="col-sm-5">Quantidade de ramais:</div>
+                                            <div class="col-sm-5">
+                                                <input type="number" maxlength="4" id="qteRamais" name="qteRamais" class="form-control form-control-sm center" placeholder="1..." autocomplete="off">
+                                            </div>
+                                            <div class="col-sm-2">
+												<!-- Button trigger modal -->
+												<button type="button" class="btn btn-primary bntclick" name="bntRamalclick" id="bntRamalclick" data-toggle="modal" data-target="#ModalRamal">
+													Ramais
+												</button>
+												
+												<!-- Modal -->
+												<div class="modal fade" id="ModalRamal" tabindex="-1" role="dialog" aria-labelledby="Ramais" aria-hidden="true">
+													<div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+													<div class="modal-content">
+														<div class="modal-header">
+															<h5 class="modal-title" id="Ramais">Lista de Ramais</h5>
+															<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+															<span aria-hidden="true">&times;</span>
+														</button>
+														</div>
+														<div class="modal-body">
+															<div id="controlRowNomeRamal">
+																<div id="rowNomeRamal">
+																</div>
+															</div>
+														</div>
+														<div class="modal-footer">
+														<button type="button" class="btn btn-primary" data-dismiss="modal">OK</button>
+														</div>
+													</div>
+													</div>
+												</div>
+											</div>
+                                        </div>
+                                        <hr>
+                                        <div class="row">
+                                            <div class="col-sm-5">Portabilidade?</div>
+                                            <div class="col-sm-3">
+												<button type="button" id="portabilidadeBtnSim" name="portabilidadeBtnSim" class="btn" style="border: outset; height: 38px;">Sim</button>
+												<button type="button" id="portabilidadeBtnNao" name="portabilidadeBtnNao" class="btn" active style="border: outset; height: 38px;">Não</button>
+                                            </div>
+											<div class="col-sm-4">
+                                                <input type="text" maxlength="3" id="portabilidade" name="portabilidade" class="form-control form-control-sm center" value="Não" placeholder="Não / Sim" autocomplete="off" disabled>
+                                            </div>
+                                        </div>
+                                        <hr>
+										<div id="rowNumeroPortabilidade" hidden>
+											<div class="row">
+												<div class="col-sm-5">Número da linha portada:</div>
+												<div class="col-sm-7">
+													<input type="text" maxlength="14" id="numeroPortabilidade" name="numeroPortabilidade" class="form-control form-control-sm center" placeholder="(27)98888-8888" autocomplete="off">
+												</div>
+											</div><br>
+											<div class="row">
+												<div class="col-sm-12">
+													<h3>
+														<b>Observações:</b>
+													</h3>
+													<p>
+														<b>*</b> A portabilidade demora até 7 dias úteis para ser concretizada. <br>
+														<b>*</b> Até a conclusão, o cliente receberá um novo numero temporário para que ele utilize a nova linha normalmente. <br>
+														<b>*</b> Após portabilidade, a linha temporária é removida e o cliente passa a utilizar seu numero portado. <br>
+														<b>*</b> Durante a portabilidade, o número portado pode ficar um período de até 4 horas sem funcionar. <br>
+														<b>* O cliente só deverá cancelar seu contrato com a operadora antiga <u>depois</u> que o processo de portabilidade for concluído <u>com sucesso</u>, caso o cliente cancele antes ele poderá perder seu numero. </b>
+													</p>
+												</div>
+											</div>
+										</div>
+                                    </div>
+									<div class="col-md-2"></div>
+								</div><br>
+								<div class="row">
+									<div class="col-md-12" style="text-align: center;">
+										<b>Resultado para IXC: </b></br><textarea id="resultadoId" name="resultado" cols="90" rows="14"></textarea></br> 
+										<input onClick="controle(form_ivp)" type="button" name="submit" value="Gerar informações"/>
+										<input type="button" id ="copiarIdInfo" name="copiarInfo" value="Copiar informações"/>
+										<input id="limparDados" type="Reset" value="Limpar dados">
+									</div>
+								</div>
+							</form>
+						</div>
+					</div>
+				</div>
+			</div>
+		</main>
+	</body>
+	<footer class="footer navbar-fixed-bottom">
+		<div class="container-fluid">
+			<div class="row">
+				<div class="col-md-12 align-items-center" style="font-size: 12px; text-align: center;">
+					<a href="../"><img class="logo" src="images/logo.png"></a>
+					<p>© 2023 Gerencia Intervip | Densenvolvido por <a>Guilherme Wallace</a>. Todos os direitos reservados a Intervip.</p>
+				</div>
+			</div>
+		</div>
+	</footer>
+</html>

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+	<meta http-equiv="refresh" content="10800;url=/"> <!-- 3 horas em segundos -->
+	<title>Cadastro de Vendas</title>
+
+	<!-- CSS -->
+	<link href="stylesheets/bootstrap.min.css" rel="stylesheet">
+	<link rel="stylesheet" type="text/css" href="stylesheets/style.css">
+
+	<!-- JS -->
+	<script src="javascripts/index.js"></script>
+	<script src="javascripts/jquery.js"></script>
+	<script src="javascripts/jquery.numeric.min.js"></script>
+	<script src="javascripts/jquery.validate.min.js"></script>
+	<script src="javascripts/cadastro-de-vendas.js"></script>
+	<script src="javascripts/bootstrap-autocomplete.min.js"></script>
+	<script src="javascripts/bootstrap.bundle.min.js"></script>
+</head>
+
+<body class="cadastros-vendas">
+	<top-header>
+		<header>
+			<div class="container-fluid">
+				<div class="row">
+					<div class="col-12 col-sm-2 col-md-3 logo-wrapper">
+						<a href="../main"><img class="logo" src="images/logo.png"></a>
+					</div>
+
+					<div class="col-12 col-sm-8 col-md-6" id="cabecalho">
+						<h2>Cadastro de Vendas</h2>
+					</div>
+
+					<div class="col-12 col-sm-2 col-md-3"></div>
+				</div>
+			</div>
+		</header>
+	</top-header>
+
+	<main>
+		<div class="container-fluid">
+			<div class="container">
+				<div class="card border border-dark bg-light">
+					<div id="spinner" class="spinner-border text-warning" role="status" hidden>
+						<span id="spinner-text" class="sr-only"><span>
+					</div>
+					
+					<div class="card-body">
+						<form id="sale-form" method="post">
+							<section>
+								<h3>Dados do Cliente</h3>
+								<div class="row">
+									<div class="col-md-3 align-content-bottom">
+										<div class="dropdown">
+											<button class="btn btn-primary dropdown-toggle" id="form-toggle" style="width: 100%;" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Selecione uma opção</button>
+											<div id="form-selector" class="dropdown-menu" style="width: 100%;" aria-labelledby="dropdownMenuButton">
+												<a class="dropdown-item">Venda</a>
+												<a class="dropdown-item">Reativação</a>
+												<a class="dropdown-item">Cancelamento</a>
+												<a class="dropdown-item">Suspensão</a>
+												<a class="dropdown-item">Retenção</a>
+											</div>
+										</div>
+									</div>
+									<div class="col-md-3 align-content-bottom">
+										<label class="error" for="client-id"></label>
+										<div class="input-group mb-3">
+											<div class="input-group-prepend">
+												<span class="input-group-text" id="basic-addon1">Código</span>
+											</div>
+											<input id="client-id" type="search" name="code" class="form-control" style="text-align: center;" aria-label="Codigo" aria-describedby="basic-addon1" maxlength="5">
+										</div>
+									</div>
+									<div class="col-md-6">
+										<label>Nome completo</label>
+										<input id="client-name" type="text" class="form-control" placeholder="Nome completo" aria-label="nome" aria-describedby="basic-addon1">
+									</div>
+								</div>
+								<div class="row">
+									<div class="col-md-4">
+										<label>Data de Nascimento</label>
+										<input id="client-birthday" type="text" class="form-control" placeholder="Data de Nascimento" aria-label="nascimento" aria-describedby="basic-addon1">
+									</div>
+									<div class="col-md-5">
+										<label>Endereço de e-mail</label>
+										<input id="client-email" type="text" class="form-control" placeholder="Endereço de e-mail" aria-label="email" aria-describedby="basic-addon1">
+									</div>
+									<div class="col-md-3">
+										<label>Telefone</label>
+										<input id="client-phone" type="text" class="form-control" placeholder="Telefone" aria-label="telefone" aria-describedby="basic-addon1">
+									</div>
+								</div>
+							</section>
+							<hr>
+							<section>
+								<div class="row">
+									<div class="col-md-8">
+										<label>Grupo</label>
+										<input id="group-name" type="text" class="form-control" placeholder="Grupo" aria-label="grupo" aria-describedby="basic-addon1">
+									</div>
+									<div class="col-md-4">
+										<label>CEP</label>
+										<input id="client-cep" type="text" class="form-control" placeholder="CEP" aria-label="cep" aria-describedby="basic-addon1">
+									</div>
+								</div>
+								<div class="row">
+									<div class="col-md-10">
+										<label>Endereço</label>
+										<input id="client-address" type="text" class="form-control" placeholder="Endereço" aria-label="Endereço" aria-describedby="basic-addon1">
+									</div>
+									<div class="col-md-2">
+										<label>Numero</label>
+										<input id="client-address-number" type="text" class="form-control" placeholder="Número" aria-label="Número" aria-describedby="basic-addon1">
+									</div>
+								</div>
+								<div class="row">
+									<div class="col-md-5">
+										<label>Complemento</label>
+										<input id="client-address-complement" type="text" class="form-control" placeholder="Complemento" aria-label="complemento" aria-describedby="basic-addon1">
+									</div>
+									<div class="col-md-4">
+										<label>Bairro</label>
+										<input id="client-address-neighbourhood" type="text" class="form-control" placeholder="Bairro" aria-label="bairro" aria-describedby="basic-addon1">
+									</div>
+									<div class="col-md-2">
+										<label>Cidade</label>
+										<input id="client-address-city" type="text" class="form-control" placeholder="Cidade" aria-label="cidade" aria-describedby="basic-addon1">
+									</div>
+									<div class="col-md-1">
+										<label>UF</label>
+										<input id="client-address-uf" type="text" class="form-control" placeholder="UF" aria-label="UF" aria-describedby="basic-addon1">
+									</div>
+								</div>
+							</section>
+							<section id="contracts" class="contratos" hidden>
+							</section>
+							<section id="research" hidden>
+								<h3>Pesquisa</h3>
+								<div id="sale-research" class="row" hidden>
+									<div class="col-md-3 align-content-bottom">
+										<label class="error" for="how-met-input"></label>
+										<input id="how-met-input" type="hidden" title="how-met-validation" name="howmet">
+										<div class="dropdown">
+											<button id="how-met-button" class="btn btn-secondary dropdown-toggle" style="width: 100%;" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Como conheceu a Intervip</button>
+											<div id="how-met-selector" class="dropdown-menu" style="width: 100%;" aria-labelledby="dropdownMenuButton">
+											</div>
+										</div>
+									</div>
+									<div class="col-md-3 align-content-bottom">
+										<div class="custom-control custom-checkbox mb-3">
+											<input id="panfleto-checkbox" type="checkbox" class="custom-control-input" id="panfleto-select">
+											<label class="custom-control-label" for="panfleto-checkbox">Recebeu panfleto da Intervip</label>
+										</div>
+									</div>
+									<div class="col-md-3 align-content-bottom">
+										<div class="custom-control custom-checkbox mb-3">
+											<input id="instagram-checkbox" type="checkbox" class="custom-control-input" id="instagram-select">
+											<label class="custom-control-label" for="instagram-checkbox">Viu anúncio no Instagram</label>
+										</div>
+									</div>
+									<div class="col-md-3 align-content-bottom">
+										<div class="custom-control custom-checkbox mb-3">
+											<input id="facebook-checkbox" type="checkbox" class="custom-control-input" id="facebook-select">
+											<label class="custom-control-label" for="facebook-checkbox">Viu anúncio no Facebook</label>
+										</div>
+									</div>
+								</div>
+								<div id="cancel-research" class="row" hidden>
+									<div id="reason" class="col-md-5 align-content-bottom">
+										<label class="error" for="reason-input"></label>
+										<input id="reason-input" type="hidden" title="reason-validation" name="reason">
+										<div class="dropdown">
+											<button id="reason-button" class="btn btn-secondary dropdown-toggle" style="width: 100%;" type="button" id="dropdownMenuButton" 
+											data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Motivo</button>
+											<div id="reason-selector" class="dropdown-menu" style="width: 100%;" aria-labelledby="dropdownMenuButton">
+											</div>
+										</div>
+									</div>
+									<div id="operator" class="col-md-3 align-content-bottom">
+										<label class="error" for="operator-input"></label>
+										<input id="operator-input" type="hidden" title="operator-validation" name="operator">
+										<div class="dropdown">
+											<button id="operator-button" class="btn btn-secondary dropdown-toggle" style="width: 100%;" type="button" id="dropdownMenuButton" 
+											data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Operadora</button>
+											<div id="operator-selector" class="dropdown-menu" style="width: 100%;" aria-labelledby="dropdownMenuButton">
+											</div>
+										</div>
+									</div>
+									<div id="satisfaction" class="col-md-4 align-content-bottom">
+										<label class="error" for="satisfaction-input"></label>
+										<input id="satisfaction-input" type="hidden" title="satisfaction-validation" name="satisfaction">
+										<div class="dropdown">
+											<button id="satisfaction-button" class="btn btn-secondary dropdown-toggle" style="width: 100%;" type="button" id="dropdownMenuButton" 
+											data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Satisfeito com o serviço</button>
+											<div id="satisfaction-selector" class="dropdown-menu" style="width: 100%;" aria-labelledby="dropdownMenuButton">
+											</div>
+										</div>
+									</div>
+								</div>
+							</section>
+							<hr>
+							<section>
+								<div class="row" style="padding-bottom: 10px;">
+									<div class="col-md-7">
+										<label>Observações</label>
+										<input id="observation" type="text" class="form-control" placeholder="Observações" aria-label="Observações" aria-describedby="basic-addon1">
+									</div>
+									<div class="col-md-3 align-content-bottom">
+										<label class="error" for="salesperson-input"></label>
+										<input id="salesperson-input" type="hidden" title="salesperson-validation" name="salesperson">
+										<div class="dropdown">
+											<button id="salesperson-button" class="btn btn-secondary dropdown-toggle" style="width: 100%;" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Atendente</button>
+											<div id="salesperson-selector" class="dropdown-menu" style="width: 100%;" aria-labelledby="dropdownMenuButton">
+											</div>
+										</div>
+									</div>
+									<div class="col-md-2 ml-auto align-content-bottom">
+										<span id="submit-button-wrapper" data-toggle="popover" data-placement="top" data-content="Selecione uma opção no canto superior esquerdo para continuar.">
+											<button id="submit-button" class="btn btn-primary" style="width: 100%; pointer-events: none;" type="submit" disabled>Enviar</button>
+										</span>
+									</div>
+								</div>
+							</section>
+						</form>	
+					</div>
+				</div>
+			</div>
+		</div>
+	</main>
+</body>
+<footer class="footer navbar-fixed-bottom">
+	<div class="container-fluid">
+		<div class="row">
+			<div class="col-md-12 align-items-center" style="font-size: 12px; text-align: center;">
+				<a href="../"><img class="logo" src="images/logo.png"></a>
+				<p>© 2021 Gerencia Intervip | Densenvolvido por <a>Guilherme Wallace</a>. Todos os direitos reservados a
+					Intervip.</p>
+			</div>
+		</div>
+	</div>
+</footer>
+
+</html>
