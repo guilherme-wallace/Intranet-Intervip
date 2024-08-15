@@ -3,3 +3,5 @@ git rm --cached api/database.ts
 git rm --cached api/database.js
 git rm --cached api/v4/radius.ts
 git rm --cached api/v4/radius.js
+logs/access.log
+/logs
