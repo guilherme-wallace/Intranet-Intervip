@@ -3,5 +3,4 @@ api/database.js
 api/v4/radius.ts
 api/v4/radius.js
 logs/access.log
-/logs
 *.log
