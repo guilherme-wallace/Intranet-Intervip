@@ -2,5 +2,7 @@ api/database.ts
 api/database.js
 api/v4/radius.ts
 api/v4/radius.js
+src/configs/configs.ts
+src/configs/configs.js
 logs/access.log
 *.log
