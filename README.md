@@ -4,8 +4,5 @@ Permite consultar os planos, filtrando por prédios/condomínios onde é possive
 ## Clientes on-line
 Consulta todos os clientes ativos de um determinado condomínio/prédio, mostrando os status,	código,	complemento, IP,	último login e último Logout. Podendo também ordena-lós.
 
-## Cadastros
-Adiciona oa banco de dados os novos condomínios, prédios ou blocos onde é possível fazer vendas de planos banda larga.
-
 ## Teste de lentidão
 Formulário para padronizar e organizar chamados de lentidão gerados pela central de relacinamento.
