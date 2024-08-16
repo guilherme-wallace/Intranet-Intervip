@@ -39,7 +39,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var api = require("../../../api/index");
 var Express = require("express");
 var GROUP = Express.Router();
-GROUP.get('/:id', function (req, res, next) { return __awaiter(void 0, void 0, void 0, function () {
+GROUP.get('/', function (req, res, next) { return __awaiter(void 0, void 0, void 0, function () {
     var response, error_1;
     return __generator(this, function (_a) {
         switch (_a.label) {
