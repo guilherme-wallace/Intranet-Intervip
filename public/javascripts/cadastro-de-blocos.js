@@ -8,7 +8,7 @@ $(function () {
         resolver: 'custom',
         events: {
             search: function (query, callback) {
-                fetch(`api/v1/group?query=${query}`).then(response => response.json()).then(data => {
+                fetch(`api/v4/group?query=${query}`).then(response => response.json()).then(data => {
                     callback(data);
                 });
             }
