@@ -23,23 +23,29 @@
 
 <body class="cadastros-vendas">
 	<top-header>
-		<header>
-			<div class="container-fluid">
-				<div class="row">
-					<div class="col-12 col-sm-2 col-md-3 logo-wrapper">
-						<a href="../main"><img class="logo" src="images/logo.png"></a>
+	<header>
+		<div class="container-fluid">
+			<div class="row">
+				<div class="col-sm-2 col-md-3 logo-wrapper" style="align-content: center;">
+					<a href="/main"><img class="logo" src="images/logo.png" alt="Logo Intervip"></a>
+				</div>
+				<div class="col-sm-6 col-md-6" id="cabecalho">
+					<h2>Cadastro de Vendas</h2>
+				</div>
+				<div class="col-sm-2 col-md-3" style="text-align: end; align-content: center;">
+					<div class="row">
+						<div class="col-md-9" style="align-content: center;">
+							<h6 class="show-username">Acessando como: {username}</h6>
+							<h6 class="show-group">Setor: {group}</h6>
+						</div>
+						<div class="col-md-3" style="align-content: center;">
+							<button id="theme-toggle" class="btn btn-secondary">Tema</button>
+						</div>
 					</div>
-
-					<div class="col-12 col-sm-8 col-md-6" id="cabecalho">
-						<h2>Cadastro de Vendas</h2>
-					</div>
-
-					<div class="col-12 col-sm-2 col-md-3"></div>
 				</div>
 			</div>
-		</header>
-	</top-header>
-
+		</div>
+	</header>
 	<main>
 		<div class="container-fluid">
 			<div class="container">
@@ -230,17 +236,72 @@
 			</div>
 		</div>
 	</main>
-</body>
-<footer class="footer navbar-fixed-bottom">
-	<div class="container-fluid">
-		<div class="row">
-			<div class="col-md-12 align-items-center" style="font-size: 12px; text-align: center;">
-				<a href="../"><img class="logo" src="images/logo.png"></a>
-				<p>© 2021 Gerencia Intervip | Densenvolvido por <a>Guilherme Wallace</a>. Todos os direitos reservados a
-					Intervip.</p>
+	<footer class="footer navbar-fixed-bottom">
+		<div class="container-fluid">
+			<div class="row">
+				<div class="col-md-12 align-items-center" style="font-size: 12px; text-align: center;">
+					<a href="../"><img class="logo" src="images/logo.png"></a>
+					<p>© 2021 Gerencia Intervip | Densenvolvido por <a>Guilherme Wallace</a>. Todos os direitos reservados a
+						Intervip.</p>
+				</div>
 			</div>
 		</div>
-	</div>
-</footer>
+	</footer>
+</body>
+<script>
+	const currentTheme = localStorage.getItem('theme') || 'light';
+	const bodyElement = document.body;
 
+	if (currentTheme === 'dark') {
+		bodyElement.classList.add('dark-mode');
+	}
+
+	document.getElementById('theme-toggle').addEventListener('click', function() {
+		bodyElement.classList.toggle('dark-mode');
+
+		if (bodyElement.classList.contains('dark-mode')) {
+			localStorage.setItem('theme', 'dark');
+		} else {
+			localStorage.setItem('theme', 'light');
+		}
+	});
+
+	document.addEventListener('DOMContentLoaded', function() {
+		fetch('/api/username')
+			.then(response => response.json())
+			.then(data => {
+				const username = data.username || 'Visitante';
+				const group = data.group || 'Sem grupo';
+				document.querySelector('.show-username').textContent = `Acessando como: ${username}`;
+				document.querySelector('.show-group').textContent = `Setor: ${group}`;
+
+				if (username == 'Visitante') {
+					alert(`Será necessário refazer o login!`);
+					window.location = "/";
+				}
+
+				// Se o grupo não for 'NOC' ou 'Logistica', desabilitar os botões
+				if (group !== 'NOC' && group !== 'Logistica') {
+					// Desabilita o botão emailsNoc
+					const emailsNocButton = document.querySelector('.emailsNoc');
+					if (emailsNocButton) {
+						emailsNocButton.classList.add('disabled');
+						emailsNocButton.setAttribute('aria-disabled', 'true');
+						emailsNocButton.setAttribute('tabindex', '-1');
+					}
+
+					// Desabilita o botão addBlock
+					const addBlockButton = document.querySelector('.addBlock');
+					if (addBlockButton) {
+						addBlockButton.classList.add('disabled');
+						addBlockButton.setAttribute('aria-disabled', 'true');
+						addBlockButton.setAttribute('tabindex', '-1');
+					}
+				}
+			})
+			.catch(error => {
+				console.error('Erro ao obter o nome do usuário e grupo:', error);
+			});
+	});
+</script>
 </html>
