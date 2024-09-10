@@ -13,7 +13,6 @@ import ActiveDirectory = require('activedirectory2');
 import * as session from 'express-session';
 import { config_login } from './src/configs/loginConfig';
 
-
 interface HttpError extends Error {
 	status?: number;
 }
@@ -25,7 +24,6 @@ require('express-file-logger')(APP, {
 	fileName: 'access.log',
 	showOnConsole: false
 });
-
 
 APP.use(session({
     secret: 'your-secret-key',
@@ -51,25 +49,57 @@ APP.use(bodyParser.urlencoded({ extended: true }));
 // Endpoint de login
 APP.post('/login', (req, res) => {
     const { username, password } = req.body;
-
     const userPrincipalName = `${username}@ivp.net.br`; // domínio
 
     ad.authenticate(userPrincipalName, password, (err, auth) => {
         if (err) {
-            console.error('Erro de autenticação:', err);
-            console.error('Detalhes do erro:', err.lde_message);
+            //console.error('Erro de autenticação:', err);
             return res.json({ success: false, message: 'Erro de autenticação' });
         }
 
         if (auth) {
-            console.log('Usuário autenticado com sucesso');
-            
-            // Salve o nome de usuário na sessão
+            //console.log('Usuário autenticado com sucesso');
+
+            // Salva o nome de usuário na sessão
             req.session.username = username;
 
-            res.json({ success: true });
+            // Obtem grupos do usuário
+            ad.findUser(userPrincipalName, (err, user) => {
+                if (err) {
+                    //console.error('Erro ao encontrar usuário:', err);
+                    return res.json({ success: false, message: 'Erro ao obter detalhes do usuário' });
+                }
+            
+                if (!user) {
+                    //console.error('Usuário não encontrado');
+                    return res.json({ success: false, message: 'Usuário não encontrado' });
+                }
+                
+                //console.log('grupos: ', user.distinguishedName);
+                let textUserGroup = user.distinguishedName;
+            
+                // Correção da regex para capturar o nome do grupo corretamente
+                let userGroupRegex = new RegExp('OU=([^,]+)');
+                let userGroup = userGroupRegex.exec(textUserGroup);
+            
+                if (userGroup && userGroup[1]) {
+                    //console.log("Regex: ", userGroup[1]);
+                    
+                    if (userGroup[1] === 'Helpdesk') {
+                        userGroup[1] = 'CRI'
+                    }
+                    // Salvar o grupo do usuário na sessão
+                    req.session.group = userGroup[1];
+                } else {
+                    //console.log('Nenhum grupo encontrado para o usuário');
+                    req.session.group = 'Sem grupo';
+                }
+            
+                res.json({ success: true });
+            });           
+
         } else {
-            console.log('Falha na autenticação');
+            //console.log('Falha na autenticação');
             res.json({ success: false, message: 'Credenciais inválidas' });
         }
     });
@@ -77,10 +107,9 @@ APP.post('/login', (req, res) => {
 
 APP.get('/api/username', (req, res) => {
     const username = req.session.username || 'Visitante';
-    res.json({ username });
+    const group = req.session.group || 'Sem grupo';
+    res.json({ username, group });
 });
-
-
 
 // view engine setup
 APP.set('views', Path.join(__dirname, 'views'));
@@ -132,4 +161,3 @@ APP.use((e: HttpError, _req: any, res: any, _next: any) => {
 const server = APP.listen(8080, '127.0.0.1', function() {
 	console.log(`Express server listening on localhost:${(server.address() as AddressInfo).port}`);
 });
-

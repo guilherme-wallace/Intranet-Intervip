@@ -22,23 +22,6 @@ APP.use(session({
     saveUninitialized: true,
     cookie: { secure: false } // Definir true se estiver usando HTTPS
 }));
-/*
-// Middleware para processar o corpo da requisição
-APP.use(express.json());
-APP.use(express.urlencoded({ extended: true }));
-
-// Rota de login
-APP.post('/login', (req, res) => {
-    const { username, password } = req.body;
-
-    // Aqui você pode adicionar a lógica de verificação real, como consultar um banco de dados
-    if (username === 'admin' && password === 'intervipwifi') {
-        res.json({ success: true });
-    } else {
-        res.json({ success: false });
-    }
-});
-*/
 // Configurações do Active Directory
 var config = {
     url: loginConfig_1.config_login.url,
@@ -56,25 +39,53 @@ APP.post('/login', function (req, res) {
     var userPrincipalName = "".concat(username, "@ivp.net.br"); // domínio
     ad.authenticate(userPrincipalName, password, function (err, auth) {
         if (err) {
-            console.error('Erro de autenticação:', err);
-            console.error('Detalhes do erro:', err.lde_message);
+            //console.error('Erro de autenticação:', err);
             return res.json({ success: false, message: 'Erro de autenticação' });
         }
         if (auth) {
-            console.log('Usuário autenticado com sucesso');
-            // Salve o nome de usuário na sessão
-            req.session.username = username; // Isso agora deve ser reconhecido
-            res.json({ success: true });
+            //console.log('Usuário autenticado com sucesso');
+            // Salva o nome de usuário na sessão
+            req.session.username = username;
+            // Obtem grupos do usuário
+            ad.findUser(userPrincipalName, function (err, user) {
+                if (err) {
+                    //console.error('Erro ao encontrar usuário:', err);
+                    return res.json({ success: false, message: 'Erro ao obter detalhes do usuário' });
+                }
+                if (!user) {
+                    //console.error('Usuário não encontrado');
+                    return res.json({ success: false, message: 'Usuário não encontrado' });
+                }
+                //console.log('grupos: ', user.distinguishedName);
+                var textUserGroup = user.distinguishedName;
+                // Correção da regex para capturar o nome do grupo corretamente
+                var userGroupRegex = new RegExp('OU=([^,]+)');
+                var userGroup = userGroupRegex.exec(textUserGroup);
+                if (userGroup && userGroup[1]) {
+                    //console.log("Regex: ", userGroup[1]);
+                    if (userGroup[1] === 'Helpdesk') {
+                        userGroup[1] = 'Atendimento';
+                    }
+                    // Salvar o grupo do usuário na sessão
+                    req.session.group = userGroup[1];
+                }
+                else {
+                    //console.log('Nenhum grupo encontrado para o usuário');
+                    req.session.group = 'Sem grupo';
+                }
+                res.json({ success: true });
+            });
         }
         else {
-            console.log('Falha na autenticação');
+            //console.log('Falha na autenticação');
             res.json({ success: false, message: 'Credenciais inválidas' });
         }
     });
 });
 APP.get('/api/username', function (req, res) {
     var username = req.session.username || 'Visitante';
-    res.json({ username: username });
+    var group = req.session.group || 'Sem grupo';
+    res.json({ username: username, group: group });
 });
 // view engine setup
 APP.set('views', Path.join(__dirname, 'views'));
