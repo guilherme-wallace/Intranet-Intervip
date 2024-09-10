@@ -4,3 +4,4 @@ export const config_login = {
     username: 'administrator@ivp.net.br', // Conta de administrador ou de serviço
     password: '4c*@DCrb23'      // Senha do administrador
 };
+
