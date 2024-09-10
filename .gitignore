@@ -7,4 +7,4 @@ src/configs/configs.js
 logs/access.log
 *.log
 
-node_modules
+/node_modules
