@@ -34,8 +34,8 @@ APP.post('/login', (req, res) => {
 // Configurações do Active Directory
 var config = {
     url: 'ldap://10.254.1.12',
-    baseDN: 'dc=ivp,dc=net,dc=br',
-    username: 'administrator',
+    baseDN: 'OU=Intervip,DC=ivp,DC=net,DC=br',
+    username: 'administrator@ivp.net.br',
     password: '4c*@DCrb23' // Senha do administrador
 };
 // Criar instância do Active Directory

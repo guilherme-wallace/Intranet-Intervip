@@ -43,8 +43,8 @@ APP.post('/login', (req, res) => {
 // Configurações do Active Directory
 const config = {
     url: 'ldap://10.254.1.12',  // IP do servidor AD
-	baseDN: 'dc=ivp,dc=net,dc=br',
-    username: 'administrator', // Conta de administrador ou de serviço
+	baseDN: 'OU=Intervip,DC=ivp,DC=net,DC=br',
+    username: 'administrator@ivp.net.br', // Conta de administrador ou de serviço
     password: '4c*@DCrb23'      // Senha do administrador
 };
 
