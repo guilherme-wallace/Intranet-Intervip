@@ -240,171 +240,167 @@ $(function () {
     });
 
     function corpoEmailClientesForaDoArPTC() {
-        var dataAtual = dataHoje()
+        var dataAtual = dataHoje();
         var localForaPTC = $('#local-clientes-fora-do-ar-PTC').val();
         var problemaForaPTC = $('#problema-clientes-fora-do-ar-PTC').val();
         var prioridadeForaPTC = $('#prioridade-clientes-fora-do-ar-PTC').text();
         var obsForaPTC = $('#observacoes-clientes-fora-do-ar-PTC').val();
-        var operadorForaPTC = $('#operador-clientes-fora-do-ar-PTC').val();
-        
-        if(localForaPTC == "" || problemaForaPTC == "" || prioridadeForaPTC == "Selecione uma opção" || obsForaPTC == "" || operadorForaPTC == ""){
+        var usuarioLogado = '';
+    
+        $.get('/api/username', function(response) {
+            usuarioLogado = response.username || 'NOC';
+        });
+    
+        if (!localForaPTC || !problemaForaPTC || prioridadeForaPTC === "Selecione uma opção" || !obsForaPTC) {
             $('#confirmarEmail').attr('hidden', true);
-            alert("Todos os campos precisam ser preenchidos!")
+            alert("Todos os campos precisam ser preenchidos!");
         } else {
             $('#confirmarEmail').attr('hidden', false);
+    
             let templateRowNomeEnviar = `
-            <div class="row">
-                <div class="col-sm-2" style="padding-inline-start: 2rem">
-                    <h5><b>Assunto:</b></h5>
+                <div class="row">
+                    <div class="col-sm-2" style="padding-inline-start: 2rem">
+                        <h5><b>Assunto:</b></h5>
+                    </div>
+                    <div class="col-sm-10">
+                        <h6>[PTC] [NOC] LOCAL FORA DO AR --> ${localForaPTC} - ${dataAtual}</h6>
+                    </div>
                 </div>
-                <div class="col-sm-10">
-                    <h6>[PTC] [NOC] LOCAL FORA DO AR --> ${localForaPTC} - ${dataAtual} </h6>
+                <hr>
+                <div class="row" style="text-align: initial;">
+                    <div class="col-sm-3" style="padding-inline-start: 2rem">
+                        <h5>Local:</h5>
+                    </div>
+                    <div class="col-sm-9">
+                        <h6>${localForaPTC}</h6>
+                    </div>
                 </div>
-            </div>
-            <hr>
-            <div class="row" style="text-align: initial;">
-                <div class="col-sm-3" style="padding-inline-start: 2rem">
-                    <h5>Local:</h5>
+                <div class="row" style="text-align: initial;">
+                    <div class="col-sm-3" style="padding-inline-start: 2rem">
+                        <h5>Problema:</h5>
+                    </div>
+                    <div class="col-sm-9">
+                        <h6>${problemaForaPTC}</h6>
+                    </div>
                 </div>
-                <div class="col-sm-9">
-                    <h6>${localForaPTC}</h6>
+                <div class="row" style="text-align: initial;">
+                    <div class="col-sm-3" style="padding-inline-start: 2rem">
+                        <h5>Prioridade:</h5>
+                    </div>
+                    <div class="col-sm-9">
+                        <h6>${prioridadeForaPTC}</h6>
+                    </div>
                 </div>
-            </div>
-            <div class="row" style="text-align: initial;">
-                <div class="col-sm-3" style="padding-inline-start: 2rem">
-                    <h5>Problema:</h5>
+                <div class="row" style="text-align: initial;">
+                    <div class="col-sm-3" style="padding-inline-start: 2rem">
+                        <h5>Observações:</h5>
+                    </div>
+                    <div class="col-sm-9">
+                        <h6>${obsForaPTC}</h6>
+                    </div>
                 </div>
-                <div class="col-sm-9">
-                    <h6>${problemaForaPTC}</h6>
-                </div>
-            </div>
-            <div class="row" style="text-align: initial;">
-                <div class="col-sm-3" style="padding-inline-start: 2rem">
-                    <h5>Prioridade:</h5>
-                </div>
-                <div class="col-sm-9">
-                    <h6>${prioridadeForaPTC}</h6>
-                </div>
-            </div>
-            <div class="row" style="text-align: initial;">
-                <div class="col-sm-3" style="padding-inline-start: 2rem">
-                    <h5>Observações:</h5>
-                </div>
-                <div class="col-sm-9">
-                    <h6>${obsForaPTC}</h6>
-                </div>
-            </div>
-            <div class="row" style="text-align: initial;">
-                <div class="col-sm-3" style="padding-inline-start: 2rem">
-                    <h5>Operador:</h5>
-                </div>
-                <div class="col-sm-9">
-                    <h6>${operadorForaPTC}</h6>
-                </div>
-            </div>`
+            `;
             document.getElementById("rowNomeEnviar").innerHTML = templateRowNomeEnviar;
-
-            $('#confirmarEmail').on('click', function() {
-                var dataAtual = dataHoje()
-                var destinatario = 'noc@intervip.net.br, ptc@intervip.net.br'
+    
+            $('#confirmarEmail').off('click').on('click', function() {
+                var destinatario = 'guilherme.costa@intervip.net.br, gabriel@intervip.net.br';
                 var assunto = `[PTC] [NOC] LOCAL FORA DO AR --> ${localForaPTC} - ${dataAtual}`;
-                var mensagem = `<p><strong>Local:</strong> ${localForaPTC} <br>
-                <p><strong>Problema:</strong> ${problemaForaPTC} <br>
-                <p><strong>Prioridade:</strong> ${prioridadeForaPTC} <br>
-                <p><strong>Observações:</strong> ${obsForaPTC} <br>
-                <p><strong>Operador:</strong> ${operadorForaPTC} <br>
-                `
+                var mensagem = `
+                    <p><strong>Local:</strong> ${localForaPTC}</p>
+                    <p><strong>Problema:</strong> ${problemaForaPTC}</p>
+                    <p><strong>Prioridade:</strong> ${prioridadeForaPTC}</p>
+                    <p><strong>Observações:</strong> ${obsForaPTC}</p>
+                    <p><strong>Operador:</strong> ${usuarioLogado}</p>
+                `;
                 enviarEmail(destinatario, assunto, mensagem);
-                //console.log(destinatario, assunto, mensagem);
             });
-            $('#bntFecharconfirmarEmail').on('click', function(){  
-                location.reload()
+    
+            $('#bntFecharconfirmarEmail').off('click').on('click', function() {  
+                location.reload();
             });
-        };
-    }
+        }
+    }    
 
     function corpoEmailClientesForaDoArFIBRA() {
-        var dataAtual = dataHoje()
+        var dataAtual = dataHoje();
         var localForaFIBRA = $('#local-clientes-fora-do-ar-FIBRA').val();
         var problemaForaFIBRA = $('#problema-clientes-fora-do-ar-FIBRA').val();
         var prioridadeForaFIBRA = $('#prioridade-clientes-fora-do-ar-FIBRA').text();
         var obsForaFIBRA = $('#observacoes-clientes-fora-do-ar-FIBRA').val();
-        var operadorForaFIBRA = $('#operador-clientes-fora-do-ar-FIBRA').val();
-        
-        if(localForaFIBRA == "" || problemaForaFIBRA == "" || prioridadeForaFIBRA == "Selecione uma opção" || obsForaFIBRA == "" || operadorForaFIBRA == ""){
+        var usuarioLogado = '';
+    
+        $.get('/api/username', function(response) {
+            usuarioLogado = response.username || 'NOC';
+        });
+    
+        if (!localForaFIBRA || !problemaForaFIBRA || prioridadeForaFIBRA === "Selecione uma opção" || !obsForaFIBRA) {
             $('#confirmarEmail').attr('hidden', true);
-            alert("Todos os campos precisam ser preenchidos!")
+            alert("Todos os campos precisam ser preenchidos!");
         } else {
             $('#confirmarEmail').attr('hidden', false);
+    
             let templateRowNomeEnviar = `
-            <div class="row">
-                <div class="col-sm-2" style="padding-inline-start: 2rem">
-                    <h5><b>Assunto:</b></h5>
+                <div class="row">
+                    <div class="col-sm-2" style="padding-inline-start: 2rem">
+                        <h5><b>Assunto:</b></h5>
+                    </div>
+                    <div class="col-sm-10">
+                        <h6>[FIBRA] [NOC] LOCAL FORA DO AR --> ${localForaFIBRA} - ${dataAtual}</h6>
+                    </div>
                 </div>
-                <div class="col-sm-10">
-                    <h6>[FRIBRA] [NOC] LOCAL FORA DO AR --> ${localForaFIBRA} - ${dataAtual} </h6>
+                <hr>
+                <div class="row" style="text-align: initial;">
+                    <div class="col-sm-3" style="padding-inline-start: 2rem">
+                        <h5>Local:</h5>
+                    </div>
+                    <div class="col-sm-9">
+                        <h6>${localForaFIBRA}</h6>
+                    </div>
                 </div>
-            </div>
-            <hr>
-            <div class="row" style="text-align: initial;">
-                <div class="col-sm-3" style="padding-inline-start: 2rem">
-                    <h5>Local:</h5>
+                <div class="row" style="text-align: initial;">
+                    <div class="col-sm-3" style="padding-inline-start: 2rem">
+                        <h5>Problema:</h5>
+                    </div>
+                    <div class="col-sm-9">
+                        <h6>${problemaForaFIBRA}</h6>
+                    </div>
                 </div>
-                <div class="col-sm-9">
-                    <h6>${localForaFIBRA}</h6>
+                <div class="row" style="text-align: initial;">
+                    <div class="col-sm-3" style="padding-inline-start: 2rem">
+                        <h5>Prioridade:</h5>
+                    </div>
+                    <div class="col-sm-9">
+                        <h6>${prioridadeForaFIBRA}</h6>
+                    </div>
                 </div>
-            </div>
-            <div class="row" style="text-align: initial;">
-                <div class="col-sm-3" style="padding-inline-start: 2rem">
-                    <h5>Problema:</h5>
+                <div class="row" style="text-align: initial;">
+                    <div class="col-sm-3" style="padding-inline-start: 2rem">
+                        <h5>Observações:</h5>
+                    </div>
+                    <div class="col-sm-9">
+                        <h6>${obsForaFIBRA}</h6>
+                    </div>
                 </div>
-                <div class="col-sm-9">
-                    <h6>${problemaForaFIBRA}</h6>
-                </div>
-            </div>
-            <div class="row" style="text-align: initial;">
-                <div class="col-sm-3" style="padding-inline-start: 2rem">
-                    <h5>Prioridade:</h5>
-                </div>
-                <div class="col-sm-9">
-                    <h6>${prioridadeForaFIBRA}</h6>
-                </div>
-            </div>
-            <div class="row" style="text-align: initial;">
-                <div class="col-sm-3" style="padding-inline-start: 2rem">
-                    <h5>Observações:</h5>
-                </div>
-                <div class="col-sm-9">
-                    <h6>${obsForaFIBRA}</h6>
-                </div>
-            </div>
-            <div class="row" style="text-align: initial;">
-                <div class="col-sm-3" style="padding-inline-start: 2rem">
-                    <h5>Operador:</h5>
-                </div>
-                <div class="col-sm-9">
-                    <h6>${operadorForaFIBRA}</h6>
-                </div>
-            </div>`
+            `;
             document.getElementById("rowNomeEnviar").innerHTML = templateRowNomeEnviar;
-
-            $('#confirmarEmail').on('click', function() {
-                var dataAtual = dataHoje()
-                var destinatario = 'noc@intervip.net.br, fibra@intervip.net.br'
+    
+            $('#confirmarEmail').off('click').on('click', function() {
+                var destinatario = 'guilherme.costa@intervip.net.br, joabe@intervip.net.br';
                 var assunto = `[FIBRA] [NOC] LOCAL FORA DO AR --> ${localForaFIBRA} - ${dataAtual}`;
-                var mensagem = `<p><strong>Local:</strong> ${localForaFIBRA} <br>
-                <p><strong>Problema:</strong> ${problemaForaFIBRA} <br>
-                <p><strong>Prioridade:</strong> ${prioridadeForaFIBRA} <br>
-                <p><strong>Observações:</strong> ${obsForaFIBRA} <br>
-                <p><strong>Operador:</strong> ${operadorForaFIBRA} <br>
-                `
+                var mensagem = `
+                    <p><strong>Local:</strong> ${localForaFIBRA}</p>
+                    <p><strong>Problema:</strong> ${problemaForaFIBRA}</p>
+                    <p><strong>Prioridade:</strong> ${prioridadeForaFIBRA}</p>
+                    <p><strong>Observações:</strong> ${obsForaFIBRA}</p>
+                    <p><strong>Operador:</strong> ${usuarioLogado}</p>
+                `;
                 enviarEmail(destinatario, assunto, mensagem);
-                //console.log(destinatario, assunto, mensagem);
             });
-            $('#bntFecharconfirmarEmail').on('click', function(){  
-                location.reload()
+    
+            $('#bntFecharconfirmarEmail').off('click').on('click', function() {  
+                location.reload();
             });
-        };
+        }
     }
     
     function corpoEmailRecolherEquipamentoPTC() {
@@ -414,9 +410,13 @@ $(function () {
         var motivoRecolherEquipamentoPTC = $('#motivo-recolher-equipamento-PTC').val();
         var snMacRecolherEquipamentoPTC = $('#sn-mac-recolher-equipamento-PTC').val();
         var prioridadeRecolherEquipamentoPTC = $('#prioridade-recolher-equipamento-PTC').text();
-        var operadorRecolherEquipamentoPTC = $('#operador-recolher-equipamento-PTC').val();
+        var usuarioLogado = '';
         
-        if(localRecolherEquipamentoPTC == "" || dispositivoRecolherEquipamentoPTC == "" || motivoRecolherEquipamentoPTC == "" || snMacRecolherEquipamentoPTC == "" || prioridadeRecolherEquipamentoPTC == "Selecione uma opção" || operadorRecolherEquipamentoPTC == ""){
+        $.get('/api/username', function(response) {
+            usuarioLogado = response.username || 'NOC';
+        });
+
+        if(localRecolherEquipamentoPTC == "" || dispositivoRecolherEquipamentoPTC == "" || motivoRecolherEquipamentoPTC == "" || snMacRecolherEquipamentoPTC == "" || prioridadeRecolherEquipamentoPTC == "Selecione uma opção"){
             $('#confirmarEmail').attr('hidden', true);
             alert("Todos os campos precisam ser preenchidos!")
         } else {
@@ -470,27 +470,19 @@ $(function () {
                 <div class="col-sm-9">
                     <h6>${prioridadeRecolherEquipamentoPTC}</h6>
                 </div>
-            </div>
-            <div class="row" style="text-align: initial;">
-                <div class="col-sm-3" style="padding-inline-start: 2rem">
-                    <h5>Operador:</h5>
-                </div>
-                <div class="col-sm-9">
-                    <h6>${operadorRecolherEquipamentoPTC}</h6>
-                </div>
-            </div>  `
+            </div>`
             document.getElementById("rowNomeEnviar").innerHTML = templateRowNomeEnviar;
 
             $('#confirmarEmail').on('click', function() {
                 var dataAtual = dataHoje()
-                var destinatario = 'noc@intervip.net.br, ptc@intervip.net.br'
+                var destinatario = 'guilherme.costa@intervip.net.br, gabriel.risso@intervip.net.br'
                 var assunto = `[PTC] [NOC] Recolher equipamento --> ${localRecolherEquipamentoPTC} - ${dataAtual} `;
                 var mensagem = `<p><strong>Local:</strong> ${localRecolherEquipamentoPTC} <br>
                 <p><strong>Dispositivo:</strong> ${dispositivoRecolherEquipamentoPTC} <br>
                 <p><strong>Motivo:</strong> ${motivoRecolherEquipamentoPTC} <br>
                 <p><strong>SN/MAC:</strong> ${snMacRecolherEquipamentoPTC} <br>
                 <p><strong>Prioridade:</strong> ${prioridadeRecolherEquipamentoPTC} <br>
-                <p><strong>Operador:</strong> ${operadorRecolherEquipamentoPTC} <br>
+                <p><strong>Operador:</strong> ${usuarioLogado} <br>
                 `
                 enviarEmail(destinatario, assunto, mensagem);
                 //console.log(destinatario, assunto, mensagem);
@@ -509,9 +501,14 @@ $(function () {
         var snMacRecolherEquipamentoFIBRA = $('#sn-mac-recolher-equipamento-FIBRA').val();
         var enderecoRecolherEquipamentoFIBRA = $('#endereco-recolher-equipamento-FIBRA').val();
         var prioridadeRecolherEquipamentoFIBRA = $('#prioridade-recolher-equipamento-FIBRA').text();
-        var operadorRecolherEquipamentoFIBRA = $('#operador-recolher-equipamento-FIBRA').val();
+        var usuarioLogado = '';
         
-        if(clienteRecolherEquipamentoFIBRA == "" || dispositivoRecolherEquipamentoFIBRA == "" || motivoRecolherEquipamentoFIBRA == "" || snMacRecolherEquipamentoFIBRA == "" || prioridadeRecolherEquipamentoFIBRA == "Selecione uma opção" || operadorRecolherEquipamentoFIBRA == ""){
+        $.get('/api/username', function(response) {
+            usuarioLogado = response.username || 'NOC';
+        });
+
+        
+        if(clienteRecolherEquipamentoFIBRA == "" || dispositivoRecolherEquipamentoFIBRA == "" || motivoRecolherEquipamentoFIBRA == "" || snMacRecolherEquipamentoFIBRA == "" || prioridadeRecolherEquipamentoFIBRA == "Selecione uma opção"){
             $('#confirmarEmail').attr('hidden', true);
             alert("Todos os campos precisam ser preenchidos!")
         } else {
@@ -573,20 +570,12 @@ $(function () {
                 <div class="col-sm-9">
                     <h6>${prioridadeRecolherEquipamentoFIBRA}</h6>
                 </div>
-            </div>
-            <div class="row" style="text-align: initial;">
-                <div class="col-sm-3" style="padding-inline-start: 2rem">
-                    <h5>Operador:</h5>
-                </div>
-                <div class="col-sm-9">
-                    <h6>${operadorRecolherEquipamentoFIBRA}</h6>
-                </div>
-            </div>  `
+            </div>`
             document.getElementById("rowNomeEnviar").innerHTML = templateRowNomeEnviar;
 
             $('#confirmarEmail').on('click', function() {
                 var dataAtual = dataHoje()
-                var destinatario = 'noc@intervip.net.br, fibra@intervip.net.br'
+                var destinatario = 'guilherme.costa@intervip.net.br, joabe@intervip.net.br'
                 var assunto = `[FIBRA] [NOC] Recolher equipamento --> ${clienteRecolherEquipamentoFIBRA} - ${dataAtual} `;
                 var mensagem = `<p><strong>Cliente:</strong> ${clienteRecolherEquipamentoFIBRA} <br>
                 <p><strong>Dispositivo:</strong> ${dispositivoRecolherEquipamentoFIBRA} <br>
@@ -594,7 +583,7 @@ $(function () {
                 <p><strong>SN/MAC:</strong> ${snMacRecolherEquipamentoFIBRA} <br>
                 <p><strong>Endereço:</strong> ${enderecoRecolherEquipamentoFIBRA} <br>
                 <p><strong>Prioridade:</strong> ${prioridadeRecolherEquipamentoFIBRA} <br>
-                <p><strong>Operador:</strong> ${operadorRecolherEquipamentoFIBRA} <br>
+                <p><strong>Operador:</strong> ${usuarioLogado} <br>
                 `
                 enviarEmail(destinatario, assunto, mensagem);
                 //console.log(destinatario, assunto, mensagem);
@@ -604,137 +593,6 @@ $(function () {
             });
         };
     }
-      
-    /*function corpoEmailSolicitacaoDePortabilidade() {
-        var linhaPortabilidade = $('#linha-portabilidade').val();
-        var nomePortabilidade = $('#nome-portabilidade').val();
-        var cpfCnpjPortabilidade = $('#cpf-cnpj-portabilidade').val();
-        var enderecoPortabilidade = $('#endereco-portabilidade').val();
-        var cepPortabilidade = $('#CEP-portabilidade').val();
-        var operadorPortabilidade = $('#operador-portabilidade').val();
-        
-        if(linhaPortabilidade == "" || nomePortabilidade == "" || cpfCnpjPortabilidade == "" || enderecoPortabilidade == "" || cepPortabilidade == "" || operadorPortabilidade == ""){
-            $('#confirmarEmail').attr('hidden', true);
-            alert("Todos os campos precisam ser preenchidos!")
-        } else {
-            $('#confirmarEmail').attr('hidden', false);
-            let templateRowNomeEnviar = `
-            <div class="row">
-                <div class="col-sm-2" style="padding-inline-start: 2rem">
-                    <h5><b>Assunto:</b></h5>
-                </div>
-                <div class="col-sm-10">
-                    <h6>SOLICITAÇÃO DE PORTABILIDADE TN: ${linhaPortabilidade} </h6>
-                </div>
-            </div>
-            <hr>
-            <div class="row" style="text-align: initial;">
-                <div class="col-sm-3" style="padding-inline-start: 2rem">
-                    <h5>Linha:</h5>
-                </div>
-                <div class="col-sm-9">
-                    <h6>${linhaPortabilidade}</h6>
-                </div>
-            </div>
-            <div class="row" style="text-align: initial;">
-                <div class="col-sm-3" style="padding-inline-start: 2rem">
-                    <h5>Nome:</h5>
-                </div>
-                <div class="col-sm-9">
-                    <h6>${nomePortabilidade}</h6>
-                </div>
-            </div>
-            <div class="row" style="text-align: initial;">
-                <div class="col-sm-3" style="padding-inline-start: 2rem">
-                    <h5>CPF/CNPJ:</h5>
-                </div>
-                <div class="col-sm-9">
-                    <h6>${cpfCnpjPortabilidade}</h6>
-                </div>
-            </div>
-            <div class="row" style="text-align: initial;">
-                <div class="col-sm-3" style="padding-inline-start: 2rem">
-                    <h5>Endereço:</h5>
-                </div>
-                <div class="col-sm-9">
-                    <h6>${enderecoPortabilidade}</h6>
-                </div>
-            </div>
-            <div class="row" style="text-align: initial;">
-                <div class="col-sm-3" style="padding-inline-start: 2rem">
-                    <h5>CEP:</h5>
-                </div>
-                <div class="col-sm-9">
-                    <h6>${cepPortabilidade}</h6>
-                </div>
-            </div>
-            <div class="row" style="text-align: initial;">
-                <div class="col-sm-3" style="padding-inline-start: 2rem">
-                    <h5>Operador:</h5>
-                </div>
-                <div class="col-sm-9">
-                    <h6>${operadorPortabilidade}</h6>
-                </div>
-            </div>  
-            `
-            document.getElementById("rowNomeEnviar").innerHTML = templateRowNomeEnviar;
-
-            $('#confirmarEmail').on('click', function() {
-                var destinatario = 'guilherme.costa@intervip.net.br'
-                var assunto = `SOLICITAÇÃO DE PORTABILIDADE TN: ${linhaPortabilidade}`;
-                var mensagem = `<p><strong>Linha:</strong> ${linhaPortabilidade} <br>
-                <p><strong>Nome do cliente:</strong> ${nomePortabilidade} <br>
-                <p><strong>CPF / CNPJ:</strong> ${cpfCnpjPortabilidade} <br>
-                <p><strong>Endereço:</strong> ${enderecoPortabilidade} <br>
-                <p><strong>CEP:</strong> ${cepPortabilidade} <br>
-                <br>
-                <p>Atenciosamente,<br>
-                <p>${operadorPortabilidade} - NOC Intervip.
-                `
-                var anexoName = "Arquivo cliente";
-                var anexoFile = $('#anexo').val();
-
-                const enviarEmailPortabilidade = async (destinatario, assunto, mensagem, anexoName, anexoFile) => {
-                  var destinatario;
-                  var assunto;
-                  var mensagem;
-                  var anexoName;
-                  var anexoFile;
-                  
-                  try {
-                    const formData = new FormData();
-                    formData.append('para', destinatario);
-                    formData.append('assunto', assunto);
-                    formData.append('mensagem', mensagem);
-                    formData.append('anexoName', anexoName);
-                    formData.append('anexoFile', anexoFile);
-                    //formData.append('anexo', anexoInput.files[0]); // Adiciona o arquivo anexo ao FormData
-              
-                    const resposta = await fetch('/api/email/enviar-email', {
-                      method: 'POST',
-                      body: formData,
-                    });
-              
-                    const dadosResposta = await resposta.json();
-              
-                    if (resposta.ok) {
-                      alert(dadosResposta.message);
-                    } else {
-                      alert(`Erro ao enviar o e-mail: ${dadosResposta.error}`);
-                    }
-                  } catch (erro) {
-                    console.error(`Erro ao enviar o e-mail: ${erro.message}`);
-                  }
-                };
-
-                enviarEmailPortabilidade(destinatario, assunto, mensagem, anexoName, anexoFile);
-                //console.log(destinatario, assunto, mensagem, anexoName, anexoFile);
-            });
-            $('#bntFecharconfirmarEmail').on('click', function(){  
-                location.reload()
-            });
-        };
-    }*/
 
     $('#bntEnviar').on('click', function() {
         var dropdownSelecionado = $('#selecaoDropdown').text()
@@ -749,9 +607,6 @@ $(function () {
         }
         if (dropdownSelecionado == "Recolher equipamento - Fibra") {
             corpoEmailRecolherEquipamentoFIBRA();
-        }/*
-        if (dropdownSelecionado == "Solicitação de portabilidade") {
-            corpoEmailSolicitacaoDePortabilidade();
-        }*/
+        }
     });
 });

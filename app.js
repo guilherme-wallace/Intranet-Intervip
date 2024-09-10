@@ -64,7 +64,7 @@ APP.post('/login', function (req, res) {
                 if (userGroup && userGroup[1]) {
                     //console.log("Regex: ", userGroup[1]);
                     if (userGroup[1] === 'Helpdesk') {
-                        userGroup[1] = 'Atendimento';
+                        userGroup[1] = 'CRI';
                     }
                     // Salvar o grupo do usuário na sessão
                     req.session.group = userGroup[1];
