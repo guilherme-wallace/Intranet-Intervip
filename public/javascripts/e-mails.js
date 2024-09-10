@@ -303,7 +303,7 @@ $(function () {
             document.getElementById("rowNomeEnviar").innerHTML = templateRowNomeEnviar;
     
             $('#confirmarEmail').off('click').on('click', function() {
-                var destinatario = 'guilherme.costa@intervip.net.br, gabriel@intervip.net.br';
+                var destinatario = 'noc@intervip.net.br, ptc@intervip.net.br';
                 var assunto = `[PTC] [NOC] LOCAL FORA DO AR --> ${localForaPTC} - ${dataAtual}`;
                 var mensagem = `
                     <p><strong>Local:</strong> ${localForaPTC}</p>
@@ -385,7 +385,7 @@ $(function () {
             document.getElementById("rowNomeEnviar").innerHTML = templateRowNomeEnviar;
     
             $('#confirmarEmail').off('click').on('click', function() {
-                var destinatario = 'guilherme.costa@intervip.net.br, joabe@intervip.net.br';
+                var destinatario = 'noc@intervip.net.br, fibra@intervip.net.br';
                 var assunto = `[FIBRA] [NOC] LOCAL FORA DO AR --> ${localForaFIBRA} - ${dataAtual}`;
                 var mensagem = `
                     <p><strong>Local:</strong> ${localForaFIBRA}</p>
@@ -475,7 +475,7 @@ $(function () {
 
             $('#confirmarEmail').on('click', function() {
                 var dataAtual = dataHoje()
-                var destinatario = 'guilherme.costa@intervip.net.br, gabriel.risso@intervip.net.br'
+                var destinatario = 'noc@intervip.net.br, ptc@intervip.net.br'
                 var assunto = `[PTC] [NOC] Recolher equipamento --> ${localRecolherEquipamentoPTC} - ${dataAtual} `;
                 var mensagem = `<p><strong>Local:</strong> ${localRecolherEquipamentoPTC} <br>
                 <p><strong>Dispositivo:</strong> ${dispositivoRecolherEquipamentoPTC} <br>
@@ -575,7 +575,7 @@ $(function () {
 
             $('#confirmarEmail').on('click', function() {
                 var dataAtual = dataHoje()
-                var destinatario = 'guilherme.costa@intervip.net.br, joabe@intervip.net.br'
+                var destinatario = 'noc@intervip.net.br, fibra@intervip.net.br'
                 var assunto = `[FIBRA] [NOC] Recolher equipamento --> ${clienteRecolherEquipamentoFIBRA} - ${dataAtual} `;
                 var mensagem = `<p><strong>Cliente:</strong> ${clienteRecolherEquipamentoFIBRA} <br>
                 <p><strong>Dispositivo:</strong> ${dispositivoRecolherEquipamentoFIBRA} <br>

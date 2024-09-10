@@ -158,6 +158,11 @@
 					const group = data.group || 'Sem grupo';
 					document.querySelector('.show-username').textContent = `Acessando como: ${username}`;
 					document.querySelector('.show-group').textContent = `Setor: ${group}`;
+
+					if (username == 'Visitante') {
+						alert(`Será necessário refazer o login!`);
+						window.location = "/";
+					}
 	
 					// Se o grupo não for 'NOC' ou 'Logistica', desabilitar os botões
 					if (group !== 'NOC' && group !== 'Logistica') {
