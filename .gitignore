@@ -6,4 +6,5 @@ src/configs/configs.ts
 src/configs/configs.js
 logs/access.log
 *.log
+
 node_modules
