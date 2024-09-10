@@ -34,23 +34,6 @@ APP.use(session({
     cookie: { secure: false } // Definir true se estiver usando HTTPS
 }));
 
-/*
-// Middleware para processar o corpo da requisição
-APP.use(express.json());
-APP.use(express.urlencoded({ extended: true }));
-
-// Rota de login
-APP.post('/login', (req, res) => {
-    const { username, password } = req.body;
-
-    // Aqui você pode adicionar a lógica de verificação real, como consultar um banco de dados
-    if (username === 'admin' && password === 'intervipwifi') {
-        res.json({ success: true });
-    } else {
-        res.json({ success: false });
-    }
-});
-*/
 // Configurações do Active Directory
 const config = {
     url: config_login.url,  // IP do servidor AD
@@ -82,7 +65,7 @@ APP.post('/login', (req, res) => {
             console.log('Usuário autenticado com sucesso');
             
             // Salve o nome de usuário na sessão
-            req.session.username = username;  // Isso agora deve ser reconhecido
+            req.session.username = username;
 
             res.json({ success: true });
         } else {
