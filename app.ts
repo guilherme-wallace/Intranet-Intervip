@@ -7,6 +7,10 @@ import ROUTES from './routes/index';
 import API from './routes/api/index';
 import emailRoutes from './src/routes/emailRoutes';
 
+import express = require('express');
+import bodyParser = require('body-parser');
+import ActiveDirectory = require('activedirectory2');
+
 interface HttpError extends Error {
 	status?: number;
 }
@@ -18,6 +22,63 @@ require('express-file-logger')(APP, {
 	fileName: 'access.log',
 	showOnConsole: false
 });
+
+/*
+// Middleware para processar o corpo da requisição
+APP.use(express.json());
+APP.use(express.urlencoded({ extended: true }));
+
+// Rota de login
+APP.post('/login', (req, res) => {
+    const { username, password } = req.body;
+
+    // Aqui você pode adicionar a lógica de verificação real, como consultar um banco de dados
+    if (username === 'admin' && password === 'intervipwifi') {
+        res.json({ success: true });
+    } else {
+        res.json({ success: false });
+    }
+});
+*/
+// Configurações do Active Directory
+const config = {
+    url: 'ldap://10.254.1.12',  // IP do servidor AD
+	baseDN: 'dc=ivp,dc=net,dc=br',
+    username: 'administrator', // Conta de administrador ou de serviço
+    password: '4c*@DCrb23'      // Senha do administrador
+};
+
+// Criar instância do Active Directory
+const ad = new ActiveDirectory(config);
+
+APP.use(bodyParser.json());
+APP.use(bodyParser.urlencoded({ extended: true }));
+
+// Endpoint de login
+APP.post('/login', (req, res) => {
+    const { username, password } = req.body;
+    
+    // Formatar o nome de usuário para o formato UPN (User Principal Name)
+    const userPrincipalName = `${username}@ivp.net.br`; // domínio
+    
+    // Autenticar o usuário com o AD
+	ad.authenticate(userPrincipalName, password, (err, auth) => {
+		if (err) {
+			console.error('Erro de autenticação:', err);
+			console.error('Detalhes do erro:', err.lde_message);
+			return res.json({ success: false, message: 'Erro de autenticação' });
+		}
+        
+        if (auth) {
+            console.log('Usuário autenticado com sucesso');
+            res.json({ success: true });
+        } else {
+            console.log('Falha na autenticação');
+            res.json({ success: false, message: 'Credenciais inválidas' });
+        }
+    });
+});
+
 
 // view engine setup
 APP.set('views', Path.join(__dirname, 'views'));

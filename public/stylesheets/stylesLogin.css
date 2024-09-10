@@ -1,155 +1,66 @@
-/*body {
+/* Estilos gerais para o corpo */
+.login-body {
     font-family: Arial, sans-serif;
-    background-color: #f4f4f4;
-    margin: 0;
-    padding: 0;
+    background-image: url("../images/background.webp");
+    background-size: cover;
+    /*width: 100%;*/
+    height: 100vh;
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
 }
 
-.login-container {
-    background-color: #fff;
-    padding: 50px;
-    border-radius: 5px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-}
-
-.form-group {
-    margin-bottom: 10px;
-}
-
-label {
-    display: block;
-    margin-bottom: 5px;
-}
-
-input[type="text"],
-input[type="password"] {
-    width: 100%;
-    padding: 8px;
-    border-radius: 3px;
-    border: 1px solid #ccc;
-}
-
-button {
-    background-color: #007bff;
-    color: #fff;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 3px;
-    cursor: pointer;
-}
-
-button:hover {
-    background-color: #0056b3;
-}
-
-.error-message {
-    color: #ff0000;
-    margin-top: 10px;
-}
-*/
-.login-body {
-    font-family: Arial, sans-serif;
-   /*background: #191919;
-    background-color: #f4f4f4;*/
-    background-image: url("../images/background.webp");
-    width: 100%;
-    height: 100%;
-    background-size: contain;
-    background-size: cover;
-}
+/* Estilos da caixa de login */
 .boxLogin {
     width: 300px;
-    padding: 30px;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+    padding: 2%;
     text-align: center;
     background-image: linear-gradient(to bottom right, rgba(0, 61, 112, 0.5), rgba(0, 61, 112, 1));
     border-radius: 0.5em;
-    border:inset;
-    /*border-color: whitesmoke;*/
-    border-color: #191919;
-    border-width: 2px;
+    border: inset 2px #191919;
+    position: relative;
 }
-.boxLogin h1 {
-    color: whitesmoke;
-    text-transform: uppercase;
-    font-weight: 500;
-}
+
 .boxLogin h3 {
     color: lightsteelblue;
-    margin: 25px 0 10 0;
+    margin-bottom: 10px;
 }
-.boxLogin input[type = "text"],.boxLogin input[type = "password"] {
-    border: 0;
-    background: #f4f4f4;
+
+.boxLogin input[type="text"], 
+.boxLogin input[type="password"] {
+    width: 92%;
+    padding: 10px;
     margin: 10px 0;
     text-align: center;
     border: 2px solid rgb(226, 185, 69);
-    padding: 8px 0;
-    width: calc(100% - 4px);
-    outline: none;
-    color: 191919;
     border-radius: 0.5em;
-    transition: 0.25s;
-}
-.boxLogin ::placeholder {
-    color: white;
-}
-.boxLogin input[type = "text"]:focus,.boxLogin input[type = "password"]:focus {
-    width: 280px;
-    border-color: rgb(226, 185, 69);
-}
-.boxLogin input[type = "submit"] {
-    border: 0;
-    background: none;
-    margin: 20px 20px 0px 20px;
-    text-align: center;
-    border: 2px solid rgb(226, 185, 69);
-    padding: 8px 40px;
     outline: none;
-    color: white;
-    border-radius: 0.5em;
-    transition: 0.25s;
-    cursor: pointer;
-}
-.boxLogin input[type = "submit"]:hover {
-    background: rgb(226, 185, 69);
+    transition: border-color 0.25s;
 }
 
-/*--------*/
-
-label {
-    display: block;
-    margin-bottom: 5px;
+.boxLogin input[type="text"]:focus, 
+.boxLogin input[type="password"]:focus {
+    border-color: #ffda44;
 }
 
-input[type="text"],
-input[type="password"] {
+.boxLogin button {
     width: 100%;
-    padding: 8px;
-    border-radius: 3px;
-    border: 1px solid #ccc;
-}
-
-button {
-    background-color: #007bff;
-    color: #fff;
+    padding: 10px;
+    margin-top: 20px;
     border: none;
-    padding: 10px 20px;
-    border-radius: 3px;
+    background-color: rgb(226, 185, 69);
+    color: white;
+    border-radius: 0.5em;
     cursor: pointer;
+    transition: background-color 0.25s;
 }
 
-button:hover {
-    background-color: #0056b3;
+.boxLogin button:hover {
+    background-color: rgb(255, 193, 7);
 }
+
 .error-message {
     color: #ff0000;
     margin-top: 10px;
+    display: none; /* Oculto por padrão */
 }

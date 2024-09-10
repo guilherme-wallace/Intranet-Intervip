@@ -1,18 +1,34 @@
 $(document).ready(function() {
     $('#login-form').submit(function(event) {
-        event.preventDefault();
+        event.preventDefault();  // Evita o envio padrão do formulário
 
-        var username = $('#username').val();
-        var password = $('#password').val();
+        var username = $('#username').val().trim();
+        var password = $('#password').val().trim();
 
-        // Aqui você pode adicionar a lógica para verificar o login no servidor Node.js
-
-        // Exemplo simples de verificação (não seguro)
-        if (password === 'intervipwifi') {
-            // Simulação de redirecionamento após o login bem-sucedido
-            window.location.href = 'main';
-        } else {
-            $('#error-message').text('Credenciais inválidas. Tente novamente.');
+        if (!username || !password) {
+            $('#error-message').text('Por favor, preencha ambos os campos.').show();
+            return;
         }
+
+        // Enviar os dados para o backend (autenticação via AD)
+        $.ajax({
+            url: '/login',
+            method: 'POST',
+            data: {
+                username: username,
+                password: password
+            },
+            success: function(response) {
+                if (response.success) {
+                    window.location.href = 'main';  // Redireciona para a página principal
+                } else {
+                    $('#error-message').text(response.message).show();
+                }
+            },
+            error: function() {
+                $('#error-message').text('Erro no servidor. Tente novamente.').show();
+            }
+        });
     });
 });
+

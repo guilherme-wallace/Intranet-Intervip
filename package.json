@@ -1,6 +1,6 @@
 {
-  "name": "consulta-de-planos-app",
-  "version": "2.1.9",
+  "name": "intranet-intervip",
+  "version": "3.0.1",
   "private": true,
   "scripts": {
     "build": "tsc --build",
@@ -14,9 +14,11 @@
   "main": "app.js",
   "dependencies": {
     "@types/node": "^20.10.3",
+    "activedirectory": "^0.7.2",
+    "activedirectory2": "^2.2.0",
     "body-parser": "^1.20.2",
     "commonjs": "^0.0.1",
-    "express": "^4.18.2",
+    "express": "^4.19.2",
     "express-file-logger": "^1.0.4",
     "fix-esm": "^1.0.1",
     "got": "^12.5.2",
@@ -24,7 +26,7 @@
     "node-fetch": "^2.6.7",
     "nodemailer": "^6.9.7",
     "nodemon": "^3.0.1",
-    "react-scripts": "^5.0.1",
+    "react-scripts": "^3.0.1",
     "request": "^2.88.2",
     "serve-favicon": "^2.5.0",
     "swagger-ui-express": "^4.1.6",
