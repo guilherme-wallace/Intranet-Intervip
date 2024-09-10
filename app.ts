@@ -10,6 +10,9 @@ import emailRoutes from './src/routes/emailRoutes';
 import express = require('express');
 import bodyParser = require('body-parser');
 import ActiveDirectory = require('activedirectory2');
+import * as session from 'express-session';
+import { config_login } from './src/configs/loginConfig';
+
 
 interface HttpError extends Error {
 	status?: number;
@@ -22,6 +25,14 @@ require('express-file-logger')(APP, {
 	fileName: 'access.log',
 	showOnConsole: false
 });
+
+
+APP.use(session({
+    secret: 'your-secret-key',
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: false } // Definir true se estiver usando HTTPS
+}));
 
 /*
 // Middleware para processar o corpo da requisição
@@ -42,10 +53,10 @@ APP.post('/login', (req, res) => {
 */
 // Configurações do Active Directory
 const config = {
-    url: 'ldap://10.254.1.12',  // IP do servidor AD
-	baseDN: 'OU=Intervip,DC=ivp,DC=net,DC=br',
-    username: 'administrator@ivp.net.br', // Conta de administrador ou de serviço
-    password: '4c*@DCrb23'      // Senha do administrador
+    url: config_login.url,  // IP do servidor AD
+	baseDN: config_login.baseDN,
+    username: config_login.username, // Conta de administrador ou de serviço
+    password: config_login.password     // Senha do administrador
 };
 
 // Criar instância do Active Directory
@@ -57,20 +68,22 @@ APP.use(bodyParser.urlencoded({ extended: true }));
 // Endpoint de login
 APP.post('/login', (req, res) => {
     const { username, password } = req.body;
-    
-    // Formatar o nome de usuário para o formato UPN (User Principal Name)
+
     const userPrincipalName = `${username}@ivp.net.br`; // domínio
-    
-    // Autenticar o usuário com o AD
-	ad.authenticate(userPrincipalName, password, (err, auth) => {
-		if (err) {
-			console.error('Erro de autenticação:', err);
-			console.error('Detalhes do erro:', err.lde_message);
-			return res.json({ success: false, message: 'Erro de autenticação' });
-		}
-        
+
+    ad.authenticate(userPrincipalName, password, (err, auth) => {
+        if (err) {
+            console.error('Erro de autenticação:', err);
+            console.error('Detalhes do erro:', err.lde_message);
+            return res.json({ success: false, message: 'Erro de autenticação' });
+        }
+
         if (auth) {
             console.log('Usuário autenticado com sucesso');
+            
+            // Salve o nome de usuário na sessão
+            req.session.username = username;  // Isso agora deve ser reconhecido
+
             res.json({ success: true });
         } else {
             console.log('Falha na autenticação');
@@ -78,6 +91,12 @@ APP.post('/login', (req, res) => {
         }
     });
 });
+
+APP.get('/api/username', (req, res) => {
+    const username = req.session.username || 'Visitante';
+    res.json({ username });
+});
+
 
 
 // view engine setup

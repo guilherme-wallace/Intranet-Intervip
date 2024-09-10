@@ -13,6 +13,7 @@
   },
   "main": "app.js",
   "dependencies": {
+    "@types/express-session": "^1.18.0",
     "@types/node": "^20.10.3",
     "activedirectory": "^0.7.2",
     "activedirectory2": "^2.2.0",
@@ -20,6 +21,7 @@
     "commonjs": "^0.0.1",
     "express": "^4.19.2",
     "express-file-logger": "^1.0.4",
+    "express-session": "^1.18.0",
     "fix-esm": "^1.0.1",
     "got": "^12.5.2",
     "mysql": "^2.18.1",

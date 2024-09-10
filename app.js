@@ -8,12 +8,20 @@ var index_2 = require("./routes/api/index");
 var emailRoutes_1 = require("./src/routes/emailRoutes");
 var bodyParser = require("body-parser");
 var ActiveDirectory = require("activedirectory2");
+var session = require("express-session");
+var loginConfig_1 = require("./src/configs/loginConfig");
 var APP = Express();
 require('express-file-logger')(APP, {
     basePath: 'logs',
     fileName: 'access.log',
     showOnConsole: false
 });
+APP.use(session({
+    secret: 'your-secret-key',
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: false } // Definir true se estiver usando HTTPS
+}));
 /*
 // Middleware para processar o corpo da requisição
 APP.use(express.json());
@@ -33,10 +41,10 @@ APP.post('/login', (req, res) => {
 */
 // Configurações do Active Directory
 var config = {
-    url: 'ldap://10.254.1.12',
-    baseDN: 'OU=Intervip,DC=ivp,DC=net,DC=br',
-    username: 'administrator@ivp.net.br',
-    password: '4c*@DCrb23' // Senha do administrador
+    url: loginConfig_1.config_login.url,
+    baseDN: loginConfig_1.config_login.baseDN,
+    username: loginConfig_1.config_login.username,
+    password: loginConfig_1.config_login.password // Senha do administrador
 };
 // Criar instância do Active Directory
 var ad = new ActiveDirectory(config);
@@ -45,9 +53,7 @@ APP.use(bodyParser.urlencoded({ extended: true }));
 // Endpoint de login
 APP.post('/login', function (req, res) {
     var _a = req.body, username = _a.username, password = _a.password;
-    // Formatar o nome de usuário para o formato UPN (User Principal Name)
     var userPrincipalName = "".concat(username, "@ivp.net.br"); // domínio
-    // Autenticar o usuário com o AD
     ad.authenticate(userPrincipalName, password, function (err, auth) {
         if (err) {
             console.error('Erro de autenticação:', err);
@@ -56,6 +62,8 @@ APP.post('/login', function (req, res) {
         }
         if (auth) {
             console.log('Usuário autenticado com sucesso');
+            // Salve o nome de usuário na sessão
+            req.session.username = username; // Isso agora deve ser reconhecido
             res.json({ success: true });
         }
         else {
@@ -63,6 +71,10 @@ APP.post('/login', function (req, res) {
             res.json({ success: false, message: 'Credenciais inválidas' });
         }
     });
+});
+APP.get('/api/username', function (req, res) {
+    var username = req.session.username || 'Visitante';
+    res.json({ username: username });
 });
 // view engine setup
 APP.set('views', Path.join(__dirname, 'views'));

@@ -22,11 +22,18 @@
 				<div class="col-sm-2 col-md-3 logo-wrapper">
 					<a href="/main"><img class="logo" src="images/logo.png" alt="Logo Intervip"></a>
 				</div>
-				<div class="col-sm-8 col-md-6" id="cabecalho">
+				<div class="col-sm-6 col-md-6" id="cabecalho">
 					<h2>Intervip - Gerência de Redes</h2>
 				</div>
 				<div class="col-sm-2 col-md-3" style="text-align: end; align-content: center;">
-					<button id="theme-toggle" class="btn btn-secondary">Tema</button>
+					<div class="row">
+						<div class="col-md-9" style="align-content: center;">
+							<h6>Acessando como: <%= user %></h6>
+						</div>
+						<div class="col-md-3">
+							<button id="theme-toggle" class="btn btn-secondary">Tema</button>
+						</div>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -141,8 +148,19 @@
 				localStorage.setItem('theme', 'light');
 			}
 		});
-	</script>
-	
+		
+		document.addEventListener('DOMContentLoaded', function() {
+			fetch('/api/username')
+				.then(response => response.json())
+				.then(data => {
+					const username = data.username || 'Visitante';
+					document.querySelector('h6').textContent = `Bem vindo ${username}`;
+				})
+				.catch(error => {
+					console.error('Erro ao obter o nome do usuário:', error);
+				});
+		});
+	</script>	
 </body>
 
 </html>
