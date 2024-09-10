@@ -7,5 +7,5 @@ Consulta todos os clientes ativos de um determinado condomínio/prédio, mostran
 ## Teste de lentidão
 Formulário para padronizar e organizar chamados de lentidão gerados pela central de relacinamento.
 
-## Teste de lentidão
+## Cadastro de blocos
 Permite cadastrar no banco de dados, os blocos dos condomínios e alterar suas caracteristicas. 
