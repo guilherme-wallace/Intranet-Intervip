@@ -157,3 +157,14 @@ body.dark-mode {
 .dark-mode .form-darkmode {
     background-color: #5a5a5a ; /* Cor de fundo geral */
 }
+
+.dark-mode hr {
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    border: 0;
+    border-top: 1px solid rgb(0, 0, 0);
+}
+
+.dark-mode .modal-content {
+    background-color: #5a5a5a ; /* Cor de fundo geral */
+}
