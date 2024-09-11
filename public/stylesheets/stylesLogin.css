@@ -1,9 +1,64 @@
+* {
+    margin: 0;
+    padding: 0;
+    font-family: 'Lato', sans-serif;
+}
+
+html, body {
+    height: 100%;
+    background-color: #cdd3d8;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+main {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+/* Responsividade */
+@media (max-width: 992px) {
+    .container {
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 575px) {
+    .logo-wrapper {
+        text-align: center;
+    }
+
+    header #cabecalho h2 {
+        margin-bottom: 5px;
+    }
+}
+
+/*-----###Footer###-----*/
+footer {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 1em;
+    padding: 1rem 0;
+    text-align: center;
+    width: 100%;
+    background-color: #191919;
+    position: fixed;
+    bottom: 0;
+}
+
 /* Estilos gerais para o corpo */
 .login-body {
     font-family: Arial, sans-serif;
     background-image: url("../images/background.webp");
     background-size: cover;
-    /*width: 100%;*/
     height: 100vh;
     display: flex;
     justify-content: center;
@@ -18,7 +73,6 @@
     background-image: linear-gradient(to bottom right, rgba(0, 61, 112, 0.5), rgba(0, 61, 112, 1));
     border-radius: 0.5em;
     border: inset 2px #191919;
-    position: relative;
 }
 
 .boxLogin h3 {

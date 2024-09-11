@@ -44,10 +44,10 @@
 		</div>
 	</header>
 	<main>
-		<div class="container-fluid">
+		<div class="dark-container container-fluid">
 			<div class="container">
 				<form action="javascript:void(0);" id="main-form">
-					<div class="card border border-dark bg-light">
+					<div class="plan-color card border border-dark bg-light">
 						<div class="card-body">
 							<div class="input-group">
 								<label for="input-condo" class="form-label d-block w-100">
@@ -58,9 +58,9 @@
 							</div>
 						</div>
 						<section class="row">
-							<div class="col-md-6">
+							<div class="plan-color col-md-6">
 								<h3 class="planos-title">Informações do condomínio</h3>
-								<table id="tbl-informacoes" class="table table-hover">
+								<table id="tbl-informacoes" class="table table-hover plan-color-table">
 									<thead class="thead-dark">
 										<tr>
 											<th></th>
@@ -89,9 +89,11 @@
 											<th scope="row">Bairro:</th>
 											<td id="dados-condo-bairro"></td>
 										</tr-->
-										<th class="table-primary" hidden>
-											<th id="coluna-temporaria" scope="row">Favor informar o prédio primeiro</th>
-										</th>
+										<tr>
+											<th class="table-primary" hidden>
+												<th id="coluna-temporaria" scope="row">Favor informar o prédio primeiro</th>
+											</th>
+										</tr>
 										<tr id="linha-blocos" class="table-primary" hidden>
 											<th scope="row">Bloco/Torre:</th>
 											<td>
@@ -161,9 +163,9 @@
 									</thead>
 								</table>
 							</div>
-							<div class="col-md-6">
+							<div class="plan-color col-md-6">
 								<h3 class="planos-title">Planos Disponíveis</h3>
-								<table id="tbl-planos" class="table table-hover">
+								<table id="tbl-planos" class="table table-hover plan-color-table">
 									<thead class="thead-dark">
 										<tr>
 											<th>Estrutura do Prédio:</th>
@@ -189,7 +191,6 @@
 										style="margin-right:-75%;">Limpar</a></h3>
 							</div>
 						</section>
-						<br><br><br><br><br>
 					</div>
 				</form>
 			</div>
@@ -200,7 +201,7 @@
 			<div class="row">
 				<div class="col-md-12 align-items-center" style="font-size: 12px; text-align: center;">
 					<a href="../"><img class="logo" src="images/logo.png"></a>
-					<p>© 2021 Gerencia Intervip | Densenvolvido por <a>Guilherme Wallace</a>. Todos os direitos reservados a
+					<p>© 2021 Gerencia Intervip | Densenvolvido por <a href="https://github.com/gwallace-pontes" target="_blank">Guilherme Wallace</a>. Todos os direitos reservados a
 						Intervip.</p>
 				</div>
 			</div>

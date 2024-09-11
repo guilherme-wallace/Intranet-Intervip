@@ -126,3 +126,34 @@ body.dark-mode {
     color: #f0f0f0;
     border: none;
 }
+.dark-mode tr {
+    background-color: #2e3b46; /* Cor de fundo das seções */
+    color: #f0f0f0; /* Texto mais claro */
+}
+.dark-mode th {
+    background-color: #2e3b46; /* Cor de fundo das seções */
+    color: #f0f0f0; /* Texto mais claro */
+}
+
+.dark-mode td {
+    background-color: #2e3b46; /* Cor de fundo das seções */
+    color: #f0f0f0; /* Texto mais claro */
+}
+
+.dark-mode .plan-color {
+    background-color: #5a5a5a; /* Cor de fundo das seções */
+    color: #f0f0f0; /* Texto mais claro */
+}
+
+.dark-mode .plan-color-table {
+    background-color: #2e3b46; /* Cor de fundo das seções */
+    color: #f0f0f0; /* Texto mais claro */
+}
+
+.dark-mode .dark-container {
+    background-color: rgb(57, 62, 66); /* Cor de fundo geral */
+}
+
+.dark-mode .form-darkmode {
+    background-color: #5a5a5a ; /* Cor de fundo geral */
+}
