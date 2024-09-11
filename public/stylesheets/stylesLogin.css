@@ -1,7 +1,7 @@
 * {
     margin: 0;
     padding: 0;
-    font-family: 'Lato', sans-serif;
+    font-family: Arial, 'Lato', sans-serif;
 }
 
 html, body {
@@ -77,13 +77,14 @@ footer {
 
 .boxLogin h3 {
     color: lightsteelblue;
-    margin-bottom: 10px;
+    font-size: 1.5rem;
+    margin-bottom: 0;
 }
 
 .boxLogin input[type="text"], 
 .boxLogin input[type="password"] {
     width: 92%;
-    padding: 10px;
+    padding: 6px;
     margin: 10px 0;
     text-align: center;
     border: 2px solid rgb(226, 185, 69);
@@ -95,6 +96,8 @@ footer {
 .boxLogin input[type="text"]:focus, 
 .boxLogin input[type="password"]:focus {
     border-color: #ffda44;
+    width: 98%;
+    padding: 10px;
 }
 
 .boxLogin button {
