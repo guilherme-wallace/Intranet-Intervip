@@ -1,7 +1,6 @@
 api/database.ts
 api/database.js
-api/v4/radius.ts
-api/v4/radius.js
+/api/v4
 *.log
 /node_modules
 /src/configs
