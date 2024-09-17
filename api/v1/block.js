@@ -36,7 +36,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getStructures = exports.deleteBlocks = exports.postBlocks = exports.getBlocks = exports.getTypes = void 0;
+exports.putBlock = exports.getStructures = exports.deleteBlocks = exports.postBlocks = exports.getBlocks = exports.getTypes = void 0;
 var MySQLErrors_1 = require("../../errors/MySQLErrors");
 var mysql_1 = require("mysql");
 function getTypes(MySQL) {
@@ -126,3 +126,19 @@ function getStructures(MySQL) {
     });
 }
 exports.getStructures = getStructures;
+function putBlock(MySQL, block) {
+    return __awaiter(this, void 0, void 0, function () {
+        var QUERY;
+        return __generator(this, function (_a) {
+            QUERY = "UPDATE block SET \n        technologyId = ".concat((0, mysql_1.escape)(block.structureId), ", \n        name = ").concat((0, mysql_1.escape)(block.name), ", \n        typeId = ").concat((0, mysql_1.escape)(block.typeId), ", \n        floors = ").concat((0, mysql_1.escape)(block.floors), ", \n        units = ").concat((0, mysql_1.escape)(block.units), ", \n        initialFloor = ").concat((0, mysql_1.escape)(block.initialFloor), "\n        WHERE blockId = ").concat((0, mysql_1.escape)(block.blockId), ";");
+            return [2 /*return*/, new Promise(function (resolve, reject) {
+                    MySQL.query(QUERY, function (error, response) {
+                        if (error)
+                            return reject(error);
+                        return resolve(response);
+                    });
+                })];
+        });
+    });
+}
+exports.putBlock = putBlock;

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PostContract = exports.PostPostalCode = exports.PostAddress = exports.GetSalespeople = exports.GetTechnologies = exports.GetResearchAnswers = exports.GetResearch = exports.PostSale = exports.GetSalesperson = exports.GetSalesByContract = exports.GetSalesByClient = exports.GetContracts = exports.GetPlans = exports.GetGroupAddress = exports.PostGroup = exports.GetGroup = exports.GetGroups = exports.GetClientAuth = exports.GetClient = exports.GetClients = exports.GetStructures = exports.PostViabilitys = exports.PostBlocks = exports.DeleteBlocks = exports.GetBlocks = exports.GetTypes = void 0;
+exports.PostContract = exports.PostPostalCode = exports.PostAddress = exports.GetSalespeople = exports.GetTechnologies = exports.GetResearchAnswers = exports.GetResearch = exports.PostSale = exports.GetSalesperson = exports.GetSalesByContract = exports.GetSalesByClient = exports.GetContracts = exports.GetPlans = exports.GetGroupAddress = exports.PostGroup = exports.GetGroup = exports.GetGroups = exports.GetClientAuth = exports.GetClient = exports.GetClients = exports.GetStructures = exports.PostViabilitys = exports.PostBlocks = exports.DeleteBlocks = exports.PutBlock = exports.GetBlocks = exports.GetTypes = void 0;
 var Salespeople = require("./salesperson");
 var Technologies = require("./technology");
 var Viabilitys = require("./viability");
@@ -20,6 +20,10 @@ function GetBlocks(groupId) {
     return Blocks.getBlocks(database_1.LOCALHOST, groupId);
 }
 exports.GetBlocks = GetBlocks;
+function PutBlock(block) {
+    return Blocks.putBlock(database_1.LOCALHOST, block);
+}
+exports.PutBlock = PutBlock;
 function DeleteBlocks(blockId) {
     return Blocks.deleteBlocks(database_1.LOCALHOST, blockId);
 }

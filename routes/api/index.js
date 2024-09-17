@@ -226,4 +226,28 @@ ROUTER.get('/v1/technology', function (req, res, next) { return __awaiter(void 0
         }
     });
 }); });
+ROUTER.put('/v1/block/:id', function (req, res, next) { return __awaiter(void 0, void 0, void 0, function () {
+    var blockId, blockData, response, error_9;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                _a.trys.push([0, 2, , 3]);
+                blockId = +req.params.id;
+                blockData = req.body;
+                blockData.blockId = blockId; // Certifique-se de que o blockId está incluído nos dados
+                return [4 /*yield*/, api.v1.PutBlock(blockData)];
+            case 1:
+                response = _a.sent();
+                if (response.affectedRows > 0) {
+                    return [2 /*return*/, res.status(200).json({ message: 'Bloco atualizado com sucesso!' })];
+                }
+                return [2 /*return*/, res.status(404).json({ error: 'Bloco não encontrado.' })];
+            case 2:
+                error_9 = _a.sent();
+                console.log(error_9);
+                return [2 /*return*/, res.status(500).json({ error: 'Erro interno do servidor.' })];
+            case 3: return [2 /*return*/];
+        }
+    });
+}); });
 exports.default = ROUTER;

@@ -72,3 +72,22 @@ export async function getStructures(MySQL: Pool): Promise<string> {
         });
     });
 }
+
+export async function putBlock(MySQL: Pool, block: Block): Promise<MySQLResponse> {
+    const QUERY = `UPDATE block SET 
+        technologyId = ${escape(block.structureId)}, 
+        name = ${escape(block.name)}, 
+        typeId = ${escape(block.typeId)}, 
+        floors = ${escape(block.floors)}, 
+        units = ${escape(block.units)}, 
+        initialFloor = ${escape(block.initialFloor)}
+        WHERE blockId = ${escape(block.blockId)};`;
+
+    return new Promise<MySQLResponse>((resolve, reject) => {
+        MySQL.query(QUERY, (error, response) => {
+            if (error) return reject(error);
+            return resolve(response);
+        });
+    });
+}
+

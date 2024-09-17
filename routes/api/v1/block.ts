@@ -55,4 +55,23 @@ BLOCK.delete('/:id', async (req: Request, res: Response) => {
     }
 });
 
+BLOCK.put('/:id', async (req: Request, res: Response) => {
+    try {
+        const blockId = +req.params.id;
+        const blockData = req.body;
+        blockData.blockId = blockId; // Assegurando que o blockId esteja presente no objeto
+
+        let response: MySQLResponse = await api.v1.PutBlock(blockData);
+
+        if (response.affectedRows > 0) {
+            return res.status(200).json({ message: 'Bloco atualizado com sucesso!' });
+        }
+
+        return res.status(404).json({ error: 'Bloco não encontrado.' });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ error: "Erro interno do servidor." });
+    }
+});
+
 export default BLOCK;

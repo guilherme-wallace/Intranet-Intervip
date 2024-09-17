@@ -30,6 +30,10 @@ export function GetBlocks(groupId: number): Promise<string> {
     return Blocks.getBlocks(LOCALHOST, groupId);
 }
 
+export function PutBlock(block: Block): Promise<MySQLResponse> {
+    return Blocks.putBlock(LOCALHOST, block);
+}
+
 export function DeleteBlocks(blockId: number): Promise<string> {
     return Blocks.deleteBlocks(LOCALHOST, blockId);
 }

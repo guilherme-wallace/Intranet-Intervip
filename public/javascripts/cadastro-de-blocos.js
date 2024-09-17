@@ -37,13 +37,15 @@ function listaBlocos(groupId) {
     }).then(blocks => {
         $('#blocos-lista').empty();
         $('#blocos-lista').append('<tr> \
-                                        <th style="width: 36%;">Bloco</th> \
+                                        <th style="width: 6%;"></th> \
+                                        <th style="width: 30%;">Bloco</th> \
                                         <th style="width: 14%;">Tipo</th> \
                                         <th style="width: 14%;">Estrutura</th> \
                                         <th style="width: 7%;">Andares</th> \
                                         <th style="width: 12%;">Andar Inicial</th> \
                                         <th style="width: 8%;">Unidades</th> \
                                         <th style="width: 8%;">Total</th> \
+                                        <th style="width: 8%;">Ações</th> \
                                     </tr>');
 
         if (!blocks) {
@@ -51,23 +53,52 @@ function listaBlocos(groupId) {
         }
 
         let html = template`<tr id="dados-bloco-${'id'}">
-                                <td class="row" style="padding: 0px; margin: 0;">
-                                    <div class="col-sm-2" id="bnt-deleta-bloco-${'id'}" style="padding: 0px;" hidden>
+                                <td>
+                                    <div id="bnt-deleta-bloco-${'id'}" hidden>
                                         <button type="button" class="input-group-text cor-span" id="deleta-bloco-${'id'}" style="cursor: pointer;">
                                             <img src="images/menos.png" style="max-height: 20px;">
                                         </button>
                                     </div>
-                                    <div class="col-sm-12" id="bnt-nome-bloco-${'id'}" style="padding: 4.8px;">
-                                        ${'nome'}
+                                </td>
+                                <td><input type="text" class="form-control" id="edit-nome-bloco-${'id'}" value="${'nome'}" readonly /></td>
+                                <td>
+                                    <div class="dropdown">
+                                        <button id="botao-tipo-unidade-${'id'}" class="btn dropdown-toggle scroll-menu" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="background-color: whitesmoke; color: black; border: 1px solid lightgrey; width: 100%;" disabled>${'tipo'}</button>
+                                        <div id="tipo-unidade-${'id'}" class="dropdown-menu"></div>
                                     </div>
                                 </td>
-                                <td>${'tipo'}</td>
-                                <td>${'estrutura'}</td>
-                                <td>${'andares'}</td>
-                                <td>${'andarInicial'}</td>
-                                <td>${'unidades'}</td>
-                                <td>${'total'}</td>
+                                <td>
+                                    <div class="dropdown">
+                                        <button id="botao-blocos-estrutura-${'id'}" class="btn dropdown-toggle scroll-menu" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="background-color: whitesmoke; color: black; border: 1px solid lightgrey; width: 100%;" disabled>${'estrutura'}</button>
+                                        <div id="blocos-estrutura-${'id'}" class="dropdown-menu"></div>
+                                    </div>
+                                </td>
+                                <td><input type="text" class="form-control" id="edit-andares-${'id'}" value="${'andares'}" readonly /></td>
+                                <td><input type="text" class="form-control" id="edit-andarInicial-${'id'}" value="${'andarInicial'}" readonly /></td>
+                                <td><input type="text" class="form-control" id="edit-unidades-${'id'}" value="${'unidades'}" readonly /></td>
+                                <td><input type="text" class="form-control" id="edit-total-${'id'}" value="${'total'}" readonly /></td>
+                                <td>
+                                    <button class="btn btn-warning" id="btn-editar-bloco-${'id'}">Editar</button>
+                                    <button class="btn btn-success" id="btn-salvar-bloco-${'id'}" hidden>Salvar</button>
+                                </td>
                             </tr>`;
+        const typeMap = {
+            'Casa': 1,
+            'Lote': 2,
+            'Loja': 3,
+            'Sala': 4,
+            'Quiosque': 5,
+            'Apartamento': 6,
+            'Cobertura': 7
+        };
+
+        const technologyMap = {
+            'Fibra': 1,
+            'Rádio': 2,
+            'Sem estrutura': 3,
+            'FTTH': 4,
+            'FTTB': 5
+        };
 
         for (const block of blocks) {
             $('#blocos-lista').append(html({
@@ -80,6 +111,89 @@ function listaBlocos(groupId) {
                 unidades: block.units,
                 total: (block.floors - block.initialFloor + 1) * block.units
             }));
+
+            displayBlockTypesListaBlocos(block.blockId);
+            displayBlockTechnologiesListaBlocos(block.blockId);
+
+            $(`#btn-editar-bloco-${block.blockId}`).on('click', function () {
+
+                const typeId = typeMap[block.type] || null;
+                const technologyId = technologyMap[block.technology] || null;
+
+                localStorage[`tipo-unidade-${block.blockId}`] = typeId;
+                localStorage[`blocos-estrutura-${block.blockId}`] = technologyId;
+
+                console.log(block)
+
+                $(`#edit-nome-bloco-${block.blockId}`).prop('readonly', false);
+                $(`#botao-tipo-unidade-${block.blockId}`).prop('disabled', false);
+                $(`#botao-blocos-estrutura-${block.blockId}`).prop('disabled', false);
+                $(`#edit-andares-${block.blockId}`).prop('readonly', false);
+                $(`#edit-andarInicial-${block.blockId}`).prop('readonly', false);
+                $(`#edit-unidades-${block.blockId}`).prop('readonly', false);              
+
+                $(`#btn-editar-bloco-${block.blockId}`).hide();
+                $(`#btn-salvar-bloco-${block.blockId}`).prop('hidden', false);
+            });
+
+            $(`#btn-salvar-bloco-${block.blockId}`).on('click', function () {
+                const updatedBlock = {
+                    blockId: block.blockId,
+                    name: $(`#edit-nome-bloco-${block.blockId}`).val(),
+                    typeId: localStorage[`tipo-unidade-${block.blockId}`],  
+                    structureId: localStorage[`blocos-estrutura-${block.blockId}`],  
+                    floors: $(`#edit-andares-${block.blockId}`).val(),
+                    initialFloor: $(`#edit-andarInicial-${block.blockId}`).val(),
+                    units: $(`#edit-unidades-${block.blockId}`).val()
+                };
+
+                fetch(`api/v1/block/${block.blockId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(updatedBlock)
+                }).then(response => {
+                    if (response.status === 200) {
+                        alert('Bloco atualizado com sucesso!');
+                        listaBlocos(groupId);
+                    } else {
+                        alert('Erro ao atualizar bloco!');
+                    }
+                });
+            });
+        }
+
+        function displayBlockTypesListaBlocos(blockId) {
+            let types = JSON.parse(localStorage.getItem('types')) ?? [];
+            let typeTemplate = template`<button class="dropdown-item dropdown-tipo" data-id="${'typeId'}" type="button">${'type'}</button>`;
+
+            $(`#tipo-unidade-${blockId}`).empty();
+            for (const type of types) {
+                $(`#tipo-unidade-${blockId}`).append(typeTemplate({ type: type.type, typeId: type.typeId }));
+            }
+
+            $(`#tipo-unidade-${blockId} .dropdown-tipo`).on('click', function () {
+                let typeId = parseInt($(this).data("id"));
+                localStorage[`tipo-unidade-${blockId}`] = typeId;  
+                $(`#botao-tipo-unidade-${blockId}`).text($(this).text());
+            });
+        }
+
+        function displayBlockTechnologiesListaBlocos(blockId) {
+            let technologies = JSON.parse(localStorage.getItem('technologies')) ?? [];
+            let technologyTemplate = template`<button class="dropdown-item dropdown-tipo" data-id="${'technologyId'}" type="button">${'technology'}</button>`;
+
+            $(`#blocos-estrutura-${blockId}`).empty();
+            for (const technology of technologies) {
+                $(`#blocos-estrutura-${blockId}`).append(technologyTemplate({ technology: technology.technology, technologyId: technology.technologyId }));
+            }
+
+            $(`#blocos-estrutura-${blockId} .dropdown-tipo`).on('click', function () {
+                let technologyId = parseInt($(this).data("id"));
+                localStorage[`blocos-estrutura-${blockId}`] = technologyId;  
+                $(`#botao-blocos-estrutura-${blockId}`).text($(this).text());
+            });
         }
 
         $('*[id^=dados-bloco-]').hover(function () {
@@ -103,7 +217,6 @@ function listaBlocos(groupId) {
                             return listaBlocos(groupId);
                         default:
                             return alert("Ocorreu um erro, contate o suporte!");
-
                     }
                 });
             }
@@ -177,11 +290,15 @@ function displayBlockTypes(types) {
                     if (typeId < 3 || typeId == 5) {
                         $(`#andar-inicial-${id}`).prop('readonly', true).prop('disabled', true);
                         $(`#quantidade-andares-${id}`).prop('readonly', true).prop('disabled', true);
+                        $(`#andar-inicial-${id}`).val('1');
+                        $(`#quantidade-andares-${id}`).val('1');
                     }
 
                     else {
                         $(`#andar-inicial-${id}`).prop('readonly', false).prop('disabled', false);
                         $(`#quantidade-andares-${id}`).prop('readonly', false).prop('disabled', false);
+                        $(`#andar-inicial-${id}`).val('');
+                        $(`#quantidade-andares-${id}`).val('');
                     };
 
                     localStorage[parentId] = typeId;
@@ -231,7 +348,7 @@ function removeLinhas() {
 
 //----------------------BTN cancelar-------------------------
 function cancelaCadastro() {
-    window.location.href = '../';
+    location.reload()
     localStorage.clear();
 }
 
