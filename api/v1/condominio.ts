@@ -1,14 +1,14 @@
 import { MySQLReturnNullError } from '../../errors/MySQLErrors';
 import { MySQLResponse } from '../../types/mysql-response';
-import { Group } from '../../types/group';
+import { Condominio } from '../../types/condominio';
 import { ROUTERBOX } from '../database';
 import { Pool, escape } from 'mysql';
 
-export async function getGroups(MySQL: Pool, queryString?: string): Promise<Group[]> {
+export async function getCondominios(MySQL: Pool, queryString?: string): Promise<Condominio[]> {
     const QUERY = `SELECT ClienteGrupo.Codigo as value, ClienteGrupo.Nome as text FROM isupergaus.ClienteGrupo
         WHERE ClienteGrupo.nome LIKE ${escape(`%${queryString}%`)} LIMIT 25;`;
 
-    return new Promise<Group[]>((resolve, reject) => {
+    return new Promise<Condominio[]>((resolve, reject) => {
         MySQL.query(QUERY, (error, response) => {
             if (error) return reject(error);
 
@@ -21,15 +21,15 @@ export async function getGroups(MySQL: Pool, queryString?: string): Promise<Grou
     });
 }
 
-export async function getGroup(MySQL: Pool, groupId: number): Promise<Group> {
-    let query = `SELECT * FROM \`group\` WHERE groupId = ${escape(groupId)};`;
+export async function getCondominio(MySQL: Pool, condominioId: number): Promise<Condominio> {
+    let query = `SELECT * FROM condominio WHERE condominioId = ${escape(condominioId)};`;
 
-    return new Promise<Group>((resolve, reject) => {
+    return new Promise<Condominio>((resolve, reject) => {
         MySQL.query(query, (error, response) => {
             if (error) return reject(error);
 
             if (!response || response.length == 0) {
-                query = `SELECT Codigo as groupId, Nome as name FROM ClienteGrupo WHERE Codigo = ${escape(groupId)};`;
+                query = `SELECT Codigo as condominioId, Nome as name FROM ClienteGrupo WHERE Codigo = ${escape(condominioId)};`;
 		ROUTERBOX.query(query, (error, response) => {
                     if (error) return reject(error);
 
@@ -37,7 +37,7 @@ export async function getGroup(MySQL: Pool, groupId: number): Promise<Group> {
                         return reject(new MySQLReturnNullError());
                     }
                     
-		    postGroup(MySQL, response[0]);
+		    postCondominio(MySQL, response[0]);
                     return resolve(response[0]);
                 });
             }
@@ -49,8 +49,8 @@ export async function getGroup(MySQL: Pool, groupId: number): Promise<Group> {
     });
 }
 
-export async function postGroup(MySQL: Pool, group: Group): Promise<MySQLResponse> {
-    const QUERY = `INSERT INTO \`group\` (groupId, name) VALUES (${escape(group.groupId)}, ${escape(group.name)});`;
+export async function postCondominio(MySQL: Pool, condominio: Condominio): Promise<MySQLResponse> {
+    const QUERY = `INSERT INTO condominio (condominioId, condominio) VALUES (${escape(condominio.condominioId)}, ${escape(condominio.condominio)});`;
 
     return new Promise<MySQLResponse>((resolve, reject) => {
         MySQL.query(QUERY, (error, response) => {
@@ -60,13 +60,13 @@ export async function postGroup(MySQL: Pool, group: Group): Promise<MySQLRespons
     });
 }
 
-export async function getPlans(MySQL: Pool, groupId: number): Promise<string> {
+export async function getPlans(MySQL: Pool, condominioId: number): Promise<string> {
     const QUERY = `SELECT PlanosRegrasComerciais.Codigo, PlanosPacotes.Descricao, Planos.Valor
         FROM isupergaus.PlanosRegrasComerciais LEFT JOIN isupergaus.PlanosPacotes
         ON PlanosRegrasComerciais.Codigo = PlanosPacotes.Codigo AND PlanosPacotes.Situacao = 'A'
         RIGHT JOIN isupergaus.PlanosPacotesItens ON PlanosPacotes.Codigo = PlanosPacotesItens.Pacote
         INNER JOIN isupergaus.Planos ON PlanosPacotesItens.Plano = Planos.Codigo
-        WHERE find_in_set(${escape(groupId)}, PlanosRegrasComerciais.Filtro) AND PlanosRegrasComerciais.Situacao = 'A'
+        WHERE find_in_set(${escape(condominioId)}, PlanosRegrasComerciais.Filtro) AND PlanosRegrasComerciais.Situacao = 'A'
         ORDER BY Descricao DESC;`;
 
     return new Promise<string>((resolve, reject) => {
@@ -77,9 +77,9 @@ export async function getPlans(MySQL: Pool, groupId: number): Promise<string> {
     });
 }
 
-export async function getGroupAddress(MySQL: Pool, groupId: number): Promise<string> {
+export async function getCondominioAddress(MySQL: Pool, condominioId: number): Promise<string> {
     const QUERY = `SELECT Clientes.CEP, Clientes.Endereco, Clientes.Numero, Clientes.Cidade, Clientes.Bairro,
-        count(*) AS Quantidade FROM isupergaus.Clientes WHERE Clientes.Grupo = ${escape(groupId)} GROUP BY Clientes.Endereco
+        count(*) AS Quantidade FROM isupergaus.Clientes WHERE Clientes.Grupo = ${escape(condominioId)} GROUP BY Clientes.Endereco
         ORDER BY Quantidade DESC LIMIT 1;`;
 
     let result = await new Promise<string>((resolve, reject) => {
@@ -91,7 +91,7 @@ export async function getGroupAddress(MySQL: Pool, groupId: number): Promise<str
 
     if (result.length == 2) {
         const QUERY = `SELECT ClienteGrupo.Descricao AS Endereco FROM isupergaus.ClienteGrupo
-        WHERE ClienteGrupo.Codigo = ${escape(groupId)};`;
+        WHERE ClienteGrupo.Codigo = ${escape(condominioId)};`;
 
         return new Promise<string>((resolve, reject) => {
             MySQL.query(QUERY, (error, response) => {

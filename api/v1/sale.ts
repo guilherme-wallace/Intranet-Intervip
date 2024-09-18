@@ -10,10 +10,10 @@ import { Research } from '../../types/research';
 import { getSalesperson } from './salesperson';
 import { Address } from '../../types/address';
 import { getTechnology } from './technology';
-import { Group } from '../../types/group';
+import { Condominio } from '../../types/condominio';
 import { Sale } from '../../types/sale';
 import { Pool, escape } from 'mysql';
-import { getGroup } from './group';
+import { getCondominio } from './condominio';
 import { GetContracts } from '../v2';
 
 export async function getSalesByClient(MySQL: Pool, clientId: number): Promise<Sale[]> {
@@ -56,18 +56,18 @@ async function getSales(MySQL: Pool, query: string): Promise<Sale[]> {
         let contract: Contract = await getContract(MySQL, obj.contractId);
         let research: Research | null = await getResearch(MySQL, obj.researchId);
         let address: Address = await getAddress(MySQL, obj.addressId);
-        let group: Group = await getGroup(MySQL, obj.groupId);
+        let condominio: Condominio = await getCondominio(MySQL, obj.condominioId);
     
         delete obj.salespersonId;
         delete obj.technologyId;
         delete obj.researchId;
         delete obj.contractId;
         delete obj.addressId;
-        delete obj.groupId;
+        delete obj.condominioId;
     
         let sale: Sale = Object.assign({}, obj);
         sale.contract = contract;
-        sale.group = group;
+        sale.condominio = condominio;
         sale.address = address;
         sale.technology = technology;
         sale.research = research;
@@ -158,9 +158,9 @@ export async function postSale(MySQL: Pool, sale: Sale): Promise<MySQLResponse> 
     let researchId: number | null = (sale.research) ? (await postResearch(MySQL, sale.research)).insertId : null;
     sale.datetime = new Date().toISOString().slice(0, 19).replace('T', ' ');
      
-    const QUERY = `INSERT INTO sale (clientId, operation, contractId, groupId, addressId, technologyId,
+    const QUERY = `INSERT INTO sale (clientId, operation, contractId, condominioId, addressId, technologyId,
         researchId, datetime, salespersonId, observation) VALUES (${escape(sale.clientId)},
-        ${escape(sale.operation)}, ${escape(sale.contract.contractId)}, ${escape(sale.group.groupId)},
+        ${escape(sale.operation)}, ${escape(sale.contract.contractId)}, ${escape(sale.condominio.condominioId)},
         ${escape(addressId)}, ${escape(sale.technology.technologyId)}, ${escape(researchId)},
         ${escape(sale.datetime)}, ${escape(sale.salesperson.salespersonId)}, ${escape(sale.observation)});`;
 

@@ -1,8 +1,8 @@
-import { Group } from "./group";
+import { Condominio } from "./condominio";
 
 export type Block = {
     blockId: number,
-    group: Group,
+    condominio: Condominio,
     structureId: number,
     name: string,
     typeId: number,

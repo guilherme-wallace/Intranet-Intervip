@@ -6,7 +6,7 @@ import * as Contracts from './contract';
 import * as Addresses from './address';
 import * as Clients from './client';
 import * as Blocks from './block';
-import * as Groups from './group';
+import * as Condominios from './condominio';
 import * as Sails from './sale';
 
 import { Salesperson } from '../../types/salesperson';
@@ -15,7 +15,7 @@ import { Viability } from '../../types/viability';
 import { Contract } from '../../types/contract';
 import { Research } from '../../types/research';
 import { Address } from '../../types/address';
-import { Group } from '../../types/group';
+import { Condominio } from '../../types/condominio';
 import { Block } from '../../types/block';
 import { Sale } from '../../types/sale';
 
@@ -26,8 +26,8 @@ export function GetTypes(): Promise<string> {
     return Blocks.getTypes(LOCALHOST);
 }
 
-export function GetBlocks(groupId: number): Promise<string> {
-    return Blocks.getBlocks(LOCALHOST, groupId);
+export function GetBlocks(condominioId: number): Promise<string> {
+    return Blocks.getBlocks(LOCALHOST, condominioId);
 }
 
 export function PutBlock(block: Block): Promise<MySQLResponse> {
@@ -50,8 +50,8 @@ export function GetStructures(): Promise<string> {
     return Blocks.getStructures(LOCALHOST);
 }
 
-export function GetClients(groupId: number): Promise<string> {
-    return Clients.getClients(ROUTERBOX, groupId);
+export function GetClients(condominioId: number): Promise<string> {
+    return Clients.getClients(ROUTERBOX, condominioId);
 }
 
 export function GetClient(clientId: number): Promise<string> {
@@ -62,24 +62,24 @@ export function GetClientAuth(clientId: number, username: string): Promise<strin
     return Clients.getClientAuth(ROUTERBOX, clientId, username);
 }
 
-export function GetGroups(query?: string): Promise<Group[]> {
-    return Groups.getGroups(ROUTERBOX, query);
+export function GetCondominios(query?: string): Promise<Condominio[]> {
+    return Condominios.getCondominios(ROUTERBOX, query);
 }
 
-export function GetGroup(groupId: number): Promise<Group> {
-    return Groups.getGroup(LOCALHOST, groupId);
+export function GetCondominio(condominioId: number): Promise<Condominio> {
+    return Condominios.getCondominio(LOCALHOST, condominioId);
 }
 
-export function PostGroup(group: Group): Promise<MySQLResponse> {
-    return Groups.postGroup(LOCALHOST, group);
+export function PostCondominio(condominio: Condominio): Promise<MySQLResponse> {
+    return Condominios.postCondominio(LOCALHOST, condominio);
 }
 
-export function GetGroupAddress(groupId: number): Promise<string> {
-    return Groups.getGroupAddress(ROUTERBOX, groupId);
+export function GetCondominioAddress(condominioId: number): Promise<string> {
+    return Condominios.getCondominioAddress(ROUTERBOX, condominioId);
 }
 
-export function GetPlans(groupId: number): Promise<string> {
-    return Groups.getPlans(ROUTERBOX, groupId);
+export function GetPlans(condominioId: number): Promise<string> {
+    return Condominios.getPlans(ROUTERBOX, condominioId);
 }
 
 export function GetContracts(clientId: number, status?: string): Promise<string> {

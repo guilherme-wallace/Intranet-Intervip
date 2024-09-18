@@ -8,7 +8,7 @@ $(function () {
         resolver: 'custom',
         events: {
             search: function (query, callback) {
-                fetch(`api/v4/group?query=${query}`).then(response => response.json()).then(data => {
+                fetch(`api/v4/condominio?query=${query}`).then(response => response.json()).then(data => {
                     callback(data);
                 });
             }
@@ -17,13 +17,46 @@ $(function () {
 
     $('#input-condo').on('autocomplete.select', function (e, item) {
         $("#input-condo-value").val(item.value);
-        localStorage.setItem('group', JSON.stringify(item));
+        localStorage.setItem('condominio', JSON.stringify(item));
         listaBlocos(item.value);
+
+        fetch(`api/v1/condominio/${item.value}`).then(response => response.json()).then(condo => {
+            $("#planos-disponiveis").empty();
+            $('#planos-disponiveis').append('<tr class="fundo-cinza"> \
+                                                <td>Tipo</td> \
+                                                <td>Valor (R$)</td> \
+                                            </tr>');
+            const cidades = {
+                "3173": "Vitória",
+                "3172": "Vila Velha",
+                "3169": "Viana",
+                "3165": "Serra",
+                "3159": "Santa Teresa",
+                "3169": "Viana",
+                "3112": "Cariacica",
+            };
+            //console.log(condo)
+            
+            $("#dados-condo-cep").text(condo.cep  || "Favor verificar no IXC");          
+            $("#dados-condo-endereco").text(condo.endereco  || "Favor verificar no IXC");  
+            $("#dados-condo-numero").text(condo.numero  || "Favor verificar no IXC");     
+            $("#dados-condo-cidade").text(cidades[condo.cidadeId] || "Favor verificar no IXC");
+            $("#dados-condo-bairro").text(condo.bairro  || "Favor verificar no IXC");
+    
+            $('#linha-apartamentos').prop('hidden', true);
+            $('#linha-complemento').prop('hidden', true);
+            $('#linha-casas').prop('hidden', true);
+            $('#botao-blocos').text('Selecione o Bloco');
+            $('#complemento').val('');
+
+        }).catch(err => {
+            console.error("Erro na requisição ao condomínio:", err);
+        });
     });
 });
 
-function listaBlocos(groupId) {
-    fetch(`api/v1/block/${groupId}`).then(function (response) {
+function listaBlocos(condominioId) {
+    fetch(`api/v1/block/${condominioId}`).then(function (response) {
         switch (response.status) {
             case 200:
                 return response.json();
@@ -156,7 +189,7 @@ function listaBlocos(groupId) {
                 }).then(response => {
                     if (response.status === 200) {
                         alert('Bloco atualizado com sucesso!');
-                        listaBlocos(groupId);
+                        listaBlocos(condominioId);
                     } else {
                         alert('Erro ao atualizar bloco!');
                     }
@@ -214,7 +247,7 @@ function listaBlocos(groupId) {
                     switch (response.status) {
                         case 204:
                             alert('Bloco removido com sucesso!');
-                            return listaBlocos(groupId);
+                            return listaBlocos(condominioId);
                         default:
                             return alert("Ocorreu um erro, contate o suporte!");
                     }
@@ -355,9 +388,9 @@ function cancelaCadastro() {
 
 //---------------- Insere informações no BD ----------------------------
 function cadastraBlocos() {
-    var group = JSON.parse(localStorage.getItem('group'));
+    var condominio = JSON.parse(localStorage.getItem('condominio'));
 
-    if (!group) {
+    if (!condominio) {
         return alert("Favor selecionar o comdomínio!");
     }
 
@@ -383,9 +416,9 @@ function cadastraBlocos() {
 
     for (var i = 0; i < nomes.length; i++) {
         blocks.push({
-            'group': {
-                groupId: +group.value,
-                name: group.text
+            'condominio': {
+                condominioId: +condominio.value,
+                name: condominio.text
             },
             structureId: +estruturas[i],
             name: nomes[i].value,
@@ -413,10 +446,10 @@ function cadastraBlocos() {
         }
     }).then(response => {
         if (response) {
-            localStorage.removeItem('group');
+            localStorage.removeItem('condominio');
             $('#destino').empty();
             insereLinhas();
-            listaBlocos(group.value);
+            listaBlocos(condominio.value);
             
             for (variable in localStorage) {
                 if (variable.substring(0, 17) == 'blocos-estrutura-') {

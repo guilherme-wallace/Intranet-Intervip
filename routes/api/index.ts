@@ -8,9 +8,9 @@ import * as Express from 'express';
 import PLAN from './v3/plan';
 import SALES from './v1/sale';
 import BLOCK from './v1/block';
-import GROUP from './v1/group';
+import CONDOMINIO from './v1/condominio';
 import RADIUS from './v4/radius';
-import GROUP_V4 from './v4/group';
+import CONDOMINIO_V4 from './v4/condominio';
 import ADDRESS from './v1/address';
 import CLIENT_V1 from './v1/client';
 import CLIENT_V4 from './v4/client';
@@ -30,9 +30,9 @@ ROUTER.get('/', SWAGGER_UI.setup(SWAGGER_DOC));
 ROUTER.use('/v3/plan', PLAN);
 ROUTER.use('/v1/sale', SALES);
 ROUTER.use('/v1/block', BLOCK);
-ROUTER.use('/v1/group', GROUP);
+ROUTER.use('/v1/condominio', CONDOMINIO);
 ROUTER.use('/v4/radius', RADIUS);
-ROUTER.use('/v4/group', GROUP_V4);
+ROUTER.use('/v4/condominio', CONDOMINIO_V4);
 ROUTER.use('/v1/address', ADDRESS);
 ROUTER.use('/v1/client', CLIENT_V1);
 ROUTER.use('/v4/client', CLIENT_V4);
@@ -68,7 +68,7 @@ ROUTER.get('/v1/structures', async (_req: Request, res: Response, next) => {
 
 ROUTER.get('/v1/address/:id', async (req: Request, res: Response, next) => {
     try {
-        let response: string = await api.v1.GetGroupAddress(+req.params.id);
+        let response: string = await api.v1.GetCondominioAddress(+req.params.id);
         res.json(response);
     }
 

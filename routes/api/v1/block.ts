@@ -30,7 +30,7 @@ BLOCK.post('/', async (req: Request, res: Response) => {
 
     catch (error) {
         if (error.code.startsWith('ER_NO_REFERENCED_ROW')) {
-            await api.v1.PostGroup(req.body[0].group);
+            await api.v1.PostCondominio(req.body[0].condominio);
             return res.status(201).json(await api.v1.PostBlocks(req.body));
         }
 

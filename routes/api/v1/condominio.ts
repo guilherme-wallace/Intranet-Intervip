@@ -1,15 +1,15 @@
 import { MySQLReturnNullError } from '../../../errors/MySQLErrors';
 import { Request, Response } from 'express-serve-static-core';
 import { MySQLResponse } from '../../../types/mysql-response';
-import { Group } from '../../../types/group';
+import { Condominio } from '../../../types/condominio';
 import api = require('../../../api/index');
 import * as Express from 'express';
 
-const GROUP = Express.Router();
+const CONDOMINIO = Express.Router();
 
-GROUP.get('/', async (req: Request, res: Response, next) => {
+CONDOMINIO.get('/', async (req: Request, res: Response, next) => {
     try {
-        let response: Group[] = await api.v1.GetGroups(req.query.query?.toString() ?? null);
+        let response: Condominio[] = await api.v1.GetCondominios(req.query.query?.toString() ?? null);
         return res.json(response);
     }
 
@@ -23,9 +23,9 @@ GROUP.get('/', async (req: Request, res: Response, next) => {
     }
 });
 
-GROUP.get('/:id', async (req: Request, res: Response, next) => {
+CONDOMINIO.get('/:id', async (req: Request, res: Response, next) => {
     try {
-        let response: Group = await api.v1.GetGroup(+req.params.id);
+        let response: Condominio = await api.v1.GetCondominio(+req.params.id);
 	return res.json(response);
     }
 
@@ -39,9 +39,9 @@ GROUP.get('/:id', async (req: Request, res: Response, next) => {
     }
 });
 
-GROUP.post('/', async (req: Request, res: Response, next) => {
+CONDOMINIO.post('/', async (req: Request, res: Response, next) => {
     try {
-        let response: MySQLResponse = await api.v1.PostGroup(req.body);
+        let response: MySQLResponse = await api.v1.PostCondominio(req.body);
         return res.status(201).json(response);
     }
 
@@ -51,4 +51,4 @@ GROUP.post('/', async (req: Request, res: Response, next) => {
     }
 });
 
-export default GROUP;
+export default CONDOMINIO;

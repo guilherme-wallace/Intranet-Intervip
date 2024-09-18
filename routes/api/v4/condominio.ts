@@ -2,11 +2,11 @@ import { Request, Response } from 'express-serve-static-core';
 import api = require('../../../api/index');
 import * as Express from 'express';
 
-const GROUP = Express.Router();
+const CONDOMINIO = Express.Router();
 
-GROUP.get('/', async (req: Request, res: Response, next) => {
+CONDOMINIO.get('/', async (req: Request, res: Response, next) => {
     try {
-        let response = await api.v4.GetGroups(req.query.query.toString());
+        let response = await api.v4.GetCondominios(req.query.query.toString());
         return res.json(response);
     }
 
@@ -16,4 +16,4 @@ GROUP.get('/', async (req: Request, res: Response, next) => {
     }
 });
 
-export default GROUP;
+export default CONDOMINIO;

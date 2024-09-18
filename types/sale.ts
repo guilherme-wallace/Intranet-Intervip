@@ -3,13 +3,13 @@ import { Technology } from "./technology";
 import { Contract } from "./contract";
 import { Research } from "./research";
 import { Address } from "./address";
-import { Group } from "./group";
+import { Condominio } from "./condominio";
 
 export type Sale = {
     saleId: number,
     contract: Contract,
     clientId: number,
-    group: Group,
+    condominio: Condominio,
     address: Address,
     operation: string,
     technology: Technology,

@@ -4,9 +4,11 @@ $(document).ready(function () {
         resolver: 'custom',
         events: {
             search: function (query, callback) {
-                fetch(`api/v4/group?query=${query}`).then(response => response.json()).then(data => {
-                    callback(data);
-                });
+                fetch(`api/v4/condominio?query=${query}`).then(response => response.json()).then(data => {
+                        callback(data);
+                    }).catch(err => {
+                        console.error("Erro na consulta:", err);
+                    });
             }
         }
     });
@@ -17,18 +19,38 @@ $(document).ready(function () {
         $('#main-form').submit();
     });
 
-    $('#input-condo').on('autocomplete.select', function (e, item) {
-        fetch(`api/v1/group/${item.value}`).then(response => response.json()).then(condo => {
+    $('#input-condo').on('autocomplete.select', function (e, item) {   
+        if (!item || !item.value) {
+            alert("Erro: O valor selecionado está vazio.");
+            return;
+        }
+
+        fetch(`api/v1/condominio/${item.value}`).then(response => response.json()).then(condo => {
+            
+            $('#input-condo').val(condo.condominio);
+
             $("#planos-disponiveis").empty();
             $('#planos-disponiveis').append('<tr class="fundo-cinza"> \
                                                 <td>Tipo</td> \
                                                 <td>Valor (R$)</td> \
                                             </tr>');
-            $("#dados-condo-cep").text(condo.CEP);
-            $("#dados-condo-endereco").text(condo.Endereco);
-            $("#dados-condo-numero").text(condo.Numero);
-            $("#dados-condo-cidade").text(condo.Cidade);
-            $("#dados-condo-bairro").text(condo.Bairro);
+            const cidades = {
+                "3173": "Vitória",
+                "3172": "Vila Velha",
+                "3169": "Viana",
+                "3165": "Serra",
+                "3159": "Santa Teresa",
+                "3169": "Viana",
+                "3112": "Cariacica",
+            };
+            //console.log(condo)
+            
+            $("#dados-condo-cep").text(condo.cep);          
+            $("#dados-condo-endereco").text(condo.endereco);  
+            $("#dados-condo-numero").text(condo.numero);     
+            $("#dados-condo-cidade").text(cidades[condo.cidadeId]);
+            $("#dados-condo-bairro").text(condo.bairro);
+    
             $('#linha-apartamentos').prop('hidden', true);
             $('#linha-complemento').prop('hidden', true);
             $('#linha-casas').prop('hidden', true);
@@ -38,18 +60,17 @@ $(document).ready(function () {
                 if (blocks.length == 0 || (blocks.length == 1 && blocks[0].technology == 'Sem estrutura')) {
                     return alert("Bloco sem estrutura!");
                 }
-
-                localStorage['groupId'] = item.value;
+                localStorage['condominioId'] = item.value;
                 localStorage['blocks'] = JSON.stringify(blocks);
+
                 let html = template`<button class="dropdown-item dropdown-bloco" type="button">${'bloco'}</button>`;
                 $('#linha-blocos').prop('hidden', false);
                 $('#blocos-lista').empty();
-
+    
                 for (const block of blocks) {
                     if (blocks.length > 1) {
                         $('#blocos-lista').append(html({ bloco: block.name }));
                     }
-                    
                     else if (blocks.length == 1 && block.technologyId == 3) {
                         $('#blocos-lista').append(html({ bloco: block.name }));
                         $('#botao-blocos').text(block.name);
@@ -57,13 +78,11 @@ $(document).ready(function () {
                         registraEventoBotaoBlocos();
                         $('.dropdown-bloco').click();
                     }
-
                     else if (block.floors !== null) {
                         $('#blocos-lista').append(html({ bloco: block.name }));
                         $('#botao-blocos').text(block.name);
                         mostraApartamento(block);
                     }
-
                     else {
                         $("#dados-condo-cep").text('Pegar com o cliente');
                         $("#dados-condo-endereco").text('Pegar com o cliente');
@@ -73,14 +92,13 @@ $(document).ready(function () {
                         mostraCasa(block);
                     }
                 }
-
                 registraEventoBotaoBlocos();
             }).catch(() => {                
                 return alert("Bloco sem estrutura!");
             });
+        }).catch(err => {
+            console.error("Erro na requisição ao condomínio:", err);
         });
-        //temporário
-        $('#coluna-temporaria').attr('hidden', true);
     });
 });
 

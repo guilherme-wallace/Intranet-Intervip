@@ -35,7 +35,7 @@ CLIENT.get('/:id', async (req: Request, res: Response, next) => {
     }
 });
 
-CLIENT.get('/group/:id', async (req: Request, res: Response, next) => {
+CLIENT.get('/condominio/:id', async (req: Request, res: Response, next) => {
     try {
         let response: string = await api.v1.GetClients(+req.params.id);
         res.json(response);

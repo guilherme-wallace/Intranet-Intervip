@@ -183,10 +183,10 @@ $(function () {
             $('#client-phone').val(client.TelCelular);
             $('#client-phone').prop('disabled', true);
 
-            fetch(`api/v1/group/${client.Grupo}`).then(response => response.json()).then(group => {
-                $('#group-name').val(group.name);
-                $('#group-name').attr('data-id', group.groupId);
-                $('#group-name').prop('disabled', true);
+            fetch(`api/v1/condominio/${client.Grupo}`).then(response => response.json()).then(condominio => {
+                $('#condominio-name').val(condominio.name);
+                $('#condominio-name').attr('data-id', condominio.condominioId);
+                $('#condominio-name').prop('disabled', true);
                 $('#client-cep').val(client.CEP);
                 $('#client-cep').prop('disabled', true);
                 $('#client-address').val(client.Endereco);
@@ -304,9 +304,9 @@ $(function () {
                         bandwidth: +contractInfo.filter('#contract-speed').val().split(' ')[0],
                         cost: Number.parseFloat(contractInfo.filter('#contract-cost').val().replace(',','.'))
                     },
-                    group: {
-                        groupId: +$('#group-name').attr('data-id'),
-                        name: $('#group-name').val()
+                    condominio: {
+                        condominioId: +$('#condominio-name').attr('data-id'),
+                        name: $('#condominio-name').val()
                     },
                     address: {
                         postalCodeId: $('#client-cep').val(),
@@ -417,9 +417,9 @@ $(function () {
             <div id="${'contract'}" class="row">
                 <div class="col-md-2">
                     <label>Plano</label>
-                    <div class="input-group mb-3">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text radio-button">
+                    <div class="input-condominio mb-3">
+                        <div class="input-condominio-prepend">
+                            <span class="input-condominio-text radio-button">
                                 <div class="custom-control custom-radio custom-control-inline">
                                     <input id="${'radio'}" class="custom-control-input ignore" title="${'contract'}" type="radio" name="contract" value="${'contract'}"}>
                                     <label class="custom-control-label" for="${'radio'}"></label>
@@ -439,9 +439,9 @@ $(function () {
                 </div>
                 <div class="col-md-3">
                     <label>Valor</label>
-                    <div class="input-group mb-3">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text" id="basic-addon1">R$</span>
+                    <div class="input-condominio mb-3">
+                        <div class="input-condominio-prepend">
+                            <span class="input-condominio-text" id="basic-addon1">R$</span>
                         </div>
                         <input id="contract-cost" style="text-align: right;" type="text" class="form-control" aria-label="Valor" aria-describedby="basic-addon1" autocomplete="off" value="${'value'}" disabled>
                     </div>
