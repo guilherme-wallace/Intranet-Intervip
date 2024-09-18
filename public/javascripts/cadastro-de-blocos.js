@@ -61,7 +61,7 @@ function listaBlocos(condominioId) {
             case 200:
                 return response.json();
             case 404:
-                alert('Não existem blocos criados para este grupo.');
+                alert('Não existem blocos criados para este condomínio. Ou o condomínio ainda não foi registrado no Intranet.');
                 return null;
             default:
                 alert('Algo deu errado, contate o suporte.');
@@ -106,9 +106,9 @@ function listaBlocos(condominioId) {
                                         <div id="blocos-estrutura-${'id'}" class="dropdown-menu"></div>
                                     </div>
                                 </td>
-                                <td><input type="text" class="form-control" id="edit-andares-${'id'}" value="${'andares'}" readonly /></td>
-                                <td><input type="text" class="form-control" id="edit-andarInicial-${'id'}" value="${'andarInicial'}" readonly /></td>
-                                <td><input type="text" class="form-control" id="edit-unidades-${'id'}" value="${'unidades'}" readonly /></td>
+                                <td><input type="number" class="form-control" id="edit-andares-${'id'}" value="${'andares'}" readonly /></td>
+                                <td><input type="number" class="form-control" id="edit-andarInicial-${'id'}" value="${'andarInicial'}" readonly /></td>
+                                <td><input type="number" class="form-control" id="edit-unidades-${'id'}" value="${'unidades'}" readonly /></td>
                                 <td><input type="text" class="form-control" id="edit-total-${'id'}" value="${'total'}" readonly /></td>
                                 <td>
                                     <button class="btn btn-warning" id="btn-editar-bloco-${'id'}">Editar</button>
@@ -271,11 +271,11 @@ function insereLinhas() {
                                 <div id="blocos-estrutura-${'index'}" class="dropdown-menu" aria-labelledby="dropdown-blocos">
                                 </div>
                             </div>
-                            <input type="text" id="quantidade-andares-${'index'}" class="form-control form-control-md"style="margin-left: 5px; max-width: 11%;  text-align: center;"
+                            <input type="number" id="quantidade-andares-${'index'}" class="form-control form-control-md"style="margin-left: 5px; max-width: 11%;  text-align: center;"
                                 placeholder="Andares" autocomplete="off" maxlength="10" size="100">
-                            <input type="text" id="andar-inicial-${'index'}" class="form-control form-control-md"style="margin-left: 5px; max-width: 13%;  text-align: center;"
+                            <input type="number" id="andar-inicial-${'index'}" class="form-control form-control-md"style="margin-left: 5px; max-width: 13%;  text-align: center;"
                                 placeholder="Andar inicial" autocomplete="off" maxlength="10" size="100">
-                            <input type="text" id="unidades-por-andar-${'index'}" class="form-control form-control-md"style="margin-left: 5px; max-width: 11%; text-align: center;"
+                            <input type="number" id="unidades-por-andar-${'index'}" class="form-control form-control-md"style="margin-left: 5px; max-width: 11%; text-align: center;"
                                 placeholder="Unidades" data-toggle="tooltip" data-placement="top" title="Unidades por andar" autocomplete="off" maxlength="10" size="100">
                         </div>`;
     $('#destino').append(html({ index: $('*[id^=origem-]').length }));
