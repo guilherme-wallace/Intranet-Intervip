@@ -5,3 +5,4 @@ api/database.js
 /node_modules
 /src/configs
 /logs
+/public/scriptsPy
