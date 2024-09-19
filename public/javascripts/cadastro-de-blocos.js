@@ -379,6 +379,20 @@ function removeLinhas() {
     }
 }
 
+//----------------------BTN reload-------------------------
+function atualizaCondominios() {
+    fetch('/api/run-python')
+        .then(response => response.text())
+        .then(data => {
+            //console.log(data);
+            alert('Condomínios atualizado!');
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Falha ao executar o script: add-condominiums-to-BD \n Favor informar ao suporte.');
+        });
+}
+
 //----------------------BTN cancelar-------------------------
 function cancelaCadastro() {
     location.reload()

@@ -6,6 +6,7 @@ var Path = require("path");
 var index_1 = require("./routes/index");
 var index_2 = require("./routes/api/index");
 var emailRoutes_1 = require("./src/routes/emailRoutes");
+var scriptAddCondominiumsBDRoute_1 = require("./src/routes/scriptAddCondominiumsBDRoute");
 var bodyParser = require("body-parser");
 var ActiveDirectory = require("activedirectory2");
 var session = require("express-session");
@@ -107,6 +108,7 @@ APP.use('/cadastro-de-vendas', index_1.default);
 APP.use('/problemas-sites-e-APP', index_1.default);
 APP.use('/cadastro-de-viabilidade', index_1.default);
 APP.use('/pedidos-linha-telefonica', index_1.default);
+APP.use('/api', scriptAddCondominiumsBDRoute_1.default);
 APP.use('/problemas-linha-telefonica', index_1.default);
 APP.use('/pedidos-linha-telefonica-URA', index_1.default);
 // serving a favicon file

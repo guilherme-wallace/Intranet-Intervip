@@ -6,6 +6,7 @@ import * as Path from 'path';
 import ROUTES from './routes/index';
 import API from './routes/api/index';
 import emailRoutes from './src/routes/emailRoutes';
+import scriptAddCondominiumsBDRoute from './src/routes/scriptAddCondominiumsBDRoute';
 
 import express = require('express');
 import bodyParser = require('body-parser');
@@ -132,6 +133,7 @@ APP.use('/cadastro-de-vendas', ROUTES);
 APP.use('/problemas-sites-e-APP', ROUTES);
 APP.use('/cadastro-de-viabilidade', ROUTES);
 APP.use('/pedidos-linha-telefonica', ROUTES);
+APP.use('/api', scriptAddCondominiumsBDRoute);
 APP.use('/problemas-linha-telefonica', ROUTES);
 APP.use('/pedidos-linha-telefonica-URA', ROUTES);
 
