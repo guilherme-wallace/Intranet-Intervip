@@ -318,25 +318,6 @@
 						alert(`Será necessário refazer o login!`);
 						window.location = "/";
 					}
-	
-					// Se o grupo não for 'NOC' ou 'Logistica', desabilitar os botões
-					if (group !== 'NOC' && group !== 'Logistica') {
-						// Desabilita o botão emailsNoc
-						const emailsNocButton = document.querySelector('.emailsNoc');
-						if (emailsNocButton) {
-							emailsNocButton.classList.add('disabled');
-							emailsNocButton.setAttribute('aria-disabled', 'true');
-							emailsNocButton.setAttribute('tabindex', '-1');
-						}
-	
-						// Desabilita o botão addBlock
-						const addBlockButton = document.querySelector('.addBlock');
-						if (addBlockButton) {
-							addBlockButton.classList.add('disabled');
-							addBlockButton.setAttribute('aria-disabled', 'true');
-							addBlockButton.setAttribute('tabindex', '-1');
-						}
-					}
 				})
 				.catch(error => {
 					console.error('Erro ao obter o nome do usuário e grupo:', error);
