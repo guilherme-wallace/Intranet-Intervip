@@ -44,22 +44,7 @@
 		<div class="dark-container container-fluid">
 			<div class="container">
 				<div class="card border border-dark bg-light">
-					<div class="card-body" id="centralizar">
-						<section class="row">
-							<div class="col-md-4">
-								<h3>Consulta de Planos</h3>
-								<p><a class="btn btn-primary" href="consulta-de-planos" role="button">Acessar »</a></p>
-							</div>
-							<div class="col-md-4">
-								<h3>Clientes On-Line</h3>
-								<p><a class="btn btn-primary" href="clientes-online" role="button">Acessar »</a></p>
-							</div>
-							<div class="col-md-4">
-								<h3>Cadastro de Blocos</h3>
-								<p><a class="btn btn-primary addBlock" href="cadastro-de-blocos" role="button">Acessar »</a></p>
-							</div>
-						</section>
-						<hr>
+					<div class="card-body" id="centralizar"></div>
 						<section class="row">
 							<div class="col-md-4">
 								<h3>Testes de Lentidão</h3>
@@ -77,23 +62,39 @@
 						<hr>
 						<section class="row">
 							<div class="col-md-4">
-								<h3>Cadastro de Leads</h3>
-								<p><a class="btn btn-primary" href="lead" role="button">Acessar »</a></p>
+								<h3>Consulta de Planos</h3>
+								<p><a class="btn btn-primary" href="consulta-de-planos" role="button">Acessar »</a></p>
 							</div>
 							<div class="col-md-4">
 								<a><img class="favicon" src="images/favicon.ico" alt="Favicon Intervip"></a>
 							</div>
 							<div class="col-md-4">
-								<h3>E-mails NOC</h3>
-								<p><a class="btn btn-primary emailsNoc" href="e-mails" role="button">Acessar »</a></p>
+								<h3>Clientes On-Line</h3>
+								<p><a class="btn btn-primary" href="clientes-online" role="button">Acessar »</a></p>
+							</div>
+						</section>
+						<hr>
+						<section class="row">
+							<div class="col-md-4">
+								<h3>Cadastro de Leads</h3>
+								<p><a class="btn btn-primary" href="lead" role="button">Acessar »</a></p>
+							</div>
+							<div class="col-md-4" style="padding: 0">
+								<b>Observações do dia</b>
+								<textarea id="observacoes" class="form-control" rows="6" style="margin-bottom: 1rem;" disabled></textarea>
+								<button id="salvarObservacoes" class="btn btn-primary" style="margin-top: 10px; display: none;">Salvar Observações</button>
+								<div id="msgSalvo" style="margin-top: 10px; display:none;" class="alert alert-success">Observações salvas com sucesso!</div>
+								<div id="msgErro" style="margin-top: 10px; display:none;" class="alert alert-danger">Erro ao salvar observações!</div>
+							</div>							
+							<div class="col-md-4">
+								<h3>Cadastro de viabilidade</h3>
+								<p><a class="btn btn-primary addBlock" href="cadastro-de-viabilidade" role="button">Acessar »</a></p>
 							</div>
 						</section>
 					</div>
 				</div>
 			</div>
 		</div>
-
-		<!-- Linha Telefônica -->
 		<div class="container-fluid">
 			<div class="container">
 				<hr>
@@ -113,6 +114,27 @@
 							<div class="col-md-4">
 								<h3>Problemas na Linha</h3>
 								<p><a class="btn btn-primary" href="problemas-linha-telefonica" role="button">Acessar »</a></p>
+							</div>
+						</section>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="container-fluid">
+			<div class="container">
+				<hr>
+				<h3>NOC</h3>
+				<hr>
+				<div class="card border border-dark bg-light">
+					<div class="card-body" id="centralizar">
+						<section class="row">
+							<div class="col-md-6">
+								<h3>E-mails NOC</h3>
+								<p><a class="btn btn-primary emailsNoc" href="e-mails" role="button">Acessar »</a></p>
+							</div>
+							<div class="col-md-6">
+								<h3>Cadastro de Blocos</h3>
+								<p><a class="btn btn-primary addBlock" href="cadastro-de-blocos" role="button">Acessar »</a></p>
 							</div>
 						</section>
 					</div>
@@ -180,6 +202,70 @@
 							//addBlockButton.setAttribute('tabindex', '-1');
 						//}
 					//}
+				})
+				.catch(error => {
+					console.error('Erro ao obter o nome do usuário e grupo:', error);
+				});
+		});
+		document.addEventListener('DOMContentLoaded', function() {
+			const observacoesField = document.getElementById('observacoes');
+			const salvarButton = document.getElementById('salvarObservacoes');
+			const msgSalvo = document.getElementById('msgSalvo');
+			const msgErro = document.getElementById('msgErro');
+
+			function carregarObservacoes() {
+				fetch('/api/observacoes')
+					.then(response => response.json())
+					.then(data => {
+						observacoesField.value = data.observacoes || '';
+					})
+					.catch(error => {
+						console.error('Erro ao carregar observações:', error);
+					});
+			}
+			function salvarObservacoes() {
+				const observacoes = observacoesField.value;
+				fetch('/api/salvar-observacoes', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({ observacoes })
+				})
+				.then(response => {
+					if (response.ok) {
+						msgSalvo.style.display = 'block';
+						msgErro.style.display = 'none';
+						setTimeout(() => { msgSalvo.style.display = 'none'; }, 3000);
+					} else {
+						throw new Error('Erro ao salvar');
+					}
+				})
+				.catch(error => {
+					console.error('Erro ao salvar observações:', error);
+					msgSalvo.style.display = 'none';
+					msgErro.style.display = 'block';
+					setTimeout(() => { msgErro.style.display = 'none'; }, 3000);
+				});
+			}
+			fetch('/api/username')
+				.then(response => response.json())
+				.then(data => {
+					const group = data.group || 'Sem grupo';
+					const allowedGroups = ['NOC', 'Logistica', 'Fibra'];
+
+					if (allowedGroups.includes(group)) {
+						observacoesField.addEventListener('mouseenter', () => {
+							observacoesField.removeAttribute('disabled');
+							salvarButton.style.display = 'inline-block';
+						});
+						observacoesField.addEventListener('mouseleave', () => {
+							setTimeout(() => { salvarButton.style.display = 'none'; }, 3000);
+							observacoesField.setAttribute("disabled", "");
+						});
+						salvarButton.addEventListener('click', salvarObservacoes);
+					}
+					carregarObservacoes();
 				})
 				.catch(error => {
 					console.error('Erro ao obter o nome do usuário e grupo:', error);

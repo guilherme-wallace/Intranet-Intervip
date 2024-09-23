@@ -10,16 +10,15 @@ VIABILITY.post('/', async (req: Request, res: Response) => {
     try {
         let response: MySQLResponse = await api.v1.PostViabilitys(req.body);
         return res.status(201).json(response);
-    }
-
-    catch (error) {
-       if (error) {
-            return res.status(400).json({error: 'Invalid object.'});
+    } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ error: 'Número de telefone já foi inserido.' });
         }
 
-        console.log(error);
-        return res.status(500).json({error: "Internal server error."});
+        console.error(error);
+        return res.status(500).json({ error: 'Internal server error.' });
     }
 });
+
 
 export default VIABILITY;

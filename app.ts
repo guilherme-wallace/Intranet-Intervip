@@ -2,6 +2,7 @@ import * as Favicon from 'serve-favicon';
 import * as Express from 'express';
 import { AddressInfo } from 'net';
 import * as Path from 'path';
+import * as fs from 'fs';
 
 import ROUTES from './routes/index';
 import API from './routes/api/index';
@@ -110,6 +111,34 @@ APP.get('/api/username', (req, res) => {
     const username = req.session.username || 'Visitante';
     const group = req.session.group || 'Sem grupo';
     res.json({ username, group });
+});
+
+const observacoesPath = Path.join(__dirname, 'public/savedFiles/observacoes.txt');
+
+APP.get('/api/observacoes', (req, res) => {
+    fs.readFile(observacoesPath, 'utf8', (err, data) => {
+        if (err) {
+            console.error('Erro ao ler o arquivo de observações:', err);
+            return res.status(500).json({ error: 'Erro ao carregar observações' });
+        }
+        res.json({ observacoes: data });
+    });
+});
+
+APP.post('/api/salvar-observacoes', (req, res) => {
+    const { observacoes } = req.body;
+
+    if (observacoes) {
+        fs.writeFile(observacoesPath, observacoes, 'utf8', (err) => {
+            if (err) {
+                console.error('Erro ao salvar as observações:', err);
+                return res.status(500).send('Erro ao salvar observações');
+            }
+            res.status(200).send('Observações salvas com sucesso');
+        });
+    } else {
+        res.status(400).send('Observações inválidas');
+    }
 });
 
 // view engine setup

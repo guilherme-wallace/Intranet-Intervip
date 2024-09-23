@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var Favicon = require("serve-favicon");
 var Express = require("express");
 var Path = require("path");
+var fs = require("fs");
 var index_1 = require("./routes/index");
 var index_2 = require("./routes/api/index");
 var emailRoutes_1 = require("./src/routes/emailRoutes");
@@ -87,6 +88,31 @@ APP.get('/api/username', function (req, res) {
     var username = req.session.username || 'Visitante';
     var group = req.session.group || 'Sem grupo';
     res.json({ username: username, group: group });
+});
+var observacoesPath = Path.join(__dirname, 'public/savedFiles/observacoes.txt');
+APP.get('/api/observacoes', function (req, res) {
+    fs.readFile(observacoesPath, 'utf8', function (err, data) {
+        if (err) {
+            console.error('Erro ao ler o arquivo de observações:', err);
+            return res.status(500).json({ error: 'Erro ao carregar observações' });
+        }
+        res.json({ observacoes: data });
+    });
+});
+APP.post('/api/salvar-observacoes', function (req, res) {
+    var observacoes = req.body.observacoes;
+    if (observacoes) {
+        fs.writeFile(observacoesPath, observacoes, 'utf8', function (err) {
+            if (err) {
+                console.error('Erro ao salvar as observações:', err);
+                return res.status(500).send('Erro ao salvar observações');
+            }
+            res.status(200).send('Observações salvas com sucesso');
+        });
+    }
+    else {
+        res.status(400).send('Observações inválidas');
+    }
 });
 // view engine setup
 APP.set('views', Path.join(__dirname, 'views'));

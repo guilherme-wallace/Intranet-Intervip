@@ -1,5 +1,4 @@
 $(function() {
-     //Form validation
     jQuery.validator.addMethod('celular', function (value, element) {
         value = value.replace("(","");
         value = value.replace(")", "");
@@ -22,7 +21,6 @@ $(function() {
         }
         return (this.optional(element) || true);
     }, 'Informe um número de telefone celular válido!');
-    
 
     $( "#formData" ).validate({
         debug: true,
@@ -49,10 +47,10 @@ $(function() {
             clientPhone: 'Preenchimento inválido'
         }
     });
-
+    
     $('#formData').on('submit', function(e) {
         e.preventDefault();
-
+    
         let nameValid = $('#clientName').val();
         let phoneNumberValid = $('#clientPhone').val();
         let postalCodeValid = $('#clientCep').val();
@@ -60,67 +58,49 @@ $(function() {
         if ((nameValid == "") || (phoneNumberValid == "") || (postalCodeValid == "")) {
             alert("Favor verificar se os campos foram preenchidos corretamente!")
         }else{
+            let viabilitys = [];
             if ($(this).valid()) {
+                viabilitys.push({
+                    clientName: $('#clientName').val(),
+                    phoneNumber: $('#clientPhone').val(),
+                    email: $('#clientEmail').val() || null,
+                    postalCodeId: $('#clientCep').val(),
+                    city: $('#clientAddressCity').val() || null,
+                    neighborhood: $('#clientAddressNeighbourhood').val() || null,
+                    state: $('#clientAddressUf').val() || null,
+                    address: $('#clientAddress').val() || null,
+                    number: +$('#clientAddressNumber').val() || null,
+                    complement: $('#clientAddressComplement').val() || null,
+                });
+                console.log(viabilitys);            
                 fetch('api/v1/viability', {
                     method: 'POST',
                     headers: {
                         'Content-type': 'application/json'
                     },
-                    body: JSON.stringify({
-                        name: $('#clientName').val(),
-                        phoneNumber: $('#clientPhone').val(),
-                        email: $('#clientEmail').val() || null,
-                        postalCode: $('#clientCep').val(),
-                        city: $('#clientAddressCity').val() || null,
-                        neighborhood: $('#clientAddressNeighbourhood').val() || null,
-                        state: $('#clientAddressUf').val() || null,
-                        address: $('#clientAddress').val() || null,
-                        number: +$('#clientAddressNumber').val() || null,
-                        complement: $('#clientAddressComplement').val() || null,
-                    })
+                    body: JSON.stringify(viabilitys)
                 }).then(function (response) {
-                    switch (response.status) {
-                        case 201:
-                            alert("Inserido com sucesso.");
-                            location.reload()
-                        default:
-                            alert('Algo deu errado, reporte este erro ao suporte.');
-                            throw new Error(response);
+                    if (!response.ok) {
+                        if (response.status === 409) {
+                            return response.json().then(err => {
+                                throw new Error(err.error || 'Número de telefone já foi inserido.');
+                            });
+                        }
+                        return response.json().then(err => {
+                            throw new Error(err.error || 'Erro conte o suporte.');
+                        });
                     }
+                    return response.json();
+                }).then(function (data) {
+                    alert("Inserido com sucesso.");
+                    location.reload();
+                }).catch(function (error) {
+                    console.error("Erro:", error.message);
+                    alert('Erro: ' + error.message);
+                    location.reload();
                 });
             }
         }
     });
 });
 
-/*
-const Estados = {
-    Rondônia: 11,
-	Acre: 12,
-	Amazonas: 13,
-	Rorâima: 14,
-	Pará: 15,
-	Amapá: 16,
-	Tocantins: 17,
-	Manaus: 21,
-	Piauí: 22,
-	Ceará: 23,
-	RioGrandeDoNorte: 24,
-	Paraíba: 25,
-	Pernambuco: 26,
-	Alagoas: 27,
-	Sergipe: 28,
-	Bahia: 29,
-	MinasGerais: 31,
-	EspíritoSanto: 32,
-	RioDeJaneiro: 33,
-	SãoPaulo: 35,
-	Paraná: 41,
-	SantaCatarina: 42,
-	RioGrandeDoSul: 43,
-	MatoGrossoDoSul: 50,
-	MatoGrosso: 51,
-	Goiás: 52,
-	DistritoFederal: 53
-}
-*/

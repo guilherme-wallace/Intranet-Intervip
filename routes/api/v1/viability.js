@@ -51,11 +51,11 @@ VIABILITY.post('/', function (req, res) { return __awaiter(void 0, void 0, void 
                 return [2 /*return*/, res.status(201).json(response)];
             case 2:
                 error_1 = _a.sent();
-                if (error_1) {
-                    return [2 /*return*/, res.status(400).json({ error: 'Invalid object.' })];
+                if (error_1.code === 'ER_DUP_ENTRY') {
+                    return [2 /*return*/, res.status(409).json({ error: 'Número de telefone já foi inserido.' })];
                 }
-                console.log(error_1);
-                return [2 /*return*/, res.status(500).json({ error: "Internal server error." })];
+                console.error(error_1);
+                return [2 /*return*/, res.status(500).json({ error: 'Internal server error.' })];
             case 3: return [2 /*return*/];
         }
     });
