@@ -7,3 +7,4 @@ api/database.js
 /logs
 /public/scriptsPy
 /public/savedFiles
+public/savedFiles/observacoes.txt
