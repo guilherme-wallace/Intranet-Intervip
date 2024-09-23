@@ -6,3 +6,4 @@ api/database.js
 /src/configs
 /logs
 /public/scriptsPy
+/public/savedFiles
