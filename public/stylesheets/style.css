@@ -140,6 +140,11 @@ body.dark-mode {
     color: #fff; /* Cor de texto para alta legibilidade */
 }
 
+.dark-mode main{
+    background-color: rgb(57, 62, 66); /* Cor de fundo geral */
+    color: #fff; /* Cor de texto para alta legibilidade */
+}
+
 .navbar-dark-mode {
     background-color: #2b4b76; /* Cor da barra superior */
 }
