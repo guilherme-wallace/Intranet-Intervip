@@ -234,7 +234,7 @@ ROUTER.put('/v1/block/:id', function (req, res, next) { return __awaiter(void 0,
                 _a.trys.push([0, 2, , 3]);
                 blockId = +req.params.id;
                 blockData = req.body;
-                blockData.blockId = blockId; // Certifique-se de que o blockId está incluído nos dados
+                blockData.blockId = blockId;
                 return [4 /*yield*/, api.v1.PutBlock(blockData)];
             case 1:
                 response = _a.sent();

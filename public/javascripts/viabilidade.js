@@ -1,4 +1,61 @@
 $(function() {
+    function dataHoje() {
+        const dataCompleta = new Date();
+        var dataDia = dataCompleta.getDate();
+        var dataMes = dataCompleta.getMonth() +1;
+        var dataANO = dataCompleta.getFullYear();
+
+        if (dataDia < 10){
+            dataDia = "0" + dataDia
+        };
+        var data = `${dataDia}/${dataMes}/${dataANO}`
+        
+        return data
+    }
+    const enviarEmail = async (destinatario, assunto, mensagem) => {
+        var destinatario;
+        var assunto;
+        var mensagem;
+    
+        try {
+            const resposta = await fetch('/api/email/enviar-email', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ para: destinatario, assunto, mensagem }),
+            });
+    
+            const dadosResposta = await resposta.json();
+    
+            if (resposta.ok) {
+                alert(dadosResposta.message);
+                location.reload()
+            } else {
+                alert(`Erro ao enviar o e-mail: ${dadosResposta.error}`);
+            }
+        } catch (erro) {
+            console.error(`Erro ao enviar o e-mail: ${erro.message}`);
+        }
+    };
+
+    $('#clientDropdownTipo a').on('click', function() {
+        switch ($(this).text()) {
+            case 'Condomínio':
+                $('#clientDropdownTipo').text($(this).text());
+				$('#row-clientDropdownTipo-Cond').attr('hidden', false);
+                break;
+            case 'Casa':
+                $('#clientDropdownTipo').text($(this).text());
+				$('#row-clientDropdownTipo-Cond').attr('hidden', true);
+                $('#clientAddressCondName').val('');
+                $('#clientAddressBloco').val('');
+                $('#clientAddressApartamento').val('');
+                $('#clientAddressSindico').val('');
+                break;
+        }
+    });
+
     jQuery.validator.addMethod('celular', function (value, element) {
         value = value.replace("(","");
         value = value.replace(")", "");
@@ -40,6 +97,9 @@ $(function() {
             clientEmail: {
                 email: true
             },
+            clientDropdownTipo: {
+                required: true
+            },
         },
         messages: {
             clientName: 'Preenchimento inválido',
@@ -54,10 +114,12 @@ $(function() {
         let nameValid = $('#clientName').val();
         let phoneNumberValid = $('#clientPhone').val();
         let postalCodeValid = $('#clientCep').val();
+        let addressType = $('#clientDropdownTipo').text()
+        var dataAtual = dataHoje();
     
-        if ((nameValid == "") || (phoneNumberValid == "") || (postalCodeValid == "")) {
+        if ((nameValid == "") || (phoneNumberValid == "") || (postalCodeValid == "") || (addressType == "Selecione uma opção")) {
             alert("Favor verificar se os campos foram preenchidos corretamente!")
-        }else{
+        } else {
             let viabilitys = [];
             if ($(this).valid()) {
                 viabilitys.push({
@@ -71,8 +133,13 @@ $(function() {
                     address: $('#clientAddress').val() || null,
                     number: +$('#clientAddressNumber').val() || null,
                     complement: $('#clientAddressComplement').val() || null,
+                    type: $('#clientDropdownTipo').text(),
+                    condominio: $('#clientAddressCondName').val() || null,
+                    block: $('#clientAddressBloco').val() || null,
+                    apartment: $('#clientAddressApartamento').val() || null,
+                    unionNumber: $('#clientAddressSindico').val() || null,
                 });
-                console.log(viabilitys);            
+                //console.log(viabilitys);
                 fetch('api/v1/viability', {
                     method: 'POST',
                     headers: {
@@ -92,15 +159,51 @@ $(function() {
                     }
                     return response.json();
                 }).then(function (data) {
-                    alert("Inserido com sucesso.");
-                    location.reload();
+                    if (addressType == 'Condomínio') {
+                        var destinatario = 'mullermuraro1+yrlqflg0cdxykjr3yukw@boards.trello.com';
+                        var assunto = `Viabilidade de condomínio: ${viabilitys[0].postalCodeId} --> ${viabilitys[0].condominio} --> ${viabilitys[0].neighborhood} --> ${viabilitys[0].city} - ${dataAtual}`;
+                        var mensagem = `
+                            <p><strong>TIPO DE SOLICITAÇÃO: VIABILIDADE DE CONDOMÍNIO</strong></p>
+                            <p><strong>Nome do cliente:</strong> ${viabilitys[0].clientName}</p>
+                            <p><strong>Celular:</strong> ${viabilitys[0].phoneNumber}</p>
+                            <p><strong>E-mail do interessado:</strong> ${viabilitys[0].email}</p>
+                            <p><strong>CEP:</strong> ${viabilitys[0].postalCodeId}</p>
+                            <p><strong>Endereço:</strong> ${viabilitys[0].address}</p>
+                            <p><strong>Número:</strong> ${viabilitys[0].number}</p>
+                            <p><strong>Nome do condomínio:</strong> ${viabilitys[0].condominio}</p>
+                            <p><strong>Bairro:</strong> ${viabilitys[0].neighborhood}</p>
+                            <p><strong>Cidade:</strong> ${viabilitys[0].city}</p>
+                        `;
+                        enviarEmail(destinatario, assunto, mensagem);
+                        //console.log(destinatario, assunto, mensagem);
+                        alert("Solicitação enviada com sucesso.");
+                    }
+                    else {
+                        var destinatario = 'mullermuraro1+yrlqflg0cdxykjr3yukw@boards.trello.com';
+                        var assunto = `Viabilidade de casas: ${viabilitys[0].postalCodeId} --> ${viabilitys[0].neighborhood} --> ${viabilitys[0].city} - ${dataAtual}`;
+                        var mensagem = `
+                            <p><strong>TIPO DE SOLICITAÇÃO: VIABILIDADE DE CASA</strong></p>
+                            <p><strong>Nome do cliente:</strong> ${viabilitys[0].clientName}</p>
+                            <p><strong>Celular:</strong> ${viabilitys[0].phoneNumber}</p>
+                            <p><strong>E-mail do interessado:</strong> ${viabilitys[0].email}</p>
+                            <p><strong>CEP:</strong> ${viabilitys[0].postalCodeId}</p>
+                            <p><strong>Endereço:</strong> ${viabilitys[0].address}</p>
+                            <p><strong>Número:</strong> ${viabilitys[0].number}</p>
+                            <p><strong>Complemento:</strong> ${viabilitys[0].complement}</p>
+                            <p><strong>Bairro:</strong> ${viabilitys[0].neighborhood}</p>
+                            <p><strong>Cidade:</strong> ${viabilitys[0].city}</p>
+                        `;
+                        enviarEmail(destinatario, assunto, mensagem);
+                        //console.log(destinatario, assunto, mensagem);
+                        alert("Solicitação enviada com sucesso.");
+                    }
                 }).catch(function (error) {
                     console.error("Erro:", error.message);
                     alert('Erro: ' + error.message);
-                    location.reload();
+                    //location.reload();
                 });
             }
         }
-    });
+    });    
 });
 

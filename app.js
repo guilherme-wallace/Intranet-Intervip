@@ -124,6 +124,7 @@ APP.use('/api', index_2.default);
 APP.use('/lead', index_1.default);
 APP.use('/main', index_1.default);
 APP.use('/e-mails', index_1.default);
+APP.use('/migra-onu', index_1.default);
 APP.use('/api/email', emailRoutes_1.default);
 APP.use('/clientes-online', index_1.default);
 APP.use('/teste-de-lentidao', index_1.default);

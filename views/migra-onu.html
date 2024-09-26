@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<htMl>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+		<meta http-equiv="refresh" content="21600;url=/"> <!-- 3 horas em segundos -->
+		<title>Migração de ONUs</title>
+		<!-- CSS -->
+		<link href="stylesheets/bootstrap.min.css" rel="stylesheet">
+		<link rel="stylesheet" type="text/css" href="stylesheets/style.css">
+		<!-- JS -->
+		<script src="javascripts/index.js"></script>
+		<script src="javascripts/jquery.js"></script>
+		<script src="javascripts/migra-onus/main.js"></script>
+		<script src="javascripts/bootstrap.bundle.min.js"></script>
+		<script src="javascripts/bootstrap-autocomplete.min.js"></script>
+	</head>
+	<style>
+		#modalAlerta {
+		  display: none;
+		  position: fixed;
+		  z-index: 999;
+		  left: 0;
+		  top: 0;
+		  width: 100%;
+		  height: 100%;
+		  background-color: rgba(0, 0, 0, 0.8);
+		  justify-content: center;
+		  align-items: center;
+		}
+	
+		#modalContent {
+		  background-color: white;
+		  padding: 20px;
+		  text-align: center;
+		  border-radius: 10px;
+		  max-width: 500px;
+		}
+	
+		#modalContent img {
+		  max-width: 100%;
+		  height: auto;
+		  border-radius: 10px;
+		}
+	
+		#closeModalBtn {
+		  margin-top: 15px;
+		  padding: 10px 20px;
+		  background-color: #dc3545;
+		  color: white;
+		  border: none;
+		  border-radius: 5px;
+		  cursor: pointer;
+		}
+	
+		#closeModalBtn:hover {
+		  background-color: #c82333;
+		}
+	  </style>
+	</head>
+	<body class="migra-onu-body">
+		<header>
+			<div class="container-fluid">
+				<div class="row">
+					<div class="col-sm-2 col-md-3 logo-wrapper" style="align-content: center;">
+						<a href="/main"><img class="logo" src="images/logo.png" alt="Logo Intervip"></a>
+					</div>
+					<div class="col-sm-6 col-md-6" id="cabecalho">
+						<h2>Migração de ONUs</h2>
+					</div>
+					<div class="col-sm-2 col-md-3" style="text-align: end; align-content: center;">
+						<div class="row">
+							<div class="col-md-9" style="align-content: center;">
+								<h6 class="show-username">Acessando como: {username}</h6>
+								<h6 class="show-group">Setor: {group}</h6>
+							</div>
+							<div class="col-md-3" style="align-content: center;">
+								<button id="theme-toggle" class="btn btn-secondary">Tema</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</header>
+		<main>
+			<div class="dark-container container-fluid">
+				<div class="container">
+					<div class="card border border-dark bg-light">
+						<div class="card-body" id="centralizar">
+							<div class="row" >
+								<div class="col-md-6">
+									<table id="tbl-informacoes" class="table table-hover plan-color-table">
+										<thead class="thead-dark">
+											<tr>
+												<th></th>
+												<th></th>
+											</tr>
+										</thead>
+									</table>
+									<h5>Seleciona a OLT de onde as ONUs serão retiradas</h5>
+									<div class="dropdown">
+										<button class="btn btn-secondary  dropdown-toggle" type="button" data-toggle="dropdown" aria-expanded="false">OLT antiga</button>
+										<ul class="dropdown-menu">
+											<li><a class="dropdown-item" value="OLT-SEA01">SEA01-OLT-01-INTERVIP</a></li>
+											<li><a class="dropdown-item" value="OLT-SEA03">SEA03-OLT-01-VNC</a></li>
+											<li><a class="dropdown-item" value="OLT-SEA04">SEA04-OLT-01-LAR</a></li>
+											<li><a class="dropdown-item" value="OLT-VTA01">VTA01-OLT-01-NEWPORT</a></li>
+											<li><a class="dropdown-item" value="OLT-VTA02">VTA02-OLT-01-JDCB</a></li>
+											<li><a class="dropdown-item" value="OLT-VVA01">VVA01-OLT-01-WLTS</a></li>
+											<li><a class="dropdown-item" value="OLT-VVA03">VVA03-OLT-01-ARIB</a></li>
+											<li><a class="dropdown-item" value="OLT-CCA01">CCA01-OLT-01-VCGB</a></li>
+										</ul>
+									</div>
+								</div>
+								<div class="col-md-6">
+									<p>Seleciona a OLT de onde as ONUs serão enviadas</p>
+									<div class="dropdown">
+										<button class="btn btn-secondary  dropdown-toggle" type="button" data-toggle="dropdown" aria-expanded="false">OLT nova</button>
+										<ul class="dropdown-menu">
+											<li><a class="dropdown-item" value="OLT-SEA01">SEA01-OLT-01-INTERVIP</a></li>
+											<li><a class="dropdown-item" value="OLT-SEA03">SEA03-OLT-01-VNC</a></li>
+											<li><a class="dropdown-item" value="OLT-SEA04">SEA04-OLT-01-LAR</a></li>
+											<li><a class="dropdown-item" value="OLT-VTA01">VTA01-OLT-01-NEWPORT</a></li>
+											<li><a class="dropdown-item" value="OLT-VTA02">VTA02-OLT-01-JDCB</a></li>
+											<li><a class="dropdown-item" value="OLT-VVA01">VVA01-OLT-01-WLTS</a></li>
+											<li><a class="dropdown-item" value="OLT-VVA03">VVA03-OLT-01-ARIB</a></li>
+											<li><a class="dropdown-item" value="OLT-CCA01">CCA01-OLT-01-VCGB</a></li>
+										</ul>
+									</div>
+								</div>
+                            </div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</main>
+		<div id="modalAlerta">
+		  <div id="modalContent">
+			<h3>Você não pode passar!</h3>
+			<img src="images/lord-of-the-rings-you-shall-not-pass.gif" alt="You shall not pass GIF">
+			<button id="closeModalBtn">Fechar</button>
+		  </div>
+		</div>
+		<footer class="footer navbar-fixed-bottom">
+		  <div class="container-fluid">
+			<div class="row">
+			  <div class="col-md-12 align-items-center" style="font-size: 12px; text-align: center;">
+				<a href="../"><img class="logo" src="images/logo.png"></a>
+				<p>© 2021 Gerencia Intervip | Densenvolvido por <a href="https://github.com/guilherme-wallace" target="_blank">Guilherme Wallace</a>.</p>
+			  </div>
+			</div>
+		  </div>
+		</footer>
+		<script>
+		  const currentTheme = localStorage.getItem('theme') || 'light';
+		  const bodyElement = document.body;
+	  
+		  if (currentTheme === 'dark') {
+			bodyElement.classList.add('dark-mode');
+		  }
+	  
+		  document.getElementById('theme-toggle').addEventListener('click', function() {
+			bodyElement.classList.toggle('dark-mode');
+	  
+			if (bodyElement.classList.contains('dark-mode')) {
+			  localStorage.setItem('theme', 'dark');
+			} else {
+			  localStorage.setItem('theme', 'light');
+			}
+		  });
+		  document.addEventListener('DOMContentLoaded', function() {
+			fetch('/api/username')
+			  .then(response => response.json())
+			  .then(data => {
+				const username = data.username || 'Visitante';
+				const group = data.group || 'Sem grupo';
+				document.querySelector('.show-username').textContent = `Acessando como: ${username}`;
+				document.querySelector('.show-group').textContent = `Setor: ${group}`;
+	  
+				if (username === 'Visitante') {
+				  alert('Será necessário refazer o login!');
+				  window.location = "/";
+				} else if (group !== 'NOC') {
+				  document.getElementById('modalAlerta').style.display = 'flex';
+				}
+			  })
+			  .catch(error => {
+				console.error('Erro ao obter o nome do usuário e grupo:', error);
+			  });
+		  });
+		  document.getElementById('closeModalBtn').addEventListener('click', function() {
+			document.getElementById('modalAlerta').style.display = 'none';
+			window.location = "/main";
+		  });
+		</script>
+	  </body>
+</html>

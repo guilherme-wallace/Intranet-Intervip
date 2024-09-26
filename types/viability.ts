@@ -9,4 +9,9 @@ export type Viability = {
     address: string,
     number: number,
     complement: string,
+    type: string,
+    condominio: string,
+    block: string,
+    apartment: string,
+    unionNumber: string
 }

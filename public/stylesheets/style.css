@@ -117,8 +117,8 @@ h3 {
     visibility: visible;
 }
 
-textarea:hover {
-    
+.viabilidade-body p{
+    margin: 12px 0px 4px 0px;
 }
 
 /*-----###Footer###-----*/

@@ -42,10 +42,10 @@ function postViabilitys(MySQL, viabilitys) {
     return __awaiter(this, void 0, void 0, function () {
         var query, _i, viabilitys_1, viability;
         return __generator(this, function (_a) {
-            query = 'INSERT INTO viability(clientName, phoneNumber, email, postalCodeId, city, neighborhood, state, address, number, complement) VALUES';
+            query = 'INSERT INTO viability(clientName, phoneNumber, email, postalCodeId, city, neighborhood, state, address, number, complement, type, condominio, block, apartment, unionNumber) VALUES';
             for (_i = 0, viabilitys_1 = viabilitys; _i < viabilitys_1.length; _i++) {
                 viability = viabilitys_1[_i];
-                query += " (".concat((0, mysql_1.escape)(viability.clientName), ", ").concat((0, mysql_1.escape)(viability.phoneNumber), ", \n            ").concat((0, mysql_1.escape)(viability.email), ", ").concat((0, mysql_1.escape)(viability.postalCodeId), ", ").concat((0, mysql_1.escape)(viability.city), ", \n            ").concat((0, mysql_1.escape)(viability.neighborhood), ", ").concat((0, mysql_1.escape)(viability.state), ", ").concat((0, mysql_1.escape)(viability.address), ", ").concat((0, mysql_1.escape)(viability.number), ", ").concat((0, mysql_1.escape)(viability.complement), "),");
+                query += "(".concat((0, mysql_1.escape)(viability.clientName), ", ").concat((0, mysql_1.escape)(viability.phoneNumber), ", \n            ").concat((0, mysql_1.escape)(viability.email), ", ").concat((0, mysql_1.escape)(viability.postalCodeId), ", ").concat((0, mysql_1.escape)(viability.city), ", \n            ").concat((0, mysql_1.escape)(viability.neighborhood), ", ").concat((0, mysql_1.escape)(viability.state), ", ").concat((0, mysql_1.escape)(viability.address), ", ").concat((0, mysql_1.escape)(viability.number), ", ").concat((0, mysql_1.escape)(viability.complement), ",\n            ").concat((0, mysql_1.escape)(viability.type), ", ").concat((0, mysql_1.escape)(viability.condominio), ", ").concat((0, mysql_1.escape)(viability.block), ", ").concat((0, mysql_1.escape)(viability.apartment), ", ").concat((0, mysql_1.escape)(viability.unionNumber), "),");
             }
             return [2 /*return*/, new Promise(function (resolve, reject) {
                     MySQL.query(query.slice(0, -1).concat(';'), function (error, response) {

@@ -18,7 +18,7 @@
         <script src="javascripts/bootstrap.bundle.min.js"></script>
     </head>
 
-    <body class="testeDeLentidao-body">
+    <body class="viabilidade-body">
         <header>
             <div class="container-fluid">
                 <div class="row">
@@ -72,13 +72,41 @@
                                     </div>
                                 </div>
                                 <div class="row">
-                                    <div class="col-md-10">
+                                    <div class="col-md-3">
+                                        <p class="pViabilidade">Condomínio ou Casa <span style="color: red; margin: 0; padding: 0;"> * </span></p>
+                                        <div class="dropdown">
+                                            <button class="btn btn-primary dropdown-toggle" id="clientDropdownTipo" name="clientDropdownTipo" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="margin-inline-start: 1rem;">Selecione uma opção</button>
+                                            <div id="clientDropdownTipo" name="clientDropdownTipo" class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                                                <a id="clientDropdownTipo-Cond" class="dropdown-item">Condomínio</a>
+                                                <a id="clientDropdownTipo-Casa" class="dropdown-item">Casa</a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-7">
                                         <p class="pViabilidade">Endereço</p>
                                         <input id="clientAddress" name="clientAddress" type="text" class="form-control" placeholder="Endereço" aria-label="Endereço" aria-describedby="basic-addon1">
                                     </div>
                                     <div class="col-md-2" style="padding-left: calc(10px * 1/3);">
                                         <p class="pViabilidade">Numero</p>
                                         <input id="clientAddressNumber" name="clientAddressNumber" type="text" class="form-control" placeholder="Número" aria-label="Número" aria-describedby="basic-addon1">
+                                    </div>
+                                </div>
+                                <div class="row" id="row-clientDropdownTipo-Cond" hidden>
+                                    <div class="col-md-3" style="padding-left: calc(10px * 1/3);" >
+                                        <p class="pViabilidade">Nome do Condompinio</p>
+                                        <input id="clientAddressCondName" name="clientAddressCondName" type="text" class="form-control" placeholder="Endereço" aria-label="Endereço" aria-describedby="basic-addon1">
+                                    </div>
+                                    <div class="col-md-3" >
+                                        <p class="pViabilidade">Bloco</p>
+                                        <input id="clientAddressBloco" name="clientAddressBloco" type="text" class="form-control" placeholder="Blcoo" aria-label="Blcoo" aria-describedby="basic-addon1">
+                                    </div>
+                                    <div class="col-md-3" style="padding-left: calc(10px * 1/3);" >
+                                        <p class="pViabilidade">Apartamento</p>
+                                        <input id="clientAddressApartamento" name="clientAddressApartamento" type="text" class="form-control" placeholder="Apartamento" aria-label="Apartamento" aria-describedby="basic-addon1">
+                                    </div>
+                                    <div class="col-md-3" style="padding-left: calc(10px * 1/3);" >
+                                        <p class="pViabilidade">Número do síndico</p>
+                                        <input id="clientAddressSindico" name="clientAddressSindico" type="text" class="form-control" placeholder="Apartamento" aria-label="Apartamento" aria-describedby="basic-addon1">
                                     </div>
                                 </div>
                                 <div class="row">
@@ -119,7 +147,7 @@
                 <div class="row">
                     <div class="col-md-12 align-items-center" style="font-size: 12px; text-align: center;">
                         <a href="../"><img class="logo" src="images/logo.png"></a>
-                        <p>© 2024 Gerencia Intervip | Densenvolvido por <a href="https://github.com/guilherme-wallace" target="_blank">Guilherme Wallace</a>. Todos os direitos reservados a Intervip.</p>
+                        <p>© 2024 Gerencia Intervip | Densenvolvido por <a href="https://github.com/guilherme-wallace" target="_blank">Guilherme Wallace</a>.</p>
                     </div>
                 </div>
             </div>

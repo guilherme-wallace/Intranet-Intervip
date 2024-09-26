@@ -147,7 +147,7 @@ ROUTER.put('/v1/block/:id', async (req: Request, res: Response, next) => {
     try {
         const blockId = +req.params.id;
         const blockData = req.body;
-        blockData.blockId = blockId; // Certifique-se de que o blockId está incluído nos dados
+        blockData.blockId = blockId;
 
         let response = await api.v1.PutBlock(blockData);
 
