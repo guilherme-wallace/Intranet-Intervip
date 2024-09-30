@@ -4,8 +4,7 @@ var express_1 = require("express");
 var child_process_1 = require("child_process");
 var path = require("path");
 var router = (0, express_1.Router)();
-router.get('/run-python', function (req, res) {
-    // Construindo o caminho absoluto para o script Python
+router.get('/run-addCondBD', function (req, res) {
     var scriptPath = path.resolve(__dirname, '../../public/scriptsPy/add-condominiums-to-BD/main.py');
     // Executando o script Python
     (0, child_process_1.exec)("python3 ".concat(scriptPath), function (error, stdout, stderr) {

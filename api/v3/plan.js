@@ -37,12 +37,11 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getPlans = void 0;
-var mysql_1 = require("mysql");
 function getPlans(MySQL, queryString) {
     return __awaiter(this, void 0, void 0, function () {
         var QUERY;
         return __generator(this, function (_a) {
-            QUERY = "SELECT * FROM plan WHERE name LIKE ".concat((0, mysql_1.escape)("%".concat(queryString, "%")), " AND active IS TRUE;");
+            QUERY = "SELECT * FROM plan WHERE active = 1;";
             return [2 /*return*/, new Promise(function (resolve, reject) {
                     MySQL.query(QUERY, function (error, response) {
                         if (error)

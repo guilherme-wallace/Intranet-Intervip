@@ -32,6 +32,7 @@ $(document).ready(function () {
             $("#planos-disponiveis").empty();
             $('#planos-disponiveis').append('<tr class="fundo-cinza"> \
                                                 <td>Tipo</td> \
+                                                <td>Velocidade (Mbps)</td> \
                                                 <td>Valor (R$)</td> \
                                             </tr>');
             const cidades = {
@@ -214,76 +215,60 @@ function registraEventoBotaoBlocos() {
 
 async function pegaPlanos(block) {
     $('#planos-disponiveis').empty();
-    let html = template`<tr>
-			    <td class="plano-tipo">${'tipo'}</td>
-			    <td>R$${'valor'}</td>
-			</tr>`;
-    
-    let groupPlans = await fetch(`api/v3/plan?query=${block.technology == 'Rádio' ? 'AIRMAX' : 'FIBER_FTTH'}`).then(response => response.json()).then(plans => {
-        plans.sort((a, b) => b.speed - a.speed);
-	let internetPlans = [];
 
-	for (const plan of plans) {
-	    internetPlans.push({
-		name: plan.name,
-            	price: (parseFloat(plan.price) - (function() {
-		    switch (block.groupId) {
-		        default: return 0;
-                    };
-               	})()).toFixed(2)
-            });
-	}
+    // Função auxiliar para aplicar descontos
+    const aplicarDesconto = (preco, groupId) => {
+        // Regras de desconto
+        switch (groupId) {
+            default: return preco;
+        }
+    };
 
-	return internetPlans;
-    });
+    // Função auxiliar para processar planos
+    const processaPlanos = (plans, groupId) => {
+        return plans.map(plan => ({
+            name: plan.name.replace('IVP_HOME_', ''), // Remove "IVP_HOME_"
+            speed: plan.speed,
+            price: (aplicarDesconto(parseFloat(plan.price), groupId)).toFixed(2)
+        }));
+    };
 
-    groupPlans.sort((a, b) => b.price - a.price);
+    // Requisições para buscar os planos
+    const [internetPlans] = await Promise.all([
+        fetch(`api/v3/plan`)
+            .then(response => response.json())
+            .then(plans => processaPlanos(plans.sort((a, b) => b.speed - a.speed), block.groupId)),
+    ]);
 
-    let tvInternetPlans = await fetch(`api/v3/plan?query=FIBER_DIRECTV`).then(response => response.json()).then(plans => {
-	plans.sort((a, b) => b.price - a.price);
-	let tvInternetPlans = [];
+    // Unindo todos os planos em um array
+    const groupPlans = [...internetPlans];
 
-	for (const plan of plans) {
-	    tvInternetPlans.push({
-	        name: plan.name,
-		price: (parseFloat(plan.price) - (function() {
-		    switch (block.groupId) {
-			default: return 0;
-		    };
-	    	})()).toFixed(2)
-	    });
-	}
+    // Filtrando os planos conforme a tecnologia
+    let filteredPlans = [];
+    if (block.technology === 'FTTH') {
+        // Mostra planos com FTTH
+        filteredPlans = groupPlans.filter(plan => plan.name.includes('FTTH'));
+    } else if (block.technology === 'Rádio') {
+        // Mostra planos com AIRMAX
+        filteredPlans = groupPlans.filter(plan => plan.name.includes('AIRMAX'));
+    } else if (block.technology === 'FTTB' || block.technology === 'Fibra') {
+        // Mostra planos com FIBER que não tenham FTTH
+        filteredPlans = groupPlans.filter(plan => plan.name.includes('FIBER') && !plan.name.includes('FTTH'));
+    }
 
-	return tvInternetPlans;
-    
-    });
+    // Ordenando por preço (caso necessário)
+    filteredPlans.sort((a, b) => b.price - a.price);
 
-    groupPlans.push(...tvInternetPlans);    
+    // Template HTML
+    const html = ({tipo, velocidade, valor}) => `
+        <tr>
+            <td class="plano-tipo">${tipo}</td>
+            <td>${velocidade}Mbps</td>
+            <td>R$${valor}</td>
+        </tr>`;
 
-    let tvPlans = await fetch(`api/v3/plan?query=IVP_TV`).then(response => response.json()).then(plans => {
-	plans.sort((a, b) => b.price - a.price);
-	let tvPlans = [];
-
-	for (const plan of plans) {
-	    tvPlans.push({
-		name: plan.name,
-		price: (parseFloat(plan.price) - (function() {
-		    switch (block.groupId) {
-			default: return 0;
-		    };
-		})()).toFixed(2)
-	    });
-    	}
-
-	return tvPlans;
-    });
-
-    groupPlans.push(...tvPlans);
-
-    for (const plan of groupPlans) {
-	$('#planos-disponiveis').append(html({
-	    tipo: plan.name,
-	    valor: plan.price
-	}));
+    // Adicionando os planos na tabela
+    for (const plan of filteredPlans) {
+        $('#planos-disponiveis').append(html({ tipo: plan.name, velocidade: plan.speed, valor: plan.price }));
     }
 }

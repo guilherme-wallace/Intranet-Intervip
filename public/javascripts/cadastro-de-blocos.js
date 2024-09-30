@@ -381,7 +381,7 @@ function removeLinhas() {
 
 //----------------------BTN reload-------------------------
 function atualizaCondominios() {
-    fetch('/api/run-python')
+    fetch('/api/run-addCondBD')
         .then(response => response.text())
         .then(data => {
             //console.log(data);

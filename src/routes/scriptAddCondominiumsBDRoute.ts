@@ -4,8 +4,7 @@ import * as path from 'path';
 
 const router = Router();
 
-router.get('/run-python', (req, res) => {
-    // Construindo o caminho absoluto para o script Python
+router.get('/run-addCondBD', (req, res) => {
     const scriptPath = path.resolve(__dirname, '../../public/scriptsPy/add-condominiums-to-BD/main.py');
 
     // Executando o script Python

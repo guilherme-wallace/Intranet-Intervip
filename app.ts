@@ -8,6 +8,7 @@ import ROUTES from './routes/index';
 import API from './routes/api/index';
 import emailRoutes from './src/routes/emailRoutes';
 import scriptAddCondominiumsBDRoute from './src/routes/scriptAddCondominiumsBDRoute';
+import scriptmigraOnusRoute from './src/routes/scriptmigraOnusRoute';
 
 import express = require('express');
 import bodyParser = require('body-parser');
@@ -157,6 +158,7 @@ APP.use('/api/email', emailRoutes);
 APP.use('/clientes-online', ROUTES);
 APP.use('/teste-de-lentidao', ROUTES);
 APP.use('/problemas-com-VPN', ROUTES);
+APP.use('/api', scriptmigraOnusRoute);
 APP.use('/cadastro-de-blocos', ROUTES);
 APP.use('/consulta-de-planos', ROUTES);
 APP.use('/cadastro-de-vendas', ROUTES);

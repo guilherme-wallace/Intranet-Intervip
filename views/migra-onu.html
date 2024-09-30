@@ -11,7 +11,9 @@
 		<!-- JS -->
 		<script src="javascripts/index.js"></script>
 		<script src="javascripts/jquery.js"></script>
-		<script src="javascripts/migra-onus/main.js"></script>
+		<script src="javascripts/migra-onus.js"></script>
+        <script src="javascripts/jquery.numeric.min.js"></script>
+        <script src="javascripts/jquery.validate.min.js"></script>
 		<script src="javascripts/bootstrap.bundle.min.js"></script>
 		<script src="javascripts/bootstrap-autocomplete.min.js"></script>
 	</head>
@@ -87,48 +89,139 @@
 				<div class="container">
 					<div class="card border border-dark bg-light">
 						<div class="card-body" id="centralizar">
-							<div class="row" >
-								<div class="col-md-6">
-									<table id="tbl-informacoes" class="table table-hover plan-color-table">
-										<thead class="thead-dark">
-											<tr>
-												<th></th>
-												<th></th>
-											</tr>
-										</thead>
-									</table>
-									<h5>Seleciona a OLT de onde as ONUs serão retiradas</h5>
-									<div class="dropdown">
-										<button class="btn btn-secondary  dropdown-toggle" type="button" data-toggle="dropdown" aria-expanded="false">OLT antiga</button>
-										<ul class="dropdown-menu">
-											<li><a class="dropdown-item" value="OLT-SEA01">SEA01-OLT-01-INTERVIP</a></li>
-											<li><a class="dropdown-item" value="OLT-SEA03">SEA03-OLT-01-VNC</a></li>
-											<li><a class="dropdown-item" value="OLT-SEA04">SEA04-OLT-01-LAR</a></li>
-											<li><a class="dropdown-item" value="OLT-VTA01">VTA01-OLT-01-NEWPORT</a></li>
-											<li><a class="dropdown-item" value="OLT-VTA02">VTA02-OLT-01-JDCB</a></li>
-											<li><a class="dropdown-item" value="OLT-VVA01">VVA01-OLT-01-WLTS</a></li>
-											<li><a class="dropdown-item" value="OLT-VVA03">VVA03-OLT-01-ARIB</a></li>
-											<li><a class="dropdown-item" value="OLT-CCA01">CCA01-OLT-01-VCGB</a></li>
-										</ul>
+                            <form id="formData" method="post">
+								<div class="row" >
+									<div class="col-md-6">
+										<table id="tbl-informacoes" class="table table-hover plan-color-table">
+											<thead class="thead-dark">
+												<tr>
+													<th></th>
+													<th></th>
+												</tr>
+											</thead>
+											<tbody>
+												<tr class="table-primary">
+													<td scope="row" id="td-olt-antiga">
+														<p><b>Seleciona a OLT de onde as ONUs serão retiradas</b></p>
+														<div class="dropdown">
+															<button class="btn btn-primary dropdown-toggle" id="dropOLTAntiga" name="dropOLTAntiga" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="margin-inline-start: 1rem;">Selecione uma opção</button>
+															<div id="dropOLTAntiga" name="dropOLTAntiga" class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+																<a id="dropOLTAntiga-INTERVIP" class="dropdown-item">SEA01-OLT-01-INTERVIP</a>
+																<a id="dropOLTAntiga-VNC" class="dropdown-item">SEA03-OLT-01-VNC</a>
+																<a id="dropOLTAntiga-LAR" class="dropdown-item">SEA04-OLT-01-LAR</a>
+																<a id="dropOLTAntiga-NEWPORT" class="dropdown-item">VTA01-OLT-01-NEWPORT</a>
+																<a id="dropOLTAntiga-JDCB" class="dropdown-item">VTA02-OLT-01-JDCB</a>
+																<a id="dropOLTAntiga-WLTS" class="dropdown-item">VVA01-OLT-01-WLTS</a>
+																<a id="dropOLTAntiga-ARIB" class="dropdown-item">VVA03-OLT-01-ARIB</a>
+																<a id="dropOLTAntiga-VCGB" class="dropdown-item">CCA01-OLT-01-VCGB</a>
+															</div>
+														</div>
+													</td>
+													<td scope="row" id="td-olt-nova">
+														<p><b>Seleciona a OLT para onde as ONUs serão enviada</b></p>
+														<div class="dropdown">
+															<button class="btn btn-primary dropdown-toggle" id="dropOLTNova" name="dropOLTNova" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="margin-inline-start: 1rem;">Selecione uma opção</button>
+															<div id="dropOLTNova" name="dropOLTNova" class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+																<a id="dropOLTNova-INTERVIP" class="dropdown-item">SEA01-OLT-01-INTERVIP</a>
+																<a id="dropOLTNova-VNC" class="dropdown-item">SEA03-OLT-01-VNC</a>
+																<a id="dropOLTNova-LAR" class="dropdown-item">SEA04-OLT-01-LAR</a>
+																<a id="dropOLTNova-NEWPORT" class="dropdown-item">VTA01-OLT-01-NEWPORT</a>
+																<a id="dropOLTNova-JDCB" class="dropdown-item">VTA02-OLT-01-JDCB</a>
+																<a id="dropOLTNova-WLTS" class="dropdown-item">VVA01-OLT-01-WLTS</a>
+																<a id="dropOLTNova-ARIB" class="dropdown-item">VVA03-OLT-01-ARIB</a>
+																<a id="dropOLTNova-VCGB" class="dropdown-item">CCA01-OLT-01-VCGB</a>
+															</div>
+														</div>
+													</th>
+												</tr>
+												<tr class="table-primary"></tr>
+													<tr class="table-primary">
+														<th scope="row">PON antiga:</th>
+														<td id="td-pon_ANTIGA">
+															<input type="text" maxlength="8" id="pon_ANTIGA" name="pon_ANTIGA" value="0/1/0" class="form-control form-control-sm center" placeholder="PON antiga" autocomplete="off">
+														</td>
+													</tr>
+													<tr class="table-primary">
+														<th scope="row">ONU ID:</th>
+														<td id="td-onu_ID">
+															<input type="text" maxlength="5" id="onu_ID" name="onu_ID" value="0" class="form-control form-control-sm center" placeholder="ONU ID" autocomplete="off">
+														</td>
+													</tr>
+													<tr class="table-primary">
+														<th scope="row">Line Profile:</th>
+														<td id="td-ont_LIN_PROF">
+															<input type="text" maxlength="5" id="ont_LIN_PROF" name="ont_LIN_PROF" value="None" class="form-control form-control-sm center" placeholder="ont-lineprofile-id" autocomplete="off">
+														</td>
+													</tr>
+													<tr class="table-primary">
+														<th scope="row">Service Profile:</th>
+														<td id="td-ont_SRV_PROF">
+															<input type="text" maxlength="5" id="ont_SRV_PROF" name="ont_SRV_PROF" value="None" class="form-control form-control-sm center" placeholder="ont-srvprofile-id" autocomplete="off">
+														</td>
+													</tr>
+													<tr class="table-primary">
+														<th scope="row">Ports native vlan:</th>
+														<td id="td-ont_native_vlan">
+															<input type="text" maxlength="5" id="ont_native_vlan" name="ont_native_vlan" value="None" class="form-control form-control-sm center" placeholder="port native-vlan" autocomplete="off">
+														</td>
+													</tr>
+													<tr class="table-primary">
+														<th scope="row">Service port vlan:</th>
+														<td id="td-ont_vlan_service_port">
+															<input type="text" maxlength="5" id="ont_vlan_service_port" name="ont_vlan_service_port" value="None" class="form-control form-control-sm center" placeholder="service-port vlan" autocomplete="off">
+														</td>
+													</tr>
+													<tr class="table-primary">
+														<th scope="row">gemport:</th>
+														<td id="td-ont_gem_PORT">
+															<input type="text" maxlength="5" id="ont_gem_PORT" name="ont_gem_PORT" value="None" class="form-control form-control-sm center" placeholder="gemport" autocomplete="off">
+														</td>
+													</tr>
+													<tr class="table-primary">
+														<th scope="row">User vlan:</th>
+														<td id="td-ont_user_vlan">
+															<input type="text" maxlength="5" id="ont_user_vlan" name="ont_user_vlan" value="None" class="form-control form-control-sm center" placeholder="user-vlan" autocomplete="off">
+														</td>
+													</tr>
+												</tr>
+											</tbody>
+											<thead class="thead-dark">
+												<tr>
+													<th></th>
+													<th></th>
+												</tr>
+											</thead>
+										</table>
+									</div>
+									<div class="col-md-6">
+										<table id="tbl-informacoes" class="table table-hover plan-color-table">
+											<thead class="thead-dark">
+												<tr>
+													<th></th>
+													<th></th>
+												</tr>
+											</thead>
+											<tbody>
+												
+											</tbody>
+											<thead class="thead-dark">
+												<tr>
+													<th></th>
+													<th></th>
+												</tr>
+											</thead>
+										</table>
 									</div>
 								</div>
-								<div class="col-md-6">
-									<p>Seleciona a OLT de onde as ONUs serão enviadas</p>
-									<div class="dropdown">
-										<button class="btn btn-secondary  dropdown-toggle" type="button" data-toggle="dropdown" aria-expanded="false">OLT nova</button>
-										<ul class="dropdown-menu">
-											<li><a class="dropdown-item" value="OLT-SEA01">SEA01-OLT-01-INTERVIP</a></li>
-											<li><a class="dropdown-item" value="OLT-SEA03">SEA03-OLT-01-VNC</a></li>
-											<li><a class="dropdown-item" value="OLT-SEA04">SEA04-OLT-01-LAR</a></li>
-											<li><a class="dropdown-item" value="OLT-VTA01">VTA01-OLT-01-NEWPORT</a></li>
-											<li><a class="dropdown-item" value="OLT-VTA02">VTA02-OLT-01-JDCB</a></li>
-											<li><a class="dropdown-item" value="OLT-VVA01">VVA01-OLT-01-WLTS</a></li>
-											<li><a class="dropdown-item" value="OLT-VVA03">VVA03-OLT-01-ARIB</a></li>
-											<li><a class="dropdown-item" value="OLT-CCA01">CCA01-OLT-01-VCGB</a></li>
-										</ul>
+                                <div class="row">
+									<div class="col-md-6"> 
+										<input type="Reset" id="limparDados" class="btn btn-primary bntclick" value="Limpar dados">
+                                        <button id="submitButton" class="btn btn-primary" type="submit">Prosseguir</button>
 									</div>
-								</div>
-                            </div>
+                                    <div class="col-md-6">
+                                    </div>
+                                </div>
+							</form>
 						</div>
 					</div>
 				</div>

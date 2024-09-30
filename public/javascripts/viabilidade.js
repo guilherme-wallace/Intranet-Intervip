@@ -176,7 +176,7 @@ $(function() {
                         `;
                         enviarEmail(destinatario, assunto, mensagem);
                         //console.log(destinatario, assunto, mensagem);
-                        alert("Solicitação enviada com sucesso.");
+                        //alert("Solicitação enviada com sucesso.");
                     }
                     else {
                         var destinatario = 'mullermuraro1+yrlqflg0cdxykjr3yukw@boards.trello.com';
@@ -195,7 +195,7 @@ $(function() {
                         `;
                         enviarEmail(destinatario, assunto, mensagem);
                         //console.log(destinatario, assunto, mensagem);
-                        alert("Solicitação enviada com sucesso.");
+                        //alert("Solicitação enviada com sucesso.");
                     }
                 }).catch(function (error) {
                     console.error("Erro:", error.message);
