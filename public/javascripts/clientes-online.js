@@ -43,7 +43,6 @@ $(document).ready(function () {
     // Quando o usuário seleciona um item no autocomplete
     $('#input-condo').on('autocomplete.select', function (e, item) {
         localStorage['condominioId'] = item.value; // Armazena o condominioId no localStorage
-        listaClientes(); // Chama a função para listar clientes
     });
 });
 

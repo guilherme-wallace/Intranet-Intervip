@@ -54,75 +54,95 @@
                                         <input id="clientName" name="clientName" type="text" class="form-control" placeholder="Nome do cliente" aria-label="Nome do cliente" aria-describedby="basic-addon1">
                                     </div>
                                     <div class="col-md-4">
-                                        <p class="pViabilidade">Telefone / Celular  <span style="color: red; margin: 0; padding: 0;"> * </span></p>
-                                        <input id="clientPhone" maxlength="12" name="clientPhone" type="text" class="form-control" placeholder="Telefone / Celular" aria-label="Telefone / Celular" aria-describedby="basic-addon1">
-                                    </div>
-                                </div>
-                                <div class="row">
-                                    <div class="col-md-9">
-                                        <p class="pViabilidade">Endereço de e-mail</p>
-                                        <input id="clientEmail" name="clientEmail" type="text" class="form-control" placeholder="Endereço de e-mail" aria-label="Endereço de e-mail" aria-describedby="basic-addon1">
-                                    </div>
-                                    <div class="col-md-3">
-                                        <p class="pViabilidade">CEP <span style="color: red; margin: 0; padding: 0;"> * </span></p>
-                                        <div class="tooltip">
-                                            <input id="clientCep" maxlength="10" name="clientCep" type="text" class="form-control" placeholder="CEP" aria-label="cep" aria-describedby="basic-addon1">
-                                            <span class="tooltiptext">Digite o CEP sem ponto, sem espaço e sem traço</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="row">
-                                    <div class="col-md-3">
-                                        <p class="pViabilidade">Condomínio ou Casa <span style="color: red; margin: 0; padding: 0;"> * </span></p>
+                                        <p class="pViabilidade">Viabilidade para: <span style="color: red; margin: 0; padding: 0;"> * </span></p>
                                         <div class="dropdown">
                                             <button class="btn btn-primary dropdown-toggle" id="clientDropdownTipo" name="clientDropdownTipo" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="margin-inline-start: 1rem;">Selecione uma opção</button>
                                             <div id="clientDropdownTipo" name="clientDropdownTipo" class="dropdown-menu" aria-labelledby="dropdownMenuButton">
                                                 <a id="clientDropdownTipo-Cond" class="dropdown-item">Condomínio</a>
                                                 <a id="clientDropdownTipo-Casa" class="dropdown-item">Casa</a>
+                                                <a id="clientDropdownTipo-estrutura" class="dropdown-item">Estrutura FTTH</a>
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="col-md-7">
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <p class="pViabilidade">Endereço de e-mail</p>
+                                        <input id="clientEmail" name="clientEmail" type="text" class="form-control" placeholder="Endereço de e-mail" aria-label="Endereço de e-mail" aria-describedby="basic-addon1">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <p class="pViabilidade">Telefone / Celular  <span style="color: red; margin: 0; padding: 0;"> * </span></p>
+                                        <input id="clientPhone" maxlength="12" name="clientPhone" type="text" class="form-control" placeholder="Telefone / Celular" aria-label="Telefone / Celular" aria-describedby="basic-addon1">
+                                    </div>
+                                </div>
+                                <div class="row" id="row-clientDropdownTipo-Cond" hidden>
+                                    <div class="col-md-12 input-group" id="col-predioEstuturado">
+                                        <label class="form-label d-block w-100">
+                                            <p class="card-title">Selecione o prédio:</p>
+                                        </label>
+                                        <input type="text" class="form-control form-control-md" id="input-condo" name="input-condo"
+                                            placeholder="Insira o nome do condominio" autocomplete="off" />
+                                        <input type="text" name="condo" id="input-condo-value"
+                                            placeholder="ID IXC" style="text-align: center; max-width: 100px; color: darkorange; font-weight: bolder;"
+                                            disabled readonly />
+                                    </div>
+                                    <div class="col-md-12" id="col-predioNaoEstuturado">
+                                        <p class="pViabilidade">Nome do Condompinio</p>
+                                        <input id="clientAddressCondName" name="clientAddressCondName" type="text" class="form-control" placeholder="Nome do Condompinio" aria-label="Nome do Condompinio" aria-describedby="basic-addon1">
+                                    </div>
+                                    <div class="col-md-4" id="col-blocoNaoEstuturado" hidden>
+                                        <p class="pViabilidade">Bloco</p>
+                                        <input id="clientAddressBloco" name="clientAddressBloco" type="text" class="form-control" placeholder="Bloco" aria-label="Bloco" aria-describedby="basic-addon1">
+                                    </div>
+                                    <div class="col-md-4" id="col-blocoEstuturado" hidden>
+                                        <p class="pViabilidade">Bloco</p>
+                                        <div class="dropdown">
+                                            <button id="botao-blocos"
+                                                class="btn btn-secondary dropdown-toggle scroll-menu"
+                                                type="button" data-toggle="dropdown" aria-haspopup="true"
+                                                aria-expanded="false">Selecione o Bloco</button>
+                                            <div id="blocos-lista" class="dropdown-menu"
+                                                aria-labelledby="dropdown-blocos">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4" style="padding-left: calc(10px * 1/3);" >
+                                        <p class="pViabilidade">Apartamento</p>
+                                        <input id="clientAddressApartamento" name="clientAddressApartamento" type="text" class="form-control" placeholder="Apartamento" aria-label="Apartamento" aria-describedby="basic-addon1">
+                                    </div>
+                                    <div class="col-md-4" style="padding-left: calc(10px * 1/3);" >
+                                        <p class="pViabilidade">Número do síndico</p>
+                                        <input id="clientAddressSindico" name="clientAddressSindico" type="text" class="form-control" placeholder="Número do síndico" aria-label="Número do síndico" aria-describedby="basic-addon1">
+                                    </div>
+                                </div>
+                                <div class="row" id="row-endereco">
+                                    <div class="col-md-3">
+                                        <p class="pViabilidade">CEP <span style="color: red; margin: 0; padding: 0;"> * </span></p>
+                                        <input id="clientCep" maxlength="10" name="clientCep" type="text" class="form-control" placeholder="CEP" aria-label="cep" aria-describedby="basic-addon1">
+                                    </div>
+                                    <div class="col-md-6">
                                         <p class="pViabilidade">Endereço</p>
                                         <input id="clientAddress" name="clientAddress" type="text" class="form-control" placeholder="Endereço" aria-label="Endereço" aria-describedby="basic-addon1">
                                     </div>
-                                    <div class="col-md-2" style="padding-left: calc(10px * 1/3);">
+                                    <div class="col-md-3" style="padding-left: calc(10px * 1/3);">
                                         <p class="pViabilidade">Numero</p>
                                         <input id="clientAddressNumber" name="clientAddressNumber" type="text" class="form-control" placeholder="Número" aria-label="Número" aria-describedby="basic-addon1">
                                     </div>
                                 </div>
-                                <div class="row" id="row-clientDropdownTipo-Cond" hidden>
-                                    <div class="col-md-3" style="padding-left: calc(10px * 1/3);" >
-                                        <p class="pViabilidade">Nome do Condompinio</p>
-                                        <input id="clientAddressCondName" name="clientAddressCondName" type="text" class="form-control" placeholder="Endereço" aria-label="Endereço" aria-describedby="basic-addon1">
-                                    </div>
-                                    <div class="col-md-3" >
-                                        <p class="pViabilidade">Bloco</p>
-                                        <input id="clientAddressBloco" name="clientAddressBloco" type="text" class="form-control" placeholder="Blcoo" aria-label="Blcoo" aria-describedby="basic-addon1">
-                                    </div>
-                                    <div class="col-md-3" style="padding-left: calc(10px * 1/3);" >
-                                        <p class="pViabilidade">Apartamento</p>
-                                        <input id="clientAddressApartamento" name="clientAddressApartamento" type="text" class="form-control" placeholder="Apartamento" aria-label="Apartamento" aria-describedby="basic-addon1">
-                                    </div>
-                                    <div class="col-md-3" style="padding-left: calc(10px * 1/3);" >
-                                        <p class="pViabilidade">Número do síndico</p>
-                                        <input id="clientAddressSindico" name="clientAddressSindico" type="text" class="form-control" placeholder="Apartamento" aria-label="Apartamento" aria-describedby="basic-addon1">
-                                    </div>
-                                </div>
-                                <div class="row">
+                                <div class="row" id="row-endereco2">
                                     <div class="col-md-3">
                                         <p class="pViabilidade">Cidade</p>
                                         <input id="clientAddressCity" name="clientAddressCity" type="text" class="form-control" placeholder="Cidade" aria-label="cidade" aria-describedby="basic-addon1">
                                     </div>
                                     <div class="col-md-3">
                                         <p class="pViabilidade">Bairro</p>
-                                        <input id="clientAddressNeighbourhood" name="clientAddressNeighbourhood" type="text" class="form-control" placeholder="Cidade" aria-label="cidade" aria-describedby="basic-addon1">
+                                        <input id="clientAddressNeighbourhood" name="clientAddressNeighbourhood" type="text" class="form-control" placeholder="Bairro" aria-label="Bairro" aria-describedby="basic-addon1">
                                     </div>
-                                    <div class="col-md-1">
+                                    <div class="col-md-1" id="col_clientAddressUf">
                                         <p class="pViabilidade">UF</p>
                                         <input id="clientAddressUf" maxlength="2" name="clientAddressUf" type="text" class="form-control" placeholder="UF" aria-label="UF" aria-describedby="basic-addon1">
                                     </div>
-                                    <div class="col-md-5">
+                                    <div class="col-md-5" id="col_clientAddressComplement">
                                         <p class="pViabilidade">Complemento</p>
                                         <input id="clientAddressComplement" name="clientAddressComplement" type="text" class="form-control" placeholder="Complemento" aria-label="Complemento" aria-describedby="basic-addon1">
                                     </div>
