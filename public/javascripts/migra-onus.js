@@ -88,8 +88,13 @@ $(function() {
         let onu_ID = $('#onu_ID').val();
     
         if ((dropOLTAntiga == "Selecione uma opção") || (dropOLTNova == "Selecione uma opção") || (pon_ANTIGA == "") || (onu_ID == "")) {
-            alert("Favor verificar se os campos foram preenchidos corretamente!");
+            $('#logconsole').val("Favor verificar se os campos foram preenchidos corretamente!");
         } else {
+            $('#logconsole').val("Executando o script, por favor, aguarde...");
+            $('#submitButton').attr('disabled', true)
+            $('#limparDados').attr('disabled', true)
+
+    
             let data = {
                 use_OLT_Antiga: dropOLTAntiga,
                 use_OLT_Nova: dropOLTNova,
@@ -102,32 +107,93 @@ $(function() {
                 ont_gem_PORT: $('#ont_gem_PORT').val() || null,
                 ont_user_vlan: $('#ont_user_vlan').val() || null
             };
-            console.log(data)
+    
             $.ajax({
                 url: '/api/run-olt-script',
                 method: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify(data),
                 success: function(response) {
-                    alert("Script executed successfully! " + response);
+                    $('#logconsole').val("Script executado com sucesso!\n" + response);
+                    $('#submitButton').attr('disabled', false)
+                    $('#limparDados').attr('disabled', false)
                 },
                 error: function(xhr, status, error) {
-                    alert("Error running script: " + xhr.responseText);
+                    $('#logconsole').val("Erro ao executar o script: " + xhr.responseText);
+                    $('#submitButton').attr('disabled', false)
+                    $('#limparDados').attr('disabled', false)
                 }
             });
         }
-    });    
-});
+    });
 
-function atualizaCondominios() {
-    fetch('/api/run-migraONUs')
-        .then(response => response.text())
-        .then(data => {
-            //console.log(data);
-            alert('Condomínios atualizado!');
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Falha ao executar o script: add-condominiums-to-BD \n Favor informar ao suporte.');
-        });
+    document.getElementById('bntautorizaONU').addEventListener('click', function() {
+        fetch('/api/autorizaONU')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Erro ao carregar autorizaONU.txt');
+                }
+                return response.json();
+            })
+            .then(data => {
+                document.getElementById('autorizaONU_txt').value = data.autorizaONU;
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                document.getElementById('autorizaONU_txt').value = 'Erro ao carregar o conteúdo.';
+            });
+    });
+
+    document.getElementById('bntautorizaExcONU').addEventListener('click', function() {
+        fetch('/api/autorizaONU')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Erro ao carregar autorizaONU.txt');
+                }
+                return response.json();
+            })
+            .then(data => {
+                document.getElementById('autorizaONUExcecao_txt').value = data.autorizaONU;
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                document.getElementById('autorizaONUExcecao_txt').value = 'Erro ao carregar o conteúdo.';
+            });
+    });
+    document.getElementById('bntdeletaONU').addEventListener('click', function() {
+        fetch('/api/autorizaONU')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Erro ao carregar autorizaONU.txt');
+                }
+                return response.json();
+            })
+            .then(data => {
+                document.getElementById('ontDelete_txt').value = data.autorizaONU;
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                document.getElementById('ontDelete_txt').value = 'Erro ao carregar o conteúdo.';
+            });
+    });
+    document.getElementById('bntdeletaExcONU').addEventListener('click', function() {
+        fetch('/api/autorizaONU')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Erro ao carregar autorizaONU.txt');
+                }
+                return response.json();
+            })
+            .then(data => {
+                document.getElementById('ontDeleteExcecao_txt').value = data.autorizaONU;
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                document.getElementById('ontDeleteExcecao_txt').value = 'Erro ao carregar o conteúdo.';
+            });
+    });
+});
+function cancelaCadastro() {
+    location.reload()
+    localStorage.clear();
 }

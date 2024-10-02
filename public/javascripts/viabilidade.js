@@ -277,6 +277,10 @@ $(function() {
             clientPhone: 'Preenchimento inválido'
         }
     });
+    var usuarioLogado = '';
+    $.get('/api/username', function(response) {
+        usuarioLogado = response.username;
+    });
     
     $('#formData').on('submit', function(e) {
         e.preventDefault();
@@ -309,6 +313,7 @@ $(function() {
                     blockEstruturado: $('#botao-blocos').text() || null,
                     apartment: $('#clientAddressApartamento').val() || null,
                     unionNumber: $('#clientAddressSindico').val() || null,
+                    operador: usuarioLogado,
                 });
                 //console.log(viabilitys);
                 fetch('api/v1/viability', {
@@ -347,6 +352,8 @@ $(function() {
                             <p><strong>Nome do condomínio:</strong> ${viabilitys[0].condominio}</p>
                             <p><strong>Bloco:</strong> ${viabilitys[0].block}</p>
                             <p><strong>Apartamento:</strong> ${viabilitys[0].apartment}</p>
+                            <p><br></p>
+                            <p><strong>Operador:</strong> ${viabilitys[0].operador}</p>
                         `;
                         enviarEmail(destinatario, assunto, mensagem);
                         //console.log(destinatario, assunto, mensagem);
@@ -369,6 +376,8 @@ $(function() {
                             <p><strong>Nome do condomínio:</strong> ${viabilitys[0].condominio}</p>
                             <p><strong>Bloco:</strong> ${viabilitys[0].blockEstruturado}</p>
                             <p><strong>Apartamento:</strong> ${viabilitys[0].apartment}</p>
+                            <p><br></p>
+                            <p><strong>Operador:</strong> ${viabilitys[0].operador}</p>
                         `;
                         enviarEmail(destinatario, assunto, mensagem);
                         //console.log(destinatario, assunto, mensagem);
@@ -388,6 +397,8 @@ $(function() {
                             <p><strong>Complemento:</strong> ${viabilitys[0].complement}</p>
                             <p><strong>Bairro:</strong> ${viabilitys[0].neighborhood}</p>
                             <p><strong>Cidade:</strong> ${viabilitys[0].city}</p>
+                            <p><br></p>
+                            <p><strong>Operador:</strong> ${viabilitys[0].operador}</p>
                         `;
                         enviarEmail(destinatario, assunto, mensagem);
                         //console.log(destinatario, assunto, mensagem);

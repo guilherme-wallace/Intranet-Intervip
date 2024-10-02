@@ -115,6 +115,47 @@ APP.post('/api/salvar-observacoes', function (req, res) {
         res.status(400).send('Observações inválidas');
     }
 });
+// --- Migra PON
+var autorizaONUPath = Path.join(__dirname, 'public/scriptsPy/migraOnus/src/autorizaONU.txt');
+APP.get('/api/autorizaONU', function (req, res) {
+    fs.readFile(autorizaONUPath, 'utf8', function (err, data) {
+        if (err) {
+            console.error('Erro ao ler o arquivo de autorizaONU.txt:', err);
+            return res.status(500).json({ error: 'Erro ao carregar autorizaONU.txt' });
+        }
+        res.json({ autorizaONU: data });
+    });
+});
+var autorizaONUExcecaoPath = Path.join(__dirname, 'public/scriptsPy/migraOnus/src/autorizaONUExcecao.txt');
+APP.get('/api/autorizaONUExcecao', function (req, res) {
+    fs.readFile(autorizaONUExcecaoPath, 'utf8', function (err, data) {
+        if (err) {
+            console.error('Erro ao ler o arquivo de autorizaONUExcecao.txt:', err);
+            return res.status(500).json({ error: 'Erro ao carregar autorizaONUExcecao.txt' });
+        }
+        res.json({ autorizaONUExcecao: data });
+    });
+});
+var ontDeletePath = Path.join(__dirname, 'public/scriptsPy/migraOnus/src/ontDelete.txt');
+APP.get('/api/ontDelete', function (req, res) {
+    fs.readFile(ontDeletePath, 'utf8', function (err, data) {
+        if (err) {
+            console.error('Erro ao ler o arquivo de ontDelete.txt:', err);
+            return res.status(500).json({ error: 'Erro ao carregar ontDelete.txt' });
+        }
+        res.json({ ontDelete: data });
+    });
+});
+var ontDeleteExcecaoPath = Path.join(__dirname, 'public/scriptsPy/migraOnus/src/ontDeleteExcecao.txt');
+APP.get('/api/ontDeleteExcecao', function (req, res) {
+    fs.readFile(ontDeleteExcecaoPath, 'utf8', function (err, data) {
+        if (err) {
+            console.error('Erro ao ler o arquivo de ontDeleteExcecao.txt:', err);
+            return res.status(500).json({ error: 'Erro ao carregar ontDeleteExcecao.txt' });
+        }
+        res.json({ ontDeleteExcecao: data });
+    });
+});
 // view engine setup
 APP.set('views', Path.join(__dirname, 'views'));
 APP.use(Express.static(Path.join(__dirname, 'public')));
