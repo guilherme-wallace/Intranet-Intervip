@@ -245,6 +245,9 @@ async function pegaPlanos(block) {
 
     // Filtrando os planos conforme a tecnologia
     let filteredPlans = [];
+    const voip_plan = groupPlans.filter(plan => plan.name.includes('VOIP'));
+    const tv_plan = groupPlans.filter(plan => plan.name.includes('TV'));
+
     if (block.technology === 'FTTH') {
         // Mostra planos com FTTH
         filteredPlans = groupPlans.filter(plan => plan.name.includes('FTTH'));
@@ -265,10 +268,27 @@ async function pegaPlanos(block) {
             <td class="plano-tipo">${tipo}</td>
             <td>${velocidade}Mbps</td>
             <td>R$${valor}</td>
-        </tr>`;
+        </tr> `;
 
-    // Adicionando os planos na tabela
+    // Adicionando os planos filtrados (FTTH, Rádio, FTTB) na tabela
     for (const plan of filteredPlans) {
         $('#planos-disponiveis').append(html({ tipo: plan.name, velocidade: plan.speed, valor: plan.price }));
     }
+    const html2 = ({tipo, valor}) => `
+        <tr>
+            <td class="plano-tipo">${tipo}</td>
+			<td></td>
+            <td>R$${valor}</td>
+        </tr> `;
+
+    // Adicionando os planos de VOIP
+    for (const plan of voip_plan) {
+        $('#planos-disponiveis_voip').append(html2({ tipo: plan.name, valor: plan.price }));
+    }
+
+    // Adicionando os planos de TV
+    for (const plan of tv_plan) {
+        $('#planos-disponiveis_tv').append(html2({ tipo: plan.name, valor: plan.price }));
+    }
 }
+
