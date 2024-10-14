@@ -216,3 +216,18 @@ body.dark-mode {
 .dark-mode .modal-content {
     background-color: #5a5a5a ; /* Cor de fundo geral */
 }
+
+.dark-mode #theme-toggle{
+    background-color:#f0f0f0;
+    color: #5a5a5a
+}
+
+.dark-mode #portabilidadeBtnSim{
+    background-color:#f0f0f0;
+    color: #5a5a5a
+}
+
+.dark-mode #portabilidadeBtnNao{
+    background-color:#f0f0f0;
+    color: #5a5a5a
+}

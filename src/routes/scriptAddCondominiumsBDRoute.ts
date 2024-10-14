@@ -8,7 +8,7 @@ router.get('/run-addCondBD', (req, res) => {
     const scriptPath = path.resolve(__dirname, '../../public/scriptsPy/add-condominiums-to-BD/main.py');
 
     // Executando o script Python
-    exec(`python3 ${scriptPath}`, (error, stdout, stderr) => {
+    exec(`python ${scriptPath}`, (error, stdout, stderr) => {
         if (error) {
             console.error(`Error: ${error.message}`);
             return res.status(500).send(`Error running script: ${error.message}`);

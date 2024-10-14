@@ -7,7 +7,7 @@ var router = (0, express_1.Router)();
 router.get('/run-addCondBD', function (req, res) {
     var scriptPath = path.resolve(__dirname, '../../public/scriptsPy/add-condominiums-to-BD/main.py');
     // Executando o script Python
-    (0, child_process_1.exec)("python3 ".concat(scriptPath), function (error, stdout, stderr) {
+    (0, child_process_1.exec)("python ".concat(scriptPath), function (error, stdout, stderr) {
         if (error) {
             console.error("Error: ".concat(error.message));
             return res.status(500).send("Error running script: ".concat(error.message));

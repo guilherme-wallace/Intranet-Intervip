@@ -145,15 +145,15 @@ $(function() {
     });
 
     document.getElementById('bntautorizaExcONU').addEventListener('click', function() {
-        fetch('/api/autorizaONU')
+        fetch('/api/autorizaONUExcecao')
             .then(response => {
                 if (!response.ok) {
-                    throw new Error('Erro ao carregar autorizaONU.txt');
+                    throw new Error('Erro ao carregar autorizaONUExcecao.txt');
                 }
                 return response.json();
             })
             .then(data => {
-                document.getElementById('autorizaONUExcecao_txt').value = data.autorizaONU;
+                document.getElementById('autorizaONUExcecao_txt').value = data.autorizaONUExcecao;
             })
             .catch(error => {
                 console.error('Erro:', error);
@@ -161,15 +161,15 @@ $(function() {
             });
     });
     document.getElementById('bntdeletaONU').addEventListener('click', function() {
-        fetch('/api/autorizaONU')
+        fetch('/api/ontDelete')
             .then(response => {
                 if (!response.ok) {
-                    throw new Error('Erro ao carregar autorizaONU.txt');
+                    throw new Error('Erro ao carregar ontDelete.txt');
                 }
                 return response.json();
             })
             .then(data => {
-                document.getElementById('ontDelete_txt').value = data.autorizaONU;
+                document.getElementById('ontDelete_txt').value = data.ontDelete;
             })
             .catch(error => {
                 console.error('Erro:', error);
@@ -177,15 +177,15 @@ $(function() {
             });
     });
     document.getElementById('bntdeletaExcONU').addEventListener('click', function() {
-        fetch('/api/autorizaONU')
+        fetch('/api/ontDeleteExcecao')
             .then(response => {
                 if (!response.ok) {
-                    throw new Error('Erro ao carregar autorizaONU.txt');
+                    throw new Error('Erro ao carregar ontDeleteExcecao.txt');
                 }
                 return response.json();
             })
             .then(data => {
-                document.getElementById('ontDeleteExcecao_txt').value = data.autorizaONU;
+                document.getElementById('ontDeleteExcecao_txt').value = data.ontDeleteExcecao;
             })
             .catch(error => {
                 console.error('Erro:', error);
