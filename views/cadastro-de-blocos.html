@@ -99,7 +99,8 @@
 												<h3 class="card-title">Cadastro de Blocos:</h3>
 											</label>
 											<button type="button" class="input-group-text cor-span" id="btnReload" style="cursor: pointer;" onclick="atualizaCondominios();">
-												<img src="images/reload.png" style="max-width: 1rem;">
+												Sincronizar
+												<img src="images/reload.png" style="max-width: 1rem; margin-left: 5px;">
 											</button>
 											<input type="text" class="form-control form-control-md" id="input-condo"
 												placeholder="Insira o nome do condominio" autocomplete="off" />
@@ -161,8 +162,7 @@
 								<div style="margin: 0px 10px 10px 0px;">
 									<button type="button" class="btn btn-secondary"
 										onclick="cancelaCadastro();">Cancelar</button>
-									<button type="button" class="btn btn-primary"
-										onclick="cadastraBlocos();">Adicionar</button>
+									<button type="button" id="btnAdicionar" class="btn btn-primary" onclick="cadastraBlocos();" disabled>Adicionar</button>
 								</div>
 							</div>
 						</section>

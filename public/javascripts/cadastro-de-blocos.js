@@ -2,7 +2,7 @@ $(function () {
     $('[data-toggle="tooltip"]').tooltip();
     localStorage.clear();
     insereLinhas();
-
+    
     $('#input-condo').autoComplete({
         minLength: 1,
         resolver: 'custom',
@@ -49,6 +49,14 @@ $(function () {
             $('#botao-blocos').text('Selecione o Bloco');
             $('#complemento').val('');
 
+            if ($("#dados-condo-cep").text() != "Favor verificar no IXC") {
+                document.getElementById("btnAdicionar").disabled = false;
+            }
+            
+            if ($("#dados-condo-cep").text() == "Favor verificar no IXC"){
+                alert("O condomínio ainda não foi registrado no Intranet. \n\nFavor clicar no blotão para sincronizar.")
+            }
+
         }).catch(err => {
             console.error("Erro na requisição ao condomínio:", err);
         });
@@ -61,7 +69,7 @@ function listaBlocos(condominioId) {
             case 200:
                 return response.json();
             case 404:
-                alert('Não existem blocos criados para este condomínio. Ou o condomínio ainda não foi registrado no Intranet.');
+                alert('Não existem blocos criados para este condomínio.');
                 return null;
             default:
                 alert('Algo deu errado, contate o suporte.');
@@ -386,6 +394,8 @@ function atualizaCondominios() {
         .then(data => {
             //console.log(data);
             alert('Condomínios atualizado!');
+            location.reload()
+            localStorage.clear();
         })
         .catch(error => {
             console.error('Error:', error);
