@@ -1,5 +1,7 @@
 export type Viability = {
     clientName: string,
+    cnpj: string,
+    nomeFantaisa: string,
     phoneNumber: number,
     email: string,
     postalCodeId: number,
@@ -13,5 +15,6 @@ export type Viability = {
     condominio: string,
     block: string,
     apartment: string,
-    unionNumber: string
+    unionNumber: string,
+    operador: string,
 }

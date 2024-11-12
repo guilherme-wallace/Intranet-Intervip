@@ -3,7 +3,7 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-        <meta http-equiv="refresh" content="21600;url=/"> <!-- 3 horas em segundos -->
+        <meta http-equiv="refresh" content="86400;url=/"> <!-- x horas em segundos -->
         <title>Viabilidade</title>
         <!-- CSS -->
         <link href="stylesheets/bootstrap.min.css" rel="stylesheet">
@@ -50,7 +50,7 @@
                             <form id="formData" method="post">
                                 <div class="row">
                                     <div class="col-md-8">
-                                        <p class="pViabilidade">Nome do cliente <span style="color: red; margin: 0; padding: 0;"> * </span></p>
+                                        <p class="pViabilidade">Nome do solicitante <span style="color: red; margin: 0; padding: 0;"> * </span></p>
                                         <input id="clientName" name="clientName" type="text" class="form-control" placeholder="Nome do cliente" aria-label="Nome do cliente" aria-describedby="basic-addon1">
                                     </div>
                                     <div class="col-md-4">
@@ -61,18 +61,29 @@
                                                 <a id="clientDropdownTipo-Cond" class="dropdown-item">Condomínio</a>
                                                 <a id="clientDropdownTipo-Casa" class="dropdown-item">Casa</a>
                                                 <a id="clientDropdownTipo-estrutura" class="dropdown-item">Estrutura FTTH</a>
+                                                <a id="clientDropdownTipo-Corporativo" class="dropdown-item">Corporativo</a>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="row">
                                     <div class="col-md-8">
-                                        <p class="pViabilidade">Endereço de e-mail</p>
+                                        <p class="pViabilidade">Endereço de e-mail <span style="color: red; margin: 0; padding: 0;"> * </span></p>
                                         <input id="clientEmail" name="clientEmail" type="text" class="form-control" placeholder="Endereço de e-mail" aria-label="Endereço de e-mail" aria-describedby="basic-addon1">
                                     </div>
                                     <div class="col-md-4">
                                         <p class="pViabilidade">Telefone / Celular  <span style="color: red; margin: 0; padding: 0;"> * </span></p>
                                         <input id="clientPhone" maxlength="12" name="clientPhone" type="text" class="form-control" placeholder="Telefone / Celular" aria-label="Telefone / Celular" aria-describedby="basic-addon1">
+                                    </div>
+                                </div>
+                                <div class="row" id="row-corporativo" hidden>
+                                    <div class="col-md-6">
+                                        <p class="pViabilidade">CNPJ</p>
+                                        <input id="clientCNPJ" maxlength="30" name="clientCNPJ" type="text" class="form-control" placeholder="CNPJ" aria-label="CNPJ" aria-describedby="basic-addon1">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <p class="pViabilidade">Nome fantasia</p>
+                                        <input id="fantasiaName" name="fantasiaName" type="text" class="form-control" placeholder="Nome fantasia" aria-label="Nome fantasia" aria-describedby="basic-addon1">
                                     </div>
                                 </div>
                                 <div class="row" id="row-clientDropdownTipo-Cond" hidden>

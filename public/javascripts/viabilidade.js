@@ -31,6 +31,7 @@ $(function() {
             if (resposta.ok) {
                 alert(dadosResposta.message);
                 location.reload()
+                localStorage.clear();
             } else {
                 alert(`Erro ao enviar o e-mail: ${dadosResposta.error}`);
             }
@@ -42,7 +43,13 @@ $(function() {
     $('#clientDropdownTipo a').on('click', function() {
         switch ($(this).text()) {
             case 'Condomínio':
+                localStorage.clear();
                 $('#clientDropdownTipo').text($(this).text());
+                $('#row-corporativo').attr('hidden', true);
+                $('#clientCNPJ').text('');
+                $('#clientCNPJ').val('');
+                $('#fantasiaName').text('');
+                $('#fantasiaName').val('');
 				$('#row-clientDropdownTipo-Cond').attr('hidden', false);
 				$('#col-predioNaoEstuturado').attr('hidden', false);
 				$('#col-predioEstuturado').attr('hidden', true);
@@ -54,6 +61,8 @@ $(function() {
                 $('#clientCep').attr('disabled', false)
                 $('#clientCep').text('');
                 $('#clientCep').val('');
+                $('#fantasiaName').text('');
+                $('#fantasiaName').val('');
                 $('#clientAddress').attr('disabled', false)
                 $('#clientAddress').text('');
                 $('#clientAddress').val('');
@@ -72,7 +81,13 @@ $(function() {
                 $('#submitButton').attr('disabled', false);
                 break;
             case 'Casa':
+                localStorage.clear();
                 $('#clientDropdownTipo').text($(this).text());
+                $('#row-corporativo').attr('hidden', true);
+                $('#clientCNPJ').text('');
+                $('#clientCNPJ').val('');
+                $('#fantasiaName').text('');
+                $('#fantasiaName').val('');
 				$('#row-clientDropdownTipo-Cond').attr('hidden', true);
 				$('#row-endereco').attr('hidden', false);
 				$('#row-endereco2').attr('hidden', false);
@@ -102,7 +117,13 @@ $(function() {
                 $('#submitButton').attr('disabled', false);
                 break;
             case 'Estrutura FTTH':
+                localStorage.clear();
                 $('#clientDropdownTipo').text($(this).text());
+                $('#row-corporativo').attr('hidden', true);
+                $('#clientCNPJ').text('');
+                $('#clientCNPJ').val('');
+                $('#fantasiaName').text('');
+                $('#fantasiaName').val('');
 				$('#row-clientDropdownTipo-Cond').attr('hidden', false);
 				$('#col-predioEstuturado').attr('hidden', false);
 				$('#col-predioNaoEstuturado').attr('hidden', true);
@@ -113,18 +134,52 @@ $(function() {
                 $('#clientAddressBloco').val('');
                 $('#clientAddressUf').val('');
                 $('#clientAddressComplement').val('');
+                break;
+            case 'Corporativo':
+                localStorage.clear();
+                $('#clientDropdownTipo').text($(this).text());
+                $('#row-corporativo').attr('hidden', false);
+                $('#clientCNPJ').text('');
+                $('#clientCNPJ').val('');
+                $('#fantasiaName').text('');
+                $('#fantasiaName').val('');
+                $('#row-clientDropdownTipo-Cond').attr('hidden', true);
+                $('#row-endereco').attr('hidden', false);
+                $('#row-endereco2').attr('hidden', false);
+                $('#clientAddressCondName').val('');
+                $('#clientAddressBloco').val('');
+                $('#clientAddressApartamento').val('');
+                $('#clientAddressSindico').val('');
+
+                $('#clientCep').attr('disabled', false)
+                $('#clientCep').text('');
+                $('#clientCep').val('');
+                $('#clientAddress').attr('disabled', false)
+                $('#clientAddress').text('');
+                $('#clientAddress').val('');
+                $('#clientAddressNumber').attr('disabled', false)
+                $('#clientAddressNumber').text('');
+                $('#clientAddressNumber').val('');
+                $('#clientAddressCity').attr('disabled', false)
+                $('#clientAddressCity').text('');
+                $('#clientAddressCity').val('');
+                $('#clientAddressNeighbourhood').attr('disabled', false)
+                $('#clientAddressNeighbourhood').text('');
+                $('#clientAddressNeighbourhood').val('');
+                $('#col_clientAddressUf').attr('hidden', false);
+                $('#col_clientAddressComplement').attr('hidden', false);
                 
+                $('#submitButton').attr('disabled', false);
                 break;
         }
     });
     $('#input-condo').autoComplete({
-        minLength: 1, // Mínimo de 1 caractere para ativar o autocomplete
-        resolver: 'custom', // Tipo de resolução personalizada para o autocomplete
+        minLength: 1,
+        resolver: 'custom',
         events: {
-            // Busca na API conforme o query digitado
             search: function (query, callback) {
                 fetch(`api/v4/condominio?query=${query}`).then(response => response.json()).then(data => {
-                    callback(data); // Chama o callback com os dados recebidos
+                    callback(data);
                 });
             }
         }
@@ -243,9 +298,6 @@ $(function() {
         if (value.length < 10 || value.length > 11) {
             return (this.optional(element) || false);
         }
-        if (["6", "7", "8", "9"].indexOf(value.substring(2, 3)) == -1) {
-            return (this.optional(element) || false);
-        }
         return (this.optional(element) || true);
     }, 'Informe um número de telefone celular válido!');
 
@@ -258,7 +310,7 @@ $(function() {
             },
             clientCep: {
                 required: true,
-                maxlength: 8
+                maxlength: 10
             },
             clientPhone: {
                 required: true,
@@ -274,9 +326,10 @@ $(function() {
         messages: {
             clientName: 'Preenchimento inválido',
             clientCep: 'Preenchimento inválido',
-            clientPhone: 'Preenchimento inválido'
+            clientPhone: 'Informe um número de telefone celular válido!'
         }
     });
+
     var usuarioLogado = '';
     $.get('/api/username', function(response) {
         usuarioLogado = response.username;
@@ -286,11 +339,13 @@ $(function() {
         e.preventDefault();
     
         let nameValid = $('#clientName').val();
+        let clientCNPJValid = $('#clientCNPJ').val();
         let phoneNumberValid = $('#clientPhone').val();
         let postalCodeValid = $('#clientCep').val();
         let addressType = $('#clientDropdownTipo').text()
         var dataAtual = dataHoje();
-    
+        
+        //console.log("nameValid: ", nameValid, " phoneNumberValid: ", phoneNumberValid, " postalCodeValid: ", postalCodeValid, " addressType: ", addressType, " clientCNPJValid: ", clientCNPJValid)
         if ((nameValid == "") || (phoneNumberValid == "") || (postalCodeValid == "") || (addressType == "Selecione uma opção")) {
             alert("Favor verificar se os campos foram preenchidos corretamente!")
         } else {
@@ -298,6 +353,8 @@ $(function() {
             if ($(this).valid()) {
                 viabilitys.push({
                     clientName: $('#clientName').val(),
+                    cnpj: $('#clientCNPJ').val() || null,
+                    nomeFantaisa: $('#fantasiaName').val() || null, 
                     phoneNumber: $('#clientPhone').val(),
                     email: $('#clientEmail').val() || null,
                     postalCodeId: $('#clientCep').val(),
@@ -316,6 +373,7 @@ $(function() {
                     operador: usuarioLogado,
                 });
                 //console.log(viabilitys);
+                //console.log(viabilitys[0].operador)
                 fetch('api/v1/viability', {
                     method: 'POST',
                     headers: {
@@ -357,7 +415,7 @@ $(function() {
                         `;
                         enviarEmail(destinatario, assunto, mensagem);
                         //console.log(destinatario, assunto, mensagem);
-                        //alert("Solicitação enviada com sucesso.");
+                        alert("Solicitação enviada com sucesso.");
                     }
                     else if (addressType == 'Estrutura FTTH') {
                         var destinatario = 'mullermuraro1+yrlqflg0cdxykjr3yukw@boards.trello.com';
@@ -381,7 +439,30 @@ $(function() {
                         `;
                         enviarEmail(destinatario, assunto, mensagem);
                         //console.log(destinatario, assunto, mensagem);
-                        //alert("Solicitação enviada com sucesso.");
+                        alert("Solicitação enviada com sucesso.");
+                    }
+                    else if (addressType == 'Corporativo') {
+                        var destinatario = 'mullermuraro1+yrlqflg0cdxykjr3yukw@boards.trello.com';
+                        var assunto = `Viabilidade para corporativos: ${viabilitys[0].postalCodeId} --> ${viabilitys[0].neighborhood} --> ${viabilitys[0].city} - ${dataAtual}`;
+                        var mensagem = `
+                            <p><strong>TIPO DE SOLICITAÇÃO: VIABILIDADE DE CORPORATIVOS</strong></p>
+                            <p><strong>Nome do cliente ou empresa:</strong> ${viabilitys[0].clientName}</p>
+                            <p><strong>CNPJ:</strong> ${viabilitys[0].cnpj}</p>
+                            <p><strong>Nome fantasia:</strong> ${viabilitys[0].nomeFantaisa}</p>
+                            <p><strong>Celular:</strong> ${viabilitys[0].phoneNumber}</p>
+                            <p><strong>E-mail do interessado:</strong> ${viabilitys[0].email}</p>
+                            <p><strong>CEP:</strong> ${viabilitys[0].postalCodeId}</p>
+                            <p><strong>Endereço:</strong> ${viabilitys[0].address}</p>
+                            <p><strong>Número:</strong> ${viabilitys[0].number}</p>
+                            <p><strong>Complemento:</strong> ${viabilitys[0].complement}</p>
+                            <p><strong>Bairro:</strong> ${viabilitys[0].neighborhood}</p>
+                            <p><strong>Cidade:</strong> ${viabilitys[0].city}</p>
+                            <p><br></p>
+                            <p><strong>Operador:</strong> ${viabilitys[0].operador}</p>
+                        `;
+                        enviarEmail(destinatario, assunto, mensagem);
+                        //console.log(destinatario, assunto, mensagem);
+                        alert("Solicitação enviada com sucesso.");
                     }
                     else {
                         var destinatario = 'mullermuraro1+yrlqflg0cdxykjr3yukw@boards.trello.com';
@@ -402,7 +483,7 @@ $(function() {
                         `;
                         enviarEmail(destinatario, assunto, mensagem);
                         //console.log(destinatario, assunto, mensagem);
-                        //alert("Solicitação enviada com sucesso.");
+                        alert("Solicitação enviada com sucesso.");
                     }
                 }).catch(function (error) {
                     console.error("Erro:", error.message);

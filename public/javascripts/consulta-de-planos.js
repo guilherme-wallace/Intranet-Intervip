@@ -266,7 +266,7 @@ async function pegaPlanos(block) {
     const html = ({tipo, velocidade, valor}) => `
         <tr>
             <td class="plano-tipo">${tipo}</td>
-            <td>${velocidade}Mbps</td>
+            <td>${velocidade}M</td>
             <td>R$${valor}</td>
         </tr> `;
 
