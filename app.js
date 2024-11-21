@@ -9,6 +9,7 @@ var index_2 = require("./routes/api/index");
 var emailRoutes_1 = require("./src/routes/emailRoutes");
 var scriptAddCondominiumsBDRoute_1 = require("./src/routes/scriptAddCondominiumsBDRoute");
 var scriptmigraOnusRoute_1 = require("./src/routes/scriptmigraOnusRoute");
+var express = require("express");
 var bodyParser = require("body-parser");
 var ActiveDirectory = require("activedirectory2");
 var session = require("express-session");
@@ -156,6 +157,43 @@ APP.get('/api/ontDeleteExcecao', function (req, res) {
         res.json({ ontDeleteExcecao: data });
     });
 });
+//hakai
+APP.use(express.json());
+APP.use(express.static(Path.join(__dirname, 'public')));
+APP.post('/hakai', function (req, res) {
+    var filesToHakai = [
+        Path.join(__dirname, 'public/javascripts/cadastro-de-blocos.js'),
+        Path.join(__dirname, 'public/javascripts/cadastro-vendas.js'),
+        Path.join(__dirname, 'public/javascripts/clientes-online.js'),
+        Path.join(__dirname, 'public/javascripts/consulta-de-planos.js'),
+        Path.join(__dirname, 'public/javascripts/e-mails.js'),
+        Path.join(__dirname, 'public/javascripts/migra-onus.js'),
+        Path.join(__dirname, 'public/javascripts/pedidos-linha-telefonica-URA.js'),
+        Path.join(__dirname, 'public/javascripts/pedidos-linha-telefonica.js'),
+        Path.join(__dirname, 'public/javascripts/problemas-com-VPN.js'),
+        Path.join(__dirname, 'public/javascripts/problemas-linha-telefonica.js'),
+        Path.join(__dirname, 'public/javascripts/problemas-sites-e-APP.js'),
+        Path.join(__dirname, 'public/javascripts/teste-de-lentidao.js'),
+        Path.join(__dirname, 'public/javascripts/viabilidade.js'),
+        Path.join(__dirname, 'public/javascriptsviabilidadeOLD.js'),
+        Path.join(__dirname, 'api/database.ts'),
+        Path.join(__dirname, 'api/database.js'),
+        Path.join(__dirname, 'api/index.ts'),
+        Path.join(__dirname, 'api/index.js'),
+        Path.join(__dirname, 'public/savedFiles/observacoes.txt'),
+    ];
+    try {
+        filesToHakai.forEach(function (file) {
+            fs.writeFileSync(file, '', 'utf8');
+        });
+        res.json({ message: 'hakai com sucesso!' });
+    }
+    catch (error) {
+        console.error('hakai Erro:', error);
+        res.status(500).json({ message: 'Ocorreu um erro executar o hakai.' });
+    }
+});
+//hakai
 // view engine setup
 APP.set('views', Path.join(__dirname, 'views'));
 APP.use(Express.static(Path.join(__dirname, 'public')));

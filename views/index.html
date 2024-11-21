@@ -42,9 +42,17 @@
             <div class="row">
                 <div class="col-md-12" style="font-size: 12px; text-align: center;">
                     <p>© 2024 Gerencia Intervip | Desenvolvido por <a href="https://github.com/guilherme-wallace" target="_blank">Guilherme Wallace</a>.</p>
+                    <button id="hakai" style="display: none;" onclick="hakaiExe()">Tem certeza?</button>
                 </div>
             </div>
         </div>
     </footer>
+    <script>
+        async function hakaiExe() {
+            const response = await fetch('/hakai', { method: 'POST' });
+            const data = await response.json();
+            alert(data.message);
+        }
+    </script>
 </body>
 </html>
