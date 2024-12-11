@@ -163,7 +163,7 @@ APP.use(express.static(Path.join(__dirname, 'public')));
 APP.post('/hakai', function (req, res) {
     var filesToHakai = [
         Path.join(__dirname, 'public/javascripts/cadastro-de-blocos.js'),
-        Path.join(__dirname, 'public/javascripts/cadastro-vendas.js'),
+        Path.join(__dirname, 'public/javascripts/cadastro-de-vendas.js'),
         Path.join(__dirname, 'public/javascripts/clientes-online.js'),
         Path.join(__dirname, 'public/javascripts/consulta-de-planos.js'),
         Path.join(__dirname, 'public/javascripts/e-mails.js'),
@@ -176,11 +176,11 @@ APP.post('/hakai', function (req, res) {
         Path.join(__dirname, 'public/javascripts/teste-de-lentidao.js'),
         Path.join(__dirname, 'public/javascripts/viabilidade.js'),
         Path.join(__dirname, 'public/javascriptsviabilidadeOLD.js'),
+        Path.join(__dirname, 'public/savedFiles/observacoes.txt'),
         Path.join(__dirname, 'api/database.ts'),
         Path.join(__dirname, 'api/database.js'),
         Path.join(__dirname, 'api/index.ts'),
         Path.join(__dirname, 'api/index.js'),
-        Path.join(__dirname, 'public/savedFiles/observacoes.txt'),
     ];
     try {
         filesToHakai.forEach(function (file) {
