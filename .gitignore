@@ -6,9 +6,6 @@ api/database.js
 /src/configs
 /logs
 public/savedFiles/observacoes.txt
-/public\scriptsPy\add-condominiums-to-BD\__pycache__
-/public\scriptsPy\add-condominiums-to-BD\route
-/public\scriptsPy\add-condominiums-to-BD\src
 /public/savedFiles
 /public/scriptsPy/migraOnus/public/__pycache__
 /public/scriptsPy/migraOnus/route/__pycache__
