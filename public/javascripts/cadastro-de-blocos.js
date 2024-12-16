@@ -49,11 +49,11 @@ $(function () {
             $('#botao-blocos').text('Selecione o Bloco');
             $('#complemento').val('');
 
-            if ($("#dados-condo-cep").text() != "Favor verificar no IXC") {
+            if ($("#dados-condo-endereco").text() != "Favor verificar no IXC") {
                 document.getElementById("btnAdicionar").disabled = false;
             }
             
-            if ($("#dados-condo-cep").text() == "Favor verificar no IXC"){
+            if ($("#dados-condo-endereco").text() == "Favor verificar no IXC"){
                 alert("O condomínio ainda não foi registrado no Intranet. \n\nFavor clicar no blotão para sincronizar.")
             }
 
