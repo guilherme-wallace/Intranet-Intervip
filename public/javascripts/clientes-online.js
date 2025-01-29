@@ -1,118 +1,156 @@
 $(document).ready(function () {
+    configurarOrdenacaoTabela();
+    configurarAutocompleteCondominio();
+    configurarSelecaoBloco();
+    configurarSelecaoTabela();
+});
 
-    // Função auxiliar para obter o valor de uma célula (coluna de uma linha)
-    const getCellValue = (tr, idx) => tr.children[idx].innerText || tr.children[idx].textContent;
+function configurarOrdenacaoTabela() {
+    document.querySelectorAll('th').forEach(th => th.addEventListener('click', () => {
+        const table = th.closest('table');
+        const columnIndex = Array.from(th.parentNode.children).indexOf(th);
+        const asc = th.asc = !th.asc;
 
-    // Comparador para ordenar colunas; verifica se os valores são números ou strings
-    const comparer = (idx, asc) => (a, b) => {
-        const v1 = getCellValue(asc ? a : b, idx); // Valor da célula da linha a
-        const v2 = getCellValue(asc ? b : a, idx); // Valor da célula da linha b
+        Array.from(table.querySelectorAll('tr:nth-child(n+2)'))
+            .sort(comparador(columnIndex, asc))
+            .forEach(tr => $(table).append(tr));
+    }));
+}
+
+function comparador(idx, asc) {
+    return (a, b) => {
+        const v1 = obterValorCelula(asc ? a : b, idx);
+        const v2 = obterValorCelula(asc ? b : a, idx);
         return v1 !== '' && v2 !== '' && !isNaN(v1) && !isNaN(v2) ? v1 - v2 : v1.toString().localeCompare(v2);
     };
+}
 
-    // Ativa a ordenação ao clicar nos cabeçalhos das colunas
-    document.querySelectorAll('th').forEach(th => th.addEventListener('click', () => {
-        const table = th.closest('table'); // Obtém a tabela onde o cabeçalho foi clicado
-        // Ordena as linhas da tabela, exceto a primeira (cabeçalho)
-        Array.from(table.querySelectorAll('tr:nth-child(n+2)'))
-            .sort(comparer(Array.from(th.parentNode.children).indexOf(th), this.asc = !this.asc))
-            .forEach(tr => $('#clientes-lista').append(tr)); // Reorganiza as linhas na tabela
-    }));
+function obterValorCelula(tr, idx) {
+    return tr.children[idx].innerText || tr.children[idx].textContent;
+}
 
-    // Autocomplete para o campo de entrada 'input-condo' com busca personalizada
+function configurarAutocompleteCondominio() {
     $('#input-condo').autoComplete({
-        minLength: 1, // Mínimo de 1 caractere para ativar o autocomplete
-        resolver: 'custom', // Tipo de resolução personalizada para o autocomplete
+        minLength: 1,
+        resolver: 'custom',
         events: {
-            // Busca na API conforme o query digitado
             search: function (query, callback) {
-                fetch(`api/v4/condominio?query=${query}`).then(response => response.json()).then(data => {
-                    callback(data); // Chama o callback com os dados recebidos
-                });
+                fetch(`api/v4/condominio?query=${query}`)
+                    .then(response => response.json())
+                    .then(data => callback(data));
             }
         }
     });
-
-    // Ao clicar em um item do bloco, insere o valor do bloco e envia o formulário
-    $('.bloco-item').click(function () {
-        let val = $(this).data('id'); // Pega o ID do bloco (via atributo data)
-        $('#input-bloco-value').val(val); // Define o valor no input oculto
-        $('#main-form').submit(); // Envia o formulário
-    });
-
-    // Quando o usuário seleciona um item no autocomplete
     $('#input-condo').on('autocomplete.select', function (e, item) {
-        localStorage['condominioId'] = item.value; // Armazena o condominioId no localStorage
-        listaClientes(); // Chama a função para listar clientes
+        localStorage['condominioId'] = item.value;
+        verificarTipoTabela();
     });
-});
+}
 
-// Função para listar clientes com base no 'condominioId' selecionado
-function listaClientes() {
-    fetch(`api/v4/client/condominio/${localStorage['condominioId']}`).then(response => response.json()).then(clients => {
-        
-        // Template de uma linha de cliente a ser preenchida
-        let html = template`<tr style="font-size: small;">
-                                <td>${'status'}</td>
-                                <td>${'codigo'}</td> 
-                                <td>${'complemento'}</td> 
-                                <td>${'ip'}</td> 
-                                <td>${'uptime'}</td> 
-                                <td>${'downtime'}</td> 
-                            </tr>`;
-
-        // Limpa a lista de clientes antes de inserir os novos
-        $('#clientes-lista').empty();
-        $('#clientes-lista').append('<tr></tr>'); // Adiciona uma linha vazia (opcional)
-
-        // Para cada cliente na lista recebida
-        for (const client of clients) {
-            // Faz uma requisição para obter detalhes do cliente (status do Radius)
-            fetch(`api/v4/radius/${client.Codigo}`).then(function(response) {
-                switch (response.status) {
-                    case 200:
-                        return response.json(); // Se o status for 200 (OK), retorna os dados em JSON
-                    case 404:
-                        return null; // Se o cliente não for encontrado, retorna null
-                }
-            }).then(data => {
-                // Verifica se o login e logout são "0000-00-00 00:00:00"
-                let statusText = data.Status ? 'ONLINE' : 'OFFLINE';
-                let loginText = data.Login;
-                let logoutText = data.Logout;
-                let complementoText = client.Complemento;
-                let ipdata =data.IP;
-                let ipTextRegex = ipdata.search(/172/i);
-                
-
-                if (data.Login === "0000-00-00 00:00:00" && data.Logout === "0000-00-00 00:00:00") {
-                    statusText = "Pré-contrato";
-                    loginText = "Aguardando instalação";
-                    logoutText = "Aguardando instalação";
-                    ipdata = "Pré-contrato";
-                }
-
-                if (client.Complemento === "") {
-                    complementoText = "N/A";
-                }
-          
-                if (ipdata === "") {
-                    ipdata = "OFFLINE";
-                }
-                if (ipTextRegex == "0") {
-                    ipdata = "inadimplente"
-                }
-                //console.log(ipTextRegex, ipdata)
-
-                $('#clientes-lista').append(html({
-                    status: statusText,
-                    codigo: client.Codigo,
-                    complemento: complementoText ?? 'N/A',
-                    ip: ipdata ?? 'N/A',
-                    uptime: loginText ?? 'N/A',
-                    downtime: logoutText ?? 'N/A'
-                }));
-            });
-        }
+function configurarSelecaoBloco() {
+    $('.bloco-item').click(function () {
+        $('#input-bloco-value').val($(this).data('id'));
+        $('#main-form').submit();
     });
+}
+
+function configurarSelecaoTabela() {
+    $('#tabelaTipo').on('change', verificarTipoTabela);
+}
+
+function verificarTipoTabela() {
+    const tipoTabela = document.getElementById("tabelaTipo").innerHTML;
+    if (tipoTabela.includes("Condomínio")) {
+        listarClientes("condominios");
+    } else if (tipoTabela.includes("Casas")) {
+        listarClientes("casas");
+    } else {
+        mostraCondominios();
+        listarClientes("condominios");
+    }
+}
+
+function listarClientes(tipo) {
+    const url = `api/v4/client/condominio/${localStorage['condominioId']}`;
+    fetch(url)
+        .then(response => response.json())
+        .then(clientes => atualizarTabelaClientes(clientes, tipo));
+}
+
+function atualizarTabelaClientes(clientes, tipo) {
+    const listaId = tipo === "casas" ? "#clientes-lista-casas" : "#clientes-lista-condominios";
+    $(listaId).empty().append('<tr></tr>');
+    clientes.forEach(cliente => buscarStatusCliente(cliente, listaId, tipo));
+}
+
+function buscarStatusCliente(cliente, listaId, tipo) {
+    fetch(`api/v4/radius/${cliente.Codigo}`)
+        .then(response => response.status === 200 ? response.json() : null)
+        .then(data => inserirClienteNaTabela(cliente, data, listaId, tipo));
+}
+
+function inserirClienteNaTabela(cliente, data, listaId, tipo) {
+    const statusText = definirStatusCliente(data);
+    const ipdata = verificarIP(data?.IP);
+    let html;
+    
+    if (tipo === "casas") {
+        html = `<tr style="font-size: small;">
+                    <td>${statusText}</td>
+                    <td>${cliente.Codigo}</td>
+                    <td>${cliente.Endereco}</td>
+                    <td>${cliente.Numero}</td>
+                    <td>${ipdata}</td>
+                    <td>${data?.Login ?? 'N/A'}</td>
+                    <td>${data?.Logout ?? 'N/A'}</td>
+                </tr>`;
+    } else {
+        html = `<tr style="font-size: small;">
+                    <td>${statusText}</td>
+                    <td>${cliente.Codigo}</td>
+                    <td>${cliente.Bloco || 'N/A'}</td>
+                    <td>${cliente.Apartamento || 'N/A'}</td>
+                    <td>${cliente.Complemento || 'N/A'}</td>
+                    <td>${ipdata}</td>
+                    <td>${data?.Login ?? 'N/A'}</td>
+                    <td>${data?.Logout ?? 'N/A'}</td>
+                </tr>`;
+    }
+    $(listaId).append(html);
+}
+
+function definirStatusCliente(data) {
+    if (!data || (data.Login === "0000-00-00 00:00:00" && data.Logout === "0000-00-00 00:00:00")) {
+        return "Pré-contrato";
+    }
+    return data.Status ? "ONLINE" : "OFFLINE";
+}
+
+function verificarIP(ip) {
+    if (!ip) return "OFFLINE";
+    return ip.startsWith("172.") ? "inadimplente" : ip;
+}
+
+function mostraCondominios() {
+    $('#sectionCondominios').attr('hidden', false);
+    $('#sectionCasas').attr('hidden', true);
+    document.getElementById("tabelaTipo").innerHTML = "Tipo de tabela: Condomínio";
+    $('#btnMostraCondominios').removeClass('btn-primary');
+    $('#btnMostraCondominios').addClass('btn-warning');
+    $('#bntMostraCasas').addClass('btn-primary');
+    $('#bntMostraCasas').removeClass('btn-warning');
+}
+
+function mostraCasas() {
+    $('#sectionCasas').attr('hidden', false);
+    $('#sectionCondominios').attr('hidden', true);
+    document.getElementById("tabelaTipo").innerHTML = "Tipo de tabela: Casas";
+    $('#bntMostraCasas').removeClass('btn-primary');
+    $('#bntMostraCasas').addClass('btn-warning');
+    $('#btnMostraCondominios').addClass('btn-primary');
+    $('#btnMostraCondominios').removeClass('btn-warning');
+}
+
+function refresh() {
+    verificarTipoTabela();
 }
