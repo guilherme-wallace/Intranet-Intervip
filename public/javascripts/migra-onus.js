@@ -10,6 +10,9 @@ $(function() {
             case 'SEA04-OLT-01-LAR':
                 $('#dropOLTAntiga').text($(this).text());
                 break;
+            case 'SEA05-OLT-01-NHZ':
+                $('#dropOLTAntiga').text($(this).text());
+                break;
             case 'VTA01-OLT-01-NEWPORT':
                 $('#dropOLTAntiga').text($(this).text());
                 break;
@@ -36,6 +39,9 @@ $(function() {
                 $('#dropOLTNova').text($(this).text());
                 break;
             case 'SEA04-OLT-01-LAR':
+                $('#dropOLTNova').text($(this).text());
+                break;
+            case 'SEA05-OLT-01-NHZ':
                 $('#dropOLTNova').text($(this).text());
                 break;
             case 'VTA01-OLT-01-NEWPORT':

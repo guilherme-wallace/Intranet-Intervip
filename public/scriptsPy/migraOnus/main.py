@@ -41,6 +41,7 @@ olt_IPS = {
     "SEA01-OLT-01-INTERVIP": ip_SEA01,
     "SEA03-OLT-01-VNC": ip_SEA03,
     "SEA04-OLT-01-LAR": ip_SEA04,
+    "SEA05-OLT-01-NHZ": ip_SEA05,
     "VTA01-OLT-01-NEWPORT": ip_VTA01,
     "VTA02-OLT-01-JDCB": ip_VTA02,
     "VVA01-OLT-01-WLTS": ip_VVA01,
@@ -55,7 +56,7 @@ username = user
 password = user_password
 
 caminho = '/opt/intranet/public/scriptsPy/migraOnus/src/'
-#caminho = 'C:/Users/GuilhermeWallace/Desktop/intranet/public/scriptsPy/migraOnus/src/'
+#caminho = 'C:\Users\Guilherme Costa\Documents\GitHub\Intranet-Intervip\public\scriptsPy\migraOnus\src'
 
 # Caminhos dos arquivos
 full_currentPort_path =f'{caminho}full_currentPort.txt'
