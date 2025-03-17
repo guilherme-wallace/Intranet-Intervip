@@ -1,4 +1,28 @@
 $(function() {
+    
+    // Função para gerar um número aleatório de 15 dígitos começando com 4009
+    function gerarNumeroAleatorio() {
+        const prefixo = "40099100";
+        const numeroAleatorio = Math.floor(100000 + Math.random() * 9000000).toString().substring(0, 11);
+        return prefixo + numeroAleatorio;
+    }
+
+    // Evento de clique no checkbox "Cadastro interno"
+    $('#cadastroInternoCheckbox').on('change', function() {
+        if (this.checked) {
+            const numeroAleatorio = gerarNumeroAleatorio();
+            $('#btnCadastroInternoCheckbox').text("Sim");
+            $('#clientPhone').val(numeroAleatorio).prop('disabled', true);
+            $('#clientEmail').val('intervip@intervip.net.br').prop('disabled', true);
+            $('#clientName').val('Intervip').prop('disabled', true);
+        } else {
+            $('#btnCadastroInternoCheckbox').text('Não');
+            $('#clientPhone').val('').prop('disabled', false);
+            $('#clientEmail').val('').prop('disabled', false);
+            $('#clientName').val('').prop('disabled', false);
+        }
+    });
+
     function dataHoje() {
         const dataCompleta = new Date();
         var dataDia = dataCompleta.getDate();

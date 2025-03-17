@@ -49,7 +49,12 @@
                         <div class="card-body" id="centralizar">
                             <form id="formData" method="post">
                                 <div class="row">
-                                    <div class="col-md-8">
+                                    <div class="col-md-2">
+                                        <p class="pViabilidade">É cadastro interno?</p>
+                                        <input type="checkbox" class="btn-check" id="cadastroInternoCheckbox" autocomplete="off" hidden>
+                                        <label class="btn btn-outline-primary" id="btnCadastroInternoCheckbox" for="cadastroInternoCheckbox">Não</label><br>
+                                    </div>
+                                    <div class="col-md-6">
                                         <p class="pViabilidade">Nome do solicitante <span style="color: red; margin: 0; padding: 0;"> * </span></p>
                                         <input id="clientName" name="clientName" type="text" class="form-control" placeholder="Nome do cliente" aria-label="Nome do cliente" aria-describedby="basic-addon1">
                                     </div>
@@ -73,7 +78,9 @@
                                     </div>
                                     <div class="col-md-4">
                                         <p class="pViabilidade">Telefone / Celular  <span style="color: red; margin: 0; padding: 0;"> * </span></p>
-                                        <input id="clientPhone" maxlength="12" name="clientPhone" type="text" class="form-control" placeholder="Telefone / Celular" aria-label="Telefone / Celular" aria-describedby="basic-addon1">
+                                        <div>
+                                            <input id="clientPhone" maxlength="12" name="clientPhone" type="text" class="form-control" placeholder="Telefone / Celular" aria-label="Telefone / Celular" aria-describedby="basic-addon1">
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="row" id="row-corporativo" hidden>
