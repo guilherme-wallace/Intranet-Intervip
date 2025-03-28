@@ -2,7 +2,7 @@ $(function() {
     
     // Função para gerar um número aleatório de 15 dígitos começando com 4009
     function gerarNumeroAleatorio() {
-        const prefixo = "40099100";
+        const prefixo = "40099100 - ";
         const numeroAleatorio = Math.floor(100000 + Math.random() * 9000000).toString().substring(0, 11);
         return prefixo + numeroAleatorio;
     }
