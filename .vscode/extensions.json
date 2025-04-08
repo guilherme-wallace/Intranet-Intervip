@@ -1,0 +1,27 @@
+{
+    "recommendations": [
+        "alefragnani.bookmarks",
+        "bracketpaircolordlw.bracket-pair-color-dlw",
+        "ms-vscode.cpptools",
+        "twxs.cmake",
+        "ms-vscode.cmake-tools",
+        "vadimcn.vscode-lldb",
+        "visualstudioexptteam.vscodeintellicode",
+        "visualstudioexptteam.intellicode-api-usage-examples",
+        "ms-python.isort",
+        "ms-toolsai.jupyter",
+        "ms-toolsai.vscode-jupyter-cell-tags",
+        "ms-toolsai.jupyter-keymap",
+        "ms-toolsai.jupyter-renderers",
+        "ms-toolsai.vscode-jupyter-slideshow",
+        "ritwickdey.liveserver",
+        "ms-vsliveshare.vsliveshare",
+        "ms-ceintl.vscode-language-pack-pt-br",
+        "ms-python.vscode-pylance",
+        "ms-python.python",
+        "ms-python.debugpy",
+        "vscode-icons-team.vscode-icons",
+        "ms-vscode-remote.remote-wsl",
+        "github.copilot"
+    ]
+}
