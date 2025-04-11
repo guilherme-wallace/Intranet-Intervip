@@ -2,277 +2,222 @@
 <html lang="pt-BR">
 
 <head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-	<meta http-equiv="refresh" content="86400;url=/"> <!-- x horas em segundos -->
-	<title>Intervip - Gerência de Redes</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <meta http-equiv="refresh" content="86400;url=/" /> <!-- x horas em segundos -->
+    <title>Intervip - Gerência de Redes</title>
 
-	<!-- CSS -->
-	<link href="stylesheets/bootstrap.min.css" rel="stylesheet">
-	<link rel="stylesheet" type="text/css" href="stylesheets/style.css">
-	<!-- JS -->
-	<script src="javascripts/jquery.js"></script>
-	<script src="javascripts/bootstrap.bundle.min.js"></script>
+    <!-- CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
+    <link rel="stylesheet" type="text/css" href="stylesheets/style.css">
 </head>
 
 <body class="gerenciaIVP-body">
-	<header>
-		<div class="container-fluid">
-			<div class="row">
-				<div class="col-sm-2 col-md-3 logo-wrapper" style="align-content: center;">
-					<a href="/main"><img class="logo" src="images/logo.png" alt="Logo Intervip"></a>
-				</div>
-				<div class="col-sm-6 col-md-6" id="cabecalho">
-					<h2>Intervip - Gerência de Redes</h2>
-				</div>
-				<div class="col-sm-2 col-md-3" style="text-align: end; align-content: center;">
-					<div class="row">
-						<div class="col-md-9" style="align-content: center;">
-							<h6 class="show-username">Acessando como: {username}</h6>
-							<h6 class="show-group">Setor: {group}</h6>
-						</div>
-						<div class="col-md-3" style="align-content: center;">
-							<button id="theme-toggle" class="btn btn-secondary">Tema</button>
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
-	</header>
-	<main>
-		<div class="dark-container container-fluid">
-			<div class="container">
-				<div class="card border border-dark bg-light">
-					<div class="card-body" id="centralizar">
-						<section class="row">
-							<div class="col-md-4">
-								<h3>Testes de Lentidão</h3>
-								<p><a class="btn btn-primary" href="teste-de-lentidao" role="button">Acessar »</a></p>
-							</div>
-							<div class="col-md-4">
-								<h3>Problemas com VPN</h3>
-								<p><a class="btn btn-primary" href="problemas-com-VPN" role="button">Acessar »</a></p>
-							</div>
-							<div class="col-md-4">
-								<h3>Problemas em Sites/APP</h3>
-								<p><a class="btn btn-primary" href="problemas-sites-e-APP" role="button">Acessar »</a></p>
-							</div>
-						</section>
-						<hr>
-						<section class="row">
-							<div class="col-md-4">
-								<h3>Consulta de Planos</h3>
-								<p><a class="btn btn-primary" href="consulta-de-planos" role="button">Acessar »</a></p>
-							</div>
-							<div class="col-md-4">
-								<a><img class="favicon" src="images/favicon.ico" alt="Favicon Intervip"></a>
-							</div>
-							<div class="col-md-4">
-								<h3>Clientes On-Line</h3>
-								<p><a class="btn btn-primary" href="clientes-online" role="button">Acessar »</a></p>
-							</div>
-						</section>
-						<hr>
-						<section class="row">				
-							<div class="col-md-4">
-								<h3>Cadastro de viabilidade</h3>
-								<p><a class="btn btn-primary addBlock" href="cadastro-de-viabilidade" role="button">Acessar »</a></p>
-							</div>
-							<div class="col-md-4" style="padding: 0">
-								<b>Observações do dia</b>
-								<textarea id="observacoes" class="form-control" rows="6" style="margin-bottom: 1rem;" disabled></textarea>
-								<button id="salvarObservacoes" class="btn btn-primary" style="margin-top: 10px; display: none;">Salvar Observações</button>
-								<div id="msgSalvo" style="margin-top: 10px; display:none;" class="alert alert-success">Observações salvas com sucesso!</div>
-								<div id="msgErro" style="margin-top: 10px; display:none;" class="alert alert-danger">Erro ao salvar observações!</div>
-							</div>
-							<div class="col-md-4">
-								<!--h3>Cadastro de Leads</h3>
-								<p><a class="btn btn-primary" href="lead" role="button">Acessar »</a></p-->
-							</div>	
-						</section>
-					</div>
-				</div>
-			</div>
-		</div>
-		<div class="container-fluid">
-			<div class="container">
-				<hr>
-				<h3>Linha Telefônica</h3>
-				<hr>
-				<div class="card border border-dark bg-light">
-					<div class="card-body" id="centralizar">
-						<section class="row">
-							<div class="col-md-4">
-								<h3>Pedido de Linha</h3>
-								<p><a class="btn btn-primary" href="pedidos-linha-telefonica" role="button">Acessar »</a></p>
-							</div>
-							<div class="col-md-4">
-								<h3>Pedido de Linha com URA</h3>
-								<p><a class="btn btn-primary" href="pedidos-linha-telefonica-URA" role="button">Acessar »</a></p>
-							</div>
-							<div class="col-md-4">
-								<h3>Problemas na Linha</h3>
-								<p><a class="btn btn-primary" href="problemas-linha-telefonica" role="button">Acessar »</a></p>
-							</div>
-						</section>
-					</div>
-				</div>
-			</div>
-		</div>
-		<div class="container-fluid">
-			<div class="container">
-				<hr>
-				<h3>NOC</h3>
-				<hr>
-				<div class="card border border-dark bg-light">
-					<div class="card-body" id="centralizar">
-						<section class="row">
-							<div class="col-md-4">
-								<h3>E-mails NOC</h3>
-								<p><a class="btn btn-primary emailsNoc" href="e-mails" role="button">Acessar »</a></p>
-							</div>
-							<div class="col-md-4">
-								<h3>Migração de ONUs</h3>
-								<p><a class="btn btn-primary addBlock" href="migra-onu" role="button">Acessar »</a></p>
-							</div>
-							<div class="col-md-4">
-								<h3>Cadastro de Blocos</h3>
-								<p><a class="btn btn-primary addBlock" href="cadastro-de-blocos" role="button">Acessar »</a></p>
-							</div>
-						</section>
-					</div>
-				</div>
-			</div>
-		</div>
-	</main>
-	<footer class="footer">
-		<div class="container-fluid">
-			<div class="row">
-				<div class="col-md-12" style="font-size: 12px; text-align: center;">
-					<a href="/"><img class="logo" src="images/logo.png" alt="Logo Intervip"></a>
-					<p>© 2021 Gerencia Intervip | Desenvolvido por <a href="https://github.com/guilherme-wallace" target="_blank">Guilherme Wallace</a>.</p>
-				</div>
-			</div>
-		</div>
-	</footer>
-	<script>
-		const currentTheme = localStorage.getItem('theme') || 'light';
-		const bodyElement = document.body;
-	
-		if (currentTheme === 'dark') {
-			bodyElement.classList.add('dark-mode');
-		}
-	
-		document.getElementById('theme-toggle').addEventListener('click', function() {
-			bodyElement.classList.toggle('dark-mode');
-	
-			if (bodyElement.classList.contains('dark-mode')) {
-				localStorage.setItem('theme', 'dark');
-			} else {
-				localStorage.setItem('theme', 'light');
-			}
-		});
-	
-		document.addEventListener('DOMContentLoaded', function() {
-			fetch('/api/username')
-				.then(response => response.json())
-				.then(data => {
-					const username = data.username || 'Visitante';
-					const group = data.group || 'Sem grupo';
-					document.querySelector('.show-username').textContent = `Acessando como: ${username}`;
-					document.querySelector('.show-group').textContent = `Setor: ${group}`;
+    <header class="header-modern">
+        <div class="container-fluid">
+            <div class="d-flex align-items-center">
+                <a href="/main" class="d-flex align-items-center text-decoration-none">
+                    <img class="logo me-3" src="images/logo.png" alt="Logo Intervip">
+                </a>
+            </div>
+            
+            <h1 class="header-title fs-4 fw-semibold text-white m-0">Gerência de Redes</h1>
+            
+            <div class="d-flex align-items-center">
+                <div class="user-info text-end me-4">
+                    <p class="m-0 small text-white-80">Acessando como: <span class="fw-medium">{username}</span></p>
+                    <p class="m-0 small text-white-80">Setor: <span class="fw-medium">{group}</span></p>
+                </div>
+                <button id="theme-toggle" class="btn btn-sm btn-outline-light rounded-pill px-3">
+                    <i class="bi bi-moon-stars"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+    
+    <main class="main-modern">
+        <div class="container-fluid py-4">
+            <!-- Seção Principal -->
+            <section class="mb-5">
+                <h2 class="section-title mb-4">Ferramentas Principais</h2>
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <div class="modern-card h-100">
+                            <div class="card-body">
+                                <i class="bi bi-speedometer2 card-icon"></i>
+                                <h3 class="card-title">Testes de Lentidão</h3>
+                                <a class="btn btn-primary btn-modern" href="teste-de-lentidao" role="button">Acessar</a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="modern-card h-100">
+                            <div class="card-body">
+                                <i class="bi bi-shield-lock card-icon"></i>
+                                <h3 class="card-title">Problemas com VPN</h3>
+                                <a class="btn btn-primary btn-modern" href="problemas-com-VPN" role="button">Acessar</a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="modern-card h-100">
+                            <div class="card-body">
+                                <i class="bi bi-globe card-icon"></i>
+                                <h3 class="card-title">Problemas em Sites/APP</h3>
+                                <a class="btn btn-primary btn-modern" href="problemas-sites-e-APP" role="button">Acessar</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Segunda Linha -->
+            <section class="mb-5">
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <div class="modern-card h-100">
+                            <div class="card-body">
+                                <i class="bi bi-file-text card-icon"></i>
+                                <h3 class="card-title">Consulta de Planos</h3>
+                                <a class="btn btn-primary btn-modern" href="consulta-de-planos" role="button">Acessar</a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="modern-card h-100">
+                            <div class="card-body">
+                                <i class="bi bi-people card-icon"></i>
+                                <h3 class="card-title">Clientes On-Line</h3>
+                                <a class="btn btn-primary btn-modern" href="clientes-online" role="button">Acessar</a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="modern-card h-100">
+                            <div class="card-body">
+                                <i class="bi bi-check-square card-icon"></i>
+                                <h3 class="card-title">Cadastro de viabilidade</h3>
+                                <a class="btn btn-primary btn-modern addBlock" href="cadastro-de-viabilidade" role="button">Acessar</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Área de Observações -->
+            <section class="mb-5">
+                <div class="row">
+                    <div class="col-lg-8 mx-auto">
+                        <div class="modern-card">
+                            <div class="card-body">
+                                <h3 class="card-title mb-3">Observações do dia</h3>
+                                <textarea id="observacoes" class="form-control modern-textarea" rows="5" disabled></textarea>
+                                <div class="d-flex justify-content-between align-items-center mt-3">
+                                    <div>
+                                        <button id="salvarObservacoes" class="btn btn-sm btn-outline-primary" style="display: none;">Salvar Observações</button>
+                                        <div id="msgSalvo" class="alert alert-success mt-2 mb-0 py-1 px-2 small" style="display:none;">Observações salvas com sucesso!</div>
+                                        <div id="msgErro" class="alert alert-danger mt-2 mb-0 py-1 px-2 small" style="display:none;">Erro ao salvar observações!</div>
+                                    </div>
+                                    <img src="images/favicon.ico" alt="Favicon Intervip" width="40">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Linha Telefônica -->
+            <section class="mb-5">
+                <h2 class="section-title mb-4">Linha Telefônica</h2>
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <div class="modern-card h-100">
+                            <div class="card-body">
+                                <i class="bi bi-telephone-plus card-icon"></i>
+                                <h3 class="card-title">Pedido de Linha</h3>
+                                <a class="btn btn-primary btn-modern" href="pedidos-linha-telefonica" role="button">Acessar</a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="modern-card h-100">
+                            <div class="card-body">
+                                <i class="bi bi-telephone-inbound card-icon"></i>
+                                <h3 class="card-title">Pedido de Linha com URA</h3>
+                                <a class="btn btn-primary btn-modern" href="pedidos-linha-telefonica-URA" role="button">Acessar</a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="modern-card h-100">
+                            <div class="card-body">
+                                <i class="bi bi-telephone-x card-icon"></i>
+                                <h3 class="card-title">Problemas na Linha</h3>
+                                <a class="btn btn-primary btn-modern" href="problemas-linha-telefonica" role="button">Acessar</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- NOC -->
+            <section>
+                <h2 class="section-title mb-4">NOC</h2>
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <div class="modern-card h-100">
+                            <div class="card-body">
+                                <i class="bi bi-envelope card-icon"></i>
+                                <h3 class="card-title">E-mails NOC</h3>
+                                <a class="btn btn-primary btn-modern emailsNoc" href="e-mails" role="button">Acessar</a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="modern-card h-100">
+                            <div class="card-body">
+                                <i class="bi bi-hdd-network card-icon"></i>
+                                <h3 class="card-title">Migração de ONUs</h3>
+                                <a class="btn btn-primary btn-modern addBlock" href="migra-onu" role="button">Acessar</a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="modern-card h-100">
+                            <div class="card-body">
+                                <i class="bi bi-grid card-icon"></i>
+                                <h3 class="card-title">Cadastro de Blocos</h3>
+                                <a class="btn btn-primary btn-modern addBlock" href="cadastro-de-blocos" role="button">Acessar</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+    
+    <footer class="footer-modern">
+        <div class="container-fluid py-4">
+            <div class="text-center">
+                <img src="images/logo.png" alt="Logo Intervip" width="120" class="mb-3">
+                <p class="m-0 small">© 2023 Gerência Intervip | Desenvolvido por <a href="https://github.com/guilherme-wallace" target="_blank" class="text-white">Guilherme Wallace</a></p>
+            </div>
+        </div>
+    </footer>
 
-					if (username == 'Visitante') {
-						alert(`Será necessário refazer o login!`);
-						window.location = "/";
-					}	
-					//if (group !== 'NOC' && group !== 'Logistica' && group !== 'Fibra') {
-						// Desabilita o botão emailsNoc
-						//const emailsNocButton = document.querySelector('.emailsNoc');
-						//if (emailsNocButton) {
-							//emailsNocButton.classList.add('disabled');
-							//.setAttribute('aria-disabled', 'true');
-							//emailsNocButton.setAttribute('tabindex', '-1');
-						//}
-	
-						// Desabilita o botão addBlock
-						//const addBlockButton = document.querySelector('.addBlock');
-						//if (addBlockButton) {
-							//.classList.add('disabled');
-							//addBlockButton.setAttribute('aria-disabled', 'true');
-							//addBlockButton.setAttribute('tabindex', '-1');
-						//}
-					//}
-				})
-				.catch(error => {
-					console.error('Erro ao obter o nome do usuário e grupo:', error);
-				});
-		});
-		document.addEventListener('DOMContentLoaded', function() {
-			const observacoesField = document.getElementById('observacoes');
-			const salvarButton = document.getElementById('salvarObservacoes');
-			const msgSalvo = document.getElementById('msgSalvo');
-			const msgErro = document.getElementById('msgErro');
-
-			function carregarObservacoes() {
-				fetch('/api/observacoes')
-					.then(response => response.json())
-					.then(data => {
-						observacoesField.value = data.observacoes || '';
-					})
-					.catch(error => {
-						console.error('Erro ao carregar observações:', error);
-					});
-			}
-			function salvarObservacoes() {
-				const observacoes = observacoesField.value;
-				fetch('/api/salvar-observacoes', {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json'
-					},
-					body: JSON.stringify({ observacoes })
-				})
-				.then(response => {
-					if (response.ok) {
-						msgSalvo.style.display = 'block';
-						msgErro.style.display = 'none';
-						setTimeout(() => { msgSalvo.style.display = 'none'; }, 3000);
-					} else {
-						throw new Error('Erro ao salvar');
-					}
-				})
-				.catch(error => {
-					console.error('Erro ao salvar observações:', error);
-					msgSalvo.style.display = 'none';
-					msgErro.style.display = 'block';
-					setTimeout(() => { msgErro.style.display = 'none'; }, 3000);
-				});
-			}
-			fetch('/api/username')
-				.then(response => response.json())
-				.then(data => {
-					const group = data.group || 'Sem grupo';
-					const allowedGroups = ['NOC', 'Logistica', 'Fibra'];
-
-					if (allowedGroups.includes(group)) {
-						observacoesField.addEventListener('mouseenter', () => {
-							observacoesField.removeAttribute('disabled');
-							salvarButton.style.display = 'inline-block';
-						});
-						observacoesField.addEventListener('mouseleave', () => {
-							setTimeout(() => { salvarButton.style.display = 'none'; }, 3000);
-							observacoesField.setAttribute("disabled", "");
-						});
-						salvarButton.addEventListener('click', salvarObservacoes);
-					}
-					carregarObservacoes();
-				})
-				.catch(error => {
-					console.error('Erro ao obter o nome do usuário e grupo:', error);
-				});
-		});
-	</script>
+    <!-- JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="javascripts/jquery.js"></script>
+    <script src="javascripts/main.js"></script>
 </body>
-
 </html>
