@@ -3,7 +3,7 @@ let blocosModal = null;
 let apartamentoModal = null;
 let currentBlock = null;
 
-// Função para inicializar os tabs
+// Inicializar os tabs
 function initializeTabs() {
     const tabElms = document.querySelectorAll('button[data-bs-toggle="tab"]');
     tabElms.forEach(tabEl => {
@@ -15,9 +15,8 @@ function initializeTabs() {
     });
 }
 
-// Quando o DOM estiver pronto
+// Inicializa os modais
 document.addEventListener('DOMContentLoaded', function() {
-    // Inicializa os modais
     blocosModal = new bootstrap.Modal(document.getElementById('blocos-modal'));
     apartamentoModal = new bootstrap.Modal(document.getElementById('apartamento-modal'));
     
