@@ -111,17 +111,32 @@ function showBlocksModal(blocks) {
 
 // Carrega os blocos de um condomínio
 function loadBlocks(condominioId) {
+    // Esconde alertas anteriores e reseta a interface
+    document.getElementById('bloco-sem-estrutura-alert').style.display = 'none';
+    document.getElementById('linha-blocos').hidden = true;
+    document.getElementById('linha-apartamentos').hidden = true;
+    document.getElementById('linha-casas').hidden = true;
+    document.getElementById('linha-complemento').hidden = true;
+
     fetch(`api/v1/block/${condominioId}`)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                // Trata 404 como bloco sem estrutura
+                if (response.status === 404) {
+                    throw new Error("sem_estrutura");
+                }
+                throw new Error("Erro ao carregar blocos");
+            }
+            return response.json();
+        })
         .then(blocks => {
             if (blocks.length === 0 || (blocks.length === 1 && blocks[0].technology === 'Sem estrutura')) {
-                return alert("Bloco sem estrutura!");
+                throw new Error("sem_estrutura");
             }
 
             localStorage.setItem('blocks', JSON.stringify(blocks));
             document.getElementById('linha-blocos').hidden = false;
             
-            // Se houver apenas 1 bloco, seleciona automaticamente
             if (blocks.length === 1) {
                 selectBlock(blocks[0]);
                 if (blocks[0].floors !== null) {
@@ -129,11 +144,28 @@ function loadBlocks(condominioId) {
                 }
             }
         })
-        .catch(() => alert("Erro ao carregar blocos"));
+        .catch(error => {
+            if (error.message === "sem_estrutura") {
+                const alertElement = document.getElementById('bloco-sem-estrutura-alert');
+                alertElement.style.display = 'block';
+                
+                // Atualiza a tabela de planos para estado vazio
+                document.getElementById('planos-disponiveis').innerHTML = `
+                    <tr>
+                        <td colspan="3" class="text-center py-4 text-muted">
+                            Nenhum plano disponível para esse bloco.
+                        </td>
+                    </tr>`;
+            } else {
+                console.error("Erro ao carregar blocos:", error);
+                alert("Erro ao carregar informações dos blocos");
+            }
+        });
 }
 
 // Seleciona um bloco específico
 function selectBlock(block) {
+    document.getElementById('bloco-sem-estrutura-alert').style.display = 'none';
     currentBlock = block;
     document.getElementById('botao-blocos').textContent = block.name;
     document.getElementById('estrutura').textContent = block.technology;
@@ -277,7 +309,7 @@ function fillPlansTable(tableId, plans, skipSpeed = false) {
     if (plans.length === 0) {
         tableBody.innerHTML = `
             <tr>
-                <td colspan="3" class="text-center py-4 text-muted">
+                <td colspan="3" class="text-center py-4 text-muted" style="color: red;">
                     Nenhum plano disponível
                 </td>
             </tr>
