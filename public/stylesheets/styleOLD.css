@@ -1,0 +1,233 @@
+@import url('https://fonts.googleapis.com/css?family=Lato:400,400i,700,700i&subset=latin-ext');
+
+* {
+    margin: 0;
+    padding: 0;
+    font-family: 'Lato', sans-serif;
+}
+
+html, body {
+    height: 100%;
+    background-color: #cdd3d8;
+}
+
+#spinner {
+    display: block;
+    position: fixed;
+    z-index: 1000;
+    top: calc(50% - 1.5rem);
+    right: calc(50% - 1.5rem);
+    width: 3rem;
+    height: 3rem;
+}
+
+/*-----###header###-----*/
+header {
+    background-color: #223A5E;
+    padding: 4px 0;
+    box-shadow: 0 0.1em 0.2em rgba(0, 0, 0, 0.3);
+    color: rgba(255, 255, 255, 0.8);
+    position: relative;
+}
+
+header #cabecalho {
+    margin: auto;
+    text-align: center;
+}
+
+header #cabecalho h2 {
+    font-weight: 700;
+    font-size: 1.7em;
+}
+
+.logo {
+    max-width: 150px;
+    padding: 0.1em;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* Responsividade */
+@media (max-width: 992px) {
+    .container {
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 575px) {
+    .logo-wrapper {
+        text-align: center;
+    }
+
+    header #cabecalho h2 {
+        margin-bottom: 5px;
+    }
+}
+
+/*-----###Body###-----*/
+main {
+    min-height: calc(100vh - 185px);
+    text-align: center;
+}
+
+h3 {
+    font-size: 1.4em;
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+.THtablesCadastroBlocos {
+    width: 50%;
+}
+
+.tooltip {
+    position: relative;
+    opacity: unset;
+}
+  
+.tooltip .tooltiptext {
+    visibility: hidden;
+    width: 120px;
+    background-color: black;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px 0;
+    position: absolute;
+    z-index: 1;
+    bottom: 150%;
+    left: 50%;
+    margin-left: -60px;
+}
+  
+.tooltip .tooltiptext::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: black transparent transparent transparent;
+}
+  
+.tooltip:hover .tooltiptext {
+    visibility: visible;
+}
+
+.viabilidade-body p{
+    margin: 12px 0px 4px 0px;
+}
+
+/*-----###Footer###-----*/
+footer {
+    border-top: 2px solid rgba(0, 0, 0, 0.8);
+    background-color: #223A5E;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 1em;
+    padding: 1rem 0;
+    position: relative;
+    width: 100%;
+    text-align: center;
+}
+
+
+/*Dark Mode */
+body.dark-mode {
+    background-color: rgb(57, 62, 66); /* Cor de fundo geral */
+    color: #fff; /* Cor de texto para alta legibilidade */
+}
+
+.dark-mode main{
+    background-color: rgb(57, 62, 66); /* Cor de fundo geral */
+    color: #fff; /* Cor de texto para alta legibilidade */
+}
+
+.navbar-dark-mode {
+    background-color: #2b4b76; /* Cor da barra superior */
+}
+
+.dark-mode .card-body {
+    background-color: rgb(31, 32, 33); /* Cor dos cartões (blocos de conteúdo) */
+    border: 1px solid #333; /* Borda leve para destacar os cartões */
+}
+
+.dark-mode .btn-primary {
+    background-color: #2779bd; /* Cor dos botões "Acessar" */
+    border-color: #2779bd;
+}
+
+.dark-mode .section-header {
+    background-color: #2e3b46; /* Cor de fundo das seções */
+    color: #f0f0f0; /* Texto mais claro */
+}
+
+.dark-mode .footer {
+    background-color: #2b4b76; /* Cor do rodapé */
+    color: #f0f0f0; /* Texto do rodapé */
+}
+
+.dark-mode .btn-toggle-theme {
+    background-color: #5a5a5a; /* Botão de alternar tema */
+    color: #f0f0f0;
+    border: none;
+}
+.dark-mode tr {
+    background-color: #2e3b46; /* Cor de fundo das seções */
+    color: #f0f0f0; /* Texto mais claro */
+}
+.dark-mode th {
+    background-color: #2e3b46; /* Cor de fundo das seções */
+    color: #f0f0f0; /* Texto mais claro */
+}
+
+.dark-mode td {
+    background-color: #2e3b46; /* Cor de fundo das seções */
+    color: #f0f0f0; /* Texto mais claro */
+}
+
+.dark-mode .plan-color {
+    background-color: #5a5a5a; /* Cor de fundo das seções */
+    color: #f0f0f0; /* Texto mais claro */
+}
+
+.dark-mode .plan-color-table {
+    background-color: #2e3b46; /* Cor de fundo das seções */
+    color: #f0f0f0; /* Texto mais claro */
+}
+
+.dark-mode .dark-container {
+    background-color: rgb(57, 62, 66); /* Cor de fundo geral */
+}
+
+.dark-mode .form-darkmode {
+    background-color: #5a5a5a ; /* Cor de fundo geral */
+}
+
+.dark-mode hr {
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    border: 0;
+    border-top: 1px solid rgb(0, 0, 0);
+}
+
+.dark-mode .modal-content {
+    background-color: #5a5a5a ; /* Cor de fundo geral */
+}
+
+.dark-mode #theme-toggle{
+    background-color:#f0f0f0;
+    color: #5a5a5a
+}
+
+.dark-mode #portabilidadeBtnSim{
+    background-color:#f0f0f0;
+    color: #5a5a5a
+}
+
+.dark-mode #portabilidadeBtnNao{
+    background-color:#f0f0f0;
+    color: #5a5a5a
+}

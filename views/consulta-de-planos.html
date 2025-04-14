@@ -1,267 +1,268 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="pt-BR">
 <head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-	<meta http-equiv="refresh" content="86400;url=/"> <!-- x horas em segundos -->
-	<title>Intervip - Consulta de Planos</title>
-
-	<!-- CSS -->
-	<link href="stylesheets/bootstrap.min.css" rel="stylesheet">
-	<link rel="stylesheet" type="text/css" href="stylesheets/style.css">
-
-	<!-- JS -->
-	<script src="javascripts/index.js"></script>
-	<script src="javascripts/jquery.js"></script>
-	<script src="javascripts/bootstrap.bundle.min.js"></script>
-	<script src="javascripts/bootstrap-autocomplete.min.js"></script>
-	<script src="javascripts/consulta-de-planos.js"></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Intervip - Consulta de Planos</title>
+    
+    <!-- CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="stylesheets/style.css">
 </head>
 
-<body class="colsultaDePlanos-body">
-	<header>
-		<div class="container-fluid">
-			<div class="row">
-				<div class="col-sm-2 col-md-3 logo-wrapper" style="align-content: center;">
-					<a href="/main"><img class="logo" src="images/logo.png" alt="Logo Intervip"></a>
-				</div>
-				<div class="col-sm-6 col-md-6" id="cabecalho">
-					<h2>Consulta de Planos</h2>
-				</div>
-				<div class="col-sm-2 col-md-3" style="text-align: end; align-content: center;">
-					<div class="row">
-						<div class="col-md-9" style="align-content: center;">
-							<h6 class="show-username">Acessando como: {username}</h6>
-							<h6 class="show-group">Setor: {group}</h6>
-						</div>
-						<div class="col-md-3" style="align-content: center;">
-							<button id="theme-toggle" class="btn btn-secondary">Tema</button>
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
-	</header>
-	<main>
-		<div class="dark-container container-fluid">
-			<div class="container">
-				<form action="javascript:void(0);" id="main-form">
-					<div class="plan-color card border border-dark bg-light">
-						<div class="card-body">
-							<div class="input-condominio">
-								<label for="input-condo" class="form-label d-block w-100">
-									<h3 class="card-title">Informe o prédio:</h3>
-								</label>
-								<input type="text" class="form-control form-control-lg" id="input-condo"
-									placeholder="Insira o nome do condominio" autocomplete="off">
-							</div>
-						</div>
-						<section class="row">
-							<div class="plan-color col-md-6">
-								<h3 class="planos-title">Informações do condomínio</h3>
-								<table id="tbl-informacoes" class="table table-hover plan-color-table">
-									<thead class="thead-dark">
-										<tr>
-											<th></th>
-											<th></th>
-										</tr>
-									</thead>
-									<tbody>
-										<tr class="table-primary">
-											<th scope="row">CEP:</th>
-											<td id="dados-condo-cep"></td>
-										</tr>
-										<tr class="table-primary">
-											<th scope="row">Endereço:</th>
-											<td id="dados-condo-endereco"></td>
-										</tr>
-										<tr class="table-primary">
-											<th scope="row">Número:</th>
-											<td id="dados-condo-numero"></td>
-										</tr>
-										<tr class="table-primary">
-											<th scope="row">Cidade:</th>
-											<td id="dados-condo-cidade"></td>
-										</tr>
-										<tr class="table-primary">
-											<th scope="row">Bairro:</th>
-											<td id="dados-condo-bairro"></td>
-										</tr>									
-										<tr>
-										</tr>
-										<tr id="linha-blocos" class="table-primary" hidden>
-											<th scope="row">Bloco/Torre:</th>
-											<td>
-												<div class="dropdown">
-													<button id="botao-blocos"
-														class="btn btn-secondary dropdown-toggle scroll-menu"
-														type="button" data-toggle="dropdown" aria-haspopup="true"
-														aria-expanded="false">Selecione o Bloco</button>
-													<div id="blocos-lista" class="dropdown-menu"
-														aria-labelledby="dropdown-blocos">
+<body class="gerenciaIVP-body">
+    <!-- Header -->
+    <header class="header-modern">
+        <div class="container-fluid">
+            <div class="d-flex align-items-center">
+                <a href="/main" class="d-flex align-items-center text-decoration-none">
+                    <img class="logo me-3" src="images/logo.png" alt="Logo Intervip">
+                </a>
+            </div>
+            
+            <h1 class="header-title fs-4 fw-semibold text-white m-0">Consulta de Planos</h1>
+            
+            <div class="d-flex align-items-center">
+                <div class="user-info text-end me-4">
+                    <p class="m-0 small text-white-80">Acessando como: <span class="fw-medium">{username}</span></p>
+                    <p class="m-0 small text-white-80">Setor: <span class="fw-medium">{group}</span></p>
+                </div>
+                <button id="theme-toggle" class="btn btn-sm btn-outline-light rounded-pill px-3">
+                    <i class="bi bi-moon-stars"></i>
+                </button>
+            </div>
+        </div>
+    </header>
 
-													</div>
-												</div>
-											</td>
-										</tr>
-										<tr id="linha-apartamentos" class="table-primary" hidden>
-											<th scope="row">Apartamento:</th>
-											<td>
-												<button id="botao-apartamentos" class="btn btn-secondary" type="button"
-													data-toggle="modal" data-target="#selecionar-apartamento">Selecione
-													o Apartamento</button>
-												<div id="selecionar-apartamento" class="modal" tabindex="-1">
-													<div class="modal-dialog modal-dialog-scrollable">
-														<div class="modal-content">
-															<div class="modal-header">
-																<h5 class="modal-title">Selecione o apartamento</h5>
-																<button type="button" class="close" data-dismiss="modal"
-																	aria-label="Close">
-																	<span aria-hidden="true">&times;</span>
-																</button>
-															</div>
-															<div id="apartamento-lista" class="modal-body">
-															</div>
-															<div class="modal-footer">
-																<button type="button" class="btn btn-secondary"
-																	data-dismiss="modal">Cancelar</button>
-															</div>
-														</div>
-													</div>
-												</div>
-											</td>
-										</tr>
-										<tr id="linha-casas" class="table-primary" hidden>
-											<th scope="row">Casa:</th>
-											<td>
-												<input id="numero-casa" class="form-control form-control-sm mb-1"
-													placeholder="Insira o número" autocomplete="off">
-											</td>
-										</tr>
-										<tr id="linha-complemento" class="table-primary" hidden>
-											<th scope="row">Complemento IXC:</th>
-											<td>
-												<input id="complemento"
-													class="form-control form-control-sm mb-1 text-center"
-													readonly="readonly">
-												<button id="copiar-complemento" type="button"
-													class="btn btn-sm btn-secondary" onclick="copiar()">Copiar</button>
-											</td>
-										</tr>
-									</tbody>
+    <!-- Main Content -->
+    <main class="ivp-main">
+        <div class="container-fluid py-4">
+            <div class="row justify-content-center">
+                <div class="col-lg-10">
+                    <!-- Card Principal -->
+                    <div class="ivp-card">
+                        <div class="card-body p-4">
+                            <h2 class="ivp-title mb-4">Consulta de Planos</h2>
+                            
+                            <!-- Formulário -->
+                            <form id="consulta-form">
+                                <!-- Campo de Busca -->
+                                <div class="ivp-search-box mb-4">
+                                    <label for="input-condo" class="form-label">Informe o prédio:</label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control form-control-lg ivp-input" 
+                                               id="input-condo" placeholder="Digite o nome do condomínio" 
+                                               autocomplete="off">
+                                        <span class="input-group-text"><i class="bi bi-building"></i></span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Resultados -->
+                                <div class="row g-4">
+                                    <!-- Coluna de Informações -->
+                                    <div class="col-md-6">
+                                        <div class="ivp-info-card h-100">
+                                            <div class="card-body">
+                                                <h3 class="ivp-subtitle">Informações do Condomínio</h3>
+                                                <div class="ivp-info-grid">
+                                                    <div class="ivp-info-item">
+                                                        <span>CEP:</span>
+                                                        <span id="dados-condo-cep" class="ivp-info-value">-</span>
+                                                    </div>
+                                                    <div class="ivp-info-item">
+                                                        <span>Endereço:</span>
+                                                        <span id="dados-condo-endereco" class="ivp-info-value">-</span>
+                                                    </div>
+                                                    <div class="ivp-info-item">
+                                                        <span>Número:</span>
+                                                        <span id="dados-condo-numero" class="ivp-info-value">-</span>
+                                                    </div>
+                                                    <div class="ivp-info-item">
+                                                        <span>Cidade:</span>
+                                                        <span id="dados-condo-cidade" class="ivp-info-value">-</span>
+                                                    </div>
+                                                    <div class="ivp-info-item">
+                                                        <span>Bairro:</span>
+                                                        <span id="dados-condo-bairro" class="ivp-info-value">-</span>
+                                                    </div>
+                                                    
+                                                    <!-- Seção Blocos -->
+                                                    <div id="linha-blocos" class="ivp-info-item" hidden>
+                                                        <span>Bloco/Torre:</span>
+                                                        <button id="botao-blocos" class="ivp-btn" type="button">
+                                                            Selecione o Bloco
+                                                        </button>
+                                                    </div>
+                                                    
+                                                    <!-- Seção Apartamentos -->
+                                                    <div id="linha-apartamentos" class="ivp-info-item" hidden>
+                                                        <span>Apartamento:</span>
+                                                        <button id="botao-apartamentos" class="ivp-btn"
+                                                                type="button">
+                                                            Selecione
+                                                        </button>
+                                                    </div>
+                                                    
+                                                    <!-- Seção Casas -->
+                                                    <div id="linha-casas" class="ivp-info-item" hidden>
+                                                        <span>Casa:</span>
+                                                        <input id="numero-casa" class="ivp-input" 
+                                                               placeholder="Número da casa">
+                                                    </div>
+                                                    
+                                                    <!-- Seção Complemento -->
+                                                    <div id="linha-complemento" class="ivp-info-item" hidden>
+                                                        <span>Complemento IXC:</span>
+                                                        <div class="input-group">
+                                                            <input id="complemento" class="ivp-input" readonly>
+                                                            <button id="copiar-complemento" class="ivp-btn-copy"
+                                                                    type="button">
+                                                                <i class="bi bi-clipboard"></i>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Coluna de Planos -->
+                                    <div class="col-md-6">
+                                        <div class="ivp-plans-card h-100">
+                                            <div class="card-body">
+                                                <h3 class="ivp-subtitle">Planos Disponíveis</h3>
+                                                
+                                                <div class="ivp-tech-info mb-3">
+                                                    <span>Tecnologia:</span>
+                                                    <span id="estrutura" class="ivp-tech-value">-</span>
+                                                </div>
+                                                
+                                                <!-- Tabela de Planos de Internet -->
+                                                <div id="internet-tab">
+                                                    <div class="table-responsive">
+                                                        <table class="table ivp-plans-table">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th>Tipo</th>
+                                                                    <th>Velocidade</th>
+                                                                    <th>Valor</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody id="planos-disponiveis">
+                                                                <tr>
+                                                                    <td colspan="3" class="text-center py-4">
+                                                                        Selecione um condomínio
+                                                                    </td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Tabela de Planos de Telefonia -->
+                                                <div id="voip-tab" class="mt-4">
+                                                    <h4 class="ivp-subtitle mb-3">Planos de Telefonia</h4>
+                                                    <div class="table-responsive">
+                                                        <table class="table ivp-plans-table">
+                                                            <tbody id="planos-disponiveis_voip">
+                                                                <tr>
+                                                                    <td colspan="3" class="text-center py-4">
+                                                                        Nenhum plano disponível
+                                                                    </td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Tabela de Planos de APPs -->
+                                                <div id="app-tab" class="mt-4">
+                                                    <h4 class="ivp-subtitle mb-3">Planos de APPs</h4>
+                                                    <div class="table-responsive">
+                                                        <table class="table ivp-plans-table">
+                                                            <tbody id="planos-disponiveis_app">
+                                                                <tr>
+                                                                    <td colspan="3" class="text-center py-4">
+                                                                        Nenhum app disponível
+                                                                    </td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Botões de Ação -->
+                                <div class="ivp-actions mt-4">
+                                    <button type="reset" class="ivp-btn ivp-btn-secondary" onclick="resetForm()">
+                                        <i class="bi bi-arrow-counterclockwise"></i> Limpar
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Modal de Blocos -->
+        <div class="modal fade" id="blocos-modal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Selecione o Bloco/Torre</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body" id="blocos-lista">
+                        <!-- Itens serão preenchidos via JavaScript -->
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Modal de Apartamentos -->
+        <div class="modal fade" id="apartamento-modal" tabindex="-1">
+            <div class="modal-dialog modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Selecione o apartamento</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body" id="apartamento-lista">
+                        <!-- Conteúdo dinâmico -->
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="ivp-btn" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
 
-									<thead class="thead-dark">
-										<tr>
-											<th></th>
-											<th></th>
-										</tr>
-									</thead>
-								</table>
-							</div>
-							<div class="plan-color col-md-6">
-								<h3 class="planos-title">Planos Disponíveis</h3>
-								<table id="tbl-planos" class="table table-hover plan-color-table">
-									<thead class="thead-dark">
-										<tr>
-											<th>Internet</th>
-											<th>Estrutura do Prédio:</th>
-											<th id="estrutura"></th>
-										</tr>
-									</thead>
+    <!-- Rodapé -->
+    <footer class="ivp-footer">
+        <div class="container-fluid py-3">
+            <div class="text-center">
+                <img src="images/logo.png" alt="Logo Intervip" width="100">
+                <p class="ivp-footer-text">
+                    © 2023 Gerência Intervip | Desenvolvido por 
+                    <a href="https://github.com/guilherme-wallace" target="_blank">Guilherme Wallace</a>
+                </p>
+            </div>
+        </div>
+    </footer>
 
-									<tbody id="planos-disponiveis" >
-										<tr class="fundo-cinza">
-											<th>Tipo</th>
-											<th>Velocidade (M)</th>
-											<th>Valor (R$)</th>
-										</tr>
-									</tbody>									
-									<thead class="thead-dark">
-										<tr>
-											<th>Telefonia IP</th>
-											<th></th>
-											<th></th>
-										</tr>
-									</thead>									
-									<tbody id="planos-disponiveis_voip" >
-										<tr class="fundo-cinza">
-										</tr>
-									</tbody>
-									<thead class="thead-dark">
-										<tr>
-											<th>APPs / Produtos</th>
-											<th></th>
-											<th></th>
-										</tr>
-									</thead>
-									<tbody id="planos-disponiveis_app" >
-										<tr class="fundo-cinza">
-										</tr>
-									</tbody>	
-									<thead class="thead-dark">
-										<tr></tr>
-											<th></th>
-											<th></th>
-											<th></th>
-										</tr>
-									</thead>	
-								</table>
-								<h3><a href="consulta-de-planos" class="btn btn-primary"
-										style="margin-right:-75%;">Limpar</a></h3>
-							</div>
-						</section>
-					</div>
-				</form>
-			</div>
-		</div>
-	</main>
-	<footer class="footer navbar-fixed-bottom">
-		<div class="container-fluid">
-			<div class="row">
-				<div class="col-md-12 align-items-center" style="font-size: 12px; text-align: center;">
-					<a href="../"><img class="logo" src="images/logo.png"></a>
-					<p>© 2021 Gerencia Intervip | Densenvolvido por <a href="https://github.com/guilherme-wallace" target="_blank">Guilherme Wallace</a>.</p>
-				</div>
-			</div>
-		</div>
-	</footer>
+    <!-- JavaScript -->
+    <script src="javascripts/jquery.js"></script>
+    <script src="javascripts/bootstrap.bundle.min.js"></script>
+    <script src="javascripts/bootstrap-autocomplete.min.js"></script>
+    <script src="javascripts/consulta-de-planos.js"></script>
 </body>
-<script>
-	const currentTheme = localStorage.getItem('theme') || 'light';
-	const bodyElement = document.body;
-
-	if (currentTheme === 'dark') {
-		bodyElement.classList.add('dark-mode');
-	}
-
-	document.getElementById('theme-toggle').addEventListener('click', function() {
-		bodyElement.classList.toggle('dark-mode');
-
-		if (bodyElement.classList.contains('dark-mode')) {
-			localStorage.setItem('theme', 'dark');
-		} else {
-			localStorage.setItem('theme', 'light');
-		}
-	});
-
-	document.addEventListener('DOMContentLoaded', function() {
-		fetch('/api/username')
-			.then(response => response.json())
-			.then(data => {
-				const username = data.username || 'Visitante';
-				const group = data.group || 'Sem grupo';
-				document.querySelector('.show-username').textContent = `Acessando como: ${username}`;
-				document.querySelector('.show-group').textContent = `Setor: ${group}`;
-
-				if (username == 'Visitante') {
-					alert(`Será necessário refazer o login!`);
-					window.location = "/";
-				}
-			})
-			.catch(error => {
-				console.error('Erro ao obter o nome do usuário e grupo:', error);
-			});
-	});
-</script>
 </html>

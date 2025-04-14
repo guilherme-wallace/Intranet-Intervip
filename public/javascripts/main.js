@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Theme Toggle - agora aplicado ao main
     const currentTheme = localStorage.getItem('theme') || 'light';
     const mainElement = document.querySelector('main');
     const themeToggle = document.getElementById('theme-toggle');
