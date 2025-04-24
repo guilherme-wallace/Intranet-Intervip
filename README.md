@@ -1,7 +1,7 @@
 
 # 🌐 Intranet Intervip - Gerência de Redes
 
-Sistema interno de gerenciamento corporativo da Intervip Telecom, desenvolvido com foco em automação, usabilidade e integração com ferramentas operacionais da empresa.
+Sistema interno de gerenciamento da Intervip Telecom, desenvolvido com foco em automação, usabilidade e integração com ferramentas operacionais da empresa.
 
 ![Intervip Banner](https://raw.githubusercontent.com/guilherme-wallace/Intranet-Intervip/main/public/images/logo.png)
 
