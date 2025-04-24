@@ -44,7 +44,7 @@ npm start
 
 ```plaintext
 ├── app.ts                 # Arquivo principal Node.js (servidor)
-├── views/                 # Arquivos HTML (ex: main.html)
+├── views/                 # Arquivos HTML (ex: index.html e main.html)
 ├── public/
 │   ├── stylesheets/       # Estilos customizados (CSS)
 │   ├── javascripts/       # Scripts JS
