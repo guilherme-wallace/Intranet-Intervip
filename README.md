@@ -18,7 +18,7 @@ Sistema interno de gerenciamento da Intervip Telecom, desenvolvido com foco em a
 🔍 Consulta de Planos  
 👥 Clientes On-line  
 ✅ Cadastro de Viabilidade  
-🧪 Teste de Lentidão  
+🛜 Teste de Lentidão  
 🔒 Problemas com VPN  
 🌐 Problemas em Sites/APP  
 📞 Pedidos e Problemas com Linhas Telefônicas  
