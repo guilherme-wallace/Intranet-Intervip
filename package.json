@@ -19,7 +19,7 @@
     "activedirectory2": "^2.2.0",
     "body-parser": "^1.20.3",
     "commonjs": "^0.0.1",
-    "express": "^4.20.0",
+    "express": "^4.21.2",
     "express-file-logger": "^1.0.4",
     "express-session": "^1.18.0",
     "fix-esm": "^1.0.1",
