@@ -377,28 +377,30 @@ function resetForm() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Theme toggle script
     const currentTheme = localStorage.getItem('theme') || 'light';
-    const mainElement = document.querySelector('main');
-    const themeToggle = document.getElementById('theme-toggle');
-    
+    const bodyElement = document.querySelector('body');
+    const themeToggleButton = document.getElementById('theme-toggle');
+
     if (currentTheme === 'dark') {
-        mainElement.classList.add('dark-mode');
-        themeToggle.innerHTML = '<i class="bi bi-sun"></i>';
+        bodyElement.classList.add('dark-mode');
+        if(themeToggleButton) themeToggleButton.innerHTML = '<i class="bi bi-brightness-high"></i>';
     } else {
-        themeToggle.innerHTML = '<i class="bi bi-moon-stars"></i>';
+        if(themeToggleButton) themeToggleButton.innerHTML = '<i class="bi bi-moon-stars"></i>';
     }
-    
-    themeToggle.addEventListener('click', function() {
-        mainElement.classList.toggle('dark-mode');
-        
-        if (mainElement.classList.contains('dark-mode')) {
-            localStorage.setItem('theme', 'dark');
-            themeToggle.innerHTML = '<i class="bi bi-sun"></i>';
-        } else {
-            localStorage.setItem('theme', 'light');
-            themeToggle.innerHTML = '<i class="bi bi-moon-stars"></i>';
-        }
-    });
+
+    if(themeToggleButton) {
+        themeToggleButton.addEventListener('click', function() {
+            bodyElement.classList.toggle('dark-mode');
+            if (bodyElement.classList.contains('dark-mode')) {
+                localStorage.setItem('theme', 'dark');
+                themeToggleButton.innerHTML = '<i class="bi bi-brightness-high"></i>';
+            } else {
+                localStorage.setItem('theme', 'light');
+                themeToggleButton.innerHTML = '<i class="bi bi-moon-stars"></i>';
+            }
+        });
+    }
     
     // User Info
     fetch('/api/username')
