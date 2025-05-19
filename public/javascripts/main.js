@@ -124,7 +124,7 @@ document.addEventListener('DOMContentLoaded', function() {
     cards.forEach(card => {
         card.addEventListener('mouseenter', () => {
             card.style.transform = 'translateY(-5px)';
-            if (mainElement.classList.contains('dark-mode')) {
+            if (bodyElement.classList.contains('dark-mode')) {
                 card.style.boxShadow = '0 10px 15px rgba(240, 240, 240, 0.5)';
                 card.style.border = '1px solid rgba(240, 240, 240, 0.1)';
             } else {
