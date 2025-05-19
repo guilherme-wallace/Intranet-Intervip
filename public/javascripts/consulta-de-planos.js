@@ -408,7 +408,10 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             const username = data.username || 'Visitante';
             const group = data.group || 'Sem grupo';
-            
+            if (username === 'Visitante') {
+                alert('Será necessário refazer o login!');
+                window.location = "/";
+            }            
             document.querySelectorAll('.user-info span').forEach(el => {
                 if (el.textContent.includes('{username}')) {
                     el.textContent = username;
