@@ -1,123 +1,303 @@
+:root {
+    --primary-color: #4361ee;
+    --secondary-color: #3a0ca3;
+    --accent-color: #f72585;
+    --text-color: #2b2d42;
+    --light-text: #f8f9fa;
+    --background-gradient: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%);
+    --card-bg: rgba(230,230,230, 0.65);
+    --input-bg: #f8f9fa;
+    --shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    --transition: all 0.3s ease;
+}
+
 * {
     margin: 0;
     padding: 0;
-    font-family: Arial, 'Lato', sans-serif;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 }
 
 html, body {
     height: 100%;
-    background-color: #cdd3d8;
 }
 
-body {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-}
-
-main {
-    flex: 1;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
-}
-
-/* Responsividade */
-@media (max-width: 992px) {
-    .container {
-        max-width: 100%;
-    }
-}
-
-@media (max-width: 575px) {
-    .logo-wrapper {
-        text-align: center;
-    }
-
-    header #cabecalho h2 {
-        margin-bottom: 5px;
-    }
-}
-
-/*-----###Footer###-----*/
-footer {
-    color: rgba(255, 255, 255, 0.8);
-    font-size: 1em;
-    padding: 1rem 0;
-    text-align: center;
-    width: 100%;
-    background-color: #191919;
-    position: fixed;
-    bottom: 0;
-}
-
-/* Estilos gerais para o corpo */
 .login-body {
-    font-family: Arial, sans-serif;
-    background-image: url("../images/background.webp");
+    font-family: 'Segoe UI', Roboto, sans-serif;
+    background: #cdd3d8 no-repeat center center fixed;
     background-size: cover;
     height: 100vh;
     display: flex;
     justify-content: center;
     align-items: center;
+    position: relative;
+    overflow: hidden;
+    transition: background-image 1s ease-in-out;
 }
 
-/* Estilos da caixa de login */
-.boxLogin {
-    width: 300px;
-    padding: 2%;
-    text-align: center;
-    background-image: linear-gradient(to bottom right, rgba(0, 61, 112, 0.5), rgba(0, 61, 112, 1));
-    border-radius: 0.5em;
-    border: inset 2px #191919;
-}
-
-.boxLogin h3 {
-    color: lightsteelblue;
-    font-size: 1.5rem;
-    margin-bottom: 0;
-}
-
-.boxLogin input[type="text"], 
-.boxLogin input[type="password"] {
-    width: 92%;
-    padding: 6px;
-    margin: 10px 0;
-    text-align: center;
-    border: 2px solid rgb(226, 185, 69);
-    border-radius: 0.5em;
-    outline: none;
-    transition: border-color 0.25s;
-}
-
-.boxLogin input[type="text"]:focus, 
-.boxLogin input[type="password"]:focus {
-    border-color: #ffda44;
-    width: 98%;
-    padding: 10px;
-}
-
-.boxLogin button {
+.blur-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
-    padding: 10px;
-    margin-top: 20px;
-    border: none;
-    background-color: rgb(226, 185, 69);
-    color: white;
-    border-radius: 0.5em;
-    cursor: pointer;
-    transition: background-color 0.25s;
+    height: 100%;
+    /*backdrop-filter: blur(8px);*/
+    background-color: rgba(0, 0, 0, 0.3);
+    z-index: 0;
 }
 
-.boxLogin button:hover {
-    background-color: rgb(255, 193, 7);
+/* Créditos da imagem do Bing */
+.bing-credits {
+    position: fixed;
+    bottom: 60px;
+    right: 20px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.7rem;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 4px 8px;
+    border-radius: 4px;
+    z-index: 10;
+}
+
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    padding: 20px;
+    z-index: 1;
+}
+
+.login-card {
+    background: var(--card-bg);
+    border-radius: 16px;
+    padding: 40px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: var(--shadow);
+    transition: var(--transition);
+    transform-style: preserve-3d;
+}
+
+.logo-container {
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.logo {
+    max-width: 230px;
+    height: auto;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.welcome-text {
+    color: var(--text-color);
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+    text-align: center;
+}
+
+.subtext {
+    color: #303030;
+    font-size: 0.9rem;
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.input-group {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: var(--input-bg);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: var(--transition);
+    border: 1px solid #e9ecef;
+}
+
+.input-group:focus-within {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+}
+
+.input-icon {
+    padding: 0 15px;
+    color: #6c757d;
+    font-size: 1rem;
+}
+
+.login-form input {
+    width: 100%;
+    padding: 15px;
+    border: none;
+    background: transparent;
+    font-size: 0.95rem;
+    color: var(--text-color);
+    outline: none;
+}
+
+.login-form input::placeholder {
+    color: #adb5bd;
+}
+
+.toggle-password {
+    background: transparent;
+    border: none;
+    padding: 0 15px;
+    cursor: pointer;
+    color: #6c757d;
+    font-size: 1rem;
+    transition: var(--transition);
+}
+
+.toggle-password:hover {
+    color: var(--primary-color);
+}
+
+.login-button {
+    background: var(--background-gradient);
+    color: white;
+    border: none;
+    padding: 15px;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.login-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(67, 97, 238, 0.4);
+}
+
+.button-text {
+    transition: var(--transition);
+}
+
+.button-icon {
+    opacity: 0;
+    transform: translateX(-10px);
+    transition: var(--transition);
+}
+
+.login-button:hover .button-text {
+    transform: translateX(-5px);
+}
+
+.login-button:hover .button-icon {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+/* Estilos para os campos em linha única */
+.form-group.single-line {
+    width: 100%;
+    margin-bottom: 15px;
+}
+
+.form-group.single-line .input-group {
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.form-group.single-line .input-icon {
+    padding: 0 15px;
+    color: #6c757d;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.form-group.single-line input {
+    flex-grow: 1;
+    padding: 12px 15px;
+    border: none;
+    background: transparent;
+    font-size: 0.95rem;
+    color: var(--text-color);
+    outline: none;
+}
+
+.form-group.single-line .toggle-password {
+    background: transparent;
+    border: none;
+    padding: 0 15px;
+    cursor: pointer;
+    color: #6c757d;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+/* Efeitos de foco */
+.form-group.single-line .input-group:focus-within {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+}
+
+/* Placeholder */
+.form-group.single-line input::placeholder {
+    color: #adb5bd;
+    opacity: 1;
 }
 
 .error-message {
-    color: #ff0000;
+    color: #dc3545;
+    font-size: 0.85rem;
+    text-align: center;
     margin-top: 10px;
-    display: none; /* Oculto por padrão */
+    padding: 10px;
+    background: rgba(220, 53, 69, 0.1);
+    border-radius: 5px;
+    display: none;
+}
+
+.footer {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    color: rgba(255, 255, 255, 0.8);
+    padding: 1rem 0;
+    text-align: center;
+    z-index: 2;
+    backdrop-filter: blur(5px);
+}
+
+.footer-content {
+    font-size: 0.75rem;
+}
+
+.footer a {
+    color: rgba(255, 255, 255, 0.9);
+    text-decoration: none;
+    transition: var(--transition);
+}
+
+.footer a:hover {
+    color: var(--accent-color);
+    text-decoration: underline;
+}
+
+/* Responsividade */
+@media (max-width: 576px) {
+    .login-card {
+        padding: 30px 20px;
+    }
+    
+    .welcome-text {
+        font-size: 1.5rem;
+    }
 }

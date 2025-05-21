@@ -1,16 +1,25 @@
 $(document).ready(function() {
     $('#login-form').submit(function(event) {
-        event.preventDefault();  // Evita o envio padrão do formulário
-
-        var username = $('#username').val().trim();
-        var password = $('#password').val().trim();
-
+        event.preventDefault();
+        
+        // Reset error message
+        $('#error-message').hide().text('');
+        
+        const username = $('#username').val().trim();
+        const password = $('#password').val().trim();
+        
+        // Validação
         if (!username || !password) {
-            $('#error-message').text('Por favor, preencha ambos os campos.').show();
+            showError('Por favor, preencha ambos os campos.');
             return;
         }
-
-        // Enviar os dados para o backend (autenticação via AD)
+        
+        // Animação de loading
+        const loginButton = $(this).find('button[type="submit"]');
+        loginButton.prop('disabled', true);
+        loginButton.html('<i class="fas fa-spinner fa-spin"></i>');
+        
+        // Enviar dados para o backend
         $.ajax({
             url: '/login',
             method: 'POST',
@@ -20,15 +29,52 @@ $(document).ready(function() {
             },
             success: function(response) {
                 if (response.success) {
-                    window.location.href = 'main';  // Redireciona para a página principal
+                    // Animação de sucesso antes do redirecionamento
+                    loginButton.html('<i class="fas fa-check"></i>');
+                    setTimeout(() => {
+                        window.location.href = 'main';
+                    }, 800);
                 } else {
-                    $('#error-message').text(response.message).show();
+                    showError(response.message || 'Credenciais inválidas.');
+                    resetLoginButton(loginButton);
                 }
             },
-            error: function() {
-                $('#error-message').text('Erro no servidor. Tente novamente.').show();
+            error: function(xhr) {
+                const errorMsg = xhr.responseJSON && xhr.responseJSON.message 
+                    ? xhr.responseJSON.message 
+                    : 'Erro no servidor. Tente novamente.';
+                showError(errorMsg);
+                resetLoginButton(loginButton);
             }
         });
     });
+    
+    function showError(message) {
+        const errorElement = $('#error-message');
+        errorElement.text(message).fadeIn();
+        
+        // Adiciona animação de shake no formulário
+        $('.login-card').css('animation', 'shake 0.5s');
+        setTimeout(() => {
+            $('.login-card').css('animation', '');
+        }, 500);
+    }
+    
+    function resetLoginButton(button) {
+        setTimeout(() => {
+            button.prop('disabled', false);
+            button.html('<span class="button-text">Entrar</span><i class="fas fa-arrow-right button-icon"></i>');
+        }, 1000);
+    }
 });
 
+// Adiciona animação de shake
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+        20%, 40%, 60%, 80% { transform: translateX(5px); }
+    }
+`;
+document.head.appendChild(style);
