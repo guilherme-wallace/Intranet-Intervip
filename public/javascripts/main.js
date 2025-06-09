@@ -350,4 +350,63 @@ document.addEventListener('DOMContentLoaded', function() {
             card.style.border = '';
         });
     });
+
+    function atualizarDados() {
+        // Atualiza usuário e grupo primeiro
+        fetch('/api/username')
+            .then(response => response.json())
+            .then(data => {
+                document.querySelectorAll('.user-info span').forEach(el => {
+                    if (el.textContent.includes('{username}')) {
+                        el.textContent = data.username || 'Visitante';
+                    }
+                    if (el.textContent.includes('{group}')) {
+                        el.textContent = data.group || 'Sem grupo';
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('Erro ao atualizar dados do usuário:', error);
+            });
+
+        // Atualiza Observações
+        fetch('/api/observacoes')
+            .then(response => response.json())
+            .then(data => {
+                observacoesField.value = data.observacoes || '';
+                document.getElementById('observacoes-preview').innerHTML = marked.parse(observacoesField.value);
+            })
+            .catch(error => {
+                console.error('Erro ao atualizar observações:', error);
+            });
+
+        // Atualiza Escala sobre Aviso
+        fetch('/api/escalaSobreAviso')
+            .then(response => response.json())
+            .then(data => {
+                escalaSobreAvisoField.value = data.escalaSobreAviso || '';
+                document.getElementById('escala-preview').innerHTML = marked.parse(escalaSobreAvisoField.value);
+            })
+            .catch(error => {
+                console.error('Erro ao atualizar escala sobre aviso:', error);
+            });
+
+        // Atualiza Locais em Falha
+        fetch('/api/localEmFalha')
+            .then(response => response.json())
+            .then(data => {
+                localEmFalhaField.value = data.localEmFalha || '';
+                document.getElementById('local-preview').innerHTML = marked.parse(localEmFalhaField.value);
+            })
+            .catch(error => {
+                console.error('Erro ao atualizar locais em falha:', error);
+            });
+    }
+
+    // Executa a cada 1 minutos (60000 milissegundos)
+    setInterval(atualizarDados, 60000);
+
+    // Executa imediatamente ao carregar
+    atualizarDados();
+
 });
