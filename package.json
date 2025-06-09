@@ -24,6 +24,7 @@
     "express-session": "^1.18.0",
     "fix-esm": "^1.0.1",
     "got": "^12.5.2",
+    "marked": "^15.0.12",
     "mysql": "^2.18.1",
     "node-fetch": "^2.6.7",
     "nodemailer": "^6.9.7",
