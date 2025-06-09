@@ -150,6 +150,57 @@ html, body {
     background: lightsteelblue;
     border-radius: 3px;
 }
+/* Markdown */
+.markdown-preview {
+    background-color: rgba(255, 255, 255, 0.1);
+    min-height: 200px;
+    overflow-wrap: break-word;
+}
+
+.dark-mode .markdown-preview {
+    background-color: rgba(0, 0, 0, 0.2);
+    color: #f8f9fa;
+}
+
+.markdown-preview h1, .markdown-preview h2, .markdown-preview h3 {
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+    color: #0d6efd;
+}
+
+.dark-mode .markdown-preview h1,
+.dark-mode .markdown-preview h2,
+.dark-mode .markdown-preview h3 {
+    color: #6ea8fe;
+}
+
+.markdown-preview ul, .markdown-preview ol {
+    padding-left: 1.5rem;
+}
+
+.markdown-preview code {
+    background-color: rgba(0, 0, 0, 0.1);
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    font-family: monospace;
+}
+
+.markdown-preview pre {
+    background-color: rgba(0, 0, 0, 0.1);
+    overflow-x: auto;
+    display: block; /* Inicia visível */
+    min-height: 200px;
+    padding: 10px;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+}
+
+.modern-textarea {
+    font-family: 'Courier New', monospace;
+    white-space: pre;
+    display: none; /* Inicia escondido */
+}
+
 
 /* Modern Cards */
 .modern-card {
@@ -172,6 +223,12 @@ html, body {
     flex-direction: column;
     align-items: center;
     text-align: center;
+}
+
+.modern-card .card-bodyOBS {
+    padding: 2rem;
+    flex-direction: column;
+    align-items: center;
 }
 
 .card-icon {
@@ -215,6 +272,9 @@ html, body {
     background-color: var(--card-bg);
     color: var(--text-color);
     transition: all 0.3s ease;
+    width: 100%;
+    resize: vertical;
+    min-height: 120px;
 }
 
 .modern-textarea:focus {

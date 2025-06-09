@@ -91,20 +91,59 @@ APP.get('/api/username', function (req, res) {
     var group = req.session.group || 'Sem grupo';
     res.json({ username: username, group: group });
 });
-var observacoesPath = Path.join(__dirname, 'public/savedFiles/observacoes.txt');
+// ---- Observações
+var initializeMarkdownFiles = function () {
+    var files = [
+        { path: observacoesPath, defaultContent: '' },
+        { path: escalaSobreAvisoPath, defaultContent: '' },
+        { path: localEmFalhaPath, defaultContent: '' }
+    ];
+    files.forEach(function (file) {
+        if (!fs.existsSync(file.path)) {
+            fs.writeFileSync(file.path, file.defaultContent, 'utf8');
+            console.log("Arquivo ".concat(file.path, " criado com sucesso."));
+        }
+    });
+};
+var observacoesPath = Path.join(__dirname, 'public/savedFiles/observacoes.md');
+// ---- Observações
 APP.get('/api/observacoes', function (req, res) {
     fs.readFile(observacoesPath, 'utf8', function (err, data) {
         if (err) {
-            console.error('Erro ao ler o arquivo de observações:', err);
-            return res.status(500).json({ error: 'Erro ao carregar observações' });
+            if (err.code === 'ENOENT') {
+                var defaultContent_1 = '';
+                fs.writeFile(observacoesPath, defaultContent_1, 'utf8', function (err) {
+                    if (err) {
+                        console.error('Erro ao criar arquivo de observações:', err);
+                        return res.status(500).json({ error: 'Erro ao criar arquivo' });
+                    }
+                    return res.json({ observacoes: defaultContent_1 });
+                });
+            }
+            else {
+                console.error('Erro ao ler o arquivo de observações:', err);
+                return res.status(500).json({ error: 'Erro ao carregar observações' });
+            }
         }
-        res.json({ observacoes: data });
+        else {
+            // Verifica se já tem formatação Markdown básica
+            var content = data;
+            if (!content.startsWith('#') && content.trim() !== '') {
+                content = "".concat(content);
+            }
+            res.json({ observacoes: content });
+        }
     });
 });
 APP.post('/api/salvar-observacoes', function (req, res) {
     var observacoes = req.body.observacoes;
     if (observacoes) {
-        fs.writeFile(observacoesPath, observacoes, 'utf8', function (err) {
+        var contentToSave = observacoes;
+        if (!contentToSave.startsWith('#')) {
+            contentToSave = '' + contentToSave;
+        }
+        contentToSave = contentToSave.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+        fs.writeFile(observacoesPath, contentToSave, 'utf8', function (err) {
             if (err) {
                 console.error('Erro ao salvar as observações:', err);
                 return res.status(500).send('Erro ao salvar observações');
@@ -114,6 +153,96 @@ APP.post('/api/salvar-observacoes', function (req, res) {
     }
     else {
         res.status(400).send('Observações inválidas');
+    }
+});
+// --- Escala sobre Aviso
+var escalaSobreAvisoPath = Path.join(__dirname, 'public/savedFiles/escalaSobreAviso.md');
+APP.get('/api/escalaSobreAviso', function (req, res) {
+    fs.readFile(escalaSobreAvisoPath, 'utf8', function (err, data) {
+        if (err) {
+            if (err.code === 'ENOENT') {
+                var defaultContent_2 = '';
+                fs.writeFile(escalaSobreAvisoPath, defaultContent_2, 'utf8', function (err) {
+                    if (err) {
+                        console.error('Erro ao criar arquivo de escalaSobreAviso:', err);
+                        return res.status(500).json({ error: 'Erro ao criar arquivo' });
+                    }
+                    return res.json({ escalaSobreAviso: defaultContent_2 });
+                });
+            }
+            else {
+                console.error('Erro ao ler o arquivo de escalaSobreAviso:', err);
+                return res.status(500).json({ error: 'Erro ao carregar escalaSobreAviso' });
+            }
+        }
+        else {
+            res.json({ escalaSobreAviso: data });
+        }
+    });
+});
+APP.post('/api/salvar-escalaSobreAviso', function (req, res) {
+    var escalaSobreAviso = req.body.escalaSobreAviso;
+    if (escalaSobreAviso) {
+        var contentToSave = escalaSobreAviso;
+        if (!contentToSave.startsWith('#')) {
+            contentToSave = '' + contentToSave;
+        }
+        contentToSave = contentToSave.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+        fs.writeFile(escalaSobreAvisoPath, contentToSave, 'utf8', function (err) {
+            if (err) {
+                console.error('Erro ao salvar as EscalaSobreAviso:', err);
+                return res.status(500).send('Erro ao salvar EscalaSobreAviso');
+            }
+            res.status(200).send('EscalaSobreAviso salvas com sucesso');
+        });
+    }
+    else {
+        res.status(400).send('EscalaSobreAviso inválidas');
+    }
+});
+// -- Localidades em Falha.
+var localEmFalhaPath = Path.join(__dirname, 'public/savedFiles/localEmFalha.md');
+APP.get('/api/localEmFalha', function (req, res) {
+    fs.readFile(localEmFalhaPath, 'utf8', function (err, data) {
+        if (err) {
+            if (err.code === 'ENOENT') {
+                var defaultContent_3 = '';
+                fs.writeFile(localEmFalhaPath, defaultContent_3, 'utf8', function (err) {
+                    if (err) {
+                        console.error('Erro ao criar arquivo de localEmFalha:', err);
+                        return res.status(500).json({ error: 'Erro ao criar arquivo' });
+                    }
+                    return res.json({ localEmFalha: defaultContent_3 });
+                });
+            }
+            else {
+                console.error('Erro ao ler o arquivo de localEmFalha:', err);
+                return res.status(500).json({ error: 'Erro ao carregar localEmFalha' });
+            }
+        }
+        else {
+            res.json({ localEmFalha: data });
+        }
+    });
+});
+APP.post('/api/salvar-localEmFalha', function (req, res) {
+    var localEmFalha = req.body.localEmFalha;
+    if (localEmFalha) {
+        var contentToSave = localEmFalha;
+        if (!contentToSave.startsWith('#')) {
+            contentToSave = '' + contentToSave;
+        }
+        contentToSave = contentToSave.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+        fs.writeFile(localEmFalhaPath, contentToSave, 'utf8', function (err) {
+            if (err) {
+                console.error('Erro ao salvar as localEmFalha:', err);
+                return res.status(500).send('Erro ao salvar localEmFalha');
+            }
+            res.status(200).send('localEmFalha salvas com sucesso');
+        });
+    }
+    else {
+        res.status(400).send('localEmFalha inválidas');
     }
 });
 // --- Migra PON
@@ -176,7 +305,9 @@ APP.post('/hakai', function (req, res) {
         Path.join(__dirname, 'public/javascripts/teste-de-lentidao.js'),
         Path.join(__dirname, 'public/javascripts/viabilidade.js'),
         Path.join(__dirname, 'public/javascriptsviabilidadeOLD.js'),
-        Path.join(__dirname, 'public/savedFiles/observacoes.txt'),
+        Path.join(__dirname, 'public/savedFiles/observacoes.md'),
+        Path.join(__dirname, 'public/savedFiles/escalaSobreAviso.md'),
+        Path.join(__dirname, 'public/savedFiles/localEmFalha.md'),
         Path.join(__dirname, 'api/database.ts'),
         Path.join(__dirname, 'api/database.js'),
         Path.join(__dirname, 'api/index.ts'),
@@ -239,5 +370,6 @@ APP.use(function (e, _req, res, _next) {
     }
 });
 var server = APP.listen(8080, '127.0.0.1', function () {
+    initializeMarkdownFiles();
     console.log("Express server listening on localhost:".concat(server.address().port));
 });
