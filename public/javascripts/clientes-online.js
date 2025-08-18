@@ -276,6 +276,11 @@ function inserirClienteNaTabela(cliente, data, listaId, tipo) {
     const statusText = definirStatusCliente(data);
     const ipdata = verificarIP(data?.IP);
     
+    let logoutText = data?.Logout ?? 'N/A';
+    if (data?.Status === true && ipdata !== "OFFLINE" && !ipdata.includes("inadimplente")) {
+        logoutText = 'N/A';
+    }
+
     const row = document.createElement('tr');
     row.style.fontSize = 'small';
     
@@ -287,7 +292,7 @@ function inserirClienteNaTabela(cliente, data, listaId, tipo) {
             <td style="text-align: center;">${cliente.Numero}</td>
             <td style="text-align: center;">${ipdata}</td>
             <td>${data?.Login ?? 'N/A'}</td>
-            <td>${data?.Logout ?? 'N/A'}</td>
+            <td>${logoutText}</td>
         `;
     } else {
         row.innerHTML = `
@@ -298,7 +303,7 @@ function inserirClienteNaTabela(cliente, data, listaId, tipo) {
             <td style="text-align: center;">${cliente.Complemento || 'N/A'}</td>
             <td style="text-align: center;">${ipdata}</td>
             <td>${data?.Login ?? 'N/A'}</td>
-            <td>${data?.Logout ?? 'N/A'}</td>
+            <td>${logoutText}</td>
         `;
     }
     
