@@ -386,6 +386,7 @@ APP.use('/lead', ROUTES);
 APP.use('/main', ROUTES);
 APP.use('/e-mails', ROUTES);
 APP.use('/migra-onu', ROUTES);
+APP.use('/equipamentos', ROUTES);
 APP.use('/api/email', emailRoutes);
 APP.use('/clientes-online', ROUTES);
 APP.use('/teste-de-lentidao', ROUTES);
