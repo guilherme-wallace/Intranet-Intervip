@@ -1,0 +1,369 @@
+/* Variáveis CSS para cores e temas */
+:root {
+    --primary-color: #2c5fdf;
+    --primary-hover: #1a4bc8;
+    --secondary-color: #6c757d;
+    --success-color: #28a745;
+    --danger-color: #dc3545;
+    --warning-color: #ffc107;
+    --info-color: #17a2b8;
+    --light-color: #f8f9fa;
+    --dark-color: #343a40;
+    --body-bg: #f5f7fa;
+    --card-bg: #ffffff;
+    --text-color: #2d3748;
+    --text-muted: #718096;
+    --border-color: #e2e8f0;
+    --header-bg: #1a365d;
+    --footer-bg: #1a365d;
+}
+
+/* Modo Escuro */
+.dark-mode {
+    --primary-color: #4d9fec;
+    --primary-hover: #3a8bda;
+    --body-bg: #121212;
+    --card-bg: #1e1e1e;
+    --text-color: #e0e0e0;
+    --text-muted: #a0a0a0;
+    --border-color: #333333;
+    --header-bg: #0d1b2a;
+    --footer-bg: #0d1b2a;
+}
+
+/* dark-mode main */
+main.dark-mode {
+    background-color: var(--body-bg);
+    color: var(--text-color);
+}
+
+/* Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    height: 100%;
+    font-family: 'Inter', sans-serif;
+    background-color: var(--body-bg);
+    color: var(--text-color);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Header */
+.header-modern {
+    background-color: var(--header-bg);
+    padding: 0.5rem 0;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+}
+
+.header-modern .container-fluid {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header-title {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 0;
+    white-space: nowrap;
+}
+
+.header-modern .logo {
+    max-width: 150px;
+    transition: transform 0.3s ease;
+}
+
+.header-modern .logo:hover {
+    transform: scale(1.05);
+}
+
+.user-info {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Main Content */
+.main-modern {
+    padding: 2rem 0;
+    min-height: calc(100vh - 120px);
+}
+
+.section-title {
+    text-align: center;
+    font-weight: 600;
+    color: var(--text-color);
+    position: relative;
+    padding-bottom: 0.5rem;
+}
+
+.section-title::after {
+    text-align: center;
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 3px;
+    background: var(--primary-color);
+    border-radius: 3px;
+}
+
+.dark-mode .section-title {
+    color: var(--text-color);
+}
+
+/* Footer */
+.footer-modern {
+    background-color: var(--footer-bg);
+    color: white;
+    padding: 1.5rem 0;
+    text-align: center;
+}
+
+.footer-modern a {
+    color: white;
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.footer-modern a:hover {
+    color: #a0aec0;
+    text-decoration: underline;
+}
+
+/* Estilos específicos para a página de equipamentos */
+.modern-input {
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background-color: var(--card-bg);
+    color: var(--text-color);
+    transition: all 0.3s ease;
+}
+
+.modern-input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(44, 95, 223, 0.25);
+}
+
+.dark-mode .modern-input {
+    background-color: #2d2d2d;
+    color: #f0f0f0;
+    border-color: #444;
+}
+
+/* Cor do placeholder no modo dark */
+.dark-mode ::placeholder {
+  color: #a0a0a0;
+  opacity: 1; /* Para Firefox */
+}
+
+.btn-primary,
+.btn-success {
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.modern-table {
+    background-color: var(--card-bg);
+    color: var(--text-color);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    width: 100%;
+}
+
+.modern-table th {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.modern-table tbody tr:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.dark-mode .modern-table {
+    background-color: var(--card-bg);
+    color: var(--text-color);
+}
+
+.dark-mode .modern-table tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Tabela de Detalhes no Modal */
+.table-details {
+    width: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+    background-color: var(--card-bg);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    animation: fadeIn 0.5s ease-out;
+    border-collapse: separate; /* Para a borda arredondada funcionar */
+}
+.table-details td {
+    padding: 1rem;
+    vertical-align: top;
+    border-bottom: 1px solid var(--border-color);
+    transition: background-color 0.3s ease;
+}
+.table-details td:first-child {
+    font-weight: 600;
+    background-color: var(--body-bg);
+    width: 40%;
+}
+.dark-mode .table-details td:first-child {
+    background-color: #1a1a1a;
+}
+.table-details tr:last-child td {
+    border-bottom: none;
+}
+.table-details tr:hover td {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+.dark-mode .table-details tr:hover td {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+
+.modal-content {
+    background-color: var(--card-bg);
+    color: var(--text-color);
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+    border-bottom: 1px solid var(--border-color);
+    background-color: #f8f9fa;
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+}
+
+.modal-footer {
+    border-top: 1px solid var(--border-color);
+}
+
+.dark-mode .modal-content {
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+    border-color: #333;
+}
+
+.dark-mode .modal-header,
+.dark-mode .modal-footer {
+    border-color: #333;
+    background-color: #1a1a1a;
+}
+
+.dark-mode .modal-title {
+    color: #fff;
+}
+
+/* Modal de detalhes */
+#detailsModal .modal-dialog {
+    max-width: 800px;
+}
+
+/* New animations and hover effects */
+.animated-card {
+    transition: all 0.3s ease-in-out;
+}
+
+.animated-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+}
+
+.animated-button {
+    transition: all 0.3s ease-in-out;
+}
+
+.animated-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* Animation for the table and alert */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animated-table,
+.animated-alert {
+    animation: fadeIn 0.8s ease-out forwards;
+}
+
+/* Centraliza a barra de pesquisa e o botão de cadastro */
+.search-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 800px; /* Ajuste o valor conforme necessário */
+    margin: 0 auto;
+}
+
+.search-bar {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+@media (max-width: 992px) {
+    .header-modern .logo {
+        max-width: 100px;
+    }
+    
+    .modern-card .card-body {
+        padding: 1.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .header-title {
+        display: none;
+    }
+    
+    .user-info {
+        display: none;
+    }
+    
+    .main-modern {
+        padding: 1rem 0;
+    }
+    
+    .modern-card {
+        margin-bottom: 1rem;
+    }
+    .search-container {
+        align-items: stretch;
+    }
+    .search-bar {
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+    }
+    .search-bar .input-group {
+        width: 100%;
+        margin-bottom: 1rem;
+    }
+    .ms-md-3 {
+        margin-left: 0 !important;
+    }
+}
