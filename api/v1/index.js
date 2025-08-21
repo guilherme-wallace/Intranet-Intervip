@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PostContract = exports.PostPostalCode = exports.PostAddress = exports.GetSalespeople = exports.GetTechnologies = exports.GetResearchAnswers = exports.GetResearch = exports.PostSale = exports.GetSalesperson = exports.GetSalesByContract = exports.GetSalesByClient = exports.GetContracts = exports.GetPlans = exports.GetCondominioAddress = exports.PostCondominio = exports.GetCondominio = exports.GetCondominios = exports.GetClientAuth = exports.GetClient = exports.GetClients = exports.GetStructures = exports.PostViabilitys = exports.PostBlocks = exports.DeleteBlocks = exports.PutBlock = exports.GetBlocks = exports.GetTypes = void 0;
+exports.DeleteEquipamento = exports.PutEquipamento = exports.PostEquipamento = exports.GetEquipamentos = exports.GetTiposEquipamento = exports.PostContract = exports.PostPostalCode = exports.PostAddress = exports.GetSalespeople = exports.GetTechnologies = exports.GetResearchAnswers = exports.GetResearch = exports.PostSale = exports.GetSalesperson = exports.GetSalesByContract = exports.GetSalesByClient = exports.GetContracts = exports.GetPlans = exports.GetCondominioAddress = exports.PostCondominio = exports.GetCondominio = exports.GetCondominios = exports.GetClientAuth = exports.GetClient = exports.GetClients = exports.GetStructures = exports.PostViabilitys = exports.PostBlocks = exports.DeleteBlocks = exports.PutBlock = exports.GetBlocks = exports.GetTypes = void 0;
 var Salespeople = require("./salesperson");
 var Technologies = require("./technology");
 var Viabilitys = require("./viability");
@@ -11,6 +11,7 @@ var Clients = require("./client");
 var Blocks = require("./block");
 var Condominios = require("./condominio");
 var Sails = require("./sale");
+var Equipamentos = require("./equipamentosAPI"); // Importa o novo módulo de API de equipamentos
 var database_1 = require("../database");
 function GetTypes() {
     return Blocks.getTypes(database_1.LOCALHOST);
@@ -122,3 +123,24 @@ function PostContract(contract) {
     return Contracts.postContract(database_1.LOCALHOST, contract);
 }
 exports.PostContract = PostContract;
+// Funções para a API de Equipamentos
+function GetTiposEquipamento() {
+    return Equipamentos.getTiposEquipamento(database_1.LOCALHOST);
+}
+exports.GetTiposEquipamento = GetTiposEquipamento;
+function GetEquipamentos(searchTerm) {
+    return Equipamentos.getEquipamentos(database_1.LOCALHOST, searchTerm);
+}
+exports.GetEquipamentos = GetEquipamentos;
+function PostEquipamento(equipamento) {
+    return Equipamentos.postEquipamento(database_1.LOCALHOST, equipamento);
+}
+exports.PostEquipamento = PostEquipamento;
+function PutEquipamento(equipamento) {
+    return Equipamentos.putEquipamento(database_1.LOCALHOST, equipamento);
+}
+exports.PutEquipamento = PutEquipamento;
+function DeleteEquipamento(equipamentoId) {
+    return Equipamentos.deleteEquipamento(database_1.LOCALHOST, equipamentoId);
+}
+exports.DeleteEquipamento = DeleteEquipamento;

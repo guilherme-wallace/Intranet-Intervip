@@ -8,6 +8,7 @@ import * as Clients from './client';
 import * as Blocks from './block';
 import * as Condominios from './condominio';
 import * as Sails from './sale';
+import * as Equipamentos from './equipamentosAPI'; // Importa o novo módulo de API de equipamentos
 
 import { Salesperson } from '../../types/salesperson';
 import { Technology } from '../../types/technology';
@@ -18,6 +19,7 @@ import { Address } from '../../types/address';
 import { Condominio } from '../../types/condominio';
 import { Block } from '../../types/block';
 import { Sale } from '../../types/sale';
+import { Equipamento, TipoEquipamento } from '../../types/equipamentosType'; // Importa os novos tipos
 
 import { MySQLResponse } from '../../types/mysql-response';
 import { LOCALHOST, ROUTERBOX } from '../database';
@@ -130,4 +132,25 @@ export function PostPostalCode(postalCode: string): Promise<MySQLResponse> {
 
 export function PostContract(contract: Contract): Promise<MySQLResponse> {
     return Contracts.postContract(LOCALHOST, contract);
+}
+
+// Funções para a API de Equipamentos
+export function GetTiposEquipamento(): Promise<TipoEquipamento[]> {
+    return Equipamentos.getTiposEquipamento(LOCALHOST);
+}
+
+export function GetEquipamentos(searchTerm?: string): Promise<Equipamento[]> {
+    return Equipamentos.getEquipamentos(LOCALHOST, searchTerm);
+}
+
+export function PostEquipamento(equipamento: Equipamento): Promise<MySQLResponse> {
+    return Equipamentos.postEquipamento(LOCALHOST, equipamento);
+}
+
+export function PutEquipamento(equipamento: Equipamento): Promise<MySQLResponse> {
+    return Equipamentos.putEquipamento(LOCALHOST, equipamento);
+}
+
+export function DeleteEquipamento(equipamentoId: number): Promise<string> {
+    return Equipamentos.deleteEquipamento(LOCALHOST, equipamentoId);
 }
