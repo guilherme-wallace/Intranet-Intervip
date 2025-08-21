@@ -39,6 +39,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var Swagger = require("swagger-ui-express");
 var api = require("../../api/index");
 var Express = require("express");
+var equipamentosRoute_1 = require("./v1/equipamentosRoute");
 var plan_1 = require("./v3/plan");
 var sale_1 = require("./v1/sale");
 var block_1 = require("./v1/block");
@@ -72,6 +73,7 @@ ROUTER.use('/v1/contract', contract_1.default);
 ROUTER.use('/v2/contract', contract_2.default);
 ROUTER.use('/v4/contract', contract_3.default);
 ROUTER.use('/v1/salesperson', salesperson_1.default);
+ROUTER.use('/v1/equipamentos', equipamentosRoute_1.default);
 ROUTER.get('/v1/type', function (_req, res, next) { return __awaiter(void 0, void 0, void 0, function () {
     var response, error_1;
     return __generator(this, function (_a) {
