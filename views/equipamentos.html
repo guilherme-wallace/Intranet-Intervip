@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <meta http-equiv="refresh" content="86400;url=/" />
+    <title>Intervip - Gerência de Redes - Equipamentos</title>
+
+    <!-- CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
+    <link rel="stylesheet" type="text/css" href="stylesheets/style.css">
+    <link rel="stylesheet" type="text/css" href="stylesheets/equipamentos.css">
+</head>
+
+<body class="gerenciaIVP-body main-page" style="height: max-content;">
+    <header class="header-modern">
+        <div class="container-fluid">
+            <div class="d-flex align-items-center">
+                <a href="/main" class="d-flex align-items-center text-decoration-none">
+                    <img class="logo me-3" src="images/logo.png" alt="Logo Intervip">
+                </a>
+            </div>
+            <h1 class="header-title fs-4 fw-semibold text-white m-0">📦​ Consulta de Equipamentos</h1>
+            <div class="d-flex align-items-center">
+                <div class="user-info text-end me-4">
+                    <p class="m-0 small text-white-80">Acessando como: <span class="fw-medium">{username}</span></p>
+                    <p class="m-0 small text-white-80">Setor: <span class="fw-medium">{group}</span></p>
+                </div>
+                <button id="theme-toggle" class="btn btn-sm btn-outline-light rounded-pill px-3">
+                    <i class="bi bi-moon-stars"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-modern">
+        <div class="container-fluid py-4">
+            <section class="mb-5">
+                <h2 class="section-title mb-4">Consulta e Cadastro de Equipamentos 🛠️</h2>
+                <div class="row">
+                    <div class="col-lg-12 mx-auto">
+                        <div class="modern-card animated-card">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="d-flex flex-column flex-md-row justify-content-center align-items-center mb-4">
+                                        <div class="input-group search-bar mb-3 mb-md-0 mx-auto">
+                                            <input type="text" id="searchInput" class="form-control modern-input" placeholder="Pesquisar por Marca, Modelo ou Nome..." autocomplete="off">
+                                            <button class="btn btn-primary" id="searchButton"><i class="bi bi-search"></i> Pesquisar</button>
+                                        </div>
+                                        <button class="btn btn-success ms-md-3 mt-3 mt-md-0 animated-button" id="cadastrarEquipamentoBtn" data-bs-toggle="modal" data-bs-target="#cadastroEquipamentoModal">
+                                            <i class="bi bi-plus-circle"></i> Cadastrar Novo
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="row" style="width: 100%;">
+                                    <!-- Tabela de Resultados -->
+                                    <div id="resultsTable" class="table-responsive animated-table" style="display: none;">
+                                        <table class="table table-hover modern-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Tipo</th>
+                                                    <th>Nome</th>
+                                                    <th>Marca</th>
+                                                    <th>Modelo</th>
+                                                    <th>Detalhes</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="equipamentosTableBody">
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <div id="noResultsMessage" class="alert alert-warning text-center mt-4 animated-alert" style="display: none;">
+                                        Nenhum equipamento encontrado.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer class="footer-modern">
+        <div class="container-fluid py-4">
+            <div class="text-center">
+                <img src="images/logo.png" alt="Logo Intervip" width="120" class="mb-3">
+                <p class="m-0 small">© 2025 Gerência Intervip | Desenvolvido por <a href="https://github.com/guilherme-wallace" target="_blank" class="text-white">Guilherme Wallace</a></p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Modal de Cadastro -->
+    <div class="modal fade" id="cadastroEquipamentoModal" tabindex="-1" aria-labelledby="cadastroEquipamentoModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content animated-modal">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="cadastroEquipamentoModalLabel">Cadastrar Novo Equipamento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="cadastroForm" novalidate>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="tipoEquipamento" class="form-label">Tipo de Equipamento</label>
+                                <select class="form-select modern-input" id="tipoEquipamento" name="tipo_equipamentoId" required autocomplete="off">
+                                    <!-- Options will be loaded via JS -->
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="nome" class="form-label">Nome <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control modern-input" id="nome" name="nome" required autocomplete="off">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="marca" class="form-label">Marca <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control modern-input" id="marca" name="marca" required autocomplete="off">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="modelo" class="form-label">Modelo <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control modern-input" id="modelo" name="modelo" required autocomplete="off">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="numPortasWan" class="form-label">Nº Portas WAN</label>
+                                <input type="number" class="form-control modern-input" id="numPortasWan" name="num_portas_wan" autocomplete="off">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="portaGpon" class="form-label">Porta GPON</label>
+                                <select class="form-select modern-input" id="portaGpon" name="porta_gpon" autocomplete="off">
+                                    <option value="0">Não</option>
+                                    <option value="1">Sim</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="portaSfp" class="form-label">Porta SFP</label>
+                                <select class="form-select modern-input" id="portaSfp" name="porta_sfp" autocomplete="off">
+                                    <option value="0">Não</option>
+                                    <option value="1">Sim</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="numPortasLan" class="form-label">Nº Portas LAN</label>
+                                <input type="number" class="form-control modern-input" id="numPortasLan" name="num_portas_lan" autocomplete="off">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="padraoWifi" class="form-label">Padrão Wi-Fi</label>
+                                <input type="text" class="form-control modern-input" id="padraoWifi" name="padrao_wifi" autocomplete="off">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="ethernetTipo" class="form-label">Tipo de Ethernet</label>
+                                <input type="text" class="form-control modern-input" id="ethernetTipo" name="ethernet_tipo" autocomplete="off">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="velocidadeLan" class="form-label">Velocidade LAN</label>
+                                <input type="text" class="form-control modern-input" id="velocidadeLan" name="velocidade_lan" autocomplete="off">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="velocidadeWifi24" class="form-label">Velocidade Wi-Fi (2.4GHz)</label>
+                                <input type="text" class="form-control modern-input" id="velocidadeWifi24" name="velocidade_wifi_2_4" autocomplete="off">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="velocidadeWifi58" class="form-label">Velocidade Wi-Fi (5.8GHz)</label>
+                                <input type="text" class="form-control modern-input" id="velocidadeWifi58" name="velocidade_wifi_5_8" autocomplete="off">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="coberturaWifi" class="form-label">Cobertura Wi-Fi</label>
+                                <input type="text" class="form-control modern-input" id="coberturaWifi" name="cobertura_wifi" autocomplete="off">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="densidadeWifi" class="form-label">Densidade Wi-Fi</label>
+                                <input type="text" class="form-control modern-input" id="densidadeWifi" name="densidade_wifi" autocomplete="off">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="mimo" class="form-label">MIMO</label>
+                                <input type="text" class="form-control modern-input" id="mimo" name="mimo" autocomplete="off">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="mesh" class="form-label">Suporte Mesh</label>
+                                <select class="form-select modern-input" id="mesh" name="mesh" autocomplete="off">
+                                    <option value="0">Não</option>
+                                    <option value="1">Sim</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="tipoMesh" class="form-label">Tipo de Mesh</label>
+                                <input type="text" class="form-control modern-input" id="tipoMesh" name="tipo_mesh" autocomplete="off">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="suporteTr069" class="form-label">Suporte TR-069</label>
+                                <select class="form-select modern-input" id="suporteTr069" name="suporte_tr069" autocomplete="off">
+                                    <option value="0">Não</option>
+                                    <option value="1">Sim</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="ipv6" class="form-label">Suporte IPv6</label>
+                                <select class="form-select modern-input" id="ipv6" name="ipv6" autocomplete="off">
+                                    <option value="0">Não</option>
+                                    <option value="1">Sim</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="enderecoIp" class="form-label">Endereço IP</label>
+                                <input type="text" class="form-control modern-input" id="enderecoIp" name="endereco_ip" autocomplete="off">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="nomeUsuario" class="form-label">Nome de Usuário</label>
+                                <input type="text" class="form-control modern-input" id="nomeUsuario" name="nome_usuario" autocomplete="off">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="senhaAcesso" class="form-label">Senha de Acesso</label>
+                                <input type="password" class="form-control modern-input" id="senhaAcesso" name="senha_acesso" autocomplete="off">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="fonte" class="form-label">Fonte de Alimentação</label>
+                                <input type="text" class="form-control modern-input" id="fonte" name="fonte" autocomplete="off">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="precoMedio" class="form-label">Preço Médio</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">R$</span>
+                                    <input type="text" class="form-control modern-input" id="precoMedio" name="preco_medio" autocomplete="off">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="dataUltimaAtualizacao" class="form-label">Data Última Atualização</label>
+                                <input type="date" class="form-control modern-input" id="dataUltimaAtualizacao" name="data_ultima_atualizacao_preco" autocomplete="off">
+                            </div>
+                            <div class="col-md-12">
+                                <label for="site" class="form-label">Link para Site do Fabricante</label>
+                                <input type="url" class="form-control modern-input" id="site" name="site" autocomplete="off">
+                            </div>
+                            <div class="col-md-12">
+                                <label for="observacoes" class="form-label">Observações</label>
+                                <textarea class="form-control modern-input" id="observacoes" name="observacoes" rows="3" autocomplete="off"></textarea>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    <button type="button" class="btn btn-primary" id="saveEquipamentoBtn">Salvar Equipamento</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Detalhes -->
+    <div class="modal fade" id="detailsModal" tabindex="-1" aria-labelledby="detailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="detailsModalLabel">Detalhes do Equipamento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Tabela de Detalhes (Visualização) -->
+                    <div id="detailsTableContainer" class="table-responsive">
+                        <table class="table table-sm table-striped modern-table">
+                            <tbody id="detailsTableBody">
+                                <!-- Detalhes serão injetados aqui via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- Formulário de Edição (Inicialmente oculto) -->
+                    <form id="detailsForm" novalidate style="display: none;">
+                        <input type="hidden" id="detailsIdEquipamento" name="id_equipamento">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="detailsTipoEquipamento" class="form-label">Tipo de Equipamento</label>
+                                <select class="form-select modern-input" id="detailsTipoEquipamento" name="tipo_equipamentoId" required autocomplete="off">
+                                    <!-- Options will be loaded via JS -->
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="detailsNome" class="form-label">Nome <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control modern-input" id="detailsNome" name="nome" required autocomplete="off">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="detailsMarca" class="form-label">Marca <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control modern-input" id="detailsMarca" name="marca" required autocomplete="off">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="detailsModelo" class="form-label">Modelo <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control modern-input" id="detailsModelo" name="modelo" required autocomplete="off">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="detailsNumPortasWan" class="form-label">Nº Portas WAN</label>
+                                <input type="number" class="form-control modern-input" id="detailsNumPortasWan" name="num_portas_wan" autocomplete="off">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="detailsPortaGpon" class="form-label">Porta GPON</label>
+                                <select class="form-select modern-input" id="detailsPortaGpon" name="porta_gpon" autocomplete="off">
+                                    <option value="0">Não</option>
+                                    <option value="1">Sim</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="detailsPortaSfp" class="form-label">Porta SFP</label>
+                                <select class="form-select modern-input" id="detailsPortaSfp" name="porta_sfp" autocomplete="off">
+                                    <option value="0">Não</option>
+                                    <option value="1">Sim</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="detailsNumPortasLan" class="form-label">Nº Portas LAN</label>
+                                <input type="number" class="form-control modern-input" id="detailsNumPortasLan" name="num_portas_lan" autocomplete="off">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="detailsPadraoWifi" class="form-label">Padrão Wi-Fi</label>
+                                <input type="text" class="form-control modern-input" id="detailsPadraoWifi" name="padrao_wifi" autocomplete="off">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="detailsEthernetTipo" class="form-label">Tipo de Ethernet</label>
+                                <input type="text" class="form-control modern-input" id="detailsEthernetTipo" name="ethernet_tipo" autocomplete="off">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="detailsVelocidadeLan" class="form-label">Velocidade LAN</label>
+                                <input type="text" class="form-control modern-input" id="detailsVelocidadeLan" name="velocidade_lan" autocomplete="off">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="detailsVelocidadeWifi24" class="form-label">Velocidade Wi-Fi (2.4GHz)</label>
+                                <input type="text" class="form-control modern-input" id="detailsVelocidadeWifi24" name="velocidade_wifi_2_4" autocomplete="off">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="detailsVelocidadeWifi58" class="form-label">Velocidade Wi-Fi (5.8GHz)</label>
+                                <input type="text" class="form-control modern-input" id="detailsVelocidadeWifi58" name="velocidade_wifi_5_8" autocomplete="off">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="detailsCoberturaWifi" class="form-label">Cobertura Wi-Fi</label>
+                                <input type="text" class="form-control modern-input" id="detailsCoberturaWifi" name="cobertura_wifi" autocomplete="off">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="detailsDensidadeWifi" class="form-label">Densidade Wi-Fi</label>
+                                <input type="text" class="form-control modern-input" id="detailsDensidadeWifi" name="densidade_wifi" autocomplete="off">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="detailsMimo" class="form-label">MIMO</label>
+                                <input type="text" class="form-control modern-input" id="detailsMimo" name="mimo" autocomplete="off">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="detailsMesh" class="form-label">Suporte Mesh</label>
+                                <select class="form-select modern-input" id="detailsMesh" name="mesh" autocomplete="off">
+                                    <option value="0">Não</option>
+                                    <option value="1">Sim</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="detailsTipoMesh" class="form-label">Tipo de Mesh</label>
+                                <input type="text" class="form-control modern-input" id="detailsTipoMesh" name="tipo_mesh" autocomplete="off">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="detailsSuporteTr069" class="form-label">Suporte TR-069</label>
+                                <select class="form-select modern-input" id="detailsSuporteTr069" name="suporte_tr069" autocomplete="off">
+                                    <option value="0">Não</option>
+                                    <option value="1">Sim</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="detailsIpv6" class="form-label">Suporte IPv6</label>
+                                <select class="form-select modern-input" id="detailsIpv6" name="ipv6" autocomplete="off">
+                                    <option value="0">Não</option>
+                                    <option value="1">Sim</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="detailsEnderecoIp" class="form-label">Endereço IP</label>
+                                <input type="text" class="form-control modern-input" id="detailsEnderecoIp" name="endereco_ip" autocomplete="off">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="detailsNomeUsuario" class="form-label">Nome de Usuário</label>
+                                <input type="text" class="form-control modern-input" id="detailsNomeUsuario" name="nome_usuario" autocomplete="off">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="detailsSenhaAcesso" class="form-label">Senha de Acesso</label>
+                                <input type="password" class="form-control modern-input" id="detailsSenhaAcesso" name="senha_acesso" autocomplete="off">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="detailsFonte" class="form-label">Fonte de Alimentação</label>
+                                <input type="text" class="form-control modern-input" id="detailsFonte" name="fonte" autocomplete="off">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="detailsPrecoMedio" class="form-label">Preço Médio</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">R$</span>
+                                    <input type="text" class="form-control modern-input" id="detailsPrecoMedio" name="preco_medio" autocomplete="off">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="detailsDataUltimaAtualizacao" class="form-label">Data Última Atualização</label>
+                                <input type="date" class="form-control modern-input" id="detailsDataUltimaAtualizacao" name="data_ultima_atualizacao_preco" autocomplete="off">
+                            </div>
+                            <div class="col-md-12">
+                                <label for="detailsSite" class="form-label">Link para Site do Fabricante</label>
+                                <input type="url" class="form-control modern-input" id="detailsSite" name="site" autocomplete="off">
+                            </div>
+                            <div class="col-md-12">
+                                <label for="detailsObservacoes" class="form-label">Observações</label>
+                                <textarea class="form-control modern-input" id="detailsObservacoes" name="observacoes" rows="3" autocomplete="off"></textarea>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    <button type="button" class="btn btn-danger me-2" id="deleteEquipamentoBtn" style="display: none;">
+                        <i class="bi bi-trash"></i> Deletar
+                    </button>
+                    <button type="button" class="btn btn-warning" id="editEquipamentoBtn">
+                        <i class="bi bi-pencil"></i> Editar
+                    </button>
+                    <button type="button" class="btn btn-primary" id="saveEditEquipamentoBtn" style="display: none;">
+                        <i class="bi bi-save"></i> Salvar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="javascripts/equipamentos.js"></script>
+    <script>
+        // Theme toggle script
+        const currentTheme = localStorage.getItem('theme') || 'light';
+        const bodyElement = document.body;
+        const themeToggleButton = document.getElementById('theme-toggle');
+
+        if (currentTheme === 'dark') {
+            bodyElement.classList.add('dark-mode');
+            if(themeToggleButton) themeToggleButton.innerHTML = '<i class="bi bi-brightness-high"></i>';
+        } else {
+            if(themeToggleButton) themeToggleButton.innerHTML = '<i class="bi bi-moon-stars"></i>';
+        }
+
+        if(themeToggleButton) {
+            themeToggleButton.addEventListener('click', function() {
+                bodyElement.classList.toggle('dark-mode');
+                if (bodyElement.classList.contains('dark-mode')) {
+                    localStorage.setItem('theme', 'dark');
+                    themeToggleButton.innerHTML = '<i class="bi bi-brightness-high"></i>';
+                } else {
+                    localStorage.setItem('theme', 'light');
+                    themeToggleButton.innerHTML = '<i class="bi bi-moon-stars"></i>';
+                }
+            });
+        }
+        
+        // Username and group script
+        fetch('/api/username')
+            .then(response => response.json())
+            .then(data => {
+                const username = data.username || 'Visitante';
+                const group = data.group || 'Sem grupo';
+                
+                if (username === 'Visitante') {
+                        alert('Será necessário refazer o login!');
+                        window.location = "/";
+                }
+                document.querySelectorAll('.user-info span').forEach(el => {
+                    if (el.textContent.includes('{username}')) {
+                        el.textContent = username;
+                    }
+                    if (el.textContent.includes('{group}')) {
+                        el.textContent = group;
+                    }
+                });
+                
+                if (username === 'Visitante') {
+                    alert('Será necessário refazer o login!');
+                    window.location = "/";
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao obter o nome do usuário e grupo:', error);
+            });
+    </script>
+</body>
+</html>
