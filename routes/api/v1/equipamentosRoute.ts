@@ -5,7 +5,6 @@ import * as Express from 'express';
 
 const EQUIPAMENTOS = Express.Router();
 
-// Rota para buscar todos os tipos de equipamento
 EQUIPAMENTOS.get('/tipos', async (req: Request, res: Response) => {
     try {
         let response: any = await api.v1.GetTiposEquipamento();
@@ -16,7 +15,6 @@ EQUIPAMENTOS.get('/tipos', async (req: Request, res: Response) => {
     }
 });
 
-// Rota para buscar equipamentos
 EQUIPAMENTOS.get('/', async (req: Request, res: Response) => {
     try {
         const searchTerm = req.query.search as string;
@@ -28,7 +26,6 @@ EQUIPAMENTOS.get('/', async (req: Request, res: Response) => {
     }
 });
 
-// Rota para cadastrar um novo equipamento
 EQUIPAMENTOS.post('/', async (req: Request, res: Response) => {
     try {
         const equipamentoData = req.body;
@@ -40,7 +37,6 @@ EQUIPAMENTOS.post('/', async (req: Request, res: Response) => {
     }
 });
 
-// Rota para atualizar um equipamento existente
 EQUIPAMENTOS.put('/:id', async (req: Request, res: Response) => {
     try {
         const equipamentoId = +req.params.id;
@@ -58,7 +54,6 @@ EQUIPAMENTOS.put('/:id', async (req: Request, res: Response) => {
     }
 });
 
-// Rota para deletar um equipamento
 EQUIPAMENTOS.delete('/:id', async (req: Request, res: Response) => {
     try {
         await api.v1.DeleteEquipamento(+req.params.id);

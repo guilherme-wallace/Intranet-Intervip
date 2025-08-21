@@ -3,11 +3,6 @@ import { MySQLResponse } from '../../types/mysql-response';
 import { Equipamento } from '../../types/equipamentosType';
 import { Pool, escape } from 'mysql';
 
-/**
- * Busca todos os tipos de equipamentos disponíveis na tabela `equipamentos_tipo`.
- * @param MySQL O pool de conexão MySQL.
- * @returns Uma Promise com a lista de tipos de equipamento.
- */
 export async function getTiposEquipamento(MySQL: Pool): Promise<any> {
     const QUERY = 'SELECT id_equipamentoTipo, tipo_equipamento FROM equipamentos_tipo;';
 
@@ -19,13 +14,6 @@ export async function getTiposEquipamento(MySQL: Pool): Promise<any> {
     });
 }
 
-/**
- * Busca equipamentos de rede com base em um termo de pesquisa (opcional).
- * Se nenhum termo for fornecido, retorna todos os equipamentos.
- * @param MySQL O pool de conexão MySQL.
- * @param searchTerm O termo de pesquisa para buscar por marca, modelo ou nome.
- * @returns Uma Promise com a lista de equipamentos que correspondem à pesquisa.
- */
 export async function getEquipamentos(MySQL: Pool, searchTerm?: string): Promise<any> {
     let QUERY = `SELECT e.*, t.tipo_equipamento FROM equipamentos_rede AS e JOIN equipamentos_tipo AS t ON e.tipo_equipamentoId = t.id_equipamentoTipo`;
     const params = [];
@@ -35,14 +23,12 @@ export async function getEquipamentos(MySQL: Pool, searchTerm?: string): Promise
         params.push(`%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`);
     }
     
-    // Adiciona o orderBy para retornar a tabela ordenada
     QUERY += ` ORDER BY e.marca, e.modelo;`;
 
     return new Promise<any>((resolve, reject) => {
         MySQL.query(QUERY, params, (error, response) => {
             if (error) return reject(error);
             if (!response || response.length === 0) {
-                // Ao contrário da busca de blocos, aqui não há erro, apenas nenhum resultado.
                 return resolve([]); 
             }
             return resolve(response);
@@ -50,12 +36,6 @@ export async function getEquipamentos(MySQL: Pool, searchTerm?: string): Promise
     });
 }
 
-/**
- * Cadastra um novo equipamento de rede no banco de dados.
- * @param MySQL O pool de conexão MySQL.
- * @param equipamento O objeto de equipamento a ser cadastrado.
- * @returns Uma Promise com a resposta do MySQL.
- */
 export async function postEquipamento(MySQL: Pool, equipamento: Equipamento): Promise<MySQLResponse> {
     const QUERY = `
         INSERT INTO equipamentos_rede (
@@ -104,12 +84,6 @@ export async function postEquipamento(MySQL: Pool, equipamento: Equipamento): Pr
     });
 }
 
-/**
- * Atualiza um equipamento de rede existente no banco de dados.
- * @param MySQL O pool de conexão MySQL.
- * @param equipamento O objeto de equipamento a ser atualizado.
- * @returns Uma Promise com a resposta do MySQL.
- */
 export async function putEquipamento(MySQL: Pool, equipamento: Equipamento): Promise<MySQLResponse> {
     const QUERY = `
         UPDATE equipamentos_rede SET
@@ -151,12 +125,6 @@ export async function putEquipamento(MySQL: Pool, equipamento: Equipamento): Pro
     });
 }
 
-/**
- * Deleta um equipamento de rede do banco de dados.
- * @param MySQL O pool de conexão MySQL.
- * @param equipamentoId O ID do equipamento a ser deletado.
- * @returns Uma Promise com a resposta do MySQL.
- */
 export async function deleteEquipamento(MySQL: Pool, equipamentoId: number): Promise<string> {
     const QUERY = `DELETE FROM equipamentos_rede WHERE id_equipamento = ${escape(equipamentoId)};`;
 

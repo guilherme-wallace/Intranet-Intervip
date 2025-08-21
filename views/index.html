@@ -64,14 +64,13 @@
     </footer>
     
     <script>
-        // API pública que fornece a imagem do Bing
         function setBingBackground() {
             fetch('https://bing.biturl.top/?resolution=1920&format=json&index=0&mkt=pt-BR')
                 .then(response => response.json())
                 .then(data => {
                     document.body.style.backgroundImage = `url('${data.url}')`;
                     
-                    // Créditos da imagem se disponível
+                    // copyright
                     if (data.copyright) {
                         const credits = document.createElement('div');
                         credits.className = 'bing-credits';

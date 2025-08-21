@@ -162,7 +162,6 @@
     </footer>
 
 <script>
-    // Theme toggle script
     const currentTheme = localStorage.getItem('theme') || 'light';
     const bodyElement = document.body;
     const themeToggleButton = document.getElementById('theme-toggle');
@@ -187,7 +186,6 @@
         });
     }
 
-    // Username and group script
     fetch('/api/username')
         .then(response => response.json())
         .then(data => {

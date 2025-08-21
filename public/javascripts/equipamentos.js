@@ -9,7 +9,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const saveEquipamentoBtn = document.getElementById('saveEquipamentoBtn');
     const tipoEquipamentoSelect = document.getElementById('tipoEquipamento');
     const cadastroEquipamentoModal = new bootstrap.Modal(document.getElementById('cadastroEquipamentoModal'));
-
     const detailsModal = new bootstrap.Modal(document.getElementById('detailsModal'));
     const detailsForm = document.getElementById('detailsForm');
     const detailsTableContainer = document.getElementById('detailsTableContainer');
@@ -56,7 +55,6 @@ document.addEventListener('DOMContentLoaded', function() {
         modal.show();
     }
 
-    // Função para exibir um modal de confirmação customizado
     function showConfirmModal(message, onConfirm) {
         let confirmModalEl = document.getElementById('confirmModal');
         if (!confirmModalEl) {
@@ -189,7 +187,6 @@ document.addEventListener('DOMContentLoaded', function() {
             'ipv6'
         ];
         
-        // CORREÇÃO: Pegar os dados para o formulário de edição
         document.getElementById('detailsIdEquipamento').value = equipamento.id_equipamento;
         document.getElementById('detailsNome').value = equipamento.nome || '';
         document.getElementById('detailsMarca').value = equipamento.marca || '';
@@ -214,10 +211,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('detailsNomeUsuario').value = equipamento.nome_usuario || '';
         document.getElementById('detailsSenhaAcesso').value = equipamento.senha_acesso || '';
         document.getElementById('detailsFonte').value = equipamento.fonte || '';
-        
-        // CORREÇÃO: Inicializa o campo de preço médio com 0,00 se for nulo
         document.getElementById('detailsPrecoMedio').value = equipamento.preco_medio ? (parseFloat(equipamento.preco_medio).toFixed(2).replace('.', ',')) : '0,00';
-        
         document.getElementById('detailsDataUltimaAtualizacao').value = equipamento.data_ultima_atualizacao_preco || '';
         document.getElementById('detailsSite').value = equipamento.site || '';
         document.getElementById('detailsObservacoes').value = equipamento.observacoes || '';
@@ -225,7 +219,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const detailsTipoEquipamentoSelect = document.getElementById('detailsTipoEquipamento');
         loadTiposEquipamento(detailsTipoEquipamentoSelect, equipamento.tipo_equipamentoId);
 
-        // CORREÇÃO: Popular a tabela de detalhes com os dados
         const labels = {
             id_equipamento: 'ID',
             tipo_equipamento: 'Tipo',
@@ -299,7 +292,6 @@ document.addEventListener('DOMContentLoaded', function() {
             field.disabled = !isEditing;
         });
         
-        // Garante que o campo de Tipo de Equipamento (select) seja editável apenas no modo de edição
         document.getElementById('detailsTipoEquipamento').disabled = !isEditing;
 
         if (isEditing) {

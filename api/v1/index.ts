@@ -8,7 +8,7 @@ import * as Clients from './client';
 import * as Blocks from './block';
 import * as Condominios from './condominio';
 import * as Sails from './sale';
-import * as Equipamentos from './equipamentosAPI'; // Importa o novo módulo de API de equipamentos
+import * as Equipamentos from './equipamentosAPI';
 
 import { Salesperson } from '../../types/salesperson';
 import { Technology } from '../../types/technology';
@@ -19,7 +19,7 @@ import { Address } from '../../types/address';
 import { Condominio } from '../../types/condominio';
 import { Block } from '../../types/block';
 import { Sale } from '../../types/sale';
-import { Equipamento, TipoEquipamento } from '../../types/equipamentosType'; // Importa os novos tipos
+import { Equipamento, TipoEquipamento } from '../../types/equipamentosType';
 
 import { MySQLResponse } from '../../types/mysql-response';
 import { LOCALHOST, ROUTERBOX } from '../database';
@@ -134,7 +134,6 @@ export function PostContract(contract: Contract): Promise<MySQLResponse> {
     return Contracts.postContract(LOCALHOST, contract);
 }
 
-// Funções para a API de Equipamentos
 export function GetTiposEquipamento(): Promise<TipoEquipamento[]> {
     return Equipamentos.getTiposEquipamento(LOCALHOST);
 }

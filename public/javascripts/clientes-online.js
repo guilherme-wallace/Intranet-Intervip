@@ -126,24 +126,20 @@ function listarClientes(tipo) {
     const listaId = tipo === "casas" ? "#clientes-lista-casas" : "#clientes-lista-condominios";
     const listaElement = document.querySelector(listaId);
     
-    // Mostra o spinner
     $('#loading-spinner').show();
     
-    // Cria um timeout como fallback
     const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => {
             reject(new Error('Tempo de carregamento excedido'));
         }, LOADING_TIMEOUT);
     });
 
-    // Faz a requisição para a API
     const apiPromise = fetch(`api/v4/client/condominio/${localStorage['condominioId']}`)
         .then(response => {
             if (!response.ok) throw new Error(`Erro HTTP! status: ${response.status}`);
             return response.json();
         });
 
-    // Race entre a API e o timeout
     Promise.race([apiPromise, timeoutPromise])
         .then(clientes => {
             if (!Array.isArray(clientes)) {
@@ -156,7 +152,6 @@ function listarClientes(tipo) {
                 return;
             }
             
-            // Processa os clientes
             atualizarClientesInfo(clientes.length);
             return processarClientes(clientes, listaId, tipo);
         })
@@ -178,7 +173,6 @@ function listarClientes(tipo) {
         });
 }
 
-// Função auxiliar para processar os clientes
 function processarClientes(clientes, listaId, tipo) {
     const listaElement = document.querySelector(listaId);
     listaElement.innerHTML = '';
@@ -209,23 +203,18 @@ function atualizarTabelaClientes(clientes, tipo) {
         return;
     }
 
-    // Limpa a tabela
     listaElement.innerHTML = '';
 
-    // Verifica se há clientes
     if (!clientes || clientes.length === 0) {
         listaElement.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Sem clientes na localidade</td></tr>';
         atualizarClientesInfo(0);
         return;
     }
 
-    // Atualiza o contador
     atualizarClientesInfo(clientes.length);
 
-    // Mostra o spinner enquanto processa os clientes
     $('#loading-spinner').show();
 
-    // Processa todos os clientes de uma vez com Promise.all
     Promise.all(clientes.map(cliente => 
         buscarStatusCliente(cliente, listaId, tipo)
             .catch(error => {
@@ -234,7 +223,6 @@ function atualizarTabelaClientes(clientes, tipo) {
             })
     ))
     .then(results => {
-        // Verifica se algum cliente foi processado com sucesso
         const successCount = results.filter(r => r !== null).length;
         
         if (successCount === 0) {
