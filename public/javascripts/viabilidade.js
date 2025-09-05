@@ -418,7 +418,7 @@ $(function() {
                     return response.json();
                 }).then(function (data) {
                     if (addressType == 'Condomínio') {
-                        var destinatario = 'mullermuraro1+yrlqflg0cdxykjr3yukw@boards.trello.com';
+                        var destinatario = 'mullermuraro1+yrlqflg0cdxykjr3yukw@boards.trello.com, viabilidade@intervip.net.br';
                         var assunto = `Viabilidade de condomínio: ${viabilitys[0].postalCodeId} --> ${viabilitys[0].condominio} --> ${viabilitys[0].neighborhood} --> ${viabilitys[0].city} - ${dataAtual}`;
                         var mensagem = `
                             <p><strong>TIPO DE SOLICITAÇÃO: VIABILIDADE DE CONDOMÍNIO</strong></p>
@@ -442,7 +442,7 @@ $(function() {
                         alert("Solicitação enviada com sucesso.");
                     }
                     else if (addressType == 'Estrutura FTTH') {
-                        var destinatario = 'mullermuraro1+yrlqflg0cdxykjr3yukw@boards.trello.com';
+                        var destinatario = 'mullermuraro1+yrlqflg0cdxykjr3yukw@boards.trello.com, viabilidade@intervip.net.br';
                         var assunto = `Viabilidade para Estrutura FTTH: ${viabilitys[0].postalCodeId} --> ${viabilitys[0].condominio} --> ${viabilitys[0].neighborhood} --> ${viabilitys[0].city} - ${dataAtual}`;
                         var mensagem = `
                             <p><strong>TIPO DE SOLICITAÇÃO: VIABILIDADE DE ESTRUTURA PARA FTTH</strong></p>
@@ -466,7 +466,7 @@ $(function() {
                         alert("Solicitação enviada com sucesso.");
                     }
                     else if (addressType == 'Corporativo') {
-                        var destinatario = 'mullermuraro1+yrlqflg0cdxykjr3yukw@boards.trello.com';
+                        var destinatario = 'mullermuraro1+yrlqflg0cdxykjr3yukw@boards.trello.com, viabilidade@intervip.net.br';
                         var assunto = `Viabilidade para corporativos: ${viabilitys[0].postalCodeId} --> ${viabilitys[0].neighborhood} --> ${viabilitys[0].city} - ${dataAtual}`;
                         var mensagem = `
                             <p><strong>TIPO DE SOLICITAÇÃO: VIABILIDADE DE CORPORATIVOS</strong></p>
@@ -489,7 +489,7 @@ $(function() {
                         alert("Solicitação enviada com sucesso.");
                     }
                     else {
-                        var destinatario = 'mullermuraro1+yrlqflg0cdxykjr3yukw@boards.trello.com';
+                        var destinatario = 'mullermuraro1+yrlqflg0cdxykjr3yukw@boards.trello.com, viabilidade@intervip.net.br';
                         var assunto = `Viabilidade de casas: ${viabilitys[0].postalCodeId} --> ${viabilitys[0].neighborhood} --> ${viabilitys[0].city} - ${dataAtual}`;
                         var mensagem = `
                             <p><strong>TIPO DE SOLICITAÇÃO: VIABILIDADE DE CASA</strong></p>
