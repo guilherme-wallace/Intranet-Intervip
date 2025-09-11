@@ -11,7 +11,7 @@ var Clients = require("./client");
 var Blocks = require("./block");
 var Condominios = require("./condominio");
 var Sails = require("./sale");
-var Equipamentos = require("./equipamentosAPI"); // Importa o novo módulo de API de equipamentos
+var Equipamentos = require("./equipamentosAPI");
 var database_1 = require("../database");
 function GetTypes() {
     return Blocks.getTypes(database_1.LOCALHOST);
@@ -123,7 +123,6 @@ function PostContract(contract) {
     return Contracts.postContract(database_1.LOCALHOST, contract);
 }
 exports.PostContract = PostContract;
-// Funções para a API de Equipamentos
 function GetTiposEquipamento() {
     return Equipamentos.getTiposEquipamento(database_1.LOCALHOST);
 }
