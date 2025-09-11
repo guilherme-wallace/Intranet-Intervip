@@ -39,7 +39,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var api = require("../../../api/index");
 var Express = require("express");
 var EQUIPAMENTOS = Express.Router();
-// Rota para buscar todos os tipos de equipamento
 EQUIPAMENTOS.get('/tipos', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
     var response, error_1;
     return __generator(this, function (_a) {
@@ -58,7 +57,6 @@ EQUIPAMENTOS.get('/tipos', function (req, res) { return __awaiter(void 0, void 0
         }
     });
 }); });
-// Rota para buscar equipamentos
 EQUIPAMENTOS.get('/', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
     var searchTerm, response, error_2;
     return __generator(this, function (_a) {
@@ -78,7 +76,6 @@ EQUIPAMENTOS.get('/', function (req, res) { return __awaiter(void 0, void 0, voi
         }
     });
 }); });
-// Rota para cadastrar um novo equipamento
 EQUIPAMENTOS.post('/', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
     var equipamentoData, response, error_3;
     return __generator(this, function (_a) {
@@ -98,7 +95,6 @@ EQUIPAMENTOS.post('/', function (req, res) { return __awaiter(void 0, void 0, vo
         }
     });
 }); });
-// Rota para atualizar um equipamento existente
 EQUIPAMENTOS.put('/:id', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
     var equipamentoId, equipamentoData, response, error_4;
     return __generator(this, function (_a) {
@@ -123,7 +119,6 @@ EQUIPAMENTOS.put('/:id', function (req, res) { return __awaiter(void 0, void 0, 
         }
     });
 }); });
-// Rota para deletar um equipamento
 EQUIPAMENTOS.delete('/:id', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
     var error_5;
     return __generator(this, function (_a) {

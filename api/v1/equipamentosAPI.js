@@ -38,11 +38,6 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteEquipamento = exports.putEquipamento = exports.postEquipamento = exports.getEquipamentos = exports.getTiposEquipamento = void 0;
 var mysql_1 = require("mysql");
-/**
- * Busca todos os tipos de equipamentos disponíveis na tabela `equipamentos_tipo`.
- * @param MySQL O pool de conexão MySQL.
- * @returns Uma Promise com a lista de tipos de equipamento.
- */
 function getTiposEquipamento(MySQL) {
     return __awaiter(this, void 0, void 0, function () {
         var QUERY;
@@ -59,13 +54,6 @@ function getTiposEquipamento(MySQL) {
     });
 }
 exports.getTiposEquipamento = getTiposEquipamento;
-/**
- * Busca equipamentos de rede com base em um termo de pesquisa (opcional).
- * Se nenhum termo for fornecido, retorna todos os equipamentos.
- * @param MySQL O pool de conexão MySQL.
- * @param searchTerm O termo de pesquisa para buscar por marca, modelo ou nome.
- * @returns Uma Promise com a lista de equipamentos que correspondem à pesquisa.
- */
 function getEquipamentos(MySQL, searchTerm) {
     return __awaiter(this, void 0, void 0, function () {
         var QUERY, params;
@@ -76,14 +64,12 @@ function getEquipamentos(MySQL, searchTerm) {
                 QUERY += " WHERE e.marca LIKE ? OR e.modelo LIKE ? OR e.nome LIKE ?";
                 params.push("%".concat(searchTerm, "%"), "%".concat(searchTerm, "%"), "%".concat(searchTerm, "%"));
             }
-            // Adiciona o orderBy para retornar a tabela ordenada
             QUERY += " ORDER BY e.marca, e.modelo;";
             return [2 /*return*/, new Promise(function (resolve, reject) {
                     MySQL.query(QUERY, params, function (error, response) {
                         if (error)
                             return reject(error);
                         if (!response || response.length === 0) {
-                            // Ao contrário da busca de blocos, aqui não há erro, apenas nenhum resultado.
                             return resolve([]);
                         }
                         return resolve(response);
@@ -93,12 +79,6 @@ function getEquipamentos(MySQL, searchTerm) {
     });
 }
 exports.getEquipamentos = getEquipamentos;
-/**
- * Cadastra um novo equipamento de rede no banco de dados.
- * @param MySQL O pool de conexão MySQL.
- * @param equipamento O objeto de equipamento a ser cadastrado.
- * @returns Uma Promise com a resposta do MySQL.
- */
 function postEquipamento(MySQL, equipamento) {
     return __awaiter(this, void 0, void 0, function () {
         var QUERY;
@@ -115,12 +95,6 @@ function postEquipamento(MySQL, equipamento) {
     });
 }
 exports.postEquipamento = postEquipamento;
-/**
- * Atualiza um equipamento de rede existente no banco de dados.
- * @param MySQL O pool de conexão MySQL.
- * @param equipamento O objeto de equipamento a ser atualizado.
- * @returns Uma Promise com a resposta do MySQL.
- */
 function putEquipamento(MySQL, equipamento) {
     return __awaiter(this, void 0, void 0, function () {
         var QUERY;
@@ -137,12 +111,6 @@ function putEquipamento(MySQL, equipamento) {
     });
 }
 exports.putEquipamento = putEquipamento;
-/**
- * Deleta um equipamento de rede do banco de dados.
- * @param MySQL O pool de conexão MySQL.
- * @param equipamentoId O ID do equipamento a ser deletado.
- * @returns Uma Promise com a resposta do MySQL.
- */
 function deleteEquipamento(MySQL, equipamentoId) {
     return __awaiter(this, void 0, void 0, function () {
         var QUERY;
