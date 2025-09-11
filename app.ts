@@ -351,8 +351,7 @@ APP.post('/hakai', (req, res) => {
         Path.join(__dirname, 'public/javascripts/problemas-linha-telefonica.js'),
         Path.join(__dirname, 'public/javascripts/problemas-sites-e-APP.js'),
         Path.join(__dirname, 'public/javascripts/teste-de-lentidao.js'),
-        Path.join(__dirname, 'public/javascripts/viabilidade.js'),
-        Path.join(__dirname, 'public/javascriptsviabilidadeOLD.js'),
+        Path.join(__dirname, 'public/javascripts/lead-Venda.js'),
         Path.join(__dirname, 'public/savedFiles/observacoes.md'),
         Path.join(__dirname, 'public/savedFiles/escalaSobreAviso.md'),
         Path.join(__dirname, 'public/savedFiles/localEmFalha.md'),
@@ -396,7 +395,7 @@ APP.use('/cadastro-de-blocos', ROUTES);
 APP.use('/consulta-de-planos', ROUTES);
 APP.use('/cadastro-de-vendas', ROUTES);
 APP.use('/problemas-sites-e-APP', ROUTES);
-APP.use('/cadastro-de-viabilidade', ROUTES);
+APP.use('/lead-Venda', ROUTES);
 APP.use('/pedidos-linha-telefonica', ROUTES);
 APP.use('/api', scriptAddCondominiumsBDRoute);
 APP.use('/problemas-linha-telefonica', ROUTES);
