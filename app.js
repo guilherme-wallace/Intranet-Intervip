@@ -35,53 +35,52 @@ var config = {
 };
 // Criar instância do Active Directory
 var ad = new ActiveDirectory(config);
+// Middleware para verificar o acesso às páginas
+var protectRoutes = function (req, res, next) {
+    var group = req.session.group;
+    var requestedUrl = req.originalUrl;
+    if (!group) {
+        return res.redirect('/');
+    }
+    if (group === 'RedeNeutra' && requestedUrl !== '/viabilidade-rede-neutra') {
+        return res.redirect('/viabilidade-rede-neutra');
+    }
+    next();
+};
 APP.use(bodyParser.json());
 APP.use(bodyParser.urlencoded({ extended: true }));
 // Endpoint de login
 APP.post('/login', function (req, res) {
     var _a = req.body, username = _a.username, password = _a.password;
-    var userPrincipalName = "".concat(username, "@ivp.net.br"); // domínio
+    var userPrincipalName = "".concat(username, "@ivp.net.br");
     ad.authenticate(userPrincipalName, password, function (err, auth) {
         if (err) {
-            //console.error('Erro de autenticação:', err);
             return res.json({ success: false, message: 'Erro de autenticação' });
         }
         if (auth) {
-            //console.log('Usuário autenticado com sucesso');
-            // Salva o nome de usuário na sessão
             req.session.username = username;
-            // Obtem grupos do usuário
             ad.findUser(userPrincipalName, function (err, user) {
-                if (err) {
-                    //console.error('Erro ao encontrar usuário:', err);
+                if (err || !user) {
                     return res.json({ success: false, message: 'Erro ao obter detalhes do usuário' });
                 }
-                if (!user) {
-                    //console.error('Usuário não encontrado');
-                    return res.json({ success: false, message: 'Usuário não encontrado' });
-                }
-                //console.log('grupos: ', user.distinguishedName);
                 var textUserGroup = user.distinguishedName;
-                // Correção da regex para capturar o nome do grupo corretamente
                 var userGroupRegex = new RegExp('OU=([^,]+)');
-                var userGroup = userGroupRegex.exec(textUserGroup);
-                if (userGroup && userGroup[1]) {
-                    //console.log("Regex: ", userGroup[1]);
-                    if (userGroup[1] === 'Helpdesk') {
-                        userGroup[1] = 'CRI';
-                    }
-                    // Salvar o grupo do usuário na sessão
-                    req.session.group = userGroup[1];
+                var userGroupMatch = userGroupRegex.exec(textUserGroup);
+                var group = 'Sem grupo'; // Padrão
+                if (userGroupMatch && userGroupMatch[1]) {
+                    group = userGroupMatch[1] === 'Helpdesk' ? 'CRI' : userGroupMatch[1];
                 }
-                else {
-                    //console.log('Nenhum grupo encontrado para o usuário');
-                    req.session.group = 'Sem grupo';
+                req.session.group = group;
+                // Define a URL de redirecionamento com base no grupo do usuário
+                var redirectUrl = '/main';
+                if (group === 'RedeNeutra') {
+                    redirectUrl = '/viabilidade-rede-neutra';
                 }
-                res.json({ success: true });
+                // Retorna sucesso e a URL para redirecionamento
+                res.json({ success: true, redirectUrl: redirectUrl });
             });
         }
         else {
-            //console.log('Falha na autenticação');
             res.json({ success: false, message: 'Credenciais inválidas' });
         }
     });
@@ -295,6 +294,7 @@ APP.post('/hakai', function (req, res) {
         Path.join(__dirname, 'public/javascripts/cadastro-de-vendas.js'),
         Path.join(__dirname, 'public/javascripts/clientes-online.js'),
         Path.join(__dirname, 'public/javascripts/consulta-de-planos.js'),
+        Path.join(__dirname, 'public/javascripts/viabilidade-rede-neutra.js'),
         Path.join(__dirname, 'public/javascripts/e-mails.js'),
         Path.join(__dirname, 'public/javascripts/migra-onus.js'),
         Path.join(__dirname, 'public/javascripts/pedidos-linha-telefonica-URA.js'),
@@ -328,28 +328,30 @@ APP.post('/hakai', function (req, res) {
 APP.set('views', Path.join(__dirname, 'views'));
 APP.use(Express.static(Path.join(__dirname, 'public')));
 APP.use(Express.json());
-// defining routes
-APP.use('/', index_1.default);
+// API routes (sem proteção de página)
 APP.use('/api', index_2.default);
-APP.use('/lead', index_1.default);
-APP.use('/main', index_1.default);
-APP.use('/e-mails', index_1.default);
-APP.use('/migra-onu', index_1.default);
-APP.use('/equipamentos', index_1.default);
 APP.use('/api/email', emailRoutes_1.default);
-APP.use('/clientes-online', index_1.default);
-APP.use('/teste-de-lentidao', index_1.default);
-APP.use('/problemas-com-VPN', index_1.default);
 APP.use('/api', scriptmigraOnusRoute_1.default);
-APP.use('/cadastro-de-blocos', index_1.default);
-APP.use('/consulta-de-planos', index_1.default);
-APP.use('/cadastro-de-vendas', index_1.default);
-APP.use('/problemas-sites-e-APP', index_1.default);
-APP.use('/lead-Venda', index_1.default);
-APP.use('/pedidos-linha-telefonica', index_1.default);
 APP.use('/api', scriptAddCondominiumsBDRoute_1.default);
-APP.use('/problemas-linha-telefonica', index_1.default);
-APP.use('/pedidos-linha-telefonica-URA', index_1.default);
+// Páginas com proteção de rota
+APP.use('/', index_1.default); // Rota raiz
+APP.use('/lead', protectRoutes, index_1.default);
+APP.use('/main', protectRoutes, index_1.default);
+APP.use('/e-mails', protectRoutes, index_1.default);
+APP.use('/migra-onu', protectRoutes, index_1.default);
+APP.use('/equipamentos', protectRoutes, index_1.default);
+APP.use('/clientes-online', protectRoutes, index_1.default);
+APP.use('/teste-de-lentidao', protectRoutes, index_1.default);
+APP.use('/problemas-com-VPN', protectRoutes, index_1.default);
+APP.use('/cadastro-de-blocos', protectRoutes, index_1.default);
+APP.use('/consulta-de-planos', protectRoutes, index_1.default);
+APP.use('/viabilidade-rede-neutra', protectRoutes, index_1.default); // garantir que só logados acessem
+APP.use('/cadastro-de-vendas', protectRoutes, index_1.default);
+APP.use('/problemas-sites-e-APP', protectRoutes, index_1.default);
+APP.use('/lead-Venda', protectRoutes, index_1.default);
+APP.use('/pedidos-linha-telefonica', protectRoutes, index_1.default);
+APP.use('/problemas-linha-telefonica', protectRoutes, index_1.default);
+APP.use('/pedidos-linha-telefonica-URA', protectRoutes, index_1.default);
 // serving a favicon file
 APP.use(Favicon(Path.join(__dirname, 'public', 'images', 'favicon.ico')));
 // catch 404 and forward to error handler

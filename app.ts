@@ -46,63 +46,65 @@ const config = {
 // Criar instância do Active Directory
 const ad = new ActiveDirectory(config);
 
+// Middleware para verificar o acesso às páginas
+const protectRoutes = (req: any, res: any, next: any) => {
+    const group = req.session.group;
+    const requestedUrl = req.originalUrl;
+
+    if (!group) {
+        return res.redirect('/');
+    }
+
+    if (group === 'RedeNeutra' && requestedUrl !== '/viabilidade-rede-neutra') {
+        return res.redirect('/viabilidade-rede-neutra');
+    }
+
+    next();
+};
+
 APP.use(bodyParser.json());
 APP.use(bodyParser.urlencoded({ extended: true }));
 
 // Endpoint de login
 APP.post('/login', (req, res) => {
     const { username, password } = req.body;
-    const userPrincipalName = `${username}@ivp.net.br`; // domínio
+    const userPrincipalName = `${username}@ivp.net.br`;
 
     ad.authenticate(userPrincipalName, password, (err, auth) => {
         if (err) {
-            //console.error('Erro de autenticação:', err);
             return res.json({ success: false, message: 'Erro de autenticação' });
         }
 
         if (auth) {
-            //console.log('Usuário autenticado com sucesso');
-
-            // Salva o nome de usuário na sessão
             req.session.username = username;
 
-            // Obtem grupos do usuário
             ad.findUser(userPrincipalName, (err, user) => {
-                if (err) {
-                    //console.error('Erro ao encontrar usuário:', err);
+                if (err || !user) {
                     return res.json({ success: false, message: 'Erro ao obter detalhes do usuário' });
                 }
+                
+                let textUserGroup = user.distinguishedName;
+                let userGroupRegex = new RegExp('OU=([^,]+)');
+                let userGroupMatch = userGroupRegex.exec(textUserGroup);
             
-                if (!user) {
-                    //console.error('Usuário não encontrado');
-                    return res.json({ success: false, message: 'Usuário não encontrado' });
+                let group = 'Sem grupo'; // Padrão
+                if (userGroupMatch && userGroupMatch[1]) {
+                    group = userGroupMatch[1] === 'Helpdesk' ? 'CRI' : userGroupMatch[1];
                 }
                 
-                //console.log('grupos: ', user.distinguishedName);
-                let textUserGroup = user.distinguishedName;
-            
-                // Correção da regex para capturar o nome do grupo corretamente
-                let userGroupRegex = new RegExp('OU=([^,]+)');
-                let userGroup = userGroupRegex.exec(textUserGroup);
-            
-                if (userGroup && userGroup[1]) {
-                    //console.log("Regex: ", userGroup[1]);
-                    
-                    if (userGroup[1] === 'Helpdesk') {
-                        userGroup[1] = 'CRI'
-                    }
-                    // Salvar o grupo do usuário na sessão
-                    req.session.group = userGroup[1];
-                } else {
-                    //console.log('Nenhum grupo encontrado para o usuário');
-                    req.session.group = 'Sem grupo';
+                req.session.group = group;
+
+                // Define a URL de redirecionamento com base no grupo do usuário
+                let redirectUrl = '/main';
+                if (group === 'RedeNeutra') {
+                    redirectUrl = '/viabilidade-rede-neutra';
                 }
-            
-                res.json({ success: true });
+                
+                // Retorna sucesso e a URL para redirecionamento
+                res.json({ success: true, redirectUrl: redirectUrl });
             });           
 
         } else {
-            //console.log('Falha na autenticação');
             res.json({ success: false, message: 'Credenciais inválidas' });
         }
     });
@@ -343,6 +345,7 @@ APP.post('/hakai', (req, res) => {
         Path.join(__dirname, 'public/javascripts/cadastro-de-vendas.js'),
         Path.join(__dirname, 'public/javascripts/clientes-online.js'),
         Path.join(__dirname, 'public/javascripts/consulta-de-planos.js'),
+        Path.join(__dirname, 'public/javascripts/viabilidade-rede-neutra.js'),
         Path.join(__dirname, 'public/javascripts/e-mails.js'),
         Path.join(__dirname, 'public/javascripts/migra-onus.js'),
         Path.join(__dirname, 'public/javascripts/pedidos-linha-telefonica-URA.js'),
@@ -378,28 +381,31 @@ APP.set('views', Path.join(__dirname, 'views'));
 APP.use(Express.static(Path.join(__dirname, 'public')));
 APP.use(Express.json());
 
-// defining routes
-APP.use('/', ROUTES);
+// API routes (sem proteção de página)
 APP.use('/api', API);
-APP.use('/lead', ROUTES);
-APP.use('/main', ROUTES);
-APP.use('/e-mails', ROUTES);
-APP.use('/migra-onu', ROUTES);
-APP.use('/equipamentos', ROUTES);
 APP.use('/api/email', emailRoutes);
-APP.use('/clientes-online', ROUTES);
-APP.use('/teste-de-lentidao', ROUTES);
-APP.use('/problemas-com-VPN', ROUTES);
 APP.use('/api', scriptmigraOnusRoute);
-APP.use('/cadastro-de-blocos', ROUTES);
-APP.use('/consulta-de-planos', ROUTES);
-APP.use('/cadastro-de-vendas', ROUTES);
-APP.use('/problemas-sites-e-APP', ROUTES);
-APP.use('/lead-Venda', ROUTES);
-APP.use('/pedidos-linha-telefonica', ROUTES);
 APP.use('/api', scriptAddCondominiumsBDRoute);
-APP.use('/problemas-linha-telefonica', ROUTES);
-APP.use('/pedidos-linha-telefonica-URA', ROUTES);
+
+// Páginas com proteção de rota
+APP.use('/', ROUTES); // Rota raiz
+APP.use('/lead', protectRoutes, ROUTES);
+APP.use('/main', protectRoutes, ROUTES);
+APP.use('/e-mails', protectRoutes, ROUTES);
+APP.use('/migra-onu', protectRoutes, ROUTES);
+APP.use('/equipamentos', protectRoutes, ROUTES);
+APP.use('/clientes-online', protectRoutes, ROUTES);
+APP.use('/teste-de-lentidao', protectRoutes, ROUTES);
+APP.use('/problemas-com-VPN', protectRoutes, ROUTES);
+APP.use('/cadastro-de-blocos', protectRoutes, ROUTES);
+APP.use('/consulta-de-planos', protectRoutes, ROUTES);
+APP.use('/viabilidade-rede-neutra', protectRoutes, ROUTES); // garantir que só logados acessem
+APP.use('/cadastro-de-vendas', protectRoutes, ROUTES);
+APP.use('/problemas-sites-e-APP', protectRoutes, ROUTES);
+APP.use('/lead-Venda', protectRoutes, ROUTES);
+APP.use('/pedidos-linha-telefonica', protectRoutes, ROUTES);
+APP.use('/problemas-linha-telefonica', protectRoutes, ROUTES);
+APP.use('/pedidos-linha-telefonica-URA', protectRoutes, ROUTES);
 
 // serving a favicon file
 APP.use(Favicon(Path.join(__dirname, 'public', 'images', 'favicon.ico')));
