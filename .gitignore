@@ -2,6 +2,7 @@ api/database.ts
 api/database.js
 /api/v4
 *.log
+.env
 /node_modules
 /src/configs
 /logs
