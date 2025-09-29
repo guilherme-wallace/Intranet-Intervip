@@ -16,17 +16,25 @@ import ActiveDirectory = require('activedirectory2');
 import * as session from 'express-session';
 import { config_login } from './src/configs/loginConfig';
 
+import * as dotenv from 'dotenv';
+dotenv.config(); 
+import geospatialRoutes from './routes/api/v5/geospatial';
+
 interface HttpError extends Error {
 	status?: number;
 }
 
 const APP = Express();
+APP.use(bodyParser.json());
+APP.use(bodyParser.urlencoded({ extended: true }));
 
 require('express-file-logger')(APP, {
 	basePath: 'logs',
 	fileName: 'access.log',
 	showOnConsole: false
 });
+
+APP.use('/api/v5', geospatialRoutes);
 
 APP.use(session({
     secret: 'your-secret-key',
@@ -61,9 +69,6 @@ const protectRoutes = (req: any, res: any, next: any) => {
 
     next();
 };
-
-APP.use(bodyParser.json());
-APP.use(bodyParser.urlencoded({ extended: true }));
 
 // Endpoint de login
 APP.post('/login', (req, res) => {

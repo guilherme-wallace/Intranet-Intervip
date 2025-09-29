@@ -14,12 +14,18 @@ var bodyParser = require("body-parser");
 var ActiveDirectory = require("activedirectory2");
 var session = require("express-session");
 var loginConfig_1 = require("./src/configs/loginConfig");
+var dotenv = require("dotenv");
+dotenv.config();
+var geospatial_1 = require("./routes/api/v5/geospatial");
 var APP = Express();
+APP.use(bodyParser.json());
+APP.use(bodyParser.urlencoded({ extended: true }));
 require('express-file-logger')(APP, {
     basePath: 'logs',
     fileName: 'access.log',
     showOnConsole: false
 });
+APP.use('/api/v5', geospatial_1.default);
 APP.use(session({
     secret: 'your-secret-key',
     resave: false,
@@ -47,8 +53,6 @@ var protectRoutes = function (req, res, next) {
     }
     next();
 };
-APP.use(bodyParser.json());
-APP.use(bodyParser.urlencoded({ extended: true }));
 // Endpoint de login
 APP.post('/login', function (req, res) {
     var _a = req.body, username = _a.username, password = _a.password;
