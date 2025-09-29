@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Intervip - Viabilidade Rede Neutra</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="stylesheets/viabilidade-rede-neutra.css">
+</head>
+
+<body class="gerenciaIVP-body">
+    <header class="header-modern">
+        <div class="container-fluid">
+            <div class="d-flex align-items-center">
+                <a href="/main" class="d-flex align-items-center text-decoration-none">
+                    <img class="logo me-3" src="images/logo.png" alt="Logo Intervip">
+                </a>
+            </div>
+            
+            <h1 class="header-title fs-4 fw-semibold text-white m-0">📡 Viabilidade Rede Neutra Intervip</h1>
+            
+            <div class="d-flex align-items-center">
+                <div class="user-info text-end me-4">
+                    <p class="m-0 small text-white-80">Acessando como: <span class="fw-medium">{username}</span></p>
+                    <p class="m-0 small text-white-80">Setor: <span class="fw-medium">{group}</span></p>
+                </div>
+                <button id="theme-toggle" class="btn btn-sm btn-outline-light rounded-pill px-3">
+                    <i class="bi bi-moon-stars"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="ivp-main">
+        <div class="container-fluid py-4">
+            <div class="row justify-content-center">
+                <div class="col-lg-10">
+                    <div class="ivp-card">
+                        <div class="card-body p-4">
+                            <h2 class="ivp-title mb-4">Consulta de Viabilidade - Rede Neutra</h2>
+                            
+                            <form id="viabilidade-form">
+                                <div class="ivp-search-box mb-4">
+                                    <label for="input-condo" class="form-label">Informe o condomínio:</label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control form-control-lg ivp-input" 
+                                               id="input-condo" placeholder="Digite o nome do condomínio" 
+                                               autocomplete="off">
+                                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                    </div>
+                                </div>
+
+                                <div id="resultado-container" class="mt-4" style="display: none;">
+                                    <div class="ivp-info-card mb-4">
+                                        <div class="card-body">
+                                            <h3 class="ivp-subtitle">Informações do Condomínio</h3>
+                                            <div class="ivp-info-grid">
+                                                <div class="ivp-info-item">
+                                                    <span>CEP:</span>
+                                                    <span id="dados-condo-cep" class="ivp-info-value">-</span>
+                                                </div>
+                                                <div class="ivp-info-item">
+                                                    <span>Endereço:</span>
+                                                    <span id="dados-condo-endereco" class="ivp-info-value">-</span>
+                                                </div>
+                                                <div class="ivp-info-item">
+                                                    <span>Número:</span>
+                                                    <span id="dados-condo-numero" class="ivp-info-value">-</span>
+                                                </div>
+                                                <div class="ivp-info-item">
+                                                    <span>Cidade:</span>
+                                                    <span id="dados-condo-cidade" class="ivp-info-value">-</span>
+                                                </div>
+                                                <div class="ivp-info-item">
+                                                    <span>Bairro:</span>
+                                                    <span id="dados-condo-bairro" class="ivp-info-value">-</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="ivp-plans-card">
+                                        <div class="card-body">
+                                            <h3 class="ivp-subtitle"></h3>
+                                            <div id="viabilidade-status" class="viabilidade-status mb-4" style="display: none;"></div>
+                                            
+                                            <br>
+                                            <h4 class="ivp-subtitle-small"></h4>
+                                            <div class="table-responsive">
+                                                <table class="table ivp-plans-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Bloco/Torre</th>
+                                                            <th>Tecnologia</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody id="blocos-tabela-corpo">
+                                                        </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="ivp-actions mt-4">
+                                    <button type="button" class="ivp-btn ivp-btn-secondary" onclick="location.reload()">
+                                        <i class="bi bi-arrow-counterclockwise"></i> Nova Consulta
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="ivp-footer">
+        <div class="container-fluid py-3">
+            <div class="text-center">
+                <img src="images/logo.png" alt="Logo Intervip" width="100">
+                <p class="ivp-footer-text">
+                    © 2025 Gerência Intervip | Desenvolvido por 
+                    <a href="https://github.com/guilherme-wallace" target="_blank">Guilherme Wallace</a>
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="javascripts/jquery.js"></script>
+    <script src="javascripts/bootstrap.bundle.min.js"></script>
+    <script src="javascripts/bootstrap-autocomplete.min.js"></script>
+    <script src="javascripts/viabilidade-rede-neutra.js"></script>
+</body>
+</html>
