@@ -29,10 +29,10 @@ $(document).ready(function() {
             },
             success: function(response) {
                 if (response.success) {
-                    // Animação de sucesso antes do redirecionamento
                     loginButton.html('<i class="fas fa-check"></i>');
                     setTimeout(() => {
-                        window.location.href = 'main';
+                        // Redireciona para a URL fornecida pelo backend, ou para '/main' como fallback
+                        window.location.href = response.redirectUrl || 'main';
                     }, 800);
                 } else {
                     showError(response.message || 'Credenciais inválidas.');
