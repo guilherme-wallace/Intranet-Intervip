@@ -18,9 +18,7 @@
                     <img class="logo me-3" src="images/logo.png" alt="Logo Intervip">
                 </a>
             </div>
-            
             <h1 class="header-title fs-4 fw-semibold text-white m-0">📡 Viabilidade Rede Neutra Intervip</h1>
-            
             <div class="d-flex align-items-center">
                 <div class="user-info text-end me-4">
                     <p class="m-0 small text-white-80">Acessando como: <span class="fw-medium">{username}</span></p>
@@ -40,8 +38,21 @@
                     <div class="ivp-card">
                         <div class="card-body p-4">
                             <h2 class="ivp-title mb-4">Consulta de Viabilidade - Rede Neutra</h2>
-                            
-                            <form id="viabilidade-form">
+
+                            <section class="row mb-4 text-center">
+                                <div class="col-md-6 mb-2 mb-md-0">
+                                    <button id="btn-show-condo-search" class="ivp-btn btn btn-primary w-100" type="button">
+                                        <i class="bi bi-building"></i> Verificar por Condomínio
+                                    </button>
+                                </div>
+                                <div class="col-md-6">
+                                    <button id="btn-show-address-search" class="ivp-btn btn btn-primary w-100" type="button">
+                                        <i class="bi bi-geo-alt-fill"></i> Verificar por Endereço
+                                    </button>
+                                </div>
+                            </section>
+
+                            <div id="search-by-condo-panel" class="search-panel" style="display: none;">
                                 <div class="ivp-search-box mb-4">
                                     <label for="input-condo" class="form-label">Informe o condomínio:</label>
                                     <div class="input-group">
@@ -51,65 +62,58 @@
                                         <span class="input-group-text"><i class="bi bi-search"></i></span>
                                     </div>
                                 </div>
+                            </div>
 
-                                <div id="resultado-container" class="mt-4" style="display: none;">
-                                    <div class="ivp-info-card mb-4">
-                                        <div class="card-body">
-                                            <h3 class="ivp-subtitle">Informações do Condomínio</h3>
-                                            <div class="ivp-info-grid">
-                                                <div class="ivp-info-item">
-                                                    <span>CEP:</span>
-                                                    <span id="dados-condo-cep" class="ivp-info-value">-</span>
-                                                </div>
-                                                <div class="ivp-info-item">
-                                                    <span>Endereço:</span>
-                                                    <span id="dados-condo-endereco" class="ivp-info-value">-</span>
-                                                </div>
-                                                <div class="ivp-info-item">
-                                                    <span>Número:</span>
-                                                    <span id="dados-condo-numero" class="ivp-info-value">-</span>
-                                                </div>
-                                                <div class="ivp-info-item">
-                                                    <span>Cidade:</span>
-                                                    <span id="dados-condo-cidade" class="ivp-info-value">-</span>
-                                                </div>
-                                                <div class="ivp-info-item">
-                                                    <span>Bairro:</span>
-                                                    <span id="dados-condo-bairro" class="ivp-info-value">-</span>
-                                                </div>
-                                            </div>
+                            <div id="search-by-address-panel" class="search-panel" style="display: none;">
+                                <div class="ivp-search-box mb-4 position-relative">
+                                    <label for="input-address" class="form-label">Informe o endereço:</label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control form-control-lg ivp-input" 
+                                               id="input-address" placeholder="Digite o endereço, ex: Rua, Número, Bairro..."
+                                               autocomplete="off">
+                                        <span class="input-group-text"><i class="bi bi-map"></i></span>
+                                    </div>
+                                    <ul id="address-suggestions" class="list-group position-absolute w-100" style="z-index: 1000; display: none;"></ul>
+                                </div>
+                            </div>
+                            
+                            <div id="resultado-container" class="mt-4" style="display: none;">
+                                <div id="condo-info-card" class="ivp-info-card mb-4" style="display: none;">
+                                    <div class="card-body">
+                                        <h3 class="ivp-subtitle">Informações do Condomínio</h3>
+                                        <div class="ivp-info-grid">
+                                            <div class="ivp-info-item"><span>CEP:</span><span id="dados-condo-cep" class="ivp-info-value">-</span></div>
+                                            <div class="ivp-info-item"><span>Endereço:</span><span id="dados-condo-endereco" class="ivp-info-value">-</span></div>
+                                            <div class="ivp-info-item"><span>Número:</span><span id="dados-condo-numero" class="ivp-info-value">-</span></div>
+                                            <div class="ivp-info-item"><span>Cidade:</span><span id="dados-condo-cidade" class="ivp-info-value">-</span></div>
+                                            <div class="ivp-info-item"><span>Bairro:</span><span id="dados-condo-bairro" class="ivp-info-value">-</span></div>
                                         </div>
                                     </div>
+                                </div>
 
-                                    <div class="ivp-plans-card">
-                                        <div class="card-body">
-                                            <h3 class="ivp-subtitle"></h3>
-                                            <div id="viabilidade-status" class="viabilidade-status mb-4" style="display: none;"></div>
-                                            
-                                            <br>
-                                            <h4 class="ivp-subtitle-small"></h4>
-                                            <div class="table-responsive">
-                                                <table class="table ivp-plans-table">
-                                                    <thead>
-                                                        <tr>
-                                                            <th>Bloco/Torre</th>
-                                                            <th>Tecnologia</th>
-                                                        </tr>
+                                <div class="ivp-plans-card">
+                                    <div class="card-body">
+                                        <div id="viabilidade-status" class="viabilidade-status mb-4" style="display: none;"></div>
+                                        
+                                        <h4 id="results-title" class="ivp-subtitle-small">Estruturas Encontradas</h4>
+                                        <div class="table-responsive">
+                                            <table class="table ivp-plans-table">
+                                                <thead id="results-table-head">
                                                     </thead>
-                                                    <tbody id="blocos-tabela-corpo">
-                                                        </tbody>
-                                                </table>
-                                            </div>
+                                                <tbody id="results-table-body">
+                                                    </tbody>
+                                            </table>
                                         </div>
                                     </div>
                                 </div>
-                                
-                                <div class="ivp-actions mt-4">
-                                    <button type="button" class="ivp-btn ivp-btn-secondary" onclick="location.reload()">
-                                        <i class="bi bi-arrow-counterclockwise"></i> Nova Consulta
-                                    </button>
+                            </div>
+
+                            <div id="loading-spinner" class="text-center my-4" style="display: none;">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Carregando...</span>
                                 </div>
-                            </form>
+                                <p>Buscando informações...</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -118,16 +122,7 @@
     </main>
 
     <footer class="ivp-footer">
-        <div class="container-fluid py-3">
-            <div class="text-center">
-                <img src="images/logo.png" alt="Logo Intervip" width="100">
-                <p class="ivp-footer-text">
-                    © 2025 Gerência Intervip | Desenvolvido por 
-                    <a href="https://github.com/guilherme-wallace" target="_blank">Guilherme Wallace</a>
-                </p>
-            </div>
-        </div>
-    </footer>
+        </footer>
 
     <script src="javascripts/jquery.js"></script>
     <script src="javascripts/bootstrap.bundle.min.js"></script>
