@@ -1,3 +1,4 @@
+//Intranet-Intervip/types/block.ts
 import { Condominio } from "./condominio";
 
 export type Block = {

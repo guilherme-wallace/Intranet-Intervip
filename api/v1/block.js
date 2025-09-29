@@ -37,6 +37,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.putBlock = exports.getStructures = exports.deleteBlocks = exports.postBlocks = exports.getBlocks = exports.getTypes = void 0;
+// Intranet-Intervip/api/v1/block.ts
 var MySQLErrors_1 = require("../../errors/MySQLErrors");
 var mysql_1 = require("mysql");
 function getTypes(MySQL) {

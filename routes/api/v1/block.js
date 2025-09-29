@@ -36,6 +36,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+//Intranet-Intervip\routes\api\v1\block.ts
 var MySQLErrors_1 = require("../../../errors/MySQLErrors");
 var api = require("../../../api/index");
 var Express = require("express");
