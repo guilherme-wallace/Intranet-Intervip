@@ -1,10 +1,8 @@
-// /routes/api/v5/geospatial.ts (Versão Final Corrigida)
 import * as Express from 'express';
 import axios from 'axios';
 
 const router = Express.Router();
 
-// ROTA 1: Autocomplete de endereço (Intermediário para o Google Maps)
 router.get('/address-autocomplete', async (req, res) => {
     const query = req.query.query as string;
     if (!query) {
@@ -27,7 +25,6 @@ router.get('/address-autocomplete', async (req, res) => {
     }
 });
 
-// ROTA 2: Consulta de Viabilidade no GEOGRID
 router.post('/geogrid-lookup', async (req, res) => {
     const { place_id } = req.body;
     if (!place_id) {
@@ -35,7 +32,6 @@ router.post('/geogrid-lookup', async (req, res) => {
     }
 
     try {
-        // ETAPA 1: Obter coordenadas (latitude/longitude) a partir do place_id
         const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
         const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place_id}&key=${GOOGLE_MAPS_API_KEY}&fields=geometry`;
         
@@ -46,7 +42,6 @@ router.post('/geogrid-lookup', async (req, res) => {
             return res.status(404).json({ error: 'Não foi possível encontrar as coordenadas para o endereço selecionado' });
         }
 
-        // ETAPA 2: Chamar a API do Geogrid com as coordenadas obtidas
         const GEOGRID_API_URL = process.env.GEOGRID_API_URL;
         const GEOGRID_API_TOKEN = process.env.GEOGRID_API_TOKEN;
         const raio = 400;
