@@ -45,10 +45,10 @@ APP.use(session({
 
 // Configurações do Active Directory
 const config = {
-    url: config_login.url,  // IP do servidor AD
+    url: config_login.url,
 	baseDN: config_login.baseDN,
-    username: config_login.username, // Conta de administrador ou de serviço
-    password: config_login.password     // Senha do administrador
+    username: config_login.username,
+    password: config_login.password
 };
 
 // Criar instância do Active Directory
@@ -63,8 +63,8 @@ const protectRoutes = (req: any, res: any, next: any) => {
         return res.redirect('/');
     }
 
-    if (group === 'RedeNeutra' && requestedUrl !== '/viabilidade-rede-neutra') {
-        return res.redirect('/viabilidade-rede-neutra');
+    if (group === 'RedeNeutra' && requestedUrl !== '/viabilidade-intervip') {
+        return res.redirect('/viabilidade-intervip');
     }
 
     next();
@@ -102,7 +102,7 @@ APP.post('/login', (req, res) => {
                 // Define a URL de redirecionamento com base no grupo do usuário
                 let redirectUrl = '/main';
                 if (group === 'RedeNeutra') {
-                    redirectUrl = '/viabilidade-rede-neutra';
+                    redirectUrl = '/viabilidade-intervip';
                 }
                 
                 // Retorna sucesso e a URL para redirecionamento
@@ -350,7 +350,7 @@ APP.post('/hakai', (req, res) => {
         Path.join(__dirname, 'public/javascripts/cadastro-de-vendas.js'),
         Path.join(__dirname, 'public/javascripts/clientes-online.js'),
         Path.join(__dirname, 'public/javascripts/consulta-de-planos.js'),
-        Path.join(__dirname, 'public/javascripts/viabilidade-rede-neutra.js'),
+        Path.join(__dirname, 'public/javascripts/viabilidade-intervip.js'),
         Path.join(__dirname, 'public/javascripts/e-mails.js'),
         Path.join(__dirname, 'public/javascripts/migra-onus.js'),
         Path.join(__dirname, 'public/javascripts/pedidos-linha-telefonica-URA.js'),
@@ -404,7 +404,7 @@ APP.use('/teste-de-lentidao', protectRoutes, ROUTES);
 APP.use('/problemas-com-VPN', protectRoutes, ROUTES);
 APP.use('/cadastro-de-blocos', protectRoutes, ROUTES);
 APP.use('/consulta-de-planos', protectRoutes, ROUTES);
-APP.use('/viabilidade-rede-neutra', protectRoutes, ROUTES); // garantir que só logados acessem
+APP.use('/viabilidade-intervip', protectRoutes, ROUTES);
 APP.use('/cadastro-de-vendas', protectRoutes, ROUTES);
 APP.use('/problemas-sites-e-APP', protectRoutes, ROUTES);
 APP.use('/lead-Venda', protectRoutes, ROUTES);

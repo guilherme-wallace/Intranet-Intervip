@@ -48,8 +48,8 @@ var protectRoutes = function (req, res, next) {
     if (!group) {
         return res.redirect('/');
     }
-    if (group === 'RedeNeutra' && requestedUrl !== '/viabilidade-rede-neutra') {
-        return res.redirect('/viabilidade-rede-neutra');
+    if (group === 'RedeNeutra' && requestedUrl !== '/viabilidade-intervip') {
+        return res.redirect('/viabilidade-intervip');
     }
     next();
 };
@@ -78,7 +78,7 @@ APP.post('/login', function (req, res) {
                 // Define a URL de redirecionamento com base no grupo do usuário
                 var redirectUrl = '/main';
                 if (group === 'RedeNeutra') {
-                    redirectUrl = '/viabilidade-rede-neutra';
+                    redirectUrl = '/viabilidade-intervip';
                 }
                 // Retorna sucesso e a URL para redirecionamento
                 res.json({ success: true, redirectUrl: redirectUrl });
@@ -298,7 +298,7 @@ APP.post('/hakai', function (req, res) {
         Path.join(__dirname, 'public/javascripts/cadastro-de-vendas.js'),
         Path.join(__dirname, 'public/javascripts/clientes-online.js'),
         Path.join(__dirname, 'public/javascripts/consulta-de-planos.js'),
-        Path.join(__dirname, 'public/javascripts/viabilidade-rede-neutra.js'),
+        Path.join(__dirname, 'public/javascripts/viabilidade-intervip.js'),
         Path.join(__dirname, 'public/javascripts/e-mails.js'),
         Path.join(__dirname, 'public/javascripts/migra-onus.js'),
         Path.join(__dirname, 'public/javascripts/pedidos-linha-telefonica-URA.js'),
@@ -349,7 +349,7 @@ APP.use('/teste-de-lentidao', protectRoutes, index_1.default);
 APP.use('/problemas-com-VPN', protectRoutes, index_1.default);
 APP.use('/cadastro-de-blocos', protectRoutes, index_1.default);
 APP.use('/consulta-de-planos', protectRoutes, index_1.default);
-APP.use('/viabilidade-rede-neutra', protectRoutes, index_1.default); // garantir que só logados acessem
+APP.use('/viabilidade-intervip', protectRoutes, index_1.default);
 APP.use('/cadastro-de-vendas', protectRoutes, index_1.default);
 APP.use('/problemas-sites-e-APP', protectRoutes, index_1.default);
 APP.use('/lead-Venda', protectRoutes, index_1.default);
