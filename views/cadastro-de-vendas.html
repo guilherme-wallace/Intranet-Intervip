@@ -37,8 +37,9 @@
 							<h6 class="show-username">Acessando como: {username}</h6>
 							<h6 class="show-group">Setor: {group}</h6>
 						</div>
-						<div class="col-md-3" style="align-content: center;">
-							<button id="theme-toggle" class="btn btn-secondary">Tema</button>
+						<div class="col-md-3 d-flex justify-content-end align-items-center">
+							<button id="theme-toggle" class="btn btn-secondary me-2">Tema</button>
+							<button id="btnLogout" class="btn btn-danger">Sair</button>
 						</div>
 					</div>
 				</div>
@@ -281,6 +282,12 @@
 			.catch(error => {
 				console.error('Erro ao obter o nome do usuário e grupo:', error);
 			});
+		const logoutButton = document.getElementById('btnLogout');
+		if (logoutButton) {
+			logoutButton.addEventListener('click', function() {
+				window.location.href = '/logout';
+			});
+		}
 	});
 </script>
 </html>
