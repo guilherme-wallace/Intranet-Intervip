@@ -1,4 +1,8 @@
-$(function () {
+$(function () {		
+	$('#geraInfo').on('click', function() {
+        controle();
+    });
+
 	$('#qteRamais').on('focusout click', function () {
 		var qteRamais = document.querySelector("#qteRamais");
 		var listRowNomeRamal = [`
