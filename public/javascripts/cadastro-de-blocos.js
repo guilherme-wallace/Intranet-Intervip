@@ -2,6 +2,12 @@ $(function () {
     $('[data-toggle="tooltip"]').tooltip();
     localStorage.clear();
     insereLinhas();
+
+    $('#btnReload').on('click', atualizaCondominios);
+    $('#btnMais').on('click', insereLinhas);
+    $('#btnMenos').on('click', removeLinhas);
+    $('#btnCancelar').on('click', cancelaCadastro);
+    $('#btnAdicionar').on('click', cadastraBlocos);
     
     $('#input-condo').autoComplete({
         minLength: 1,
@@ -164,7 +170,7 @@ function listaBlocos(condominioId) {
                 localStorage[`tipo-unidade-${block.blockId}`] = typeId;
                 localStorage[`blocos-estrutura-${block.blockId}`] = technologyId;
 
-                console.log(block)
+                //console.log(block)
 
                 $(`#edit-nome-bloco-${block.blockId}`).prop('readonly', false);
                 $(`#botao-tipo-unidade-${block.blockId}`).prop('disabled', false);
