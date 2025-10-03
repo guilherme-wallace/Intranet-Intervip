@@ -32,6 +32,9 @@
                 <button id="theme-toggle" class="btn btn-sm btn-outline-light rounded-pill px-3">
                     <i class="bi bi-moon-stars"></i>
                 </button>
+                <button id="btnLogout" class="btn btn-sm btn-outline-danger rounded-pill px-3 ms-2">
+                    <i class="bi bi-box-arrow-right"></i>
+                </button>
             </div>
         </div>
     </header>
@@ -438,6 +441,12 @@
                     localStorage.setItem('theme', 'light');
                     themeToggleButton.innerHTML = '<i class="bi bi-moon-stars"></i>';
                 }
+            });
+        }
+        const logoutButton = document.getElementById('btnLogout');
+        if (logoutButton) {
+            logoutButton.addEventListener('click', function() {
+                window.location.href = '/logout';
             });
         }
         
