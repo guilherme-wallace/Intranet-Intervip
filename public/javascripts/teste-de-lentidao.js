@@ -9,6 +9,9 @@ $(function () {
 	$('#limparDados').on('click', function() { 
 		location.reload()
 	});
+	$('#btnGerarInformacoes').on('click', function() {
+        controle();
+    });
 
 	$('#dropdownPeriodo a').on('click', function() {
         switch ($(this).text()) {
