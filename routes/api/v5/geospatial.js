@@ -36,11 +36,9 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-// /routes/api/v5/geospatial.ts (Versão Final Corrigida)
 var Express = require("express");
 var axios_1 = require("axios");
 var router = Express.Router();
-// ROTA 1: Autocomplete de endereço (Intermediário para o Google Maps)
 router.get('/address-autocomplete', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
     var query, GOOGLE_MAPS_API_KEY, url, response, predictions, error_1;
     return __generator(this, function (_a) {
@@ -73,7 +71,6 @@ router.get('/address-autocomplete', function (req, res) { return __awaiter(void 
         }
     });
 }); });
-// ROTA 2: Consulta de Viabilidade no GEOGRID
 router.post('/geogrid-lookup', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
     var place_id, GOOGLE_MAPS_API_KEY, detailsUrl, detailsResponse, location_1, GEOGRID_API_URL, GEOGRID_API_TOKEN, raio, geogridEndpoint, geogridResponse, registrosFiltrados, error_2;
     var _a, _b, _c;
