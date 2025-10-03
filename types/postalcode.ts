@@ -3,5 +3,6 @@ export type PostalCode = {
     logradouro: string,
     bairro: string,
     localidade: string,
-    uf: string
+    uf: string,
+    erro?: boolean
 }
