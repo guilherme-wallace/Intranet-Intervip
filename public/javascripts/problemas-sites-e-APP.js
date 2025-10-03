@@ -1,4 +1,5 @@
 $(function () {
+	
 	const textInput = document.getElementById('resultadoId');
     const copyButton = document.getElementById('copiarIdInfo');
 
@@ -6,6 +7,10 @@ $(function () {
 		textInput.select();
 		document.execCommand('copy');
 	});
+	
+	$('#geraInfo').on('click', function() {
+        controle();
+    });
 });
 function controle() {
 
