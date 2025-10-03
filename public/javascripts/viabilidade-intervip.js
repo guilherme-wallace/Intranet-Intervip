@@ -1,3 +1,5 @@
+let currentSearchedAddress = '';
+
 document.addEventListener('DOMContentLoaded', function() {
     initializeSearchModeToggle();
     setupCondoSearch();
@@ -45,11 +47,9 @@ function setupCondoSearch() {
 
     $('#input-condo').on('autocomplete.select', function(e, item) {
         if (!item?.value) return;
-
         $('#loading-spinner').show();
         $('#condo-results-container').hide();
         $('#details-results-container').hide();
-
         Promise.all([
             fetch(`api/v1/condominio/${item.value}`).then(res => res.json()),
             fetch(`api/v1/block/${item.value}`).then(res => res.ok ? res.json() : [])
@@ -60,18 +60,33 @@ function setupCondoSearch() {
             $("#dados-condo-numero").text(condo.numero || '-');
             $("#dados-condo-cidade").text(getCidadeNome(condo.cidadeId));
             $("#dados-condo-bairro").text(condo.bairro || '-');
-
-            const principalTechnology = determinePrincipalTechnology(blocks);
-            $('#estrutura-principal').text(principalTechnology || 'Nenhuma');
-            
-            fetchPlans(principalTechnology);
-            displayBlockDetails(blocks);
-
-            $('#condo-results-container').show();
-            $('#details-results-container').show();
-
+            if (!blocks || blocks.length === 0) {
+                $('#estrutura-principal').text('Nenhuma');
+                fetchPlans(null);
+                $('#condo-results-container').show(); 
+                const statusElement = document.getElementById('viabilidade-status');
+                statusElement.textContent = 'Não Possuímos Viabilidade no Momento';
+                statusElement.className = 'viabilidade-status status-nok';
+                statusElement.style.display = 'block';
+                document.getElementById('results-title').style.display = 'none';
+                document.getElementById('results-table-head').innerHTML = '';
+                document.getElementById('results-table-body').innerHTML = '';
+                $('#details-results-container').show();
+            } else {
+                const principalTechnology = determinePrincipalTechnology(blocks);
+                $('#estrutura-principal').text(principalTechnology || 'Nenhuma');
+                fetchPlans(principalTechnology);
+                displayBlockDetails(blocks);
+                $('#condo-results-container').show();
+                $('#details-results-container').show();
+            }
         }).catch(err => {
             console.error("Erro ao buscar detalhes do condomínio ou blocos:", err);
+            const statusElement = document.getElementById('viabilidade-status');
+            statusElement.textContent = 'Erro ao consultar. Tente novamente.';
+            statusElement.className = 'viabilidade-status status-nok';
+            statusElement.style.display = 'block';
+            $('#details-results-container').show();
         }).finally(() => {
             $('#loading-spinner').hide();
         });
@@ -205,6 +220,8 @@ function setupAddressSearch() {
 }
 
 function selectAddress(description, placeId) {
+    currentSearchedAddress = description; 
+    
     document.getElementById('input-address').value = description;
     document.getElementById('address-suggestions').style.display = 'none';
     
@@ -259,8 +276,12 @@ function displayGeogridResults(caixas) {
         top10Caixas.forEach(caixa => {
             const row = tableBody.insertRow();
             row.className = parseInt(caixa.portasLivres) > 0 ? 'row-available' : 'row-unavailable';
-            const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${caixa.latitude},${caixa.longitude}`;
-            const linkMapa = `<a href="${mapsUrl}" target="_blank" class="map-link"><i class="bi bi-geo-alt-fill"></i> Ver</a>`;
+            const origin = encodeURIComponent(currentSearchedAddress);
+            const destination = `${caixa.latitude},${caixa.longitude}`;
+            const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
+            
+            const linkMapa = `<a href="${mapsUrl}" target="_blank" class="map-link"><i class="bi bi-geo-alt-fill"></i> Ver Rota</a>`;
+            
             row.innerHTML = `
                 <td>${caixa.sigla || 'N/D'}</td>
                 <td>${caixa.distancia ? `${caixa.distancia.toFixed(2)} m` : 'N/D'}</td>
@@ -295,6 +316,12 @@ function initializeThemeAndUserInfo() {
             const newTheme = bodyElement.classList.contains('dark-mode') ? 'dark' : 'light';
             localStorage.setItem('theme', newTheme);
             themeToggleButton.innerHTML = newTheme === 'dark' ? '<i class="bi bi-brightness-high"></i>' : '<i class="bi bi-moon-stars"></i>';
+        });
+    }
+    const logoutButton = document.getElementById('btnLogout');
+    if (logoutButton) {
+        logoutButton.addEventListener('click', function() {
+            window.location.href = '/logout';
         });
     }
     
