@@ -3,6 +3,7 @@ import { MySQLResponse } from '../../types/mysql-response';
 import { PostalCode } from '../../types/postalcode';
 import { Address } from '../../types/address';
 import { Pool, escape } from 'mysql';
+import axios from 'axios';
 
 export async function getAddress(MySQL: Pool, addressId: number): Promise<Address> {
     const QUERY = `SELECT * FROM saleAddress JOIN postalCode
@@ -31,28 +32,29 @@ export async function postAddress(MySQL: Pool, address: Address): Promise<MySQLR
 }
 
 export async function postPostalCode(MySQL: Pool, postalCode: string): Promise<MySQLResponse> {    
-    var request = require('request');
-            
-	return new Promise<MySQLResponse>((resolve, reject) => {
-        request(`https://viacep.com.br/ws/${postalCode}/json/`, function (error, response, body) {
-            if (!error && response.statusCode == 200) {
-                if (JSON.parse(body).erro) {
-                    return reject(new ViaCEPNotFoundError());
-                }
+    try {
+        const url = `https://viacep.com.br/ws/${postalCode}/json/`;
+        
+        const response = await axios.get<PostalCode>(url);
 
-                let postalCode: PostalCode = JSON.parse(body);
+        if (response.data.erro) {
+            throw new ViaCEPNotFoundError("CEP não encontrado");
+        }
 
-                const QUERY = `INSERT INTO postalCode (postalCodeId, address, neighbourhood, city, state) VALUES
-                    (${escape(postalCode.cep.slice(0,5) + postalCode.cep.slice(6))}, ${escape(postalCode.logradouro)},
-                    ${escape(postalCode.bairro)}, ${escape(postalCode.localidade)}, ${escape(postalCode.uf)});`;
-                   
-                MySQL.query(QUERY, (error, response) => {
-                    if (error) return reject(error);
-                    return resolve(response);
-                });
-            }
-    
-            else throw error;
+        const postalCodeData: PostalCode = response.data;
+        const QUERY = `INSERT INTO postalCode (postalCodeId, address, neighbourhood, city, state) VALUES
+            (${escape(postalCodeData.cep.slice(0,5) + postalCodeData.cep.slice(6))}, ${escape(postalCodeData.logradouro)}, 
+            ${escape(postalCodeData.bairro)}, ${escape(postalCodeData.localidade)}, ${escape(postalCodeData.uf)});`;
+           
+        return new Promise<MySQLResponse>((resolve, reject) => {
+            MySQL.query(QUERY, (error, dbResponse) => {
+                if (error) return reject(error);
+                return resolve(dbResponse);
+            });
         });
-    });
+
+    } catch (error) {
+        console.error("Erro ao processar o CEP:", error);
+        throw error;
+    }
 }

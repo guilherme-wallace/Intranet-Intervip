@@ -39,6 +39,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.postPostalCode = exports.postAddress = exports.getAddress = void 0;
 var ViaCepErrors_1 = require("../../errors/ViaCepErrors");
 var mysql_1 = require("mysql");
+var axios_1 = require("axios");
 function getAddress(MySQL, addressId) {
     return __awaiter(this, void 0, void 0, function () {
         var QUERY;
@@ -73,27 +74,33 @@ function postAddress(MySQL, address) {
 exports.postAddress = postAddress;
 function postPostalCode(MySQL, postalCode) {
     return __awaiter(this, void 0, void 0, function () {
-        var request;
+        var url, response, postalCodeData, QUERY_1, error_1;
         return __generator(this, function (_a) {
-            request = require('request');
-            return [2 /*return*/, new Promise(function (resolve, reject) {
-                    request("https://viacep.com.br/ws/".concat(postalCode, "/json/"), function (error, response, body) {
-                        if (!error && response.statusCode == 200) {
-                            if (JSON.parse(body).erro) {
-                                return reject(new ViaCepErrors_1.ViaCEPNotFoundError());
-                            }
-                            var postalCode_1 = JSON.parse(body);
-                            var QUERY = "INSERT INTO postalCode (postalCodeId, address, neighbourhood, city, state) VALUES\n                    (".concat((0, mysql_1.escape)(postalCode_1.cep.slice(0, 5) + postalCode_1.cep.slice(6)), ", ").concat((0, mysql_1.escape)(postalCode_1.logradouro), ",\n                    ").concat((0, mysql_1.escape)(postalCode_1.bairro), ", ").concat((0, mysql_1.escape)(postalCode_1.localidade), ", ").concat((0, mysql_1.escape)(postalCode_1.uf), ");");
-                            MySQL.query(QUERY, function (error, response) {
+            switch (_a.label) {
+                case 0:
+                    _a.trys.push([0, 2, , 3]);
+                    url = "https://viacep.com.br/ws/".concat(postalCode, "/json/");
+                    return [4 /*yield*/, axios_1.default.get(url)];
+                case 1:
+                    response = _a.sent();
+                    if (response.data.erro) {
+                        throw new ViaCepErrors_1.ViaCEPNotFoundError("CEP não encontrado");
+                    }
+                    postalCodeData = response.data;
+                    QUERY_1 = "INSERT INTO postalCode (postalCodeId, address, neighbourhood, city, state) VALUES\n            (".concat((0, mysql_1.escape)(postalCodeData.cep.slice(0, 5) + postalCodeData.cep.slice(6)), ", ").concat((0, mysql_1.escape)(postalCodeData.logradouro), ", \n            ").concat((0, mysql_1.escape)(postalCodeData.bairro), ", ").concat((0, mysql_1.escape)(postalCodeData.localidade), ", ").concat((0, mysql_1.escape)(postalCodeData.uf), ");");
+                    return [2 /*return*/, new Promise(function (resolve, reject) {
+                            MySQL.query(QUERY_1, function (error, dbResponse) {
                                 if (error)
                                     return reject(error);
-                                return resolve(response);
+                                return resolve(dbResponse);
                             });
-                        }
-                        else
-                            throw error;
-                    });
-                })];
+                        })];
+                case 2:
+                    error_1 = _a.sent();
+                    console.error("Erro ao processar o CEP:", error_1);
+                    throw error_1;
+                case 3: return [2 /*return*/];
+            }
         });
     });
 }
