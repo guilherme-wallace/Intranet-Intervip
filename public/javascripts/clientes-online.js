@@ -3,6 +3,19 @@ $(document).ready(function () {
     configurarAutocompleteCondominio();
     configurarSelecaoBloco();
     configurarSelecaoTabela();
+
+    $('#btnMostraCondominios').on('click', mostraCondominios);
+    $('#bntMostraCasas').on('click', mostraCasas);
+    //$('#btnReload').on('click', refresh);
+    document.getElementById('btnReload').addEventListener('click', function() {
+    this.disabled = true; 
+    refresh();
+
+    setTimeout(() => {
+        this.disabled = false; 
+    }, 20000);
+    });
+    //$('#input-condo').on('onkeyup', filtrarCondominios());
 });
 
 function configurarOrdenacaoTabela() {
