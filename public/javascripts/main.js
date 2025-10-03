@@ -33,6 +33,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+    const logoutButton = document.getElementById('btnLogout');
+    if (logoutButton) {
+        logoutButton.addEventListener('click', function() {
+            window.location.href = '/logout';
+        });
+    }
     
     // User Info
     fetch('/api/username')
