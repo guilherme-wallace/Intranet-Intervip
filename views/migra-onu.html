@@ -76,8 +76,9 @@
 								<h6 class="show-username">Acessando como: {username}</h6>
 								<h6 class="show-group">Setor: {group}</h6>
 							</div>
-							<div class="col-md-3" style="align-content: center;">
-								<button id="theme-toggle" class="btn btn-secondary">Tema</button>
+							<div class="col-md-3 d-flex justify-content-end align-items-center">
+								<button id="theme-toggle" class="btn btn-secondary me-2">Tema</button>
+								<button id="btnLogout" class="btn btn-danger">Sair</button>
 							</div>
 						</div>
 					</div>
@@ -337,7 +338,7 @@
 								</div>
                                 <div class="row">
 									<div class="col-md-6"> 
-										<input type="Reset" id="limparDados" class="btn btn-primary bntclick" onclick="cancelaCadastro();" value="Limpar dados">
+										<input type="Reset" id="limparDados" class="btn btn-primary bntclick" value="Limpar dados">
                                         <button id="submitButton" class="btn btn-primary"type="submit">Gerar comandos</button>
 									</div>
                                     <div class="col-md-6">
@@ -403,6 +404,12 @@
 			  .catch(error => {
 				console.error('Erro ao obter o nome do usuário e grupo:', error);
 			  });
+			const logoutButton = document.getElementById('btnLogout');
+			if (logoutButton) {
+				logoutButton.addEventListener('click', function() {
+					window.location.href = '/logout';
+				});
+			}
 		  });
 		  document.getElementById('closeModalBtn').addEventListener('click', function() {
 			document.getElementById('modalAlerta').style.display = 'none';

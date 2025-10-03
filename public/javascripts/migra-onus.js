@@ -1,4 +1,6 @@
 $(function() {
+    $('#limparDados').on('click', cancelaCadastro);
+    
     $('#dropOLTAntiga a').on('click', function() {
         switch ($(this).text()) {
             case 'SEA01-OLT-01-INTERVIP':
