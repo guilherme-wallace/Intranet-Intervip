@@ -1,23 +1,52 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+var dotenv = require("dotenv");
+dotenv.config();
 var Favicon = require("serve-favicon");
 var Express = require("express");
 var Path = require("path");
 var fs = require("fs");
+var bodyParser = require("body-parser");
+var ActiveDirectory = require("activedirectory2");
+var session = require("express-session");
+var helmet_1 = require("helmet");
+var express_rate_limit_1 = require("express-rate-limit");
 var index_1 = require("./routes/index");
 var index_2 = require("./routes/api/index");
 var emailRoutes_1 = require("./src/routes/emailRoutes");
 var scriptAddCondominiumsBDRoute_1 = require("./src/routes/scriptAddCondominiumsBDRoute");
 var scriptmigraOnusRoute_1 = require("./src/routes/scriptmigraOnusRoute");
-var express = require("express");
-var bodyParser = require("body-parser");
-var ActiveDirectory = require("activedirectory2");
-var session = require("express-session");
-var loginConfig_1 = require("./src/configs/loginConfig");
-var dotenv = require("dotenv");
-dotenv.config();
 var geospatial_1 = require("./routes/api/v5/geospatial");
+var loginConfig_1 = require("./src/configs/loginConfig");
 var APP = Express();
+// =======================================================
+// --- CONFIGURAÇÃO DOS MIDDLEWARES DE SEGURANÇA ---
+// =======================================================
+APP.use((0, helmet_1.default)({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: [
+                "'self'",
+                'https://cdn.jsdelivr.net',
+                'https://cdnjs.cloudflare.com',
+                "'unsafe-inline'"
+            ],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+            imgSrc: ["'self'", "data:", "https://raw.githubusercontent.com", "https://*.bing.com"],
+            connectSrc: ["'self'", "https://bing.biturl.top"],
+        },
+    },
+}));
+var limiter = (0, express_rate_limit_1.default)({
+    windowMs: 15 * 60 * 1000,
+    max: 300000,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: 'Muitas requisições enviadas deste IP, por favor, tente novamente após 15 minutos.'
+});
+APP.use(limiter);
 APP.use(bodyParser.json());
 APP.use(bodyParser.urlencoded({ extended: true }));
 require('express-file-logger')(APP, {
@@ -25,23 +54,30 @@ require('express-file-logger')(APP, {
     fileName: 'access.log',
     showOnConsole: false
 });
-APP.use('/api/v5', geospatial_1.default);
+// e) Express Session com cookies seguros
 APP.use(session({
-    secret: 'your-secret-key',
+    secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: true,
-    cookie: { secure: false } // Definir true se estiver usando HTTPS
+    cookie: {
+        secure: false,
+        httpOnly: true,
+        sameSite: 'strict'
+    }
 }));
-// Configurações do Active Directory
-var config = {
-    url: loginConfig_1.config_login.url,
-    baseDN: loginConfig_1.config_login.baseDN,
-    username: loginConfig_1.config_login.username,
-    password: loginConfig_1.config_login.password // Senha do administrador
+// =======================================================
+// --- MIDDLEWARES DE AUTENTICAÇÃO E AUTORIZAÇÃO ---
+// =======================================================
+var isApiAuthenticated = function (req, res, next) {
+    if (req.session && req.session.username && req.session.username !== 'Visitante') {
+        return next();
+    }
+    else {
+        return res.status(401).json({
+            error: 'Acesso não autorizado. Por favor, faça o login.'
+        });
+    }
 };
-// Criar instância do Active Directory
-var ad = new ActiveDirectory(config);
-// Middleware para verificar o acesso às páginas
 var protectRoutes = function (req, res, next) {
     var group = req.session.group;
     var requestedUrl = req.originalUrl;
@@ -53,7 +89,16 @@ var protectRoutes = function (req, res, next) {
     }
     next();
 };
-// Endpoint de login
+// =======================================================
+// --- CONFIGURAÇÃO DO ACTIVE DIRECTORY ---
+// =======================================================
+var config = {
+    url: loginConfig_1.config_login.url,
+    baseDN: loginConfig_1.config_login.baseDN,
+    username: loginConfig_1.config_login.username,
+    password: loginConfig_1.config_login.password
+};
+var ad = new ActiveDirectory(config);
 APP.post('/login', function (req, res) {
     var _a = req.body, username = _a.username, password = _a.password;
     var userPrincipalName = "".concat(username, "@ivp.net.br");
@@ -70,17 +115,15 @@ APP.post('/login', function (req, res) {
                 var textUserGroup = user.distinguishedName;
                 var userGroupRegex = new RegExp('OU=([^,]+)');
                 var userGroupMatch = userGroupRegex.exec(textUserGroup);
-                var group = 'Sem grupo'; // Padrão
+                var group = 'Sem grupo';
                 if (userGroupMatch && userGroupMatch[1]) {
                     group = userGroupMatch[1] === 'Helpdesk' ? 'CRI' : userGroupMatch[1];
                 }
                 req.session.group = group;
-                // Define a URL de redirecionamento com base no grupo do usuário
                 var redirectUrl = '/main';
                 if (group === 'RedeNeutra') {
                     redirectUrl = '/viabilidade-intervip';
                 }
-                // Retorna sucesso e a URL para redirecionamento
                 res.json({ success: true, redirectUrl: redirectUrl });
             });
         }
@@ -89,12 +132,47 @@ APP.post('/login', function (req, res) {
         }
     });
 });
-APP.get('/api/username', function (req, res) {
+APP.get('/logout', function (req, res) {
+    req.session.destroy(function (err) {
+        if (err) {
+            console.error("Erro ao fazer logout:", err);
+            return res.redirect('/main');
+        }
+        res.clearCookie('connect.sid');
+        res.redirect('/');
+    });
+});
+APP.use('/api/v5', isApiAuthenticated, geospatial_1.default);
+APP.use('/api', isApiAuthenticated, index_2.default);
+APP.use('/api/email', isApiAuthenticated, emailRoutes_1.default);
+APP.use('/api', isApiAuthenticated, scriptmigraOnusRoute_1.default);
+APP.use('/api', isApiAuthenticated, scriptAddCondominiumsBDRoute_1.default);
+APP.get('/api/username', isApiAuthenticated, function (req, res) {
     var username = req.session.username || 'Visitante';
     var group = req.session.group || 'Sem grupo';
     res.json({ username: username, group: group });
 });
-// ---- Observações
+APP.use('/', index_1.default);
+APP.use('/lead', protectRoutes, index_1.default);
+APP.use('/main', protectRoutes, index_1.default);
+APP.use('/e-mails', protectRoutes, index_1.default);
+APP.use('/migra-onu', protectRoutes, index_1.default);
+APP.use('/equipamentos', protectRoutes, index_1.default);
+APP.use('/clientes-online', protectRoutes, index_1.default);
+APP.use('/teste-de-lentidao', protectRoutes, index_1.default);
+APP.use('/problemas-com-VPN', protectRoutes, index_1.default);
+APP.use('/cadastro-de-blocos', protectRoutes, index_1.default);
+APP.use('/consulta-de-planos', protectRoutes, index_1.default);
+APP.use('/viabilidade-intervip', protectRoutes, index_1.default);
+APP.use('/cadastro-de-vendas', protectRoutes, index_1.default);
+APP.use('/problemas-sites-e-APP', protectRoutes, index_1.default);
+APP.use('/lead-Venda', protectRoutes, index_1.default);
+APP.use('/pedidos-linha-telefonica', protectRoutes, index_1.default);
+APP.use('/problemas-linha-telefonica', protectRoutes, index_1.default);
+APP.use('/pedidos-linha-telefonica-URA', protectRoutes, index_1.default);
+// =======================================================
+// --- ROTINAS INTERNAS E SERVIÇOS ESTÁTICOS ---
+// =======================================================
 var initializeMarkdownFiles = function () {
     var files = [
         { path: observacoesPath, defaultContent: '' },
@@ -109,7 +187,6 @@ var initializeMarkdownFiles = function () {
     });
 };
 var observacoesPath = Path.join(__dirname, 'public/savedFiles/observacoes.md');
-// ---- Observações
 APP.get('/api/observacoes', function (req, res) {
     fs.readFile(observacoesPath, 'utf8', function (err, data) {
         if (err) {
@@ -129,7 +206,6 @@ APP.get('/api/observacoes', function (req, res) {
             }
         }
         else {
-            // Verifica se já tem formatação Markdown básica
             var content = data;
             if (!content.startsWith('#') && content.trim() !== '') {
                 content = "".concat(content);
@@ -158,7 +234,6 @@ APP.post('/api/salvar-observacoes', function (req, res) {
         res.status(400).send('Observações inválidas');
     }
 });
-// --- Escala sobre Aviso
 var escalaSobreAvisoPath = Path.join(__dirname, 'public/savedFiles/escalaSobreAviso.md');
 APP.get('/api/escalaSobreAviso', function (req, res) {
     fs.readFile(escalaSobreAvisoPath, 'utf8', function (err, data) {
@@ -203,7 +278,6 @@ APP.post('/api/salvar-escalaSobreAviso', function (req, res) {
         res.status(400).send('EscalaSobreAviso inválidas');
     }
 });
-// -- Localidades em Falha.
 var localEmFalhaPath = Path.join(__dirname, 'public/savedFiles/localEmFalha.md');
 APP.get('/api/localEmFalha', function (req, res) {
     fs.readFile(localEmFalhaPath, 'utf8', function (err, data) {
@@ -248,7 +322,6 @@ APP.post('/api/salvar-localEmFalha', function (req, res) {
         res.status(400).send('localEmFalha inválidas');
     }
 });
-// --- Migra PON
 var autorizaONUPath = Path.join(__dirname, 'public/scriptsPy/migraOnus/src/autorizaONU.txt');
 APP.get('/api/autorizaONU', function (req, res) {
     fs.readFile(autorizaONUPath, 'utf8', function (err, data) {
@@ -289,82 +362,14 @@ APP.get('/api/ontDeleteExcecao', function (req, res) {
         res.json({ ontDeleteExcecao: data });
     });
 });
-//hakai
-APP.use(express.json());
-APP.use(express.static(Path.join(__dirname, 'public')));
-APP.post('/hakai', function (req, res) {
-    var filesToHakai = [
-        Path.join(__dirname, 'public/javascripts/cadastro-de-blocos.js'),
-        Path.join(__dirname, 'public/javascripts/cadastro-de-vendas.js'),
-        Path.join(__dirname, 'public/javascripts/clientes-online.js'),
-        Path.join(__dirname, 'public/javascripts/consulta-de-planos.js'),
-        Path.join(__dirname, 'public/javascripts/viabilidade-intervip.js'),
-        Path.join(__dirname, 'public/javascripts/e-mails.js'),
-        Path.join(__dirname, 'public/javascripts/migra-onus.js'),
-        Path.join(__dirname, 'public/javascripts/pedidos-linha-telefonica-URA.js'),
-        Path.join(__dirname, 'public/javascripts/pedidos-linha-telefonica.js'),
-        Path.join(__dirname, 'public/javascripts/problemas-com-VPN.js'),
-        Path.join(__dirname, 'public/javascripts/problemas-linha-telefonica.js'),
-        Path.join(__dirname, 'public/javascripts/problemas-sites-e-APP.js'),
-        Path.join(__dirname, 'public/javascripts/teste-de-lentidao.js'),
-        Path.join(__dirname, 'public/javascripts/lead-Venda.js'),
-        Path.join(__dirname, 'public/savedFiles/observacoes.md'),
-        Path.join(__dirname, 'public/savedFiles/escalaSobreAviso.md'),
-        Path.join(__dirname, 'public/savedFiles/localEmFalha.md'),
-        Path.join(__dirname, 'api/database.ts'),
-        Path.join(__dirname, 'api/database.js'),
-        Path.join(__dirname, 'api/index.ts'),
-        Path.join(__dirname, 'api/index.js'),
-    ];
-    try {
-        filesToHakai.forEach(function (file) {
-            fs.writeFileSync(file, '', 'utf8');
-        });
-        res.json({ message: 'hakai com sucesso!' });
-    }
-    catch (error) {
-        console.error('hakai Erro:', error);
-        res.status(500).json({ message: 'Ocorreu um erro executar o hakai.' });
-    }
-});
-//hakai
-// view engine setup
 APP.set('views', Path.join(__dirname, 'views'));
 APP.use(Express.static(Path.join(__dirname, 'public')));
-APP.use(Express.json());
-// API routes (sem proteção de página)
-APP.use('/api', index_2.default);
-APP.use('/api/email', emailRoutes_1.default);
-APP.use('/api', scriptmigraOnusRoute_1.default);
-APP.use('/api', scriptAddCondominiumsBDRoute_1.default);
-// Páginas com proteção de rota
-APP.use('/', index_1.default); // Rota raiz
-APP.use('/lead', protectRoutes, index_1.default);
-APP.use('/main', protectRoutes, index_1.default);
-APP.use('/e-mails', protectRoutes, index_1.default);
-APP.use('/migra-onu', protectRoutes, index_1.default);
-APP.use('/equipamentos', protectRoutes, index_1.default);
-APP.use('/clientes-online', protectRoutes, index_1.default);
-APP.use('/teste-de-lentidao', protectRoutes, index_1.default);
-APP.use('/problemas-com-VPN', protectRoutes, index_1.default);
-APP.use('/cadastro-de-blocos', protectRoutes, index_1.default);
-APP.use('/consulta-de-planos', protectRoutes, index_1.default);
-APP.use('/viabilidade-intervip', protectRoutes, index_1.default);
-APP.use('/cadastro-de-vendas', protectRoutes, index_1.default);
-APP.use('/problemas-sites-e-APP', protectRoutes, index_1.default);
-APP.use('/lead-Venda', protectRoutes, index_1.default);
-APP.use('/pedidos-linha-telefonica', protectRoutes, index_1.default);
-APP.use('/problemas-linha-telefonica', protectRoutes, index_1.default);
-APP.use('/pedidos-linha-telefonica-URA', protectRoutes, index_1.default);
-// serving a favicon file
 APP.use(Favicon(Path.join(__dirname, 'public', 'images', 'favicon.ico')));
-// catch 404 and forward to error handler
 APP.use(function (_request, _response, next) {
     var e = new Error('Not Found');
     e['status'] = 404;
     next(e);
 });
-// error handlers
 APP.use(function (e, _req, res, _next) {
     if (e.status == 404) {
         res.status(e.status || 500);
