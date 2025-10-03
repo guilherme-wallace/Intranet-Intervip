@@ -1,4 +1,4 @@
-$(function () {
+$(function () {	
 	const textInput = document.getElementById('resultadoId');
     const copyButton = document.getElementById('copiarIdInfo');
 
@@ -6,8 +6,11 @@ $(function () {
 		textInput.select();
 		document.execCommand('copy');
 	});
+		
+	$('#geraInfo').on('click', function() {
+        controle();
+    });
 
-	
 	var naoConsegueFazerLigação = document.querySelector('#naoConsegueFazerLigação')
 	var qualProblema = "";
 
