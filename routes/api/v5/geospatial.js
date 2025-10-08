@@ -95,7 +95,7 @@ router.post('/geogrid-lookup', function (req, res) { return __awaiter(void 0, vo
                 }
                 GEOGRID_API_URL = process.env.GEOGRID_API_URL;
                 GEOGRID_API_TOKEN = process.env.GEOGRID_API_TOKEN;
-                raio = 400;
+                raio = 300;
                 geogridEndpoint = "".concat(GEOGRID_API_URL, "/api/v3/viabilidade/raio");
                 return [4 /*yield*/, axios_1.default.get(geogridEndpoint, {
                         headers: {
@@ -105,8 +105,8 @@ router.post('/geogrid-lookup', function (req, res) { return __awaiter(void 0, vo
                             latitude: location_1.lat,
                             longitude: location_1.lng,
                             raio: raio,
-                            consultarPasta: "N",
-                            consultarIndividual: "S"
+                            //consultarPasta: "N",
+                            //consultarIndividual: "S"
                         }
                     })];
             case 3:

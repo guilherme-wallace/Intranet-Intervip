@@ -44,7 +44,7 @@ router.post('/geogrid-lookup', async (req, res) => {
 
         const GEOGRID_API_URL = process.env.GEOGRID_API_URL;
         const GEOGRID_API_TOKEN = process.env.GEOGRID_API_TOKEN;
-        const raio = 400;
+        const raio = 300;
 
         const geogridEndpoint = `${GEOGRID_API_URL}/api/v3/viabilidade/raio`;
         
@@ -56,8 +56,8 @@ router.post('/geogrid-lookup', async (req, res) => {
                 latitude: location.lat,
                 longitude: location.lng,
                 raio: raio,
-                consultarPasta: "N",
-                consultarIndividual: "S"
+                //consultarPasta: "N",
+                //consultarIndividual: "S"
             }
         });
 

@@ -239,6 +239,7 @@ function selectAddress(description, placeId) {
     })
     .then(caixas => {
         displayGeogridResults(caixas);
+        console.log('Dados do Geogrid recebidos:', caixas);
     })
     .catch(error => {
         console.error('Erro ao buscar dados do Geogrid:', error);
@@ -255,7 +256,7 @@ function displayGeogridResults(caixas) {
     const tableBody = document.getElementById('results-table-body');
     const statusElement = document.getElementById('viabilidade-status');
     
-    document.getElementById('results-title').textContent = 'Equipamentos Próximos (Raio de 400m)';
+    document.getElementById('results-title').textContent = 'Equipamentos Próximos (Raio de 300m)';
     tableHead.innerHTML = `<tr><th>Nome</th><th>Distância</th><th>Portas Livres</th><th>Local</th></tr>`;
     tableBody.innerHTML = '';
 
