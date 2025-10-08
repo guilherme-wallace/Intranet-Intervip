@@ -18,6 +18,15 @@ var scriptAddCondominiumsBDRoute_1 = require("./src/routes/scriptAddCondominiums
 var scriptmigraOnusRoute_1 = require("./src/routes/scriptmigraOnusRoute");
 var geospatial_1 = require("./routes/api/v5/geospatial");
 var loginConfig_1 = require("./src/configs/loginConfig");
+var jwt = require("jsonwebtoken");
+process.on('uncaughtException', function (error) {
+    console.error('--- ERRO NÃO CAPTURADO (Uncaught Exception) ---');
+    console.error(error);
+});
+process.on('unhandledRejection', function (reason, promise) {
+    console.error('--- REJEIÇÃO DE PROMISE NÃO CAPTURADA (Unhandled Rejection) ---');
+    console.error('Razão:', reason);
+});
 var APP = Express();
 // =======================================================
 // --- CONFIGURAÇÃO DOS MIDDLEWARES DE SEGURANÇA ---
@@ -54,7 +63,7 @@ require('express-file-logger')(APP, {
     fileName: 'access.log',
     showOnConsole: false
 });
-// e) Express Session com cookies seguros
+// Express Session com cookies
 APP.use(session({
     secret: process.env.SESSION_SECRET,
     resave: false,
@@ -68,13 +77,35 @@ APP.use(session({
 // =======================================================
 // --- MIDDLEWARES DE AUTENTICAÇÃO E AUTORIZAÇÃO ---
 // =======================================================
-var isApiAuthenticated = function (req, res, next) {
+/*
+const isApiAuthenticated = (req: express.Request, res: express.Response, next: express.NextFunction) => {
     if (req.session && req.session.username && req.session.username !== 'Visitante') {
+        return next();
+    } else {
+        return res.status(401).json({
+            error: 'Acesso não autorizado. Por favor, faça o login.'
+        });
+    }
+};
+*/
+var protectApi = function (req, res, next) {
+    var authHeader = req.headers['authorization'];
+    var token = authHeader && authHeader.split(' ')[1];
+    if (token) {
+        jwt.verify(token, process.env.JWT_SECRET, function (err, user) {
+            if (err) {
+                return res.status(403).json({ error: 'Token inválido ou expirado.' });
+            }
+            req.user = user;
+            return next();
+        });
+    }
+    else if (req.session && req.session.username && req.session.username !== 'Visitante') {
         return next();
     }
     else {
         return res.status(401).json({
-            error: 'Acesso não autorizado. Por favor, faça o login.'
+            error: 'Acesso não autorizado. Token ou sessão não fornecidos.'
         });
     }
 };
@@ -107,7 +138,6 @@ APP.post('/login', function (req, res) {
             return res.json({ success: false, message: 'Erro de autenticação' });
         }
         if (auth) {
-            req.session.username = username;
             ad.findUser(userPrincipalName, function (err, user) {
                 if (err || !user) {
                     return res.json({ success: false, message: 'Erro ao obter detalhes do usuário' });
@@ -119,12 +149,19 @@ APP.post('/login', function (req, res) {
                 if (userGroupMatch && userGroupMatch[1]) {
                     group = userGroupMatch[1] === 'Helpdesk' ? 'CRI' : userGroupMatch[1];
                 }
+                req.session.username = username;
                 req.session.group = group;
                 var redirectUrl = '/main';
                 if (group === 'RedeNeutra') {
                     redirectUrl = '/viabilidade-intervip';
                 }
-                res.json({ success: true, redirectUrl: redirectUrl });
+                var payload = { username: username, group: group };
+                var token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '8h' });
+                res.json({
+                    success: true,
+                    redirectUrl: redirectUrl,
+                    token: token
+                });
             });
         }
         else {
@@ -142,16 +179,35 @@ APP.get('/logout', function (req, res) {
         res.redirect('/');
     });
 });
-APP.use('/api/v5', isApiAuthenticated, geospatial_1.default);
-APP.use('/api', isApiAuthenticated, index_2.default);
-APP.use('/api/email', isApiAuthenticated, emailRoutes_1.default);
-APP.use('/api', isApiAuthenticated, scriptmigraOnusRoute_1.default);
-APP.use('/api', isApiAuthenticated, scriptAddCondominiumsBDRoute_1.default);
-APP.get('/api/username', isApiAuthenticated, function (req, res) {
-    var username = req.session.username || 'Visitante';
-    var group = req.session.group || 'Sem grupo';
-    res.json({ username: username, group: group });
+/*
+APP.use('/api/v5', isApiAuthenticated, geospatialRoutes);
+APP.use('/api', isApiAuthenticated, API);
+APP.use('/api/email', isApiAuthenticated, emailRoutes);
+APP.use('/api', isApiAuthenticated, scriptmigraOnusRoute);
+APP.use('/api', isApiAuthenticated, scriptAddCondominiumsBDRoute);
+
+APP.get('/api/username', isApiAuthenticated, (req, res) => {
+    const username = req.session.username || 'Visitante';
+    const group = req.session.group || 'Sem grupo';
+    res.json({ username, group });
 });
+*/
+APP.use('/api/v5', protectApi, geospatial_1.default);
+APP.use('/api', protectApi, index_2.default);
+APP.use('/api/email', protectApi, emailRoutes_1.default);
+APP.use('/api', protectApi, scriptmigraOnusRoute_1.default);
+APP.use('/api', protectApi, scriptAddCondominiumsBDRoute_1.default);
+APP.get('/api/username', protectApi, function (req, res) {
+    if (req.user) {
+        return res.json({ username: req.user.username, group: req.user.group });
+    }
+    else {
+        var username = req.session.username || 'Visitante';
+        var group = req.session.group || 'Sem grupo';
+        return res.json({ username: username, group: group });
+    }
+});
+// ======================================================
 APP.use('/', index_1.default);
 APP.use('/lead', protectRoutes, index_1.default);
 APP.use('/main', protectRoutes, index_1.default);

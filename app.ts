@@ -22,10 +22,30 @@ import scriptmigraOnusRoute from './src/routes/scriptmigraOnusRoute';
 import geospatialRoutes from './routes/api/v5/geospatial';
 import { config_login } from './src/configs/loginConfig';
 
+import * as jwt from 'jsonwebtoken';
+
 
 // =======================================================
 // --- INICIALIZAÇÃO E CONFIGURAÇÕES GLOBAIS ---
 // =======================================================
+declare global {
+    namespace Express {
+        interface Request {
+            user?: any;
+        }
+    }
+}
+
+process.on('uncaughtException', (error) => {
+  console.error('--- ERRO NÃO CAPTURADO (Uncaught Exception) ---');
+  console.error(error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('--- REJEIÇÃO DE PROMISE NÃO CAPTURADA (Unhandled Rejection) ---');
+  console.error('Razão:', reason);
+});
+
 interface HttpError extends Error {
 	status?: number;
 }
@@ -74,7 +94,7 @@ require('express-file-logger')(APP, {
 	showOnConsole: false
 });
 
-// e) Express Session com cookies seguros
+// Express Session com cookies
 APP.use(session({
     secret: process.env.SESSION_SECRET,
     resave: false,
@@ -91,12 +111,37 @@ APP.use(session({
 // --- MIDDLEWARES DE AUTENTICAÇÃO E AUTORIZAÇÃO ---
 // =======================================================
 
+/*
 const isApiAuthenticated = (req: express.Request, res: express.Response, next: express.NextFunction) => {
     if (req.session && req.session.username && req.session.username !== 'Visitante') {
         return next();
     } else {
         return res.status(401).json({ 
             error: 'Acesso não autorizado. Por favor, faça o login.' 
+        });
+    }
+};
+*/
+
+const protectApi = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (token) {
+        jwt.verify(token, process.env.JWT_SECRET, (err: any, user: any) => {
+            if (err) {
+                return res.status(403).json({ error: 'Token inválido ou expirado.' });
+            }
+            req.user = user;
+            return next();
+        });
+    } 
+    else if (req.session && req.session.username && req.session.username !== 'Visitante') {
+        return next();
+    } 
+    else {
+        return res.status(401).json({ 
+            error: 'Acesso não autorizado. Token ou sessão não fornecidos.' 
         });
     }
 };
@@ -138,7 +183,6 @@ APP.post('/login', (req, res) => {
             return res.json({ success: false, message: 'Erro de autenticação' });
         }
         if (auth) {
-            req.session.username = username;
             ad.findUser(userPrincipalName, (err, user) => {
                 if (err || !user) {
                     return res.json({ success: false, message: 'Erro ao obter detalhes do usuário' });
@@ -150,12 +194,27 @@ APP.post('/login', (req, res) => {
                 if (userGroupMatch && userGroupMatch[1]) {
                     group = userGroupMatch[1] === 'Helpdesk' ? 'CRI' : userGroupMatch[1];
                 }
+
+                req.session.username = username;
                 req.session.group = group;
+
                 let redirectUrl = '/main';
                 if (group === 'RedeNeutra') {
                     redirectUrl = '/viabilidade-intervip';
                 }
-                res.json({ success: true, redirectUrl: redirectUrl });
+
+                const payload = { username: username, group: group };
+                const token = jwt.sign(
+                    payload,
+                    process.env.JWT_SECRET,
+                    { expiresIn: '8h' }
+                );
+
+                res.json({ 
+                    success: true, 
+                    redirectUrl: redirectUrl,
+                    token: token
+                });
             });           
         } else {
             res.json({ success: false, message: 'Credenciais inválidas' });
@@ -176,7 +235,7 @@ APP.get('/logout', (req, res) => {
     });
 });
 
-
+/*
 APP.use('/api/v5', isApiAuthenticated, geospatialRoutes);
 APP.use('/api', isApiAuthenticated, API);
 APP.use('/api/email', isApiAuthenticated, emailRoutes);
@@ -188,6 +247,24 @@ APP.get('/api/username', isApiAuthenticated, (req, res) => {
     const group = req.session.group || 'Sem grupo';
     res.json({ username, group });
 });
+*/
+APP.use('/api/v5', protectApi, geospatialRoutes);
+APP.use('/api', protectApi, API);
+APP.use('/api/email', protectApi, emailRoutes);
+APP.use('/api', protectApi, scriptmigraOnusRoute);
+APP.use('/api', protectApi, scriptAddCondominiumsBDRoute);
+
+APP.get('/api/username', protectApi, (req, res) => {
+    if (req.user) {
+        return res.json({ username: req.user.username, group: req.user.group });
+    }
+    else {
+        const username = req.session.username || 'Visitante';
+        const group = req.session.group || 'Sem grupo';
+        return res.json({ username, group });
+    }
+});
+// ======================================================
 
 APP.use('/', ROUTES);
 APP.use('/lead', protectRoutes, ROUTES);
