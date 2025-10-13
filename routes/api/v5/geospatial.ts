@@ -57,25 +57,25 @@ router.post('/geogrid-lookup', async (req, res) => {
                 longitude: location.lng,
                 raio: raio,
                 //consultarPasta: "N",
-                //consultarIndividual: "S"
+                consultarIndividual: "S"
             }
         });
 
-        let registrosFiltrados = [];
+        let registrosFormatados = [];
         if (geogridResponse.data && geogridResponse.data.registros) {
-            registrosFiltrados = geogridResponse.data.registros
-                .filter((value: any) => value.portasLivres > 0)
+            registrosFormatados = geogridResponse.data.registros
                 .map((value: any) => ({
                     sigla: value.sigla,
                     distancia: parseFloat(value.distancia),
-                    portasLivres: value.portasLivres,
+                    portasLivres: parseInt(value.portasLivres, 10),
                     latitude: value.latitude,
                     longitude: value.longitude,
-                    item: value.item
+                    item: value.item,
+                    portas: parseInt(value.portas, 10)
                 }));
         }
 
-        res.json(registrosFiltrados);
+        res.json(registrosFormatados);
 
     } catch (error) {
         console.error('Erro detalhado ao consultar o Geogrid:', error.response?.data || error.message);

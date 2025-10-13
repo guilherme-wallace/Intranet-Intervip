@@ -72,7 +72,7 @@ router.get('/address-autocomplete', function (req, res) { return __awaiter(void 
     });
 }); });
 router.post('/geogrid-lookup', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var place_id, GOOGLE_MAPS_API_KEY, detailsUrl, detailsResponse, location_1, GEOGRID_API_URL, GEOGRID_API_TOKEN, raio, geogridEndpoint, geogridResponse, registrosFiltrados, error_2;
+    var place_id, GOOGLE_MAPS_API_KEY, detailsUrl, detailsResponse, location_1, GEOGRID_API_URL, GEOGRID_API_TOKEN, raio, geogridEndpoint, geogridResponse, registrosFormatados, error_2;
     var _a, _b, _c;
     return __generator(this, function (_d) {
         switch (_d.label) {
@@ -106,25 +106,25 @@ router.post('/geogrid-lookup', function (req, res) { return __awaiter(void 0, vo
                             longitude: location_1.lng,
                             raio: raio,
                             //consultarPasta: "N",
-                            //consultarIndividual: "S"
+                            consultarIndividual: "S"
                         }
                     })];
             case 3:
                 geogridResponse = _d.sent();
-                registrosFiltrados = [];
+                registrosFormatados = [];
                 if (geogridResponse.data && geogridResponse.data.registros) {
-                    registrosFiltrados = geogridResponse.data.registros
-                        .filter(function (value) { return value.portasLivres > 0; })
+                    registrosFormatados = geogridResponse.data.registros
                         .map(function (value) { return ({
                         sigla: value.sigla,
                         distancia: parseFloat(value.distancia),
-                        portasLivres: value.portasLivres,
+                        portasLivres: parseInt(value.portasLivres, 10),
                         latitude: value.latitude,
                         longitude: value.longitude,
-                        item: value.item
+                        item: value.item,
+                        portas: parseInt(value.portas, 10)
                     }); });
                 }
-                res.json(registrosFiltrados);
+                res.json(registrosFormatados);
                 return [3 /*break*/, 5];
             case 4:
                 error_2 = _d.sent();

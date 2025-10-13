@@ -1,4 +1,5 @@
 let currentSearchedAddress = '';
+let userGroup = '';
 
 document.addEventListener('DOMContentLoaded', function() {
     initializeSearchModeToggle();
@@ -47,9 +48,11 @@ function setupCondoSearch() {
 
     $('#input-condo').on('autocomplete.select', function(e, item) {
         if (!item?.value) return;
+
         $('#loading-spinner').show();
         $('#condo-results-container').hide();
         $('#details-results-container').hide();
+
         Promise.all([
             fetch(`api/v1/condominio/${item.value}`).then(res => res.json()),
             fetch(`api/v1/block/${item.value}`).then(res => res.ok ? res.json() : [])
@@ -60,33 +63,33 @@ function setupCondoSearch() {
             $("#dados-condo-numero").text(condo.numero || '-');
             $("#dados-condo-cidade").text(getCidadeNome(condo.cidadeId));
             $("#dados-condo-bairro").text(condo.bairro || '-');
-            if (!blocks || blocks.length === 0) {
-                $('#estrutura-principal').text('Nenhuma');
-                fetchPlans(null);
-                $('#condo-results-container').show(); 
-                const statusElement = document.getElementById('viabilidade-status');
-                statusElement.textContent = 'Não Possuímos Viabilidade no Momento';
-                statusElement.className = 'viabilidade-status status-nok';
-                statusElement.style.display = 'block';
-                document.getElementById('results-title').style.display = 'none';
-                document.getElementById('results-table-head').innerHTML = '';
-                document.getElementById('results-table-body').innerHTML = '';
-                $('#details-results-container').show();
+
+            const principalTechnology = determinePrincipalTechnology(blocks);
+
+            if (userGroup === 'RedeNeutra') {
+                if (principalTechnology === 'FTTH') {
+                    $('#estrutura-principal').text(principalTechnology);
+                    displayBlockDetails(blocks);
+                    $('#condo-results-container').show();
+                    $('#details-results-container').show();
+                } else {
+                    showNoViabilityMessage();
+                }
             } else {
-                const principalTechnology = determinePrincipalTechnology(blocks);
-                $('#estrutura-principal').text(principalTechnology || 'Nenhuma');
-                fetchPlans(principalTechnology);
-                displayBlockDetails(blocks);
-                $('#condo-results-container').show();
-                $('#details-results-container').show();
+                if (!blocks || blocks.length === 0) {
+                    showNoViabilityMessage();
+                } else {
+                    $('#estrutura-principal').text(principalTechnology || 'Nenhuma');
+                    fetchPlans(principalTechnology);
+                    displayBlockDetails(blocks);
+                    $('#condo-results-container').show();
+                    $('#details-results-container').show();
+                }
             }
+
         }).catch(err => {
-            console.error("Erro ao buscar detalhes do condomínio ou blocos:", err);
-            const statusElement = document.getElementById('viabilidade-status');
-            statusElement.textContent = 'Erro ao consultar. Tente novamente.';
-            statusElement.className = 'viabilidade-status status-nok';
-            statusElement.style.display = 'block';
-            $('#details-results-container').show();
+            console.error("Erro ao buscar detalhes:", err);
+            showNoViabilityMessage('Erro ao consultar. Tente novamente.');
         }).finally(() => {
             $('#loading-spinner').hide();
         });
@@ -116,12 +119,38 @@ function displayBlockDetails(blocks) {
         blocks.forEach(block => {
             const row = tableBody.insertRow();
             row.innerHTML = `<td>${block.name}</td><td>${block.technology}</td>`;
-            if (block.technology === 'FTTH') row.classList.add('row-ftth');
-            else row.classList.add('row-other-tech');
+            
+            switch(block.technology) {
+                case 'FTTH':
+                    row.className = 'row-ftth'; // Verde
+                    break;
+                case 'FTTB':
+                case 'Fibra':
+                    row.className = 'row-fttb'; // Amarelo
+                    break;
+                case 'Rádio':
+                    row.className = 'row-radio'; // Azul
+                    break;
+                default:
+                    row.className = 'row-sem-estrutura'; // Vermelho
+            }
         });
     } else {
         tableBody.innerHTML = `<tr><td colspan="2" class="text-center text-muted">Nenhuma estrutura encontrada.</td></tr>`;
     }
+}
+
+function showNoViabilityMessage(message = 'Não Possuímos Viabilidade no Momento') {
+    const statusElement = document.getElementById('viabilidade-status');
+    statusElement.textContent = message;
+    statusElement.className = 'viabilidade-status status-nok';
+    statusElement.style.display = 'block';
+
+    $('#condo-results-container').hide();
+    document.getElementById('results-title').style.display = 'none';
+    document.getElementById('results-table-head').innerHTML = '';
+    document.getElementById('results-table-body').innerHTML = '';
+    $('#details-results-container').show();
 }
 
 async function fetchPlans(technology) {
@@ -257,26 +286,56 @@ function displayGeogridResults(caixas) {
     const statusElement = document.getElementById('viabilidade-status');
     
     document.getElementById('results-title').textContent = 'Equipamentos Próximos (Raio de 300m)';
-    tableHead.innerHTML = `<tr><th>Nome</th><th>Distância</th><th>Portas Livres</th><th>Local</th></tr>`;
+    tableHead.innerHTML = `<tr><th>Nome</th><th class="text-center">Distância</th><th class="text-center">Portas Livres</th><th class="text-center">Portas</th><th class="text-center">Local</th></tr>`;
     tableBody.innerHTML = '';
 
-    const itensExcluidos = ['poste'];
-    const caixasFiltradas = caixas.filter(caixa => !itensExcluidos.includes(caixa.item) && caixa.portasLivres > 0);
+    // Filtros base.
+    const itensExcluidos = ['poste', 'caixa'];
+    //const itensExcluidos = [''];
+    const baseFilter = caixas.filter(caixa => 
+        !itensExcluidos.includes(caixa.item) && 
+        caixa.portas > 0
+    );
+
+    let caixasFiltradas;
+    if (userGroup === 'RedeNeutra') {
+        caixasFiltradas = baseFilter.filter(caixa => 
+            !caixa.sigla.toLowerCase().includes('radio') && 
+            caixa.portasLivres > 0
+        );
+    } else {
+        caixasFiltradas = baseFilter;
+    }
 
     if (caixasFiltradas.length === 0) {
         statusElement.textContent = 'Não Possui Viabilidade no Momento';
         statusElement.className = 'viabilidade-status status-nok';
         tableBody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">Nenhum equipamento de atendimento com portas livres encontrado.</td></tr>`;
     } else {
-        statusElement.textContent = 'Possui Viabilidade';
-        statusElement.className = 'viabilidade-status status-ok';
+        const hasPorts = caixasFiltradas.some(caixa => caixa.portasLivres > 0);
+        if (hasPorts) {
+            statusElement.textContent = 'Possui Viabilidade';
+            statusElement.className = 'viabilidade-status status-ok';
+        } else {
+            statusElement.textContent = 'Não Possui Viabilidade no Momento';
+            statusElement.className = 'viabilidade-status status-nok';
+        }
         
         caixasFiltradas.sort((a, b) => a.distancia - b.distancia);
+        
         const top10Caixas = caixasFiltradas.slice(0, 10);
 
         top10Caixas.forEach(caixa => {
             const row = tableBody.insertRow();
-            row.className = parseInt(caixa.portasLivres) > 0 ? 'row-available' : 'row-unavailable';
+            
+            if (caixa.sigla.toLowerCase().includes('radio')) {
+                row.className = 'row-radio';
+            } else if (parseInt(caixa.portasLivres) > 0) {
+                row.className = 'row-available';
+            } else {
+                row.className = 'row-unavailable';
+            }
+
             const origin = encodeURIComponent(currentSearchedAddress);
             const destination = `${caixa.latitude},${caixa.longitude}`;
             const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
@@ -285,8 +344,9 @@ function displayGeogridResults(caixas) {
             
             row.innerHTML = `
                 <td>${caixa.sigla || 'N/D'}</td>
-                <td>${caixa.distancia ? `${caixa.distancia.toFixed(2)} m` : 'N/D'}</td>
-                <td>${caixa.portasLivres}</td>
+                <td class="text-center">${caixa.distancia ? `${caixa.distancia.toFixed(2)} m` : 'N/D'}</td>
+                <td class="text-center">${caixa.portasLivres}</td>
+                <td class="text-center">${caixa.portas}</td>
                 <td class="text-center">${linkMapa}</td>
             `;
         });
@@ -348,6 +408,11 @@ function initializeThemeAndUserInfo() {
             });
 
             if (group === 'RedeNeutra') {
+                document.body.classList.add('user-group-redeneutra');
+            }
+            userGroup = data.group || 'Sem grupo';
+
+            if (userGroup === 'RedeNeutra') {
                 document.body.classList.add('user-group-redeneutra');
             }
 
