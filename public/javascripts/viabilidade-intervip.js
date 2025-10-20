@@ -188,7 +188,7 @@ function processPlans(plans) {
 function filterPlansByTechnology(plans, technology) {
     if (technology === 'FTTH') return plans.filter(p => p.name.includes('FTTH'));
     if (technology === 'Rádio') return plans.filter(p => p.name.includes('AIRMAX'));
-    if (technology === 'FTTB' || technology === 'Fibra') return plans.filter(p => p.name.includes('FIBER') && !p.name.includes('FTTH'));
+    if (technology === 'FTTB' || technology === 'Fibra') return plans.filter(p => p.name.includes('FTTH'));
     return [];
 }
 
