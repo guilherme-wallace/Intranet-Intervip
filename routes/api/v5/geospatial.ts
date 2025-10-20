@@ -57,7 +57,8 @@ router.post('/geogrid-lookup', async (req, res) => {
                 longitude: location.lng,
                 raio: raio,
                 //consultarPasta: "N",
-                consultarIndividual: "S"
+                consultarIndividual: "S",
+                modoProjeto: ["N"]
             }
         });
 

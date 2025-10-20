@@ -106,7 +106,8 @@ router.post('/geogrid-lookup', function (req, res) { return __awaiter(void 0, vo
                             longitude: location_1.lng,
                             raio: raio,
                             //consultarPasta: "N",
-                            consultarIndividual: "S"
+                            consultarIndividual: "S",
+                            modoProjeto: ["N"]
                         }
                     })];
             case 3:
