@@ -265,8 +265,6 @@ body.user-group-redeneutra .info-column {
     max-width: 100%;
 }
 
-
-/* Amarelo para FTTB */
 .ivp-plans-table tr.row-fttb td {
     background-color: rgba(255, 193, 7, 0.15);
 }
@@ -275,7 +273,6 @@ body.user-group-redeneutra .info-column {
     color: #ffca2c;
 }
 
-/* Azul para Rádio */
 .ivp-plans-table tr.row-radio td {
     background-color: rgba(13, 110, 253, 0.15);
 }
@@ -284,13 +281,33 @@ body.user-group-redeneutra .info-column {
     color: #6ea8fe;
 }
 
-/* Vermelho para Sem Estrutura (reutiliza a classe 'unavailable') */
 .ivp-plans-table tr.row-sem-estrutura td {
     background-color: rgba(220, 53, 69, 0.15);
     color: #b02a37;
 }
 .dark-mode .ivp-plans-table tr.row-sem-estrutura td {
     color: #f18e98;
+}
+
+.ivp-plans-table tr.row-warning td {
+    background-color: rgba(255, 193, 7, 0.15);
+    color: #856404;
+}
+
+.dark-mode .ivp-plans-table tr.row-warning td {
+    background-color: rgba(255, 193, 7, 0.25);
+    color: #ffca2c;
+}
+
+.status-warning {
+    background-color: rgba(255, 193, 7, 0.1);
+    color: #856404;
+    border-color: #ffc107;
+}
+
+.dark-mode .status-warning {
+    background-color: rgba(255, 193, 7, 0.2);
+    color: #ffca2c;
 }
 
 /* ================================================= */

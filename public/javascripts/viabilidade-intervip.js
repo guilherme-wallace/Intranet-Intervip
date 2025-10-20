@@ -285,14 +285,12 @@ function displayGeogridResults(caixas) {
     const tableBody = document.getElementById('results-table-body');
     const statusElement = document.getElementById('viabilidade-status');
     
-    document.getElementById('results-title').textContent = 'Equipamentos Próximos (Raio de 300m)';
-    tableHead.innerHTML = `<tr><th>Nome</th><th class="text-center">Distância</th><th class="text-center">Portas Livres</th><th class="text-center">Portas</th><th class="text-center">Local</th></tr>`;
+    document.getElementById('results-title').textContent = 'Equipamentos Próximos (Raio de 400m)';
+    tableHead.innerHTML = `<tr><th>Nome</th><th>Distância</th><th>Portas Livres</th><th>Local</th></tr>`;
     tableBody.innerHTML = '';
 
-    // Filtros base.
-    const itensExcluidos = ['poste', 'caixa'];
-    //const itensExcluidos = [''];
-    const baseFilter = caixas.filter(caixa => 
+    const itensExcluidos = ['poste'];
+    let baseFilter = caixas.filter(caixa => 
         !itensExcluidos.includes(caixa.item) && 
         caixa.portas > 0
     );
@@ -300,40 +298,49 @@ function displayGeogridResults(caixas) {
     let caixasFiltradas;
     if (userGroup === 'RedeNeutra') {
         caixasFiltradas = baseFilter.filter(caixa => 
-            !caixa.sigla.toLowerCase().includes('radio') && 
-            caixa.portasLivres > 0
+            !caixa.sigla.toLowerCase().includes('radio')
         );
     } else {
         caixasFiltradas = baseFilter;
     }
 
+    caixasFiltradas.sort((a, b) => a.distancia - b.distancia);
+
     if (caixasFiltradas.length === 0) {
         statusElement.textContent = 'Não Possui Viabilidade no Momento';
         statusElement.className = 'viabilidade-status status-nok';
-        tableBody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">Nenhum equipamento de atendimento com portas livres encontrado.</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">Nenhum equipamento de atendimento encontrado.</td></tr>`;
     } else {
-        const hasPorts = caixasFiltradas.some(caixa => caixa.portasLivres > 0);
-        if (hasPorts) {
-            statusElement.textContent = 'Possui Viabilidade';
-            statusElement.className = 'viabilidade-status status-ok';
+        const closestViableBox = caixasFiltradas.find(c => c.portasLivres > 0 && c.distancia <= 250);
+
+        if (closestViableBox) {
+            if (closestViableBox.distancia < 150) {
+                statusElement.textContent = 'Possui Viabilidade';
+                statusElement.className = 'viabilidade-status status-ok';
+            } else {
+                statusElement.textContent = 'Viabilidade Limitada (Distância > 150m)';
+                statusElement.className = 'viabilidade-status status-warning';
+            }
         } else {
             statusElement.textContent = 'Não Possui Viabilidade no Momento';
             statusElement.className = 'viabilidade-status status-nok';
         }
-        
-        caixasFiltradas.sort((a, b) => a.distancia - b.distancia);
         
         const top10Caixas = caixasFiltradas.slice(0, 10);
 
         top10Caixas.forEach(caixa => {
             const row = tableBody.insertRow();
             
-            if (caixa.sigla.toLowerCase().includes('radio')) {
-                row.className = 'row-radio';
-            } else if (parseInt(caixa.portasLivres) > 0) {
-                row.className = 'row-available';
-            } else {
+            if (caixa.portasLivres === 0 || caixa.distancia > 250) {
                 row.className = 'row-unavailable';
+            } else if (caixa.distancia >= 150) {
+                row.className = 'row-warning';
+            } else {
+                row.className = 'row-available';
+            }
+
+            if (userGroup === 'RedeNeutra' && caixa.sigla.toLowerCase().includes('radio')) {
+                row.style.display = 'none';
             }
 
             const origin = encodeURIComponent(currentSearchedAddress);
@@ -344,9 +351,8 @@ function displayGeogridResults(caixas) {
             
             row.innerHTML = `
                 <td>${caixa.sigla || 'N/D'}</td>
-                <td class="text-center">${caixa.distancia ? `${caixa.distancia.toFixed(2)} m` : 'N/D'}</td>
-                <td class="text-center">${caixa.portasLivres}</td>
-                <td class="text-center">${caixa.portas}</td>
+                <td>${caixa.distancia ? `${caixa.distancia.toFixed(2)} m` : 'N/D'}</td>
+                <td>${caixa.portasLivres}</td>
                 <td class="text-center">${linkMapa}</td>
             `;
         });
