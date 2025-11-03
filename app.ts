@@ -20,6 +20,7 @@ import emailRoutes from './src/routes/emailRoutes';
 import scriptAddCondominiumsBDRoute from './src/routes/scriptAddCondominiumsBDRoute';
 import scriptmigraOnusRoute from './src/routes/scriptmigraOnusRoute';
 import geospatialRoutes from './routes/api/v5/geospatial';
+import ixcRoutes from './routes/api/v5/ixc';
 import { config_login } from './src/configs/loginConfig';
 
 import * as jwt from 'jsonwebtoken';
@@ -65,12 +66,13 @@ APP.use(
           "'self'",
           'https://cdn.jsdelivr.net',
           'https://cdnjs.cloudflare.com',
-          "'unsafe-inline'"
+          "'unsafe-inline'",
+          'https://*.kaspersky-labs.com'
         ],
         styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
         imgSrc: ["'self'", "data:", "https://raw.githubusercontent.com", "https://*.bing.com"],
-        connectSrc: ["'self'", "https://bing.biturl.top"],
+        connectSrc: ["'self'", "https://bing.biturl.top", "*"],
       },
     },
   })
@@ -248,7 +250,8 @@ APP.get('/api/username', isApiAuthenticated, (req, res) => {
     res.json({ username, group });
 });
 */
-APP.use('/api/v5', protectApi, geospatialRoutes);
+APP.use('/api/v5/geo', protectApi, geospatialRoutes);
+APP.use('/api/v5/ixc', protectApi, ixcRoutes);
 APP.use('/api', protectApi, API);
 APP.use('/api/email', protectApi, emailRoutes);
 APP.use('/api', protectApi, scriptmigraOnusRoute);

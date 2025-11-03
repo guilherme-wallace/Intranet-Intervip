@@ -17,6 +17,7 @@ var emailRoutes_1 = require("./src/routes/emailRoutes");
 var scriptAddCondominiumsBDRoute_1 = require("./src/routes/scriptAddCondominiumsBDRoute");
 var scriptmigraOnusRoute_1 = require("./src/routes/scriptmigraOnusRoute");
 var geospatial_1 = require("./routes/api/v5/geospatial");
+var ixc_1 = require("./routes/api/v5/ixc");
 var loginConfig_1 = require("./src/configs/loginConfig");
 var jwt = require("jsonwebtoken");
 process.on('uncaughtException', function (error) {
@@ -39,12 +40,13 @@ APP.use((0, helmet_1.default)({
                 "'self'",
                 'https://cdn.jsdelivr.net',
                 'https://cdnjs.cloudflare.com',
-                "'unsafe-inline'"
+                "'unsafe-inline'",
+                'https://*.kaspersky-labs.com'
             ],
             styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
             fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
             imgSrc: ["'self'", "data:", "https://raw.githubusercontent.com", "https://*.bing.com"],
-            connectSrc: ["'self'", "https://bing.biturl.top"],
+            connectSrc: ["'self'", "https://bing.biturl.top", "*"],
         },
     },
 }));
@@ -192,7 +194,8 @@ APP.get('/api/username', isApiAuthenticated, (req, res) => {
     res.json({ username, group });
 });
 */
-APP.use('/api/v5', protectApi, geospatial_1.default);
+APP.use('/api/v5/geo', protectApi, geospatial_1.default);
+APP.use('/api/v5/ixc', protectApi, ixc_1.default);
 APP.use('/api', protectApi, index_2.default);
 APP.use('/api/email', protectApi, emailRoutes_1.default);
 APP.use('/api', protectApi, scriptmigraOnusRoute_1.default);

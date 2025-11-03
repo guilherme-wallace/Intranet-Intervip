@@ -1,525 +1,692 @@
-$(function () {
-    let item = template`<a class="dropdown-item" data-id="${'id'}">${'item'}</a>`;
+let bsInfoModal = null;
+let bsConfirmModal = null;
+let complementoModal = null;
+let currentBlocks = [];
+let selectedBlock = null;
 
-    if ($('#salesperson-selector').children().length == 0) {
-        fetch('api/v1/salesperson').then(response => response.json()).then(salespeople => {
-            for (const salesperson of salespeople) {
-                $('#salesperson-selector').append(item({id: salesperson.salespersonId, item: salesperson.name}));
-            }
+document.addEventListener('DOMContentLoaded', function() {
+    
+    const infoModalElement = document.getElementById('infoModal');
+    if (infoModalElement) bsInfoModal = new bootstrap.Modal(infoModalElement);
+    
+    const confirmModalElement = document.getElementById('confirmModal');
+    if (confirmModalElement) bsConfirmModal = new bootstrap.Modal(confirmModalElement);
+
+    const complementoModalElement = document.getElementById('complementoModal');
+    if (complementoModalElement) complementoModal = new bootstrap.Modal(complementoModalElement);
+
+    initializeThemeAndUserInfo();
+    loadSellers();
+    loadPlans(null);
+    setupCondoSearchVenda();
+    setupFormValidation();
+
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('data_nascimento').setAttribute('max', today);
+
+    $('#cpf').inputmask('999.999.999-99');
+    $('#telefone_celular').inputmask('(99) 99999-9999');
+    $('#cep').inputmask('99999-999');
+
+    const confirmNoButton = confirmModalElement.querySelector('.btn-secondary[data-bs-dismiss="modal"]');
+    if (confirmNoButton) {
+        confirmNoButton.addEventListener('click', (e) => {
+            e.preventDefault();
             
-            $('#salesperson-selector a').on('click', function() {
-                $('#salesperson-button').text($(this).text());
-                $('#salesperson-input').val($(this).attr('data-id'));
-                $('#sale-form').valid();
-            });
+            const submitButton = document.getElementById('btn-finalizar-venda');
+            submitButton.disabled = false;
+            submitButton.innerHTML = 'Finalizar Cadastro <i class="bi bi-check-circle-fill ms-2"></i>';
+            checkFormValidity();
+            
+            bsConfirmModal.hide();
+            location.reload();
         });
     }
 
-    $('#form-selector a').on('click', function() {
-        showSpinner();
+    const infoCloseButton = infoModalElement.querySelector('.btn-secondary[data-bs-dismiss="modal"]');
+    if (infoCloseButton) {
+        infoCloseButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            bsInfoModal.hide();
+        });
+    }
 
-        switch ($(this).text()) {
-            case 'Venda':
-                $('#form-toggle').css('background-color', 'green');
-                $('#form-toggle').css('border-color', 'green');
-                break;
-            case 'Suspensão':
-                $('#form-toggle').css('background-color', 'orange');
-                $('#form-toggle').css('border-color', 'orange');
-                break;
-            case 'Cancelamento':
-                $('#form-toggle').css('background-color', 'red');
-                $('#form-toggle').css('border-color', 'red');
-                break;
-            case 'Reativação':
-                $('#form-toggle').css('background-color', 'purple');
-                $('#form-toggle').css('border-color', "purple");
-                break;
-            case 'Retenção':
-                $('#form-toggle').css('background-color', 'blue');
-                $('#form-toggle').css('border-color', 'blue');
-                break;
+    infoModalElement.addEventListener('hidden.bs.modal', () => {
+        if (infoModalElement.dataset.reloadOnClose === 'true') {
+            infoModalElement.dataset.reloadOnClose = 'false';
+            location.reload();
         }
+    });
+    
+    setupFieldValidation();
+    checkFormValidity();
 
-        if ($(this).text() == 'Venda') {
-            $('#research').prop('hidden', false);
-            $('#sale-research').prop('hidden', false);
-            $('#cancel-research').prop('hidden', true);
-            $('#how-met-button').text('Como conheceu a Intervip');
-            $('#how-met-button').prop('disabled', false);
-            $('#how-met-input').val('');
+    $('#btn-complemento').on('click', openComplementoModal);
+    $('#btn-confirmar-complemento').on('click', () => confirmComplemento(null));
+});
 
-            if ($('#how-met-selector').children().length == 0) {
-                fetch('api/v1/research/answer/1').then(response => response.json()).then(howmet => {
-                    for (const how of howmet) {
-                        $('#how-met-selector').append(item({id: how.answerId, item: how.answer}));
-                    	console.log(how);
-		    }
-                    
-                    $('#how-met-selector a').on('click', function() {
-                        $('#how-met-button').text($(this).text());
-                        $('#how-met-input').val($(this).attr('data-id'));
-                        $('#sale-form').valid();
-                    });
-                });
+function showModal(title, message, type = 'info') {
+    if (!bsInfoModal) {
+        console.error("Modal não inicializado!");
+        alert(title + "\n" + message);
+        return; 
+    }
+
+    const modalTitle = document.getElementById('modalLabel');
+    const modalBody = document.getElementById('modalBody');
+    const modalDialog = bsInfoModal._element.querySelector('.modal-dialog'); 
+
+    modalTitle.textContent = title;
+    modalBody.innerHTML = message;
+
+    modalDialog.classList.remove('modal-success', 'modal-danger', 'modal-warning');
+    if (type === 'success') modalDialog.classList.add('modal-success');
+    if (type === 'danger') modalDialog.classList.add('modal-danger');
+    if (type === 'warning') modalDialog.classList.add('modal-warning');
+
+    const infoModalElement = document.getElementById('infoModal');
+    if (type === 'success') {
+        infoModalElement.dataset.reloadOnClose = 'true';
+    } else {
+        infoModalElement.dataset.reloadOnClose = 'false';
+    }
+
+    bsInfoModal.show();
+}
+
+async function loadSellers() {
+    const sellerSelect = document.getElementById('vendedor');
+    try {
+        const response = await fetch('/api/v5/ixc/vendedores');
+        if (!response.ok) throw new Error('Falha ao buscar vendedores');
+        const sellers = await response.json();
+        sellerSelect.innerHTML = '<option selected disabled value="">Selecione...</option>';
+        sellers.forEach(seller => {
+            sellerSelect.add(new Option(seller.nome, seller.id));
+        });
+    } catch (error) {
+        console.error("Erro ao carregar vendedores:", error);
+        sellerSelect.innerHTML = '<option selected disabled value="">Erro ao carregar</option>';
+        showModal('Erro', 'Não foi possível carregar a lista de vendedores.', 'danger');
+    }
+}
+
+async function loadPlans(technologyId) {
+    const planSelect = document.getElementById('plano');
+    const planoHelper = document.getElementById('plano-helper');
+    planSelect.innerHTML = '';
+    
+    if (technologyId === null) {
+        planSelect.innerHTML = '<option selected disabled value="">Selecione o complemento primeiro...</option>';
+        planoHelper.textContent = 'Preencha o endereço e complemento para ver os planos.';
+        planSelect.disabled = true;
+        return;
+    }
+
+    const techString = getTechnologyString(technologyId);
+    
+    if (!techString) {
+        planSelect.innerHTML = '<option selected disabled value="">Tecnologia não suportada</option>';
+        planoHelper.textContent = 'A tecnologia deste bloco não possui planos de venda associados.';
+        planSelect.disabled = true;
+        return;
+    }
+
+    planSelect.innerHTML = '<option value="">Carregando...</option>';
+    planSelect.disabled = true;
+
+    try {
+        const response = await fetch('/api/v5/ixc/planos-home');
+        if (!response.ok) throw new Error('Falha ao buscar planos');
+        const allPlans = await response.json();
+        
+        const filteredPlans = allPlans.filter(p => p.nome.toUpperCase().includes(techString));
+        
+        planSelect.innerHTML = '<option selected disabled value="">Selecione...</option>';
+        if (filteredPlans.length === 0) {
+            planSelect.innerHTML = '<option selected disabled value="">Nenhum plano encontrado</option>';
+            planoHelper.textContent = `Nenhum plano "${techString}" encontrado.`;
+        } else {
+            filteredPlans.forEach(plan => {
+                const option = document.createElement('option');
+                option.value = plan.id;
+                
+                const normalizedCheckName = plan.nome.toUpperCase().replace(/_/g, ' ').replace(/\s+/g, ' ');
+                const cleanDisplayName = plan.nome.replace(/_/g, ' ');
+
+                if (normalizedCheckName === "IVP HOME 50M FIBER FTTH") {
+                    option.textContent = `${cleanDisplayName} (Verificar com a Gestão)`;
+                    option.style.color = 'red';
+                    option.style.fontWeight = '700';
+                } else {
+                    option.textContent = cleanDisplayName;
+                }
+                
+                planSelect.add(option);
+            });
+
+            planSelect.disabled = false;
+            planoHelper.textContent = `Planos ${techString} disponíveis.`;
+        }
+        
+    } catch (error) {
+        console.error("Erro ao carregar planos:", error);
+        planSelect.innerHTML = '<option selected disabled value="">Erro ao carregar</option>';
+        planoHelper.textContent = 'Erro ao carregar lista de planos.';
+        showModal('Erro', 'Não foi possível carregar a lista de planos.', 'danger');
+    }
+}
+
+function getTechnologyString(technologyId) {
+    //console.log("getTechnologyString chamado com technologyId:", technologyId);
+    const map = {
+        1: 'FTTH',
+        2: 'AIRMAX',
+        3: null,
+        4: 'FTTH',
+        5: 'FTTH'
+    };
+    return map[technologyId] || null;
+}
+
+function setupCondoSearchVenda() {
+    $('#input-condominio-venda').autoComplete({
+        minLength: 1,
+        resolver: 'custom',
+        events: {
+            search: function(query, callback) {
+                fetch(`api/v4/condominio?query=${query}`)
+                    .then(response => response.json()).then(data => callback(data))
+                    .catch(err => console.error("Erro busca condomínios:", err));
             }
         }
-
-        else if ($(this).text() == 'Reativação') {
-            $('#research').prop('hidden', false);
-            $('#sale-research').prop('hidden', false);
-            $('#cancel-research').prop('hidden', true);
-            $('#how-met-button').text('Já foi cliente');
-            $('#how-met-button').prop('disabled', true);
-            $('#how-met-input').val(1);
-            $('#sale-form').valid();
-        }
-
-        else if ($(this).text() == 'Retenção') {
-            $('#research').prop('hidden', true);
-            $('#how-met-button').prop('disabled', true);
-            $('#sale-form').valid();
-        }
-
-        else if (['Cancelamento', 'Suspensão'].includes($(this).text())) {
-            $('#research').prop('hidden', false);
-            $('#sale-research').prop('hidden', true);
-            $('#cancel-research').prop('hidden', false);
-            $('#reason-button').text('Motivo');
-            $('#reason-input').val('');
-            $('#satisfaction-button').text('Satisfeito com o serviço');
-            $('#satisfaction-input').val('');
-
-            if ($('#reason-selector').children().length == 0) {
-                fetch('api/v1/research/answer/2').then(response => response.json()).then(reasons => {
-                    for (const reason of reasons) {
-                        $('#reason-selector').append(item({id: reason.answerId, item: reason.answer}));
-                    }
-                    
-                    $('#reason-selector a').on('click', function() {
-                        $('#reason-button').text($(this).text());
-                        $('#reason-input').val($(this).attr('data-id'));
-                        $('#sale-form').valid();
-                    });
-                });
-            }
-
-            if ($('#operator-selector').children().length == 0) {
-                fetch('api/v1/research/answer/3').then(response => response.json()).then(operators => {
-                    for (const operator of operators) {
-                        $('#operator-selector').append(item({id: operator.answerId, item: operator.answer}));
-                    }
-                    
-                    $('#operator-selector a').on('click', function() {
-                        $('#operator-button').text($(this).text());
-                        $('#operator-input').val($(this).attr('data-id'));
-                        $('#sale-form').valid();
-                    });
-                });
-            }
-
-            if ($('#satisfaction-selector').children().length == 0) {
-                fetch('api/v1/research/answer/4').then(response => response.json()).then(satisfactions => {
-                    for (const satisfaction of satisfactions) {
-                        $('#satisfaction-selector').append(item({id: satisfaction.answerId, item: satisfaction.answer}));
-                        $('#satisfaction-selector a').on('click', function() {
-                            $('#satisfaction-button').text($(this).text());
-                            $('#satisfaction-input').val($(this).attr('data-id'));
-                            $('#sale-form').valid();
-                        });
-                    }
-                });
-            }
-        }
-
-        $('#form-toggle').text($(this).text());
-        $('#submit-button').prop('disabled', false);
-        $('#submit-button').css("pointer-events", "");
-        $('#submit-button-wrapper').popover('dispose');
-
-        if ($('#client-id').val() !== '') {
-            getContracts($('#client-id').val());
-        }
-
-        hideSpinner();
     });
 
-    $('#client-id').on('focusout keydown', function(e) {
-        if (!$(this).val()) {
-            return;
+    $('#input-condominio-venda').on('autocomplete.select', function (e, item) {
+        if (!item?.value) return;
+        
+        $("#hidden-condominio-id").val(item.value);
+        resetComplementoAndPlano();
+        
+        fetch(`api/v1/condominio/${item.value}`)
+            .then(response => response.json())
+            .then(condo => {
+                $("#cep").val(condo.cep || '');
+                $("#endereco").val(condo.endereco || '');
+                $("#bairro").val(condo.bairro || '');
+                $("#cidade").val(getCidadeNome(condo.cidadeId) || '');
+                $("#uf").val(getUfFromCidadeId(condo.cidadeId) || '');
+                $("#hidden-cidade-id").val(condo.cidadeId || '');
+                $('#cep').inputmask('99999-999'); 
+
+                ['input-condominio-venda', 'cep', 'endereco', 'bairro', 'cidade', 'uf'].forEach(id => validateField(document.getElementById(id)));
+                $('#numero').val('').focus(); 
+                checkFormValidity();
+                
+                return fetch(`api/v1/block/${item.value}`);
+            })
+            .then(response => response.ok ? response.json() : [])
+            .then(blocks => {
+                currentBlocks = blocks;
+            })
+            .catch(err => {
+                console.error("Erro detalhes condomínio/blocos:", err);
+                showModal('Erro', 'Não foi possível carregar os detalhes do condomínio.', 'danger');
+                $('input[id^="hidden-"]').val('');
+                ['cep', 'endereco', 'bairro', 'cidade', 'uf'].forEach(id => document.getElementById(id).value = '');
+                currentBlocks = [];
+            });
+    });
+}
+
+function openComplementoModal() {
+    if (!currentBlocks || currentBlocks.length === 0) {
+        showModal('Atenção', 'Selecione um Condomínio / Localidade válido antes de definir o complemento.', 'warning');
+        return;
+    }
+
+    const blocosLista = document.getElementById('blocos-lista-modal');
+    const complementoDetails = document.getElementById('complemento-details');
+    blocosLista.innerHTML = '';
+    complementoDetails.innerHTML = '';
+    complementoDetails.style.display = 'none';
+    document.getElementById('btn-confirmar-complemento').style.display = 'none';
+    
+    currentBlocks.forEach(block => {
+        const btn = document.createElement('a');
+        btn.href = '#';
+        btn.className = 'list-group-item list-group-item-action';
+        
+        if (block.type === 'Casa' && block.name === 'Unico') {
+            btn.textContent = 'Casas';
+        } else {
+            btn.textContent = block.name;
         }
 
-        if (e.which !== 13 && e.which !== 0) {
-            return;
-        }
+        btn.onclick = (e) => {
+            e.preventDefault();
+            document.querySelectorAll('#blocos-lista-modal a').forEach(a => a.classList.remove('active'));
+            btn.classList.add('active');
+            selectBlockInModal(block);
+        };
+        blocosLista.appendChild(btn);
+    });
 
-        showSpinner();
+    complementoModal.show();
+}
 
-        fetch(`api/v4/client/${$(this).val()}`).then(function (response) {
-            switch (response.status) {
-                case 404:
-                    return alert("Cliente não encontrado, por favor verifique o código inserido.");
-                case 400:
-                    return alert("Código do cliente inválido.");
-                case 200:
-                    return response.json();
-                default:
-                    alert("Algo deu errado, reporte este erro ao suporte.");
-                    throw new Error(response);
+function selectBlockInModal(block) {
+    selectedBlock = block;
+    const complementoDetails = document.getElementById('complemento-details');
+    complementoDetails.style.display = 'block';
+
+    if (block.type === 'Casa' || block.floors === null) { 
+        complementoDetails.innerHTML = `
+            <h6>2. Informe o Complemento da Casa/Lote</h6>
+            <label for="casa-complemento-input" class="form-label">Complemento</label>
+            <input type="text" class="form-control" id="casa-complemento-input" placeholder="Ex: Casa 05, Fundos...">
+            <div class="form-text">Este texto será usado como complemento no cadastro.</div>
+        `;
+        document.getElementById('btn-confirmar-complemento').style.display = 'block';
+    } else {
+        complementoDetails.innerHTML = `
+            <h6>2. Selecione o Apartamento / Unidade</h6>
+            <div id="apto-list" class="list-group">
+                </div>
+        `;
+        document.getElementById('btn-confirmar-complemento').style.display = 'none';
+        
+        const aptoList = document.getElementById('apto-list');
+        aptoList.innerHTML = '';
+
+        for (let j = 0; j <= (block.floors - block.initialFloor); j++) {
+            for (let k = 1; k <= block.units; k++) {
+                const apt = `${parseInt(block.initialFloor) + j}${k.toString().padStart(2, '0')}`;
+                
+                const aptoButton = document.createElement('a');
+                aptoButton.href = '#';
+                aptoButton.className = 'btn btn-outline-primary btn-apto';
+                aptoButton.textContent = apt;
+                
+                aptoButton.onclick = (e) => {
+                    e.preventDefault();
+                    let complementString = `${block.name} - Apto ${apt}`;
+                    if (block.name === 'Unico') {
+                        complementString = `Apto ${apt}`;
+                    }
+                    confirmComplemento(complementString);
+                };
+                aptoList.appendChild(aptoButton);
             }
-        }).then(client => {
-            if (!client) {
-                $('#client-id').val("");
-                $('#client-id').focus();
+        }
+    }
+}
+
+function confirmComplemento(complementString) {
+    let finalComplement;
+    
+    if (complementString) {
+        finalComplement = complementString;
+    } else {
+        finalComplement = document.getElementById('casa-complemento-input').value.trim();
+        if (!finalComplement) {
+            showModal('Atenção', 'Por favor, informe o complemento da casa.', 'warning');
+            return;
+        }
+    }
+
+    document.getElementById('complemento').value = finalComplement;
+    document.getElementById('btn-complemento').textContent = finalComplement;
+    
+    validateField(document.getElementById('btn-complemento'));
+    
+    const techString = selectedBlock.technology; 
+    const techId = getTechnologyIdFromString(techString); 
+    loadPlans(techId); 
+    
+    //console.log("Bloco selecionado:", selectedBlock);
+    //console.log(`Tecnologia (string): ${techString}, ID (número): ${techId}`);
+
+    complementoModal.hide();
+    checkFormValidity();
+}
+
+function resetComplementoAndPlano() {
+    $('#complemento').val('').removeClass('is-valid is-invalid');
+    $('#btn-complemento').text('Selecione o complemento...').removeClass('is-valid is-invalid');
+    $('#plano').prop('disabled', true).html('<option selected disabled value="">Preencha o complemento...</option>').removeClass('is-valid is-invalid');
+    $('#plano-helper').text('Preencha o endereço e complemento para ver os planos.');
+    selectedBlock = null;
+    currentBlocks = [];
+    checkFormValidity();
+}
+
+function setupFieldValidation() {
+    const form = document.getElementById('venda-form');
+    const fieldsToValidate = form.querySelectorAll('input[required], select[required], button[required]');
+
+    fieldsToValidate.forEach(field => {
+        if(field.id === 'btn-complemento') return; 
+
+        field.addEventListener('blur', () => {
+            validateField(field);
+            checkFormValidity();
+        });
+        if (field.tagName === 'SELECT' || field.type === 'date') {
+             field.addEventListener('change', () => {
+                validateField(field);
+                checkFormValidity();
+            });
+        }
+    });
+}
+
+function validateField(field) {
+    let isValid = false;
+    let value = '';
+
+    if (field.id === 'btn-complemento') {
+        value = document.getElementById('complemento').value.trim();
+    } else {
+        value = field.value.trim();
+    }
+    
+    if (field.id === 'cpf' || field.id === 'telefone_celular' || field.id === 'cep') {
+        isValid = $(field).inputmask('isComplete');
+    } else if (field.type === 'email') {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        isValid = value !== '' && emailRegex.test(value);
+    } else if (field.type === 'date') {
+        const today = new Date().toISOString().split('T')[0];
+        isValid = value !== '' && value <= today;
+    } else {
+        isValid = value !== '';
+    }
+
+    if (field.id === 'input-condominio-venda' && value !== '') {
+        isValid = true;
+    }
+
+    const fieldToStyle = (field.id === 'complemento') ? document.getElementById('btn-complemento') : field;
+
+    if (isValid) {
+        fieldToStyle.classList.add('is-valid');
+        fieldToStyle.classList.remove('is-invalid');
+    } else {
+        fieldToStyle.classList.add('is-invalid');
+        fieldToStyle.classList.remove('is-valid');
+    }
+    return isValid;
+}
+
+function checkFormValidity() {
+    const form = document.getElementById('venda-form');
+    const fieldsToValidate = form.querySelectorAll('input[required], select[required], button[required]');
+    const submitButton = document.getElementById('btn-finalizar-venda');
+    const validityMessage = document.getElementById('form-validity-message');
+    let isFormValid = true;
+
+    fieldsToValidate.forEach(field => {
+        let fieldIsValid = false;
+        
+        if (field.id === 'btn-complemento') {
+            fieldIsValid = document.getElementById('complemento').value.trim() !== '';
+        } else if (field.id === 'cpf' || field.id === 'telefone_celular' || field.id === 'cep') {
+            fieldIsValid = $(field).inputmask('isComplete');
+        } else {
+             fieldIsValid = field.value.trim() !== '';
+        }
+
+        if (!fieldIsValid) {
+            isFormValid = false;
+        }
+    });
+
+    submitButton.disabled = !isFormValid;
+    if (isFormValid) {
+        validityMessage.style.display = 'none';
+    } else {
+        validityMessage.style.display = 'block';
+    }
+}
+
+function setupFormValidation() {
+    const form = document.getElementById('venda-form');
+    form.addEventListener('submit', event => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        let isFormFullyValid = true;
+        form.querySelectorAll('input[required], select[required]').forEach(field => {
+            if (!validateField(field)) {
+                isFormFullyValid = false;
+            }
+        });
+        if (!validateField(document.getElementById('btn-complemento'))) {
+            isFormFullyValid = false;
+        }
+
+        checkFormValidity();
+
+        if (isFormFullyValid) {
+            const clientData = {
+                // Dados Pessoais
+                nome: document.getElementById('nome').value.trim(),
+                cnpj_cpf: document.getElementById('cpf').value,
+                ie_identidade: document.getElementById('rg').value.trim(),
+                data_nascimento: document.getElementById('data_nascimento').value,
+                // Contato
+                telefone_celular: document.getElementById('telefone_celular').value.replace(/\D/g,''),
+                whatsapp: document.getElementById('telefone_celular').value.replace(/\D/g,''), 
+                email: document.getElementById('email').value.trim(),
+                
+                cep: document.getElementById('cep').value.trim(),
+                
+                endereco: document.getElementById('endereco').value.trim(),
+                numero: document.getElementById('numero').value.trim(),
+                bairro: document.getElementById('bairro').value.trim(),
+                cidade: document.getElementById('hidden-cidade-id').value, 
+                uf: document.getElementById('uf').value,
+                complemento: document.getElementById('complemento').value.trim(),
+                referencia: document.getElementById('referencia').value.trim(),
+                id_condominio: document.getElementById('hidden-condominio-id').value,
+                // Venda
+                id_vendedor: document.getElementById('vendedor').value,
+                id_plano_ixc: document.getElementById('plano').value, 
+                data_vencimento: document.getElementById('data_vencimento').value,
+                // Observações
+                obs: document.getElementById('observacoes_venda').value.trim(),
+                
+                // Campos fixos
+                ativo: "S", tipo_pessoa: "F", contribuinte_icms: "N",
+                tipo_assinante: "3", tipo_localidade: "U", iss_classificacao_padrao: "99"
+            };
+            
+            cadastrarClienteNoIXC(clientData);
+            
+        } else {
+            showModal('Atenção', 'Por favor, corrija os campos marcados em vermelho.', 'warning');
+        }
+
+        form.classList.add('was-validated'); 
+    }, false);
+}
+
+function showConfirmModal(title, message, yesCallback) {
+    if (!bsConfirmModal) {
+        console.error("Modal de confirmação não inicializado!");
+        if (confirm(title + "\n" + message)) {
+            yesCallback();
+        }
+        return;
+    }
+
+    document.getElementById('confirmModalLabel').textContent = title;
+    document.getElementById('confirmModalBody').innerHTML = message;
+
+    const yesButton = document.getElementById('btn-confirm-yes');
+    
+    const newYesButton = yesButton.cloneNode(true);
+    yesButton.parentNode.replaceChild(newYesButton, yesButton);
+    
+    newYesButton.addEventListener('click', () => {
+        bsConfirmModal.hide();
+        yesCallback();
+    });
+
+    bsConfirmModal.show();
+}
+
+async function cadastrarClienteNoIXC(clientData, existingClientId = null) {
+    const submitButton = document.getElementById('btn-finalizar-venda');
+    
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Cadastrando...';
+
+    const payload = { ...clientData };
+    if (existingClientId) {
+        payload.existingClientId = existingClientId;
+    }
+
+    try {
+        console.log("Enviando dados para a API:", payload);
+        
+        const response = await fetch('/api/v5/ixc/cliente', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.error || 'Erro desconhecido no servidor.');
+        }
+        
+        showModal('Sucesso!', 
+            `Venda finalizada com sucesso!
+             <br><strong>Cliente ID:</strong> ${result.clienteId}
+             <br><strong>Contrato ID:</strong> ${result.contratoId}
+             <br><strong>Login ID:</strong> ${result.loginId}
+             <br><strong>Atendimento ID:</strong> ${result.ticketId}`, // Atualizei o texto
+            'success'
+        );
+        
+        document.getElementById('venda-form').reset();
+        document.getElementById('venda-form').classList.remove('was-validated');
+        document.querySelectorAll('.is-valid, .is-invalid').forEach(el => {
+            el.classList.remove('is-valid', 'is-invalid');
+        });
+        resetComplementoAndPlano();
+        
+    } catch (error) {
+        console.error("Erro ao cadastrar cliente:", error);
+
+        const cpfErrorMessage = "Este CNPJ/CPF já está Cadastrado!";
+        if (error.message && error.message.includes(cpfErrorMessage)) {
+            const match = error.message.match(/ID: (\d+) - \((.*?)\)/);
+            
+            if (match && match[1] && match[2]) {
+                const extractedId = match[1];
+                const extractedName = match[2];
+                
+                showConfirmModal(
+                    'Cliente já Cadastrado',
+                    `Este CPF já está cadastrado para o cliente: <strong>${extractedName} (ID: ${extractedId})</strong>.<br><br>Deseja criar um novo contrato para este cliente?`,
+                    () => {
+                        cadastrarClienteNoIXC(clientData, extractedId);
+                    }
+                );
+            } else {
+                showModal('Erro ao Cadastrar', `Não foi possível finalizar o cadastro.<br><strong>Motivo:</strong> ${error.message}`, 'danger');
+            }
+        } else {
+            showModal('Erro ao Cadastrar', `Não foi possível finalizar o cadastro.<br><strong>Motivo:</strong> ${error.message}`, 'danger');
+        }
+
+    } finally {
+        if (!bsConfirmModal || !bsConfirmModal._isShown) {
+             submitButton.disabled = false;
+             submitButton.innerHTML = 'Finalizar Cadastro <i class="bi bi-check-circle-fill ms-2"></i>';
+             checkFormValidity();
+        }
+    }
+}
+
+function getTechnologyIdFromString(technologyString) {
+    const map = {
+        'Fibra': 1,
+        'Rádio': 2,
+        'Sem estrutura': 3,
+        'FTTH': 4,
+        'FTTB': 5
+    };
+    return map[technologyString] || null;
+}
+
+function getCidadeNome(cidadeId) {
+    const cidades = {"3173": "Vitória", "3172": "Vila Velha", "3169": "Viana", "3165": "Serra", "3159": "Santa Teresa", "3112": "Cariacica"};
+    return cidades[cidadeId] || '';
+}
+
+function getUfFromCidadeId(cidadeId) {
+    if (cidadeId) return 'ES';
+    return '';
+}
+
+function initializeThemeAndUserInfo() {
+    const currentTheme = localStorage.getItem('theme') || 'light';
+    const bodyElement = document.querySelector('body');
+    const themeToggleButton = document.getElementById('theme-toggle');
+
+    if (currentTheme === 'dark') {
+        bodyElement.classList.add('dark-mode');
+        if (themeToggleButton) themeToggleButton.innerHTML = '<i class="bi bi-brightness-high"></i>';
+    } else {
+        if (themeToggleButton) themeToggleButton.innerHTML = '<i class="bi bi-moon-stars"></i>';
+    }
+
+    if (themeToggleButton) {
+        themeToggleButton.addEventListener('click', function() {
+            bodyElement.classList.toggle('dark-mode');
+            const newTheme = bodyElement.classList.contains('dark-mode') ? 'dark' : 'light';
+            localStorage.setItem('theme', newTheme);
+            themeToggleButton.innerHTML = newTheme === 'dark' ? '<i class="bi bi-brightness-high"></i>' : '<i class="bi bi-moon-stars"></i>';
+        });
+    }
+
+    const logoutButton = document.getElementById('btnLogout');
+    if (logoutButton) {
+        logoutButton.addEventListener('click', function() {
+            window.location.href = '/logout';
+        });
+    }
+    
+    fetch('/api/username')
+        .then(response => response.json())
+        .then(data => {
+            const username = data.username || 'Visitante';
+            const group = data.group || 'Sem grupo';
+
+            if (username === 'Visitante') {
+                showModal('Sessão Expirada', 'Será necessário refazer o login!', 'warning');
+                setTimeout(() => { window.location = "/"; }, 300);
                 return;
             }
-
-            $('#client-name').val(client.Nome);
-            $('#client-name').prop('disabled', true);
-            $('#client-birthday').val(new Date(`${client.Nascimento}T00:00:00.000-03:00`).toLocaleDateString("pt-BR"));
-            $('#client-birthday').prop('disabled', true);
-            $('#client-email').val(client.Email);
-            $('#client-email').prop('disabled', true);
-            $('#client-phone').val(client.TelCelular);
-            $('#client-phone').prop('disabled', true);
-
-            fetch(`api/v1/condominio/${client.Grupo}`).then(response => response.json()).then(condominio => {
-                $('#condominio-name').val(condominio.name);
-                $('#condominio-name').attr('data-id', condominio.condominioId);
-                $('#condominio-name').prop('disabled', true);
-                $('#client-cep').val(client.CEP);
-                $('#client-cep').prop('disabled', true);
-                $('#client-address').val(client.Endereco);
-                $('#client-address').prop('disabled', true);
-                $('#client-address-number').val(client.Numero);
-                $('#client-address-number').prop('disabled', true);
-                $('#client-address-complement').val(client.Complemento);
-                $('#client-address-complement').prop('disabled', true);
-                $('#client-address-neighbourhood').val(client.Bairro);
-                $('#client-address-neighbourhood').prop('disabled', true);
-                $('#client-address-city').val(client.Cidade);
-                $('#client-address-city').prop('disabled', true);
-                $('#client-address-uf').val(client.UF);
-                $('#client-address-uf').prop('disabled', true);
-            });
-
-            getContracts($(this).val());
-        });
             
-        hideSpinner();
-    });
-
-    $('#client-id').numeric();
-    $('#submit-button-wrapper').popover({ trigger: 'hover' });
-
-    $.validator.addMethod('selected', function(value, element) {
-        switch ($(element).attr('id')) {
-            case 'how-met-input':
-                if (!['Venda', 'Reativação'].includes($('#form-toggle').text())) {
-                    return true;
+            document.querySelectorAll('.user-info span').forEach(el => {
+                if (el.textContent.includes('{username}')) {
+                    el.textContent = username;
                 }
-
-                else if (value != '') {
-                    return true;
+                if (el.textContent.includes('{group}')) {
+                    el.textContent = group;
                 }
-                
-                return false;
-
-            case 'reason-input':
-            case 'operator-input':
-            case 'satisfaction-input':
-                if ($('#form-toggle').text() === 'Cancelamento') {
-                    if (value == '') {
-                        return false;
-                    }
-                }
-
-                return true;
-
-            case 'salesperson-input':
-                if (value == '') {
-                    return false;
-                }
-                
-                return true;
-        }
-    });
-
-    $('#sale-form').validate({
-        ignore: "input[type='text']:hidden",
-        rules: {
-            code: {
-                required: true
-            },
-            howmet: {
-                selected: true
-            },
-            reason: {
-                selected: true
-            },
-            operator: {
-                selected: true
-            },
-            satisfaction: {
-                selected: true
-            },
-            salesperson: {
-                selected: true
-            }
-        },
-        messages: {
-            code: 'Campo obrigatório',
-            howmet: 'Selecione uma opção',
-            reason: 'Selecione o motivo do cancelamento',
-            operator: 'Selecione uma operadora',
-            satisfaction: 'Selecione uma opção',
-            salesperson: 'Selecione um usuário'
-        }
-    });
-
-    $('#sale-form').on('submit', function(e) {
-        e.preventDefault();
-
-        if ($(this).valid()) {
-            if ($('input[name="contract"]:checked').length == 0) {
-                alert('Por favor, selecione um contrato.');
-            }
-
-            else {
-                let contractId = $('input[name="contract"]:checked').val();
-                let contractInfo = $(`#${contractId} input`).not('.ignore');
-                let contract = (JSON.parse(localStorage.getItem('contracts'))).find(x => x.Contrato === contractId);
-                $('#submit-button').attr('disabled', true);
-                showSpinner();
-
-                let sale = {
-                    clientId: +$('#client-id').val(),
-                    operation: '',
-                    observation: $('#observation').val() || null,
-                    contract: {
-                        contractId: contractId,
-                        endDate: contract.Fim == null ? null : contract.Fim.split('T')[0] + ' 00:00:00',
-                        startDate: contract.Inicio == null ? null : contract.Inicio.split('T')[0] + ' 00:00:00',
-                        name: contractInfo.filter('#contract-speed').val(),
-                        bandwidth: +contractInfo.filter('#contract-speed').val().split(' ')[0],
-                        cost: Number.parseFloat(contractInfo.filter('#contract-cost').val().replace(',','.'))
-                    },
-                    condominio: {
-                        condominioId: +$('#condominio-name').attr('data-id'),
-                        name: $('#condominio-name').val()
-                    },
-                    address: {
-                        postalCodeId: $('#client-cep').val(),
-                        number: +$('#client-address-number').val(),
-                        complement: $('#client-address-complement').val(),
-                        address: $('#client-address').val(),
-                        neighbourhood: $('#client-address-neighbourhood').val(),
-                        city: $('#client-address-city').val(),
-                        state: $('#client-address-uf').val()
-                    },
-                    technology: {
-                        technologyId: +contractInfo.filter('#contract-technology').attr('data-id'),
-                        technology: contractInfo.filter('#contract-technology').val()
-                    },
-                    research: {
-                        reasonId: +$('#reason-input').val() || null,
-                        howMetId: +$('#how-met-input').val() || null,
-                        serviceProviderId: +$('#operator-input').val() || null,
-                        satisfactionId: +$('#satisfaction-input').val() || null,
-                        handout: $('#panfleto-checkbox').is(':checked'),
-                        facebook: $('#facebook-checkbox').is(':checked'),
-                        instagram: $('#instagram-checkbox').is(':checked')
-                    },
-                    salesperson: {
-                        salespersonId:+$('#salesperson-input').val(),
-                        name: $('#salesperson-button').text()
-                    }
-                };
-
-                switch ($('#form-toggle').text()) {
-                    case 'Venda':
-                        sale.operation = 'V';
-                        break;
-                    case 'Reativação':
-                        sale.operation = 'R';
-                        break;
-                    case 'Cancelamento':
-                        sale.operation = 'C';
-                        break;
-                    case 'Suspensão':
-                        sale.operation = 'S';
-                        break;
-                    case 'Retenção':
-                        sale.operation = 'T';
-                        sale.research = null;
-                        break;
-                }
-
-                fetch('/api/v1/sale', {
-                    method: 'POST',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(sale)
-                }).then(function (response) {
-                    switch (response.status) {
-                        case 400:
-                            $('#submit-button').attr('disabled', false);
-                            return alert(`Operação não permitida. A operação "${$('#form-toggle').text()}" não é permitida para o contrato selecionado.`);
-                        case 401:          
-                            $('#submit-button').attr('disabled', false);                  
-                            return alert('Operação inválida, verifique o CEP cadastrado no perfil do cliente dentro do Routerbox.');
-                        case 201:
-                            return response.json();
-                        default:
-                            alert('Algo deu errado, reporte este erro ao suporte.');
-                            $('#submit-button').attr('disabled', false);
-                            throw new Error(response);
-                    }
-                }).then(data => {
-                    hideSpinner();
-
-                    if (data?.affectedRows > 0) {
-                        alert(`Dados inseridos com sucesso.`);
-                        return location.reload();
-                    }
-                });
-            }
-        }
-    });
-
-    function showSpinner() {
-        $('#spinner').attr('hidden', false);
-        $('.card-body').css('opacity', '0.5');
-    }
-
-    function hideSpinner() {
-        $('#spinner').attr('hidden', true);
-        $('.card-body').css('opacity', '1.0');
-    }
-
-    function getContracts(clientId) {
-	fetch(`api/v4/contract/${clientId}`).then(response => response.json()).then(body => {
-            if (body.length == 0) {
-                $('#contracts').empty();
-                return alert('Não existem contratos válidos para este cliente.\Certifique-se de que o contrato foi criado no cadastro do cliente.');
-            }
-    
-            displayContracts(body);
-	    localStorage['contracts'] = JSON.stringify(body);
+            });
+        }).catch(error => {
+            console.error('Erro ao obter o nome do usuário e grupo:', error);
+             showModal('Erro de Autenticação', 'Não foi possível verificar seu usuário. Por favor, faça o login novamente.', 'danger');
+             setTimeout(() => { window.location = "/"; }, 300);
         });
-    }
-
-    function displayContracts(contracts) {
-        $('#contracts').empty();
-        let html = template`
-            <div id="${'contract'}" class="row">
-                <div class="col-md-2">
-                    <label>Plano</label>
-                    <div class="input-condominio mb-3">
-                        <div class="input-condominio-prepend">
-                            <span class="input-condominio-text radio-button">
-                                <div class="custom-control custom-radio custom-control-inline">
-                                    <input id="${'radio'}" class="custom-control-input ignore" title="${'contract'}" type="radio" name="contract" value="${'contract'}"}>
-                                    <label class="custom-control-label" for="${'radio'}"></label>
-                                </div>
-                            </span>
-                        </div>
-                        <input style="text-align: center;" type="text" class="form-control ignore" aria-label="Contrato" aria-describedby="basic-addon1" autocomplete="off" value="${'contract'}" disabled>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <label>Plano</label>
-                    <input id="contract-speed" type="text" class="form-control" aria-label="Descrição" aria-describedby="basic-addon1" autocomplete="off" value="${'speed'}" disabled>
-                </div>
-                <div class="col-md-2">
-                    <label>Tecnologia</label>
-                    <input id="contract-technology" type="text" class="form-control" aria-label="Descrição" aria-describedby="basic-addon1" autocomplete="off" value="${'technology'}" data-id="${'technologyId'}" disabled>
-                </div>
-                <div class="col-md-3">
-                    <label>Valor</label>
-                    <div class="input-condominio mb-3">
-                        <div class="input-condominio-prepend">
-                            <span class="input-condominio-text" id="basic-addon1">R$</span>
-                        </div>
-                        <input id="contract-cost" style="text-align: right;" type="text" class="form-control" aria-label="Valor" aria-describedby="basic-addon1" autocomplete="off" value="${'value'}" disabled>
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <label>Situação</label>
-                    <input id="contract-state" style="text-align: center;" type="text" class="form-control" aria-label="Situação" aria-describedby="basic-addon1" autocomplete="off" value="${'state'}" disabled>
-                </div>
-            </div>`;
-
-	let insertContract = (contract) => {
-            if ($('#contracts').children().length == 0) {
-                $('#contracts').prop('hidden', false);
-                $('#contracts').append('<h3>Contratos</h3>');
-            }
-
-            speedText = contract.Descricao.match(/\d{1,4}M/g);
-            contractSpeed = '-';
-
-            if (speedText != null && speedText.length > 0) {
-                contractSpeed = parseInt(speedText[0].slice(0, -1)) + ' Mbps';
-            }
-
-	    tech = contract.Descricao.match(/(FTTH|AIRMAX|CORP)/g);
-
-            $('#contracts').append(html({
-                radio: makeId(5),
-                contract: contract.Contrato,
-                speed: contractSpeed,
-                technology: (tech == 'FTTH' || tech == 'CORP') ? tech : (tech == 'AIRMAX') ? 'Rádio' : 'FTTB',
-                technologyId: (tech == 'FTTH' || tech == 'CORP') ? 4 : (tech == 'AIRMAX') ? 2 : 5,
-                value: moneyFormatter(contract.Valor),
-                state: contract.Situacao == 'I' ? 'Cancelado' : 'Ativo'
-            }));
-
-            if (contracts.indexOf(contract) < contracts.length - 1) {
-                $('#contracts').append('<hr>');
-            }
-	}
-
-	switch ($('#form-toggle').text()) {
-	    case 'Selecione uma opção':
-                return alert('Selecione uma opção.');
-            break;
-
-	    case 'Cancelamento':
-            if (contracts.some((contract) => contract.Situacao != 'I')) {
-		for (let contract of contracts) {
-		    //if (contract.Situacao == 'I') {
-                        insertContract(contract);
-                    //}
-                }
-
-		break;
-	    }
-	    return alert('Não existem contratos válidos para este cliente.\nCertifique-se de que o contrato foi criado no cadastro do cliente.');
-
-	    case 'Venda':
-	    case 'Retenção':
-	    case 'Suspensão':
-	    for (let contract of contracts) {
-            	if (contract.Situacao != 'I') {
-                    insertContract(contract);
-                }
-            }
-	    break;
-	
-	    case 'Reativação':
-	    if (contracts.length > 1) {
-		for (let contract of contracts) {
-                    if (contract.Situacao != 'I') {
-                        insertContract(contract);
-                    }
-                }
-
-		break;
-	    }
-	    return alert('Não existem contratos válidos para este cliente.\nCertifique-se de que o contrato foi criado no cadastro do cliente.');
-	}
-    }
-});
+}

@@ -1,293 +1,278 @@
 <!DOCTYPE html>
-<html lang="pt-br">
-
+<html lang="pt-BR">
 <head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-	<meta http-equiv="refresh" content="86400;url=/"> <!-- x horas em segundos -->
-	<title>Cadastro de Vendas</title>
-
-	<!-- CSS -->
-	<link href="stylesheets/bootstrap.min.css" rel="stylesheet">
-	<link rel="stylesheet" type="text/css" href="stylesheets/styleOLD.css">
-
-	<!-- JS -->
-	<script src="javascripts/index.js"></script>
-	<script src="javascripts/jquery.js"></script>
-	<script src="javascripts/jquery.numeric.min.js"></script>
-	<script src="javascripts/jquery.validate.min.js"></script>
-	<script src="javascripts/cadastro-de-vendas.js"></script>
-	<script src="javascripts/bootstrap-autocomplete.min.js"></script>
-	<script src="javascripts/bootstrap.bundle.min.js"></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Intervip - Cadastro de Vendas</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="stylesheets/cadastro-de-vendas.css">
 </head>
 
-<body class="cadastros-vendas">
-	<header>
-		<div class="container-fluid">
-			<div class="row">
-				<div class="col-sm-2 col-md-3 logo-wrapper" style="align-content: center;">
-					<a href="/main"><img class="logo" src="images/logo.png" alt="Logo Intervip"></a>
-				</div>
-				<div class="col-sm-6 col-md-6" id="cabecalho">
-					<h2>Cadastro de Vendas</h2>
-				</div>
-				<div class="col-sm-2 col-md-3" style="text-align: end; align-content: center;">
-					<div class="row">
-						<div class="col-md-9" style="align-content: center;">
-							<h6 class="show-username">Acessando como: {username}</h6>
-							<h6 class="show-group">Setor: {group}</h6>
-						</div>
-						<div class="col-md-3 d-flex justify-content-end align-items-center">
-							<button id="theme-toggle" class="btn btn-secondary me-2">Tema</button>
-							<button id="btnLogout" class="btn btn-danger">Sair</button>
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
-	</header>
-	<main>
-		<div class="dark-container container-fluid">
-			<div class="container">
-				<div class="card border border-dark bg-light">
-					<div id="spinner" class="spinner-border text-warning" role="status" hidden>
-						<span id="spinner-text" class="sr-only"><span>
-					</div>
-					
-					<div class="card-body">
-						<form id="sale-form" method="post">
-							<section>
-								<h3>Dados do Cliente</h3>
-								<div class="row">
-									<div class="col-md-3 align-content-bottom">
-										<div class="dropdown">
-											<button class="btn btn-primary dropdown-toggle" id="form-toggle" style="width: 100%;" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Selecione uma opção</button>
-											<div id="form-selector" class="dropdown-menu" style="width: 100%;" aria-labelledby="dropdownMenuButton">
-												<a class="dropdown-item">Venda</a>
-												<a class="dropdown-item">Reativação</a>
-												<a class="dropdown-item">Cancelamento</a>
-												<a class="dropdown-item">Suspensão</a>
-												<a class="dropdown-item">Retenção</a>
-											</div>
-										</div>
-									</div>
-									<div class="col-md-3 align-content-bottom">
-										<label class="error" for="client-id"></label>
-										<div class="input-condominio mb-3">
-											<div class="input-condominio-prepend">
-												<span class="input-condominio-text" id="basic-addon1">Código</span>
-											</div>
-											<input id="client-id" type="search" name="code" class="form-control" style="text-align: center;" aria-label="Codigo" aria-describedby="basic-addon1" maxlength="5">
-										</div>
-									</div>
-									<div class="col-md-6">
-										<label>Nome completo</label>
-										<input id="client-name" type="text" class="form-control" placeholder="Nome completo" aria-label="nome" aria-describedby="basic-addon1">
-									</div>
-								</div>
-								<div class="row">
-									<div class="col-md-4">
-										<label>Data de Nascimento</label>
-										<input id="client-birthday" type="text" class="form-control" placeholder="Data de Nascimento" aria-label="nascimento" aria-describedby="basic-addon1">
-									</div>
-									<div class="col-md-5">
-										<label>Endereço de e-mail</label>
-										<input id="client-email" type="text" class="form-control" placeholder="Endereço de e-mail" aria-label="email" aria-describedby="basic-addon1">
-									</div>
-									<div class="col-md-3">
-										<label>Telefone</label>
-										<input id="client-phone" type="text" class="form-control" placeholder="Telefone" aria-label="telefone" aria-describedby="basic-addon1">
-									</div>
-								</div>
-							</section>
-							<hr>
-							<section>
-								<div class="row">
-									<div class="col-md-8">
-										<label>Grupo</label>
-										<input id="condominio-name" type="text" class="form-control" placeholder="Grupo" aria-label="grupo" aria-describedby="basic-addon1">
-									</div>
-									<div class="col-md-4">
-										<label>CEP</label>
-										<input id="client-cep" type="text" class="form-control" placeholder="CEP" aria-label="cep" aria-describedby="basic-addon1">
-									</div>
-								</div>
-								<div class="row">
-									<div class="col-md-10">
-										<label>Endereço</label>
-										<input id="client-address" type="text" class="form-control" placeholder="Endereço" aria-label="Endereço" aria-describedby="basic-addon1">
-									</div>
-									<div class="col-md-2">
-										<label>Numero</label>
-										<input id="client-address-number" type="text" class="form-control" placeholder="Número" aria-label="Número" aria-describedby="basic-addon1">
-									</div>
-								</div>
-								<div class="row">
-									<div class="col-md-5">
-										<label>Complemento</label>
-										<input id="client-address-complement" type="text" class="form-control" placeholder="Complemento" aria-label="complemento" aria-describedby="basic-addon1">
-									</div>
-									<div class="col-md-4">
-										<label>Bairro</label>
-										<input id="client-address-neighbourhood" type="text" class="form-control" placeholder="Bairro" aria-label="bairro" aria-describedby="basic-addon1">
-									</div>
-									<div class="col-md-2">
-										<label>Cidade</label>
-										<input id="client-address-city" type="text" class="form-control" placeholder="Cidade" aria-label="cidade" aria-describedby="basic-addon1">
-									</div>
-									<div class="col-md-1">
-										<label>UF</label>
-										<input id="client-address-uf" type="text" class="form-control" placeholder="UF" aria-label="UF" aria-describedby="basic-addon1">
-									</div>
-								</div>
-							</section>
-							<section id="contracts" class="contratos" hidden>
-							</section>
-							<section id="research" hidden>
-								<h3>Pesquisa</h3>
-								<div id="sale-research" class="row" hidden>
-									<div class="col-md-3 align-content-bottom">
-										<label class="error" for="how-met-input"></label>
-										<input id="how-met-input" type="hidden" title="how-met-validation" name="howmet">
-										<div class="dropdown">
-											<button id="how-met-button" class="btn btn-secondary dropdown-toggle" style="width: 100%;" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Como conheceu a Intervip</button>
-											<div id="how-met-selector" class="dropdown-menu" style="width: 100%;" aria-labelledby="dropdownMenuButton">
-											</div>
-										</div>
-									</div>
-									<div class="col-md-3 align-content-bottom">
-										<div class="custom-control custom-checkbox mb-3">
-											<input id="panfleto-checkbox" type="checkbox" class="custom-control-input" id="panfleto-select">
-											<label class="custom-control-label" for="panfleto-checkbox">Recebeu panfleto da Intervip</label>
-										</div>
-									</div>
-									<div class="col-md-3 align-content-bottom">
-										<div class="custom-control custom-checkbox mb-3">
-											<input id="instagram-checkbox" type="checkbox" class="custom-control-input" id="instagram-select">
-											<label class="custom-control-label" for="instagram-checkbox">Viu anúncio no Instagram</label>
-										</div>
-									</div>
-									<div class="col-md-3 align-content-bottom">
-										<div class="custom-control custom-checkbox mb-3">
-											<input id="facebook-checkbox" type="checkbox" class="custom-control-input" id="facebook-select">
-											<label class="custom-control-label" for="facebook-checkbox">Viu anúncio no Facebook</label>
-										</div>
-									</div>
-								</div>
-								<div id="cancel-research" class="row" hidden>
-									<div id="reason" class="col-md-5 align-content-bottom">
-										<label class="error" for="reason-input"></label>
-										<input id="reason-input" type="hidden" title="reason-validation" name="reason">
-										<div class="dropdown">
-											<button id="reason-button" class="btn btn-secondary dropdown-toggle" style="width: 100%;" type="button" id="dropdownMenuButton" 
-											data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Motivo</button>
-											<div id="reason-selector" class="dropdown-menu" style="width: 100%;" aria-labelledby="dropdownMenuButton">
-											</div>
-										</div>
-									</div>
-									<div id="operator" class="col-md-3 align-content-bottom">
-										<label class="error" for="operator-input"></label>
-										<input id="operator-input" type="hidden" title="operator-validation" name="operator">
-										<div class="dropdown">
-											<button id="operator-button" class="btn btn-secondary dropdown-toggle" style="width: 100%;" type="button" id="dropdownMenuButton" 
-											data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Operadora</button>
-											<div id="operator-selector" class="dropdown-menu" style="width: 100%;" aria-labelledby="dropdownMenuButton">
-											</div>
-										</div>
-									</div>
-									<div id="satisfaction" class="col-md-4 align-content-bottom">
-										<label class="error" for="satisfaction-input"></label>
-										<input id="satisfaction-input" type="hidden" title="satisfaction-validation" name="satisfaction">
-										<div class="dropdown">
-											<button id="satisfaction-button" class="btn btn-secondary dropdown-toggle" style="width: 100%;" type="button" id="dropdownMenuButton" 
-											data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Satisfeito com o serviço</button>
-											<div id="satisfaction-selector" class="dropdown-menu" style="width: 100%;" aria-labelledby="dropdownMenuButton">
-											</div>
-										</div>
-									</div>
-								</div>
-							</section>
-							<hr>
-							<section>
-								<div class="row" style="padding-bottom: 10px;">
-									<div class="col-md-7">
-										<label>Observações</label>
-										<input id="observation" type="text" class="form-control" placeholder="Observações" aria-label="Observações" aria-describedby="basic-addon1">
-									</div>
-									<div class="col-md-3 align-content-bottom">
-										<label class="error" for="salesperson-input"></label>
-										<input id="salesperson-input" type="hidden" title="salesperson-validation" name="salesperson">
-										<div class="dropdown">
-											<button id="salesperson-button" class="btn btn-secondary dropdown-toggle" style="width: 100%;" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Atendente</button>
-											<div id="salesperson-selector" class="dropdown-menu" style="width: 100%;" aria-labelledby="dropdownMenuButton">
-											</div>
-										</div>
-									</div>
-									<div class="col-md-2 ml-auto align-content-bottom">
-										<span id="submit-button-wrapper" data-toggle="popover" data-placement="top" data-content="Selecione uma opção no canto superior esquerdo para continuar.">
-											<button id="submit-button" class="btn btn-primary" style="width: 100%; pointer-events: none;" type="submit" disabled>Enviar</button>
-										</span>
-									</div>
-								</div>
-							</section>
-						</form>	
-					</div>
-				</div>
-			</div>
-		</div>
-	</main>
-	<footer class="footer navbar-fixed-bottom">
-		<div class="container-fluid">
-			<div class="row">
-				<div class="col-md-12 align-items-center" style="font-size: 12px; text-align: center;">
-					<a href="../"><img class="logo" src="images/logo.png"></a>
-					<p>© 2021 Gerencia Intervip | Densenvolvido por <a href="https://github.com/guilherme-wallace" target="_blank">Guilherme Wallace</a>.</p>
-				</div>
-			</div>
-		</div>
-	</footer>
+<body class="gerenciaIVP-body">
+    <header class="header-modern">
+        <div class="container-fluid">
+            <div class="d-flex align-items-center">
+                <a href="/main" class="d-flex align-items-center text-decoration-none">
+                    <img class="logo me-3" src="images/logo.png" alt="Logo Intervip">
+                </a>
+            </div>
+            <h1 class="header-title fs-4 fw-semibold text-white m-0">Cadastro de Vendas</h1>
+            <div class="d-flex align-items-center">
+                <div class="user-info text-end me-4">
+                    <p class="m-0 small text-white-80">Acessando como: <span class="fw-medium">{username}</span></p>
+                    <p class="m-0 small text-white-80">Setor: <span class="fw-medium">{group}</span></p>
+                </div>
+                <button id="theme-toggle" class="btn btn-sm btn-outline-light rounded-pill px-3">
+                    <i class="bi bi-moon-stars"></i>
+                </button>
+                <button id="btnLogout" class="btn btn-sm btn-outline-danger rounded-pill px-3 ms-2">
+                    <i class="bi bi-box-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="ivp-main">
+        <div class="container py-4">
+            <div class="row justify-content-center">
+                <div class="col-lg-10">
+                    <div class="ivp-card">
+                        <div class="card-body p-4 p-md-5">
+
+                            <form id="venda-form" class="needs-validation" novalidate>
+                                <h2 class="ivp-title mb-4">Cadastro de Venda</h2>
+                                
+                                <fieldset class="form-section">
+                                    <legend class="section-legend">Dados Pessoais</legend>
+                                    <div class="row g-3">
+                                        <div class="col-md-12">
+                                            <label for="nome" class="form-label">Nome Completo<span style="color: red; margin: 0; padding: 0;"> * </span></label>
+                                            <input type="text" class="form-control" id="nome" required>
+                                            <div class="invalid-feedback">Por favor, informe o nome completo.</div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="cpf" class="form-label">CPF<span style="color: red; margin: 0; padding: 0;"> * </span></label>
+                                            <input type="text" class="form-control" id="cpf" required placeholder="000.000.000-00" pattern="\d{3}\.\d{3}\.\d{3}-\d{2}">
+                                            <div class="invalid-feedback">CPF inválido. Use o formato 000.000.000-00.</div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="rg" class="form-label">RG<span style="color: red; margin: 0; padding: 0;"> * </span></label>
+                                            <input type="text" class="form-control" id="rg" required>
+                                            <div class="invalid-feedback">Por favor, informe o RG.</div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="data_nascimento" class="form-label">Data de Nascimento<span style="color: red; margin: 0; padding: 0;"> * </span></label>
+                                            <input type="date" class="form-control" id="data_nascimento" required max="">
+                                            <div class="invalid-feedback">Data de nascimento inválida ou futura.</div>
+                                        </div>
+                                    </div>
+                                </fieldset>
+                                
+                                <fieldset class="form-section mt-4">
+                                    <legend class="section-legend">Contato</legend>
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label for="telefone_celular" class="form-label">Telefone Celular / WhatsApp<span style="color: red; margin: 0; padding: 0;"> * </span></label>
+                                            <input type="tel" class="form-control" id="telefone_celular" required placeholder="(27) 99999-9999" pattern="\(\d{2}\)\s\d{5}-\d{4}">
+                                            <div class="invalid-feedback">Telefone inválido. Use o formato (00) 00000-0000.</div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="email" class="form-label">E-mail<span style="color: red; margin: 0; padding: 0;"> * </span> </label>
+                                            <input type="email" class="form-control" id="email" required placeholder="cliente@email.com">
+                                            <div class="invalid-feedback">E-mail inválido.</div>
+                                        </div>
+                                    </div>
+                                </fieldset>
+
+                                <fieldset class="form-section mt-4">
+                                    <legend class="section-legend">Endereço de Instalação</legend>
+                                    <div class="row g-3">
+                                        <div class="col-md-12 ivp-search-box mb-3">
+                                            <label for="input-condominio-venda" class="form-label">Buscar Condomínio / Localidade<span style="color: red; margin: 0; padding: 0;"> * </span></label>
+                                            <input type="text" class="form-control form-control-lg ivp-input" id="input-condominio-venda" placeholder="Digite o nome para buscar..." autocomplete="off" required>
+                                            <div class="invalid-feedback">Selecione uma localidade válida da busca.</div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label for="cep" class="form-label">CEP</label>
+                                            <input type="text" class="form-control" id="cep" placeholder="00000-000" required>
+                                            <div class="invalid-feedback">CEP inválido.</div>
+                                        </div>
+                                        <div class="col-md-8">
+                                            <label for="endereco" class="form-label">Endereço (Rua/Avenida)</label>
+                                            <input type="text" class="form-control" id="endereco" required>
+                                            <div class="invalid-feedback">Informe o endereço.</div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label for="numero" class="form-label">Número<span style="color: red; margin: 0; padding: 0;"> * </span></label>
+                                            <input type="text" class="form-control" id="numero" required>
+                                            <div class="invalid-feedback">Informe o número.</div>
+                                        </div>
+                                        <div class="col-md-8">
+                                            <label for="bairro" class="form-label">Bairro</label>
+                                            <input type="text" class="form-control" id="bairro" required>
+                                            <div class="invalid-feedback">Informe o bairro.</div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="cidade" class="form-label">Cidade</label>
+                                            <input type="text" class="form-control" id="cidade" required>
+                                            <div class="invalid-feedback">Cidade inválida.</div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="uf" class="form-label">Estado (UF)</label>
+                                            <input type="text" class="form-control" id="uf" required>
+                                            <div class="invalid-feedback">UF inválido.</div>
+                                        </div>
+                                        <div class="col-12">
+                                            <label for="btn-complemento" class="form-label">Complemento (Bloco, Apto, etc.)<span style="color: red; margin: 0; padding: 0;"> * </span></label>
+                                            <button type="button" class="form-control btn btn-outline-secondary text-start" id="btn-complemento" required>Selecione o complemento...</button>
+                                            <input type="hidden" id="complemento" required> <div class="invalid-feedback">Por favor, selecione o complemento.</div>
+                                        </div>
+                                        <div class="col-12">
+                                            <label for="referencia" class="form-label">Ponto de Referência</label>
+                                            <input type="text" class="form-control" id="referencia"> 
+                                        </div>
+                                        <input type="hidden" id="hidden-condominio-id">
+                                        <input type="hidden" id="hidden-cidade-id">
+                                    </div>
+                                </fieldset>
+
+                                <fieldset class="form-section mt-4">
+                                    <legend class="section-legend">Detalhes da Venda</legend>
+                                     <div class="row g-3">
+                                         <div class="col-md-6">
+                                             <label for="vendedor" class="form-label">Vendedor<span style="color: red; margin: 0; padding: 0;"> * </span></label>
+                                             <select id="vendedor" class="form-select" required>
+                                                 <option selected disabled value="">Carregando...</option>
+                                             </select>
+                                              <div class="invalid-feedback">Selecione o vendedor.</div>
+                                         </div>
+                                         <div class="col-md-6">
+                                            <label for="plano" class="form-label">Plano Escolhido<span style="color: red; margin: 0; padding: 0;"> * </span></label>
+                                             <div id="plano-helper" class="form-text mt-0 mb-1">Preencha o endereço e complemento para ver os planos.</div>
+                                             <select id="plano" class="form-select" required disabled>
+                                                 <option selected disabled value="">Selecione o complemento primeiro...</option>
+                                             </select>
+                                             <div class="invalid-feedback">Selecione o plano.</div>
+                                         </div>
+                                         <div class="col-md-6">
+                                            <label for="data_vencimento" class="form-label">Data de Vencimento<span style="color: red; margin: 0; padding: 0;"> * </span></label>
+                                            <select id="data_vencimento" class="form-select" required>
+                                                <option selected disabled value="">Selecione...</option>
+                                                <option>5</option>
+                                                <option>10</option>
+                                                <option>15</option>
+                                                <option>20</option>
+                                            </select>
+                                             <div class="invalid-feedback">Selecione a data de vencimento.</div>
+                                        </div>
+                                    </div>
+                                </fieldset>
+
+                                <fieldset class="form-section mt-4">
+                                    <legend class="section-legend">Observações do chamado / OS</legend>
+                                    <div class="row g-3">
+                                        <div class="col-12">
+                                            <label for="observacoes_venda" class="form-label">Observações relevantes para o contrato ou ordem de serviço</label>
+                                            <textarea class="form-control" id="observacoes_venda" rows="4"></textarea> 
+                                        </div>
+                                    </div>
+                                </fieldset>
+
+                                <div class="ivp-actions mt-5">
+                                    <div id="form-validity-message" class="form-text text-danger mb-2 text-center" style="display: none; font-weight: 500;">
+                                        Por favor, preencha todos os campos obrigatórios. Macados com:<span style="color: red; margin: 0; padding: 0 13px 0 2px;"> * </span>
+                                    </div>
+                                    <button type="submit" id="btn-finalizar-venda" class="ivp-btn" disabled>
+                                        Finalizar Cadastro <i class="bi bi-check-circle-fill ms-2"></i>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="ivp-footer">
+         <div class="container-fluid py-3">
+            <div class="text-center">
+                <img src="images/logo.png" alt="Logo Intervip" width="100">
+                <p class="ivp-footer-text">
+                    © 2025 Gerência Intervip | Desenvolvido por 
+                    <a href="https://github.com/guilherme-wallace" target="_blank">Guilherme Wallace</a>
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <div class="modal fade" id="infoModal" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="modalLabel">Aviso</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body" id="modalBody">
+            </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmModalLabel">Confirmação</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="confirmModalBody">
+                Deseja realmente continuar?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Não</button>
+                <button type="button" class="btn btn-primary" id="btn-confirm-yes">Sim</button>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="complementoModal" tabindex="-1" aria-labelledby="complementoModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="complementoModalLabel">Selecionar Complemento</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="row">
+                <div class="col-md-5">
+                    <h6>1. Selecione o Bloco / Tipo</h6>
+                    <div id="blocos-lista-modal" class="list-group" style="max-height: 300px; overflow-y: auto;">
+                        </div>
+                </div>
+                <div class="col-md-7">
+                    <div id="complemento-details" style="display: none;">
+                        </div>
+                </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="btn-confirmar-complemento" style="display: none;">Confirmar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="javascripts/jquery.js"></script>
+    <script src="javascripts/bootstrap.bundle.min.js"></script>
+    <script src="javascripts/bootstrap-autocomplete.min.js"></script> 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.inputmask/5.0.9/jquery.inputmask.min.js"></script>
+    <script src="javascripts/cadastro-de-vendas.js"></script>
 </body>
-<script>
-	const currentTheme = localStorage.getItem('theme') || 'light';
-	const bodyElement = document.body;
-
-	if (currentTheme === 'dark') {
-		bodyElement.classList.add('dark-mode');
-	}
-
-	document.getElementById('theme-toggle').addEventListener('click', function() {
-		bodyElement.classList.toggle('dark-mode');
-
-		if (bodyElement.classList.contains('dark-mode')) {
-			localStorage.setItem('theme', 'dark');
-		} else {
-			localStorage.setItem('theme', 'light');
-		}
-	});
-
-	document.addEventListener('DOMContentLoaded', function() {
-		fetch('/api/username')
-			.then(response => response.json())
-			.then(data => {
-				const username = data.username || 'Visitante';
-				const group = data.group || 'Sem grupo';
-				document.querySelector('.show-username').textContent = `Acessando como: ${username}`;
-				document.querySelector('.show-group').textContent = `Setor: ${group}`;
-
-				if (username == 'Visitante') {
-					alert(`Será necessário refazer o login!`);
-					window.location = "/";
-				}
-			})
-			.catch(error => {
-				console.error('Erro ao obter o nome do usuário e grupo:', error);
-			});
-		const logoutButton = document.getElementById('btnLogout');
-		if (logoutButton) {
-			logoutButton.addEventListener('click', function() {
-				window.location.href = '/logout';
-			});
-		}
-	});
-</script>
 </html>
