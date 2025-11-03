@@ -226,7 +226,7 @@ function setupAddressSearch() {
                 suggestions.style.display = 'none';
                 return;
             }
-            fetch(`/api/v5/address-autocomplete?query=${encodeURIComponent(query)}`)
+            fetch(`/api/v5/geo/address-autocomplete?query=${encodeURIComponent(query)}`)
                 .then(response => response.json())
                 .then(data => {
                     suggestions.innerHTML = '';

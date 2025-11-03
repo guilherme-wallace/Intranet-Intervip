@@ -54,8 +54,11 @@
                                         </div>
                                         <div class="col-md-6">
                                             <label for="cpf" class="form-label">CPF<span style="color: red; margin: 0; padding: 0;"> * </span></label>
-                                            <input type="text" class="form-control" id="cpf" required placeholder="000.000.000-00" pattern="\d{3}\.\d{3}\.\d{3}-\d{2}">
-                                            <div class="invalid-feedback">CPF inválido. Use o formato 000.000.000-00.</div>
+                                            <div class="input-group has-validation">
+                                                <input type="text" class="form-control" id="cpf" required placeholder="000.000.000-00" pattern="\d{3}\.\d{3}\.\d{3}-\d{2}">
+                                                <button class="btn btn-outline-secondary" type="button" id="btn-cartao-cpf">Cartão CPF</button>
+                                                <div class="invalid-feedback">CPF inválido. Use o formato 000.000.000-00.</div>
+                                            </div>
                                         </div>
                                         <div class="col-md-6">
                                             <label for="rg" class="form-label">RG<span style="color: red; margin: 0; padding: 0;"> * </span></label>
@@ -135,6 +138,8 @@
                                         </div>
                                         <input type="hidden" id="hidden-condominio-id">
                                         <input type="hidden" id="hidden-cidade-id">
+                                        <input type="hidden" id="hidden-bloco">
+                                        <input type="hidden" id="hidden-apartamento">
                                     </div>
                                 </fieldset>
 
@@ -174,7 +179,7 @@
                                     <legend class="section-legend">Observações do chamado / OS</legend>
                                     <div class="row g-3">
                                         <div class="col-12">
-                                            <label for="observacoes_venda" class="form-label">Observações relevantes para o contrato ou ordem de serviço</label>
+                                            <!--label for="observacoes_venda" class="form-label">Observações Observações do chamado / OS</label-->
                                             <textarea class="form-control" id="observacoes_venda" rows="4"></textarea> 
                                         </div>
                                     </div>

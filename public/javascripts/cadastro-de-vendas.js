@@ -58,6 +58,24 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
+const btnCartaoCpf = document.getElementById('btn-cartao-cpf');
+    if (btnCartaoCpf) {
+        btnCartaoCpf.addEventListener('click', function() {
+            const cpfField = document.getElementById('cpf');
+            const nascField = document.getElementById('data_nascimento');
+            
+            const cpf = cpfField.value;
+            const dataNascimento = nascField.value;
+
+            const [year, month, day] = dataNascimento.split('-');
+            const dataFormatada = `${day}/${month}/${year}`;
+
+            const url = `https://servicos.receita.fazenda.gov.br/servicos/cpf/consultasituacao/ConsultaPublica.asp?${cpf}&NASCIMENTO=${dataFormatada}`;
+
+            window.open(url, '_blank');
+        });
+    }
+
     setupFieldValidation();
     checkFormValidity();
 
@@ -212,6 +230,7 @@ function setupCondoSearchVenda() {
             .then(response => response.json())
             .then(condo => {
                 $("#cep").val(condo.cep || '');
+                $('#numero').val(condo.numero || ''); 
                 $("#endereco").val(condo.endereco || '');
                 $("#bairro").val(condo.bairro || '');
                 $("#cidade").val(getCidadeNome(condo.cidadeId) || '');
@@ -219,8 +238,7 @@ function setupCondoSearchVenda() {
                 $("#hidden-cidade-id").val(condo.cidadeId || '');
                 $('#cep').inputmask('99999-999'); 
 
-                ['input-condominio-venda', 'cep', 'endereco', 'bairro', 'cidade', 'uf'].forEach(id => validateField(document.getElementById(id)));
-                $('#numero').val('').focus(); 
+                ['input-condominio-venda', 'cep', 'numero', 'endereco', 'bairro', 'cidade', 'uf'].forEach(id => validateField(document.getElementById(id)));
                 checkFormValidity();
                 
                 return fetch(`api/v1/block/${item.value}`);
@@ -233,7 +251,7 @@ function setupCondoSearchVenda() {
                 console.error("Erro detalhes condomínio/blocos:", err);
                 showModal('Erro', 'Não foi possível carregar os detalhes do condomínio.', 'danger');
                 $('input[id^="hidden-"]').val('');
-                ['cep', 'endereco', 'bairro', 'cidade', 'uf'].forEach(id => document.getElementById(id).value = '');
+                ['cep', 'numero', 'endereco', 'bairro', 'cidade', 'uf'].forEach(id => document.getElementById(id).value = '');
                 currentBlocks = [];
             });
     });
@@ -324,9 +342,14 @@ function selectBlockInModal(block) {
 
 function confirmComplemento(complementString) {
     let finalComplement;
+    let bloco = "";
+    let apto = "";
     
     if (complementString) {
         finalComplement = complementString;
+        bloco = (selectedBlock.name === 'Unico') ? '' : selectedBlock.name;
+        apto = complementString.split('Apto ')[1] || ''; 
+        
     } else {
         finalComplement = document.getElementById('casa-complemento-input').value.trim();
         if (!finalComplement) {
@@ -337,15 +360,14 @@ function confirmComplemento(complementString) {
 
     document.getElementById('complemento').value = finalComplement;
     document.getElementById('btn-complemento').textContent = finalComplement;
+    document.getElementById('hidden-bloco').value = bloco;
+    document.getElementById('hidden-apartamento').value = apto;
     
     validateField(document.getElementById('btn-complemento'));
     
-    const techString = selectedBlock.technology; 
-    const techId = getTechnologyIdFromString(techString); 
-    loadPlans(techId); 
-    
-    //console.log("Bloco selecionado:", selectedBlock);
-    //console.log(`Tecnologia (string): ${techString}, ID (número): ${techId}`);
+    const techString = selectedBlock.technology;
+    const techId = getTechnologyIdFromString(techString);
+    loadPlans(techId);
 
     complementoModal.hide();
     checkFormValidity();
@@ -356,6 +378,8 @@ function resetComplementoAndPlano() {
     $('#btn-complemento').text('Selecione o complemento...').removeClass('is-valid is-invalid');
     $('#plano').prop('disabled', true).html('<option selected disabled value="">Preencha o complemento...</option>').removeClass('is-valid is-invalid');
     $('#plano-helper').text('Preencha o endereço e complemento para ver os planos.');
+    $('#hidden-bloco').val('');
+    $('#hidden-apartamento').val('');
     selectedBlock = null;
     currentBlocks = [];
     checkFormValidity();
@@ -479,14 +503,15 @@ function setupFormValidation() {
                 telefone_celular: document.getElementById('telefone_celular').value.replace(/\D/g,''),
                 whatsapp: document.getElementById('telefone_celular').value.replace(/\D/g,''), 
                 email: document.getElementById('email').value.trim(),
-                
+                // Endereço
                 cep: document.getElementById('cep').value.trim(),
-                
                 endereco: document.getElementById('endereco').value.trim(),
                 numero: document.getElementById('numero').value.trim(),
                 bairro: document.getElementById('bairro').value.trim(),
                 cidade: document.getElementById('hidden-cidade-id').value, 
                 uf: document.getElementById('uf').value,
+                bloco: document.getElementById('hidden-bloco').value,
+                apartamento: document.getElementById('hidden-apartamento').value,
                 complemento: document.getElementById('complemento').value.trim(),
                 referencia: document.getElementById('referencia').value.trim(),
                 id_condominio: document.getElementById('hidden-condominio-id').value,
