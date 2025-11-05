@@ -41,7 +41,20 @@ function setupCondoSearch() {
         resolver: 'custom',
         events: {
             search: function(query, callback) {
-                fetch(`api/v4/condominio?query=${query}`).then(res => res.json()).then(data => callback(data));
+                fetch(`api/v4/condominio?query=${query}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        let filteredData = data;
+                        //console.log('Dados de condomínio recebidos:', data);
+                        if (userGroup === 'RedeNeutra') {
+                            filteredData = data.filter(item => 
+                                !item.text || !item.text.includes('RDNT')
+                            );
+                        }
+                        //console.log('Dados de condomínio filtrados para RedeNeutra:', filteredData);
+                        callback(filteredData);
+                    });
+                    //console.log('Buscando condomínios com query:', query);
             }
         }
     });
@@ -188,7 +201,7 @@ function processPlans(plans) {
 function filterPlansByTechnology(plans, technology) {
     if (technology === 'FTTH') return plans.filter(p => p.name.includes('FTTH'));
     if (technology === 'Rádio') return plans.filter(p => p.name.includes('AIRMAX'));
-    if (technology === 'FTTB' || technology === 'Fibra') return plans.filter(p => p.name.includes('FTTH'));
+    if (technology === 'FTTB' || technology === 'Fibra' || technology === 'Rede Neutra') return plans.filter(p => p.name.includes('FTTH'));
     return [];
 }
 
