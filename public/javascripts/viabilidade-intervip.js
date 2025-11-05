@@ -112,7 +112,7 @@ function setupCondoSearch() {
 function determinePrincipalTechnology(blocks) {
     if (!blocks || blocks.length === 0) return null;
     const technologies = blocks.map(b => b.technology);
-    if (technologies.includes('FTTH')) return 'FTTH';
+    if (technologies.includes('FTTH')  || technologies.includes('Rede Neutra')) return 'FTTH';
     if (technologies.includes('FTTB') || technologies.includes('Fibra')) return 'FTTB';
     if (technologies.includes('Rádio')) return 'Rádio';
     return technologies[0];
@@ -139,6 +139,7 @@ function displayBlockDetails(blocks) {
                     break;
                 case 'FTTB':
                 case 'Fibra':
+                case 'Rede Neutra':
                     row.className = 'row-fttb'; // Amarelo
                     break;
                 case 'Rádio':
