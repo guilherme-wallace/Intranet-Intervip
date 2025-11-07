@@ -271,7 +271,7 @@ function selectAddress(description, placeId) {
     $('#loading-spinner').show();
     $('#details-results-container').hide();
     
-    fetch('/api/v5/geogrid-lookup', {
+    fetch('/api/v5/geo/geogrid-lookup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ place_id: placeId })
@@ -299,11 +299,11 @@ function displayGeogridResults(caixas) {
     const tableBody = document.getElementById('results-table-body');
     const statusElement = document.getElementById('viabilidade-status');
     
-    document.getElementById('results-title').textContent = 'Equipamentos Próximos (Raio de 400m)';
+    document.getElementById('results-title').textContent = 'Equipamentos Próximos (Raio de 300m)';
     tableHead.innerHTML = `<tr><th>Nome</th><th>Distância</th><th>Portas Livres</th><th>Local</th></tr>`;
     tableBody.innerHTML = '';
 
-    const itensExcluidos = ['poste'];
+    const itensExcluidos = ['poste','caixa'];
     let baseFilter = caixas.filter(caixa => 
         !itensExcluidos.includes(caixa.item) && 
         caixa.portas > 0
