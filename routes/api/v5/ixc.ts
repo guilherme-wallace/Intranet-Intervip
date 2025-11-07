@@ -126,7 +126,7 @@ async function cadastrarCliente(clientData: any, dataCadastro: string): Promise<
     const clientePayload = {
         'ativo': 'S', 'tipo_pessoa': 'F', 'tipo_cliente_scm': '01', 'pais': 'Brasil',
         'nacionalidade': 'Brasileiro', 'tipo_assinante': '3', 'id_tipo_cliente': '6',
-        'contribuinte_icms': 'N', 'filial_id': '1', 'filtra_filial': 'S', 'tipo_localidade': 'U',
+        'contribuinte_icms': 'N', 'filial_id': '3', 'filtra_filial': 'S', 'tipo_localidade': 'U',
         'acesso_automatico_central': 'P', 'alterar_senha_primeiro_acesso': 'P', 'senha_hotsite_md5': 'N',
         'hotsite_acesso': '0', 'crm': 'S', 'status_prospeccao': 'V', 'cadastrado_via_viabilidade': 'N',
         'participa_cobranca': 'S', 'participa_pre_cobranca': 'S', 'cob_envia_email': 'S',

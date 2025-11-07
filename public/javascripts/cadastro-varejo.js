@@ -24,8 +24,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('data_nascimento').setAttribute('max', today);
 
-    $('#cpf').inputmask('999.999.999-99');
-    $('#telefone_celular').inputmask('(99) 99999-9999');
+    //$('#cpf').inputmask('999.999.999-99');
+    $('#whatsapp').inputmask('(99) 99999-9999');
+    $('#telefone_celular').inputmask('(99) 9999[9]-9999');
     $('#cep').inputmask('99999-999');
 
     const confirmNoButton = confirmModalElement.querySelector('.btn-secondary[data-bs-dismiss="modal"]');
@@ -415,8 +416,13 @@ function validateField(field) {
         value = field.value.trim();
     }
     
-    if (field.id === 'cpf' || field.id === 'telefone_celular' || field.id === 'cep') {
+    if (field.id === 'whatsapp' || field.id === 'cep') {
         isValid = $(field).inputmask('isComplete');
+    } else if (field.id === 'cpf') {
+        const cleanValue = value.replace(/\D/g, '');
+        isValid = (cleanValue.length === 11 || cleanValue.length === 14);
+    } else if (field.id === 'telefone_celular') {
+        isValid = (value === '' || $(field).inputmask('isComplete'));
     } else if (field.type === 'email') {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         isValid = value !== '' && emailRegex.test(value);
@@ -455,8 +461,11 @@ function checkFormValidity() {
         
         if (field.id === 'btn-complemento') {
             fieldIsValid = document.getElementById('complemento').value.trim() !== '';
-        } else if (field.id === 'cpf' || field.id === 'telefone_celular' || field.id === 'cep') {
+        } else if (field.id === 'whatsapp' || field.id === 'cep') {
             fieldIsValid = $(field).inputmask('isComplete');
+        } else if (field.id === 'cpf') {
+            const cleanValue = field.value.replace(/\D/g, '');
+            fieldIsValid = (cleanValue.length === 11 || cleanValue.length === 14);
         } else {
              fieldIsValid = field.value.trim() !== '';
         }
@@ -501,7 +510,7 @@ function setupFormValidation() {
                 data_nascimento: document.getElementById('data_nascimento').value,
                 // Contato
                 telefone_celular: document.getElementById('telefone_celular').value.replace(/\D/g,''),
-                whatsapp: document.getElementById('telefone_celular').value.replace(/\D/g,''), 
+                whatsapp: document.getElementById('whatsapp').value.replace(/\D/g,''),
                 email: document.getElementById('email').value.trim(),
                 // Endereço
                 cep: document.getElementById('cep').value.trim(),
@@ -595,7 +604,7 @@ async function cadastrarClienteNoIXC(clientData, existingClientId = null) {
              <br><strong>Cliente ID:</strong> ${result.clienteId}
              <br><strong>Contrato ID:</strong> ${result.contratoId}
              <br><strong>Login ID:</strong> ${result.loginId}
-             <br><strong>Atendimento ID:</strong> ${result.ticketId}`, // Atualizei o texto
+             <br><strong>Atendimento ID:</strong> ${result.ticketId}`,
             'success'
         );
         

@@ -115,14 +115,17 @@ body {
     color: white;
     border: none;
     border-radius: 8px;
-    padding: 0.5rem 1.5rem;
+    padding: 0.75rem 1.5rem;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-block;
 }
 .ivp-btn:hover {
     background-color: var(--primary-hover);
     transform: translateY(-2px);
+    color: white;
 }
 .ivp-actions {
     display: flex;
@@ -298,7 +301,7 @@ body {
     overflow-y: auto;
 }
 #apto-list .btn-apto {
-    flex-basis: 18%; /* 5 colunas */
+    flex-basis: 18%;
     min-width: 70px;
 }
 
@@ -344,7 +347,6 @@ body {
     text-decoration: underline;
 }
 
-/* RESPONSIVO */
 @media (max-width: 768px) {
     .header-title { display: none; }
     .user-info { display: none; }   
