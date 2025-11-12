@@ -3,6 +3,11 @@ import axios from 'axios';
 
 const router = Express.Router();
 
+const extractComponent = (components: any[], type: string): string => {
+    const component = components.find(c => c.types.includes(type));
+    return component ? component.long_name : '';
+};
+
 router.get('/address-autocomplete', async (req, res) => {
     const query = req.query.query as string;
     if (!query) {
@@ -81,6 +86,49 @@ router.post('/geogrid-lookup', async (req, res) => {
     } catch (error) {
         console.error('Erro detalhado ao consultar o Geogrid:', error.response?.data || error.message);
         res.status(500).json({ error: 'Falha ao consultar os dados de viabilidade no Geogrid' });
+    }
+});
+
+router.get('/cep-lookup', async (req, res) => {
+    const cep = req.query.cep as string;
+    if (!cep) {
+        return res.status(400).json({ error: 'CEP é obrigatório' });
+    }
+
+    try {
+        const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
+        if (!GOOGLE_MAPS_API_KEY) {
+            throw new Error('API Key do Google Maps não configurada no servidor.');
+        }
+        
+        const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(cep)}&key=${GOOGLE_MAPS_API_KEY}&language=pt-BR&components=country:BR`;
+        
+        console.log(`Buscando CEP no Google Geocoding: ${cep}`);
+        const response = await axios.get(url);
+        
+        if (!response.data || !response.data.results || response.data.results.length === 0) {
+            return res.status(404).json({ error: 'CEP não encontrado' });
+        }
+
+        const components = response.data.results[0].address_components;
+        
+        const address = {
+            rua: extractComponent(components, 'route'),
+            bairro: extractComponent(components, 'sublocality_level_1') || extractComponent(components, 'political'),
+            cidade: extractComponent(components, 'administrative_area_level_2'),
+            uf: extractComponent(components, 'administrative_area_level_1')
+        };
+
+        if (!address.rua || !address.cidade) {
+           console.warn("Resposta do Google não continha 'route' ou 'administrative_area_level_2'", components);
+           return res.status(404).json({ error: 'Não foi possível extrair o endereço completo deste CEP.' });
+        }
+
+        res.json(address);
+
+    } catch (error) {
+        console.error('Erro no Google Geocoding API:', error.response?.data || error.message);
+        res.status(500).json({ error: 'Falha ao buscar CEP no Google API' });
     }
 });
 
