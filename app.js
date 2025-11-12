@@ -224,7 +224,7 @@ APP.use('/cadastro-de-blocos', protectRoutes, index_1.default);
 APP.use('/consulta-de-planos', protectRoutes, index_1.default);
 APP.use('/viabilidade-intervip', protectRoutes, index_1.default);
 APP.use('/cadastro-de-vendas', protectRoutes, index_1.default);
-APP.use('/cadastro-varejo', protectRoutes, index_1.default);
+APP.use('/cadastro-bandaLarga', protectRoutes, index_1.default);
 APP.use('/cadastro-de-vendas-corporativos', protectRoutes, index_1.default);
 APP.use('/cadastro-de-vendas-rede-neutra', protectRoutes, index_1.default);
 APP.use('/problemas-sites-e-APP', protectRoutes, index_1.default);

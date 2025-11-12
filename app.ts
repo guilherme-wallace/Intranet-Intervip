@@ -282,7 +282,7 @@ APP.use('/cadastro-de-blocos', protectRoutes, ROUTES);
 APP.use('/consulta-de-planos', protectRoutes, ROUTES);
 APP.use('/viabilidade-intervip', protectRoutes, ROUTES);
 APP.use('/cadastro-de-vendas', protectRoutes, ROUTES);
-APP.use('/cadastro-varejo', protectRoutes, ROUTES);
+APP.use('/cadastro-bandaLarga', protectRoutes, ROUTES);
 APP.use('/cadastro-de-vendas-corporativos', protectRoutes, ROUTES);
 APP.use('/cadastro-de-vendas-rede-neutra', protectRoutes, ROUTES);
 APP.use('/problemas-sites-e-APP', protectRoutes, ROUTES);
