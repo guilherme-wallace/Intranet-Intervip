@@ -4,7 +4,7 @@ import axios, { Method } from 'axios';
 
 const router = Express.Router();
 
-const makeIxcRequest = async (method: Method, endpoint: string, data: any = null, operationType: 'listar' | 'incluir' | null = null) => {
+const makeIxcRequest = async (method: Method, endpoint: string, data: any = null, operationType: 'listar' | 'incluir' | 'alterar' | null = null) => {
     const url = `${process.env.IXC_API_URL}/webservice/v1${endpoint}`;
     const token = process.env.IXC_API_TOKEN; 
 
@@ -93,6 +93,58 @@ function formatarCPF(cpf: string): string {
     return cpfLimpo.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
 }
 
+function formatarDataNasParaDMY(dataYMD: string): string {
+    if (!dataYMD || dataYMD.length !== 10) return dataYMD;
+    try {
+        const [year, month, day] = dataYMD.split('-');
+        if (!year || !month || !day) return dataYMD;
+        return `${day}-${month}-${year}`;
+    } catch (e) {
+        console.error("Erro ao formatar data_nascimento:", e);
+        return dataYMD;
+    }
+}
+
+async function getFinancialStatus(clientId: string): Promise<boolean> {
+    const financeiroPayload = {
+        "qtype": "fn_areceber.id_cliente",
+        "query": clientId,
+        "oper": "=",
+        "rp": "500",
+        "sortname": "fn_areceber.data_vencimento",
+        "sortorder": "asc",
+        "grid_param": JSON.stringify([
+            {"TB":"fn_areceber.liberado", "OP" : "=", "P" : "S"},
+            {"TB":"fn_areceber.status", "OP" : "!=", "P" : "C"},
+            {"TB":"fn_areceber.status", "OP" : "!=", "P" : "R"}
+        ])
+    };
+
+    try {
+        console.log(`Verificando financeiro do ID: ${clientId}`);
+        const financeiroResponse = await makeIxcRequest('POST', '/fn_areceber', financeiroPayload);
+        
+        const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+
+        if (financeiroResponse && financeiroResponse.total > 0) {
+            for (const titulo of financeiroResponse.registros) {
+                const vencimento = new Date(titulo.data_vencimento);
+                if (vencimento < hoje) {
+                    console.log(`Cliente ${clientId} POSSUI atraso.`);
+                    return true;
+                }
+            }
+        }
+    } catch (error) {
+        console.error(`Erro ao verificar financeiro do cliente ${clientId}:`, error.message);
+        return false;
+    }
+    
+    console.log(`Cliente ${clientId} NÂO possui atraso.`);
+    return false;
+}
+
 router.get('/vendedores', async (req, res) => {
     try {
         const params = { qtype: 'vendedor.status', query: 'A', oper: '=', page: '1', rp: '1000', sortname: 'vendedor.nome', sortorder: 'asc' };
@@ -134,7 +186,7 @@ async function cadastrarCliente(clientData: any, dataCadastro: string): Promise<
         'iss_classificacao_padrao': '99', 'data_cadastro': today, 'ultima_atualizacao': dataCadastro,
         'razao': clientData.nome, 
         'cnpj_cpf': formatarCPF(clientData.cnpj_cpf),
-        'ie_identidade': clientData.ie_identidade, 'data_nascimento': clientData.data_nascimento,
+        'ie_identidade': clientData.ie_identidade, 'data_nascimento': formatarDataNasParaDMY(clientData.data_nascimento),
         'fone': clientData.telefone_celular, 'telefone_celular': clientData.telefone_celular,
         'whatsapp': clientData.whatsapp, 'email': clientData.email, 
         'cep': clientData.cep,
@@ -246,7 +298,7 @@ async function criarLogin(novoClienteId: string, novoContratoId: string, clientD
     
     const idGrupoRadius = getGrupoRadiusPorPlano(clientData.id_plano_ixc);
     
-    for (let tentativa = 1; tentativa <= 10; tentativa++) {
+    for (let tentativa = 1; tentativa <= 50; tentativa++) {
         
         const loginSufixo = (tentativa === 1) ? '' : `_${tentativa}`;
         const login = `${novoClienteId}${loginSufixo}`;
@@ -390,6 +442,60 @@ async function abrirAtendimentoOS(novoClienteId: string, clientData: any, nomePl
     return ticketId.toString(); 
 }
 
+async function atualizarCliente(clientId: string, clientData: any, dataCadastro: string): Promise<void> {
+    console.log(`Iniciando Etapa 1.5: Atualização (PUT) do Cliente ID ${clientId}...`);
+    const today = dataCadastro.split(' ')[0];
+
+    const updatePayload = {
+        'ativo': 'S', 'tipo_pessoa': 'F', 'tipo_cliente_scm': '01', 'pais': 'Brasil',
+        'nacionalidade': 'Brasileiro', 'tipo_assinante': '3', 'id_tipo_cliente': '6',
+        'contribuinte_icms': 'N', 'filial_id': '3', 'filtra_filial': 'S', 'tipo_localidade': 'U',
+        'acesso_automatico_central': 'P', 'alterar_senha_primeiro_acesso': 'P', 'senha_hotsite_md5': 'N',
+        'hotsite_acesso': '0', 'crm': 'S', 'status_prospeccao': 'V', 'cadastrado_via_viabilidade': 'N',
+        'participa_cobranca': 'S', 'participa_pre_cobranca': 'S', 'cob_envia_email': 'S',
+        'cob_envia_sms': 'S', 'tipo_pessoa_titular_conta': 'F', 'orgao_publico': 'N',
+        'iss_classificacao_padrao': '99', 'data_cadastro': today, 'ultima_atualizacao': dataCadastro,
+        'hotsite_email': clientData.cnpj_cpf.replace(/\D/g,''),
+        'senha': clientData.cnpj_cpf.replace(/\D/g,''),
+        'razao': clientData.nome,
+        'cnpj_cpf': formatarCPF(clientData.cnpj_cpf),
+        
+        'ie_identidade': clientData.ie_identidade,
+        'data_nascimento': formatarDataNasParaDMY(clientData.data_nascimento),
+        'fone': clientData.telefone_celular,
+        'telefone_celular': clientData.telefone_celular,
+        'whatsapp': clientData.whatsapp,
+        'email': clientData.email,
+        
+        // Endereço
+        'cep': clientData.cep,
+        'endereco': clientData.endereco,
+        'numero': clientData.numero,
+        'complemento': clientData.complemento,
+        'bairro': clientData.bairro,
+        'cidade': clientData.cidade,
+        'uf': clientData.uf,
+        'bloco': clientData.bloco,
+        'apartamento': clientData.apartamento,
+        'referencia': clientData.referencia,
+        'id_condominio': clientData.id_condominio
+    };
+
+    const updateResponse = await makeIxcRequest(
+        'PUT',
+        `/cliente/${clientId}`, 
+        updatePayload,
+        'alterar' 
+    ); 
+
+    console.log("Resposta da API IXC (Etapa 1.5 - Update):", updateResponse);
+    if (!updateResponse || (updateResponse.message && !updateResponse.message.includes('sucesso'))) {
+        console.warn(`Aviso na Etapa 1.5: ${updateResponse.message || 'Resposta inesperada.'}`);
+    }
+    
+    console.log(`Etapa 1.5 OK: Cliente ID ${clientId} atualizado.`);
+}
+
 router.post('/cliente', async (req, res) => {
     const { existingClientId, ...clientData } = req.body; 
     const dataCadastro = getIxcDate();
@@ -409,9 +515,10 @@ router.post('/cliente', async (req, res) => {
         if (existingClientId) {
             console.log(`Cliente ID ${existingClientId} fornecido. Pulando Etapa 1.`);
             novoClienteId = existingClientId;
+            await atualizarCliente(novoClienteId, clientData, dataCadastro);
         } else {
             console.log("Nenhum Cliente ID fornecido. Executando Etapa 1 (Cadastro de Cliente)...");
-            novoClienteId = await cadastrarCliente(clientData, dataCadastro); // Esta linha falhará se o CPF existir
+            novoClienteId = await cadastrarCliente(clientData, dataCadastro);
         }
         const novoContratoId = await criarContrato(novoClienteId, clientData, dataCadastro, nomePlano);
         const novoLoginId = await criarLogin(novoClienteId, novoContratoId, clientData, dataCadastro);
@@ -432,6 +539,143 @@ router.post('/cliente', async (req, res) => {
             success: false,
             error: error.message 
         });
+    }
+});
+
+router.post('/consultar-cliente', async (req, res) => {
+    const { cnpj_cpf } = req.body;
+    
+    if (!cnpj_cpf) {
+        return res.status(400).json({ error: 'CNPJ/CPF é obrigatório.' });
+    }
+
+    try {
+        const clientePayload = {
+            qtype: "cliente.cnpj_cpf",
+            query: cnpj_cpf,
+            oper: "=",
+            page: "1",
+            rp: "1",
+            sortname: "cliente.id",
+            sortorder: "asc"
+        };
+        
+        console.log("Consultando cliente:", clientePayload);
+        const clienteResponse = await makeIxcRequest('POST', '/cliente', clientePayload);
+
+        if (!clienteResponse || clienteResponse.total === 0 || clienteResponse.total === "0") {
+            console.log("Cliente não encontrado.");
+            return res.json({ cliente: null, contratos: [], contratosComAtraso: [] });
+        }
+
+        const cliente = clienteResponse.registros[0];
+        console.log(`Cliente encontrado: ID ${cliente.id}`);
+
+        const contratoPayload = {
+            qtype: "cliente_contrato.id_cliente",
+            query: cliente.id,
+            oper: "=",
+            page: "1",
+            rp: "200",
+            sortname: "cliente_contrato.id",
+            sortorder: "desc"
+        };
+        
+        console.log("Consultando contratos:", contratoPayload);
+        const contratoResponse = await makeIxcRequest('POST', '/cliente_contrato', contratoPayload);
+        const contratos = (contratoResponse && contratoResponse.registros) ? contratoResponse.registros : [];
+        console.log(`Encontrados ${contratos.length} contratos.`);
+        
+        const financeiroPayload = {
+            "qtype": "fn_areceber.id_cliente",
+            "query": cliente.id,
+            "oper": "=",
+            "rp": "2000",
+            "sortname": "fn_areceber.data_vencimento",
+            "sortorder": "asc",
+            "grid_param": JSON.stringify([
+                {"TB":"fn_areceber.liberado", "OP" : "=", "P" : "S"},
+                {"TB":"fn_areceber.status", "OP" : "!=", "P" : "C"},
+                {"TB":"fn_areceber.status", "OP" : "!=", "P" : "R"}
+            ])
+        };
+
+        console.log("Consultando financeiro:", financeiroPayload);
+        const financeiroResponse = await makeIxcRequest('POST', '/fn_areceber', financeiroPayload);
+        
+        const contratosComAtraso = new Set<string>();
+        const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+
+        if (financeiroResponse && financeiroResponse.total > 0) {
+            financeiroResponse.registros.forEach((titulo: any) => {
+                const vencimento = new Date(titulo.data_vencimento);
+                if (titulo.id_contrato && vencimento < hoje) {
+                    contratosComAtraso.add(titulo.id_contrato);
+                }
+            });
+        }
+        console.log(`Contratos com atraso: ${Array.from(contratosComAtraso)}`);
+
+        res.json({ 
+            cliente, 
+            contratos, 
+            contratosComAtraso: Array.from(contratosComAtraso) 
+        });
+
+    } catch (error) {
+        console.error("Erro ao consultar cliente:", error.message);
+        res.status(500).json({ error: `Erro ao consultar cliente: ${error.message}` });
+    }
+});
+
+router.post('/consultar-endereco', async (req, res) => {
+    const { cep, numero } = req.body;
+
+    if (!cep) {
+        return res.status(400).json({ error: 'O CEP é obrigatório.' });
+    }
+
+    try {
+        const payload: any = {
+            qtype: "cliente.cep",
+            query: `${cep}`,
+            oper: "=",
+            page: "1",
+            rp: "20",
+            sortname: "cliente.id",
+            sortorder: "asc"
+        };
+        
+        if (numero && numero.trim() !== '') {
+            payload.grid_param = JSON.stringify([
+                {"TB":"cliente.numero", "OP" : "=", "P" : numero}
+            ]);
+        }
+
+        console.log("Consultando por CEP + Número:", payload);
+        const response = await makeIxcRequest('POST', '/cliente', payload);
+
+        if (response && response.registros && response.registros.length > 0) {
+            
+            const clientesComStatus = await Promise.all(
+                response.registros.map(async (cliente: any) => {
+                    const temAtraso = await getFinancialStatus(cliente.id);
+                    return {
+                        ...cliente,
+                        tem_atraso: temAtraso
+                    };
+                })
+            );
+            res.json(clientesComStatus);
+
+        } else {
+            res.json(response.registros || []);
+        }
+
+    } catch (error) {
+        console.error("Erro ao consultar por endereço:", error.message);
+        res.status(500).json({ error: `Erro ao consultar endereço: ${error.message}` });
     }
 });
 

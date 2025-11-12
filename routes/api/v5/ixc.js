@@ -1,4 +1,15 @@
 "use strict";
+var __assign = (this && this.__assign) || function () {
+    __assign = Object.assign || function(t) {
+        for (var s, i = 1, n = arguments.length; i < n; i++) {
+            s = arguments[i];
+            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
+                t[p] = s[p];
+        }
+        return t;
+    };
+    return __assign.apply(this, arguments);
+};
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -149,8 +160,72 @@ function formatarCPF(cpf) {
         return cpf;
     return cpfLimpo.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
 }
+function formatarDataNasParaDMY(dataYMD) {
+    if (!dataYMD || dataYMD.length !== 10)
+        return dataYMD;
+    try {
+        var _a = dataYMD.split('-'), year = _a[0], month = _a[1], day = _a[2];
+        if (!year || !month || !day)
+            return dataYMD;
+        return "".concat(day, "-").concat(month, "-").concat(year);
+    }
+    catch (e) {
+        console.error("Erro ao formatar data_nascimento:", e);
+        return dataYMD;
+    }
+}
+function getFinancialStatus(clientId) {
+    return __awaiter(this, void 0, void 0, function () {
+        var financeiroPayload, financeiroResponse, hoje, _i, _a, titulo, vencimento, error_2;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
+                case 0:
+                    financeiroPayload = {
+                        "qtype": "fn_areceber.id_cliente",
+                        "query": clientId,
+                        "oper": "=",
+                        "rp": "500",
+                        "sortname": "fn_areceber.data_vencimento",
+                        "sortorder": "asc",
+                        "grid_param": JSON.stringify([
+                            { "TB": "fn_areceber.liberado", "OP": "=", "P": "S" },
+                            { "TB": "fn_areceber.status", "OP": "!=", "P": "C" },
+                            { "TB": "fn_areceber.status", "OP": "!=", "P": "R" }
+                        ])
+                    };
+                    _b.label = 1;
+                case 1:
+                    _b.trys.push([1, 3, , 4]);
+                    console.log("Verificando financeiro do ID: ".concat(clientId));
+                    return [4 /*yield*/, makeIxcRequest('POST', '/fn_areceber', financeiroPayload)];
+                case 2:
+                    financeiroResponse = _b.sent();
+                    hoje = new Date();
+                    hoje.setHours(0, 0, 0, 0);
+                    if (financeiroResponse && financeiroResponse.total > 0) {
+                        for (_i = 0, _a = financeiroResponse.registros; _i < _a.length; _i++) {
+                            titulo = _a[_i];
+                            vencimento = new Date(titulo.data_vencimento);
+                            if (vencimento < hoje) {
+                                console.log("Cliente ".concat(clientId, " POSSUI atraso."));
+                                return [2 /*return*/, true];
+                            }
+                        }
+                    }
+                    return [3 /*break*/, 4];
+                case 3:
+                    error_2 = _b.sent();
+                    console.error("Erro ao verificar financeiro do cliente ".concat(clientId, ":"), error_2.message);
+                    return [2 /*return*/, false];
+                case 4:
+                    console.log("Cliente ".concat(clientId, " N\u00C2O possui atraso."));
+                    return [2 /*return*/, false];
+            }
+        });
+    });
+}
 router.get('/vendedores', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var params, ixcResponse, vendedores, error_2;
+    var params, ixcResponse, vendedores, error_3;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
@@ -165,15 +240,15 @@ router.get('/vendedores', function (req, res) { return __awaiter(void 0, void 0,
                 res.json(vendedores);
                 return [3 /*break*/, 3];
             case 2:
-                error_2 = _a.sent();
-                res.status(500).json({ error: error_2.message });
+                error_3 = _a.sent();
+                res.status(500).json({ error: error_3.message });
                 return [3 /*break*/, 3];
             case 3: return [2 /*return*/];
         }
     });
 }); });
 router.get('/planos-home', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var params, ixcResponse, planosHome, error_3;
+    var params, ixcResponse, planosHome, error_4;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
@@ -190,8 +265,8 @@ router.get('/planos-home', function (req, res) { return __awaiter(void 0, void 0
                 res.json(planosHome);
                 return [3 /*break*/, 3];
             case 2:
-                error_3 = _a.sent();
-                res.status(500).json({ error: error_3.message });
+                error_4 = _a.sent();
+                res.status(500).json({ error: error_4.message });
                 return [3 /*break*/, 3];
             case 3: return [2 /*return*/];
         }
@@ -216,7 +291,7 @@ function cadastrarCliente(clientData, dataCadastro) {
                         'iss_classificacao_padrao': '99', 'data_cadastro': today, 'ultima_atualizacao': dataCadastro,
                         'razao': clientData.nome,
                         'cnpj_cpf': formatarCPF(clientData.cnpj_cpf),
-                        'ie_identidade': clientData.ie_identidade, 'data_nascimento': clientData.data_nascimento,
+                        'ie_identidade': clientData.ie_identidade, 'data_nascimento': formatarDataNasParaDMY(clientData.data_nascimento),
                         'fone': clientData.telefone_celular, 'telefone_celular': clientData.telefone_celular,
                         'whatsapp': clientData.whatsapp, 'email': clientData.email,
                         'cep': clientData.cep,
@@ -330,7 +405,7 @@ var getGrupoRadiusPorPlano = function (idPlano) {
 };
 function criarLogin(novoClienteId, novoContratoId, clientData, dataCadastro) {
     return __awaiter(this, void 0, void 0, function () {
-        var idGrupoRadius, tentativa, loginSufixo, login, senha, loginPayload, loginResponse, errorMessage, error_4;
+        var idGrupoRadius, tentativa, loginSufixo, login, senha, loginPayload, loginResponse, errorMessage, error_5;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -338,7 +413,7 @@ function criarLogin(novoClienteId, novoContratoId, clientData, dataCadastro) {
                     tentativa = 1;
                     _a.label = 1;
                 case 1:
-                    if (!(tentativa <= 10)) return [3 /*break*/, 6];
+                    if (!(tentativa <= 50)) return [3 /*break*/, 6];
                     loginSufixo = (tentativa === 1) ? '' : "_".concat(tentativa);
                     login = "".concat(novoClienteId).concat(loginSufixo);
                     senha = "ivp@".concat(login);
@@ -390,12 +465,12 @@ function criarLogin(novoClienteId, novoContratoId, clientData, dataCadastro) {
                     }
                     return [3 /*break*/, 5];
                 case 4:
-                    error_4 = _a.sent();
-                    if (error_4.message && error_4.message.includes("Login já existe!")) {
+                    error_5 = _a.sent();
+                    if (error_5.message && error_5.message.includes("Login já existe!")) {
                         console.log("Login '".concat(login, "' j\u00E1 existe (erro capturado). Tentando pr\u00F3ximo..."));
                     }
                     else {
-                        throw error_4;
+                        throw error_5;
                     }
                     return [3 /*break*/, 5];
                 case 5:
@@ -465,8 +540,61 @@ function abrirAtendimentoOS(novoClienteId, clientData, nomePlano, novoLoginId, n
         });
     });
 }
+function atualizarCliente(clientId, clientData, dataCadastro) {
+    return __awaiter(this, void 0, void 0, function () {
+        var today, updatePayload, updateResponse;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    console.log("Iniciando Etapa 1.5: Atualiza\u00E7\u00E3o (PUT) do Cliente ID ".concat(clientId, "..."));
+                    today = dataCadastro.split(' ')[0];
+                    updatePayload = {
+                        'ativo': 'S', 'tipo_pessoa': 'F', 'tipo_cliente_scm': '01', 'pais': 'Brasil',
+                        'nacionalidade': 'Brasileiro', 'tipo_assinante': '3', 'id_tipo_cliente': '6',
+                        'contribuinte_icms': 'N', 'filial_id': '3', 'filtra_filial': 'S', 'tipo_localidade': 'U',
+                        'acesso_automatico_central': 'P', 'alterar_senha_primeiro_acesso': 'P', 'senha_hotsite_md5': 'N',
+                        'hotsite_acesso': '0', 'crm': 'S', 'status_prospeccao': 'V', 'cadastrado_via_viabilidade': 'N',
+                        'participa_cobranca': 'S', 'participa_pre_cobranca': 'S', 'cob_envia_email': 'S',
+                        'cob_envia_sms': 'S', 'tipo_pessoa_titular_conta': 'F', 'orgao_publico': 'N',
+                        'iss_classificacao_padrao': '99', 'data_cadastro': today, 'ultima_atualizacao': dataCadastro,
+                        'hotsite_email': clientData.cnpj_cpf.replace(/\D/g, ''),
+                        'senha': clientData.cnpj_cpf.replace(/\D/g, ''),
+                        'razao': clientData.nome,
+                        'cnpj_cpf': formatarCPF(clientData.cnpj_cpf),
+                        'ie_identidade': clientData.ie_identidade,
+                        'data_nascimento': formatarDataNasParaDMY(clientData.data_nascimento),
+                        'fone': clientData.telefone_celular,
+                        'telefone_celular': clientData.telefone_celular,
+                        'whatsapp': clientData.whatsapp,
+                        'email': clientData.email,
+                        // Endereço
+                        'cep': clientData.cep,
+                        'endereco': clientData.endereco,
+                        'numero': clientData.numero,
+                        'complemento': clientData.complemento,
+                        'bairro': clientData.bairro,
+                        'cidade': clientData.cidade,
+                        'uf': clientData.uf,
+                        'bloco': clientData.bloco,
+                        'apartamento': clientData.apartamento,
+                        'referencia': clientData.referencia,
+                        'id_condominio': clientData.id_condominio
+                    };
+                    return [4 /*yield*/, makeIxcRequest('PUT', "/cliente/".concat(clientId), updatePayload, 'alterar')];
+                case 1:
+                    updateResponse = _a.sent();
+                    console.log("Resposta da API IXC (Etapa 1.5 - Update):", updateResponse);
+                    if (!updateResponse || (updateResponse.message && !updateResponse.message.includes('sucesso'))) {
+                        console.warn("Aviso na Etapa 1.5: ".concat(updateResponse.message || 'Resposta inesperada.'));
+                    }
+                    console.log("Etapa 1.5 OK: Cliente ID ".concat(clientId, " atualizado."));
+                    return [2 /*return*/];
+            }
+        });
+    });
+}
 router.post('/cliente', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var _a, existingClientId, clientData, dataCadastro, novoClienteId, nomePlano, planoInfo, e_1, novoContratoId, novoLoginId, novoTicketId, error_5;
+    var _a, existingClientId, clientData, dataCadastro, novoClienteId, nomePlano, planoInfo, e_1, novoContratoId, novoLoginId, novoTicketId, error_6;
     return __generator(this, function (_b) {
         switch (_b.label) {
             case 0:
@@ -474,7 +602,7 @@ router.post('/cliente', function (req, res) { return __awaiter(void 0, void 0, v
                 dataCadastro = getIxcDate();
                 _b.label = 1;
             case 1:
-                _b.trys.push([1, 12, , 13]);
+                _b.trys.push([1, 13, , 14]);
                 nomePlano = "ID ".concat(clientData.id_plano_ixc);
                 _b.label = 2;
             case 2:
@@ -491,24 +619,27 @@ router.post('/cliente', function (req, res) { return __awaiter(void 0, void 0, v
                 console.warn("Aviso: N\u00E3o foi poss\u00EDvel buscar o nome do plano ".concat(clientData.id_plano_ixc, ". Usando ID."));
                 return [3 /*break*/, 5];
             case 5:
-                if (!existingClientId) return [3 /*break*/, 6];
+                if (!existingClientId) return [3 /*break*/, 7];
                 console.log("Cliente ID ".concat(existingClientId, " fornecido. Pulando Etapa 1."));
                 novoClienteId = existingClientId;
-                return [3 /*break*/, 8];
+                return [4 /*yield*/, atualizarCliente(novoClienteId, clientData, dataCadastro)];
             case 6:
+                _b.sent();
+                return [3 /*break*/, 9];
+            case 7:
                 console.log("Nenhum Cliente ID fornecido. Executando Etapa 1 (Cadastro de Cliente)...");
                 return [4 /*yield*/, cadastrarCliente(clientData, dataCadastro)];
-            case 7:
-                novoClienteId = _b.sent(); // Esta linha falhará se o CPF existir
-                _b.label = 8;
-            case 8: return [4 /*yield*/, criarContrato(novoClienteId, clientData, dataCadastro, nomePlano)];
-            case 9:
+            case 8:
+                novoClienteId = _b.sent();
+                _b.label = 9;
+            case 9: return [4 /*yield*/, criarContrato(novoClienteId, clientData, dataCadastro, nomePlano)];
+            case 10:
                 novoContratoId = _b.sent();
                 return [4 /*yield*/, criarLogin(novoClienteId, novoContratoId, clientData, dataCadastro)];
-            case 10:
+            case 11:
                 novoLoginId = _b.sent();
                 return [4 /*yield*/, abrirAtendimentoOS(novoClienteId, clientData, nomePlano, novoLoginId, novoContratoId)];
-            case 11:
+            case 12:
                 novoTicketId = _b.sent();
                 res.status(201).json({
                     success: true,
@@ -518,16 +649,165 @@ router.post('/cliente', function (req, res) { return __awaiter(void 0, void 0, v
                     loginId: novoLoginId,
                     ticketId: novoTicketId
                 });
-                return [3 /*break*/, 13];
-            case 12:
-                error_5 = _b.sent();
-                console.error('Erro no fluxo de cadastro:', error_5);
+                return [3 /*break*/, 14];
+            case 13:
+                error_6 = _b.sent();
+                console.error('Erro no fluxo de cadastro:', error_6);
                 res.status(500).json({
                     success: false,
-                    error: error_5.message
+                    error: error_6.message
                 });
-                return [3 /*break*/, 13];
-            case 13: return [2 /*return*/];
+                return [3 /*break*/, 14];
+            case 14: return [2 /*return*/];
+        }
+    });
+}); });
+router.post('/consultar-cliente', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var cnpj_cpf, clientePayload, clienteResponse, cliente, contratoPayload, contratoResponse, contratos, financeiroPayload, financeiroResponse, contratosComAtraso_1, hoje_1, error_7;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                cnpj_cpf = req.body.cnpj_cpf;
+                if (!cnpj_cpf) {
+                    return [2 /*return*/, res.status(400).json({ error: 'CNPJ/CPF é obrigatório.' })];
+                }
+                _a.label = 1;
+            case 1:
+                _a.trys.push([1, 5, , 6]);
+                clientePayload = {
+                    qtype: "cliente.cnpj_cpf",
+                    query: cnpj_cpf,
+                    oper: "=",
+                    page: "1",
+                    rp: "1",
+                    sortname: "cliente.id",
+                    sortorder: "asc"
+                };
+                console.log("Consultando cliente:", clientePayload);
+                return [4 /*yield*/, makeIxcRequest('POST', '/cliente', clientePayload)];
+            case 2:
+                clienteResponse = _a.sent();
+                if (!clienteResponse || clienteResponse.total === 0 || clienteResponse.total === "0") {
+                    console.log("Cliente não encontrado.");
+                    return [2 /*return*/, res.json({ cliente: null, contratos: [], contratosComAtraso: [] })];
+                }
+                cliente = clienteResponse.registros[0];
+                console.log("Cliente encontrado: ID ".concat(cliente.id));
+                contratoPayload = {
+                    qtype: "cliente_contrato.id_cliente",
+                    query: cliente.id,
+                    oper: "=",
+                    page: "1",
+                    rp: "200",
+                    sortname: "cliente_contrato.id",
+                    sortorder: "desc"
+                };
+                console.log("Consultando contratos:", contratoPayload);
+                return [4 /*yield*/, makeIxcRequest('POST', '/cliente_contrato', contratoPayload)];
+            case 3:
+                contratoResponse = _a.sent();
+                contratos = (contratoResponse && contratoResponse.registros) ? contratoResponse.registros : [];
+                console.log("Encontrados ".concat(contratos.length, " contratos."));
+                financeiroPayload = {
+                    "qtype": "fn_areceber.id_cliente",
+                    "query": cliente.id,
+                    "oper": "=",
+                    "rp": "2000",
+                    "sortname": "fn_areceber.data_vencimento",
+                    "sortorder": "asc",
+                    "grid_param": JSON.stringify([
+                        { "TB": "fn_areceber.liberado", "OP": "=", "P": "S" },
+                        { "TB": "fn_areceber.status", "OP": "!=", "P": "C" },
+                        { "TB": "fn_areceber.status", "OP": "!=", "P": "R" }
+                    ])
+                };
+                console.log("Consultando financeiro:", financeiroPayload);
+                return [4 /*yield*/, makeIxcRequest('POST', '/fn_areceber', financeiroPayload)];
+            case 4:
+                financeiroResponse = _a.sent();
+                contratosComAtraso_1 = new Set();
+                hoje_1 = new Date();
+                hoje_1.setHours(0, 0, 0, 0);
+                if (financeiroResponse && financeiroResponse.total > 0) {
+                    financeiroResponse.registros.forEach(function (titulo) {
+                        var vencimento = new Date(titulo.data_vencimento);
+                        if (titulo.id_contrato && vencimento < hoje_1) {
+                            contratosComAtraso_1.add(titulo.id_contrato);
+                        }
+                    });
+                }
+                console.log("Contratos com atraso: ".concat(Array.from(contratosComAtraso_1)));
+                res.json({
+                    cliente: cliente,
+                    contratos: contratos,
+                    contratosComAtraso: Array.from(contratosComAtraso_1)
+                });
+                return [3 /*break*/, 6];
+            case 5:
+                error_7 = _a.sent();
+                console.error("Erro ao consultar cliente:", error_7.message);
+                res.status(500).json({ error: "Erro ao consultar cliente: ".concat(error_7.message) });
+                return [3 /*break*/, 6];
+            case 6: return [2 /*return*/];
+        }
+    });
+}); });
+router.post('/consultar-endereco', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var _a, cep, numero, payload, response, clientesComStatus, error_8;
+    return __generator(this, function (_b) {
+        switch (_b.label) {
+            case 0:
+                _a = req.body, cep = _a.cep, numero = _a.numero;
+                if (!cep) {
+                    return [2 /*return*/, res.status(400).json({ error: 'O CEP é obrigatório.' })];
+                }
+                _b.label = 1;
+            case 1:
+                _b.trys.push([1, 6, , 7]);
+                payload = {
+                    qtype: "cliente.cep",
+                    query: "".concat(cep),
+                    oper: "=",
+                    page: "1",
+                    rp: "20",
+                    sortname: "cliente.id",
+                    sortorder: "asc"
+                };
+                if (numero && numero.trim() !== '') {
+                    payload.grid_param = JSON.stringify([
+                        { "TB": "cliente.numero", "OP": "=", "P": numero }
+                    ]);
+                }
+                console.log("Consultando por CEP + Número:", payload);
+                return [4 /*yield*/, makeIxcRequest('POST', '/cliente', payload)];
+            case 2:
+                response = _b.sent();
+                if (!(response && response.registros && response.registros.length > 0)) return [3 /*break*/, 4];
+                return [4 /*yield*/, Promise.all(response.registros.map(function (cliente) { return __awaiter(void 0, void 0, void 0, function () {
+                        var temAtraso;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0: return [4 /*yield*/, getFinancialStatus(cliente.id)];
+                                case 1:
+                                    temAtraso = _a.sent();
+                                    return [2 /*return*/, __assign(__assign({}, cliente), { tem_atraso: temAtraso })];
+                            }
+                        });
+                    }); }))];
+            case 3:
+                clientesComStatus = _b.sent();
+                res.json(clientesComStatus);
+                return [3 /*break*/, 5];
+            case 4:
+                res.json(response.registros || []);
+                _b.label = 5;
+            case 5: return [3 /*break*/, 7];
+            case 6:
+                error_8 = _b.sent();
+                console.error("Erro ao consultar por endereço:", error_8.message);
+                res.status(500).json({ error: "Erro ao consultar endere\u00E7o: ".concat(error_8.message) });
+                return [3 /*break*/, 7];
+            case 7: return [2 /*return*/];
         }
     });
 }); });
