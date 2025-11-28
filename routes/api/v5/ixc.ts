@@ -171,20 +171,42 @@ router.get('/planos-home', async (req, res) => {
     }
 });
 
+router.get('/planos-ativos', async (req, res) => {
+    try {
+        const params = { qtype: 'vd_contratos.Ativo', query: 'S', oper: '=', page: '1', rp: '5000', sortname: 'vd_contratos.nome', sortorder: 'asc' };
+        const ixcResponse = await makeIxcRequest('POST', '/vd_contratos', params);
+        if (!ixcResponse || !ixcResponse.registros) throw new Error("Resposta inesperada da API IXC para planos.");
+        
+        const todosPlanos = ixcResponse.registros.map((plano: any) => ({ 
+            id: plano.id, 
+            nome: plano.nome,
+            valor_contrato: parseFloat(plano.valor_contrato || 0)
+        }));
+        
+        res.json(todosPlanos);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 async function cadastrarCliente(clientData: any, dataCadastro: string): Promise<string> {
     console.log("Iniciando Etapa 1: Cadastro do Cliente...");
     const today = dataCadastro.split(' ')[0];
     
     const clientePayload = {
-        'ativo': 'S', 'tipo_pessoa': 'F', 'tipo_cliente_scm': '01', 'pais': 'Brasil',
-        'nacionalidade': 'Brasileiro', 'tipo_assinante': '3', 'id_tipo_cliente': '6',
+        'ativo': 'S', 'pais': 'Brasil',
+        'nacionalidade': 'Brasileiro',
         'contribuinte_icms': 'N', 'filial_id': '3', 'filtra_filial': 'S', 'tipo_localidade': 'U',
         'acesso_automatico_central': 'P', 'alterar_senha_primeiro_acesso': 'P', 'senha_hotsite_md5': 'N',
         'hotsite_acesso': '0', 'crm': 'S', 'status_prospeccao': 'V', 'cadastrado_via_viabilidade': 'N',
         'participa_cobranca': 'S', 'participa_pre_cobranca': 'S', 'cob_envia_email': 'S',
         'cob_envia_sms': 'S', 'tipo_pessoa_titular_conta': 'F', 'orgao_publico': 'N',
         'iss_classificacao_padrao': '99', 'data_cadastro': today, 'ultima_atualizacao': dataCadastro,
-        'razao': clientData.nome, 
+        'tipo_pessoa': clientData.tipo_pessoa,
+        'tipo_cliente_scm': clientData.tipo_cliente_scm,
+        'id_tipo_cliente': clientData.id_tipo_cliente,
+        'tipo_assinante': clientData.tipo_assinante,
+        'razao': clientData.nome,
         'cnpj_cpf': formatarCPF(clientData.cnpj_cpf),
         'ie_identidade': clientData.ie_identidade, 'data_nascimento': formatarDataNasParaDMY(clientData.data_nascimento),
         'fone': clientData.telefone_celular, 'telefone_celular': clientData.telefone_celular,
@@ -235,7 +257,7 @@ async function criarContrato(novoClienteId: string, clientData: any, dataCadastr
         'referencia': clientData.referencia,
         'id_condominio': clientData.id_condominio,
         'tipo': 'I',
-        'id_filial': '3',
+        'id_filial': clientData.id_filial,
         'data_assinatura': today,
         'data': getIxcDateDMY(),
         'status': 'P',
@@ -246,12 +268,12 @@ async function criarContrato(novoClienteId: string, clientData: any, dataCadastr
         'id_tipo_contrato': idTipoContrato,
         'id_modelo': idModelo,
         'id_tipo_documento': '501',
-        'id_carteira_cobranca': '11',
+        'id_carteira_cobranca': clientData.id_carteira_cobranca,
         'cc_previsao': 'P',
         'tipo_cobranca': 'P',
         'renovacao_automatica': 'S',
         'base_geracao_tipo_doc': 'P',
-        'bloqueio_automatico': 'S',
+        'bloqueio_automatico': clientData.bloqueio_automatico,
         'aviso_atraso': 'S',
         'fidelidade': '12',
         'ultima_atualizacao': dataCadastro,
@@ -288,7 +310,63 @@ const getGrupoRadiusPorPlano = (idPlano: string): string => {
         '7887': '3346',
         '8001': '6381',
         '8000': '6426',
-        '7999': '6561'
+        '7999': '6561',
+        '7986': '6562',
+        '7988': '10248', 
+        '7989': '10251', 
+        '7813': '3270', 
+        '7891': '6350', 
+        '7803': '3260', 
+        '6597': '2050', 
+        '51': '2034', 
+        '6598': '2051', 
+        '6599': '2052', 
+        '7951': '6507', 
+        '7821': '9092', 
+        '7948': '9354', 
+        '6': '11004', 
+        '6601': '6652', 
+        '7992': '10958', 
+        '7945': '9348', 
+        '7949': '9356', 
+        '7929': '9316', 
+        '6446': '6446', 
+        '7793': '9036', 
+        '7894': '9242', 
+        '7873': '9198', 
+        '7934': '9327', 
+        '7944': '9346', 
+        '7870': '9192', 
+        '7942': '9342', 
+        '7895': '9244', 
+        '7933': '9324', 
+        '7809': '9068', 
+        '7892': '9238', 
+        '7930': '9318', 
+        '7806': '9062', 
+        '7919': '9294', 
+        '7922': '9300', 
+        '7931': '9320', 
+        '7815': '9080', 
+        '7937': '9332', 
+        '7946': '9350', 
+        '7938': '9334', 
+        '7939': '9336', 
+        '7940': '9338', 
+        '7941': '9340', 
+        '7920': '9296', 
+        '7796': '9042', 
+        '7804': '9058', 
+        '7910': '9275', 
+        '7904': '9262', 
+        '7883': '9218', 
+        '7911': '9277', 
+        '7893': '9240', 
+        '7912': '9279', 
+        '7928': '9314', 
+        '7927': '9312', 
+        '7913': '9281', 
+        '7985': '9880'
     };
     
     return map[idPlano]; 
@@ -302,7 +380,7 @@ async function criarLogin(novoClienteId: string, novoContratoId: string, clientD
         
         const loginSufixo = (tentativa === 1) ? '' : `_${tentativa}`;
         const login = `${novoClienteId}${loginSufixo}`;
-        const senha = `ivp@${login}`;
+        const senha = `ivp@${novoClienteId}`;
 
         console.log(`Iniciando Etapa 3 (Tentativa ${tentativa}): Criação do Login PPPoE '${login}'...`);
 
@@ -316,7 +394,7 @@ async function criarLogin(novoClienteId: string, novoContratoId: string, clientD
             'bairro': clientData.bairro, 'cidade': clientData.cidade, 'complemento': clientData.complemento,
             'bloco': clientData.bloco, 'apartamento': clientData.apartamento,
             'referencia': clientData.referencia, 'id_condominio': clientData.id_condominio,
-            'id_filial': '3', 
+            'id_filial': clientData.id_filial, 
             'ativo': 'S',
             'autenticacao': 'L',
             'login_simultaneo': '1',
@@ -389,7 +467,7 @@ Venda finalizada com sucesso! Cliente, Contrato, Login, Atendimento e OS criados
 OBS: ${data.obs || 'Não informado'}
 
 NOME COMPLETO: ${data.nome}
-NÚMERO DO CPF: ${cpfLimpo}
+NÚMERO DO CPF/CNPJ: ${cpfLimpo}
 NÚMERO DO RG: ${data.ie_identidade}
 DATA DE NASCIMENTO: ${data.data_nascimento}
 DOIS TELEFONES DE CONTATO: ${telefones || 'Não informado'}
@@ -407,17 +485,17 @@ async function abrirAtendimentoOS(novoClienteId: string, clientData: any, nomePl
 
     const atendimentoPayload = {
         "id_cliente": novoClienteId,
-        "assunto_ticket": "1",
-        "id_assunto": "1",
-        "id_wfl_processo": "3",
-        "titulo": "INSTALAÇÃO - BANDA LARGA",
+        "assunto_ticket": clientData.assunto_ticket,
+        "id_assunto": clientData.id_assunto,
+        "id_wfl_processo": clientData.id_wfl_processo,
+        "titulo": clientData.titulo_atendimento,
         "origem_endereco": "CC", 
         "status": "OSAB",       
         "su_status": "EP",      
         "id_ticket_setor": "4", 
         "prioridade": "M",      
         "id_responsavel_tecnico": "138",
-        "id_filial": "3",       
+        "id_filial": clientData.id_filial,       
         "id_usuarios": "61",    
         "tipo": "C", 
         "menssagem": mensagem_padrao,
@@ -447,8 +525,8 @@ async function atualizarCliente(clientId: string, clientData: any, dataCadastro:
     const today = dataCadastro.split(' ')[0];
 
     const updatePayload = {
-        'ativo': 'S', 'tipo_pessoa': 'F', 'tipo_cliente_scm': '01', 'pais': 'Brasil',
-        'nacionalidade': 'Brasileiro', 'tipo_assinante': '3', 'id_tipo_cliente': '6',
+        'ativo': 'S', 'tipo_pessoa': 'F', 'tipo_cliente_scm': clientData.tipo_cliente_scm, 'pais': 'Brasil',
+        'nacionalidade': 'Brasileiro', 'tipo_assinante': clientData.tipo_assinante, 'id_tipo_cliente': clientData.id_tipo_cliente,
         'contribuinte_icms': 'N', 'filial_id': '3', 'filtra_filial': 'S', 'tipo_localidade': 'U',
         'acesso_automatico_central': 'P', 'alterar_senha_primeiro_acesso': 'P', 'senha_hotsite_md5': 'N',
         'hotsite_acesso': '0', 'crm': 'S', 'status_prospeccao': 'V', 'cadastrado_via_viabilidade': 'N',
@@ -496,6 +574,103 @@ async function atualizarCliente(clientId: string, clientData: any, dataCadastro:
     console.log(`Etapa 1.5 OK: Cliente ID ${clientId} atualizado.`);
 }
 
+async function ajustarFinanceiroContrato(contratoId: string, valorAcordadoStr: string, idPlano: string) {
+    console.log(`Iniciando Etapa 5: Ajuste Financeiro no Contrato ${contratoId} (Plano Ref: ${idPlano})`);
+
+    if (!valorAcordadoStr || valorAcordadoStr.trim() === '') {
+        console.log("Nenhum valor acordado informado.");
+        return;
+    }
+
+    const valorAcordado = parseFloat(valorAcordadoStr.replace('R$ ', '').replace(/\./g, '').replace(',', '.'));
+    
+    if (isNaN(valorAcordado) || valorAcordado <= 0) {
+        console.log(`Valor acordado inválido: ${valorAcordadoStr}.`);
+        return;
+    }
+
+    const targetSCM = valorAcordado * 0.20; // 20% para SCM (Internet)
+    const targetSVA = valorAcordado * 0.80; // 80% para SVA (Serviços)
+
+    const produtosPayload = {
+        "qtype": "vd_contratos_produtos.id_vd_contrato",
+        "query": idPlano,
+        "oper": "=",
+        "page": "1",
+        "rp": "1000",
+        "sortname": "vd_contratos_produtos.id",
+        "sortorder": "desc"
+    };
+
+    try {
+        const produtosResponse = await makeIxcRequest('POST', '/vd_contratos_produtos', produtosPayload);
+
+        if (!produtosResponse || !produtosResponse.registros || produtosResponse.registros.length === 0) {
+            console.warn(`Nenhum produto encontrado no modelo do plano ${idPlano}.`);
+            return;
+        }
+
+        for (const produto of produtosResponse.registros) {
+            const valorOriginal = parseFloat(produto.valor_unit);
+            const descricaoProduto = produto.descricao ? produto.descricao.toUpperCase() : '';
+            
+            let diferenca = 0;
+            let tipoServico = '';
+            let targetValor = 0;
+
+            if (descricaoProduto.includes('SCM')) {
+                tipoServico = 'SCM';
+                targetValor = targetSCM;
+            } else if (descricaoProduto.includes('SVA')) {
+                tipoServico = 'SVA';
+                targetValor = targetSVA;
+            } else {
+                continue;
+            }
+
+            diferenca = targetValor - valorOriginal;
+
+            if (Math.abs(diferenca) < 0.01) {
+                console.log(`${tipoServico}: Valor original (${valorOriginal}) igual ao alvo. Sem ajustes.`);
+                continue;
+            }
+
+            const valorAbsoluto = Math.abs(diferenca);
+            const percentual = (valorAbsoluto / valorOriginal) * 100;
+
+            if (diferenca < 0) {
+                const descontoPayload = {
+                    "id_contrato": contratoId,
+                    "id_vd_contrato_produtos": produto.id,
+                    "descricao": `Desconto Comercial ${tipoServico}`,
+                    "valor": valorAbsoluto.toFixed(2),
+                    "data_validade": "", 
+                    "percentual": percentual.toString()
+                };
+
+                console.log(`Aplicando DESCONTO em ${tipoServico}:`, descontoPayload);
+                await makeIxcRequest('POST', '/cliente_contrato_descontos', descontoPayload);
+
+            } else {
+                const acrescimoPayload = {
+                    "id_contrato": contratoId,
+                    "id_vd_contrato_produtos": produto.id,
+                    "descricao": `Acréscimo Comercial ${tipoServico}`,
+                    "valor": valorAbsoluto.toFixed(2),
+                    "data_validade": "", 
+                    "percentual": percentual.toString()
+                };
+
+                console.log(`Aplicando ACRÉSCIMO em ${tipoServico}:`, acrescimoPayload);
+                await makeIxcRequest('POST', '/cliente_contrato_acrescimos', acrescimoPayload);
+            }
+        }
+
+    } catch (error) {
+        console.error(`Erro ao ajustar financeiro: ${error.message}`);
+    }
+}
+
 router.post('/cliente', async (req, res) => {
     const { existingClientId, ...clientData } = req.body; 
     const dataCadastro = getIxcDate();
@@ -539,6 +714,66 @@ router.post('/cliente', async (req, res) => {
             success: false,
             error: error.message 
         });
+    }
+});
+
+router.post('/cliente-corporativo', async (req, res) => {
+    const { existingClientId, ...clientData } = req.body; 
+    const dataCadastro = getIxcDate();
+    let novoClienteId: string;
+
+    try {
+        let nomePlano = `ID ${clientData.id_plano_ixc}`;
+        try {
+            const planoInfo = await makeIxcRequest('POST', `/vd_contratos`, { qtype: 'vd_contratos.id', query: clientData.id_plano_ixc, oper: '=' });
+            if (planoInfo && planoInfo.registros && planoInfo.registros.length > 0) {
+                nomePlano = planoInfo.registros[0].nome;
+            }
+        } catch (e) {
+            console.warn(`Aviso: Não foi possível buscar o nome do plano ${clientData.id_plano_ixc}. Usando ID.`);
+        }
+
+        if (existingClientId) {
+            novoClienteId = existingClientId;
+            await atualizarCliente(novoClienteId, clientData, dataCadastro);
+        } else {
+            try {
+                novoClienteId = await cadastrarCliente(clientData, dataCadastro);
+            } catch (error) {
+                const errorMsg = error.message || '';
+                if (errorMsg.includes('Este CNPJ/CPF já está Cadastrado') || errorMsg.includes('já está Cadastrado')) {
+                    const match = errorMsg.match(/ID:\s*(\d+)/);
+                    if (match && match[1]) {
+                        novoClienteId = match[1];
+                        console.log(`Cliente recuperado ID: ${novoClienteId}. Atualizando dados...`);
+                        await atualizarCliente(novoClienteId, clientData, dataCadastro);
+                    } else {
+                        throw error;
+                    }
+                } else {
+                    throw error;
+                }
+            }
+        }
+
+        const novoContratoId = await criarContrato(novoClienteId, clientData, dataCadastro, nomePlano);
+        const novoLoginId = await criarLogin(novoClienteId, novoContratoId, clientData, dataCadastro);
+        const novoTicketId = await abrirAtendimentoOS(novoClienteId, clientData, nomePlano, novoLoginId, novoContratoId);
+        
+        await ajustarFinanceiroContrato(novoContratoId, clientData.valor_acordado, clientData.id_plano_ixc);
+
+        res.status(201).json({
+            success: true,
+            message: "Venda finalizada com sucesso! " + (existingClientId ? "Cliente atualizado" : "Cliente processado") + ", Contrato, Login e Atendimento/OS criados.",
+            clienteId: novoClienteId,
+            contratoId: novoContratoId,
+            loginId: novoLoginId,
+            ticketId: novoTicketId
+        });
+
+    } catch (error) {
+        console.error('Erro no fluxo de cadastro corporativo:', error);
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 
