@@ -189,14 +189,19 @@ router.get('/planos-ativos', async (req, res) => {
     }
 });
 
-async function cadastrarCliente(clientData: any, dataCadastro: string): Promise<string> {
-    console.log("Iniciando Etapa 1: Cadastro do Cliente...");
+async function cadastrarCliente(clientData: any, dataCadastro: string, filialId: string = '3'): Promise<string> {
+    console.log(`Iniciando Etapa 1: Cadastro do Cliente (Filial ${filialId})...`);
     const today = dataCadastro.split(' ')[0];
+    const usaEnderecoCliente = clientData.cep_cliente && clientData.cep_cliente !== '';
     
     const clientePayload = {
         'ativo': 'S', 'pais': 'Brasil',
         'nacionalidade': 'Brasileiro',
-        'contribuinte_icms': 'N', 'filial_id': '3', 'filtra_filial': 'S', 'tipo_localidade': 'U',
+        'contribuinte_icms': 'N', 
+        
+        'filial_id': clientData.id_filial,
+        
+        'filtra_filial': 'S', 'tipo_localidade': 'U',
         'acesso_automatico_central': 'P', 'alterar_senha_primeiro_acesso': 'P', 'senha_hotsite_md5': 'N',
         'hotsite_acesso': '0', 'crm': 'S', 'status_prospeccao': 'V', 'cadastrado_via_viabilidade': 'N',
         'participa_cobranca': 'S', 'participa_pre_cobranca': 'S', 'cob_envia_email': 'S',
@@ -211,11 +216,22 @@ async function cadastrarCliente(clientData: any, dataCadastro: string): Promise<
         'ie_identidade': clientData.ie_identidade, 'data_nascimento': formatarDataNasParaDMY(clientData.data_nascimento),
         'fone': clientData.telefone_celular, 'telefone_celular': clientData.telefone_celular,
         'whatsapp': clientData.whatsapp, 'email': clientData.email, 
-        'cep': clientData.cep,
-        'endereco': clientData.endereco, 'numero': clientData.numero, 'complemento': clientData.complemento,
-        'bairro': clientData.bairro, 'cidade': clientData.cidade, 'uf': clientData.uf,
-        'bloco': clientData.bloco, 'apartamento': clientData.apartamento,
-        'referencia': clientData.referencia, 'id_condominio': clientData.id_condominio,
+
+        // Endereço de cliente (Matriz)
+        'cep': usaEnderecoCliente ? clientData.cep_cliente : clientData.cep,
+        'endereco': usaEnderecoCliente ? clientData.endereco_cliente : clientData.endereco,
+        'numero': usaEnderecoCliente ? clientData.numero_cliente : clientData.numero,
+        'complemento': usaEnderecoCliente ? clientData.complemento_cliente : clientData.complemento,
+        'bairro': usaEnderecoCliente ? clientData.bairro_cliente : clientData.bairro,
+        'cidade': usaEnderecoCliente ? clientData.cidade_cliente : clientData.cidade,
+        'uf': usaEnderecoCliente ? clientData.uf_cliente : clientData.uf,
+        
+        // Campos de instalação
+        'bloco': usaEnderecoCliente ? '' : clientData.bloco,
+        'apartamento': usaEnderecoCliente ? '' : clientData.apartamento,
+        'referencia': usaEnderecoCliente ? '' : clientData.referencia,
+        'id_condominio': clientData.id_condominio,
+        
         'id_vendedor': clientData.id_vendedor, 'obs': clientData.obs,
         'hotsite_email': clientData.cnpj_cpf.replace(/\D/g,''),
         'senha': clientData.cnpj_cpf.replace(/\D/g,'')
@@ -233,7 +249,20 @@ async function cadastrarCliente(clientData: any, dataCadastro: string): Promise<
     return clienteResponse.id;
 }
 
-async function criarContrato(novoClienteId: string, clientData: any, dataCadastro: string, nomePlano: string): Promise<string> {
+interface OpcoesContrato {
+    id_filial: string;
+    id_carteira_cobranca: string;
+    bloqueio_automatico: string;
+}
+
+async function criarContrato(
+    novoClienteId: string, 
+    clientData: any, 
+    dataCadastro: string, 
+    nomePlano: string, 
+    options: OpcoesContrato = { id_filial: '3', id_carteira_cobranca: '11', bloqueio_automatico: 'S' }
+): Promise<string> {
+    
     console.log("Iniciando Etapa 2: Criação do Contrato...");
     const today = dataCadastro.split(' ')[0];
     const idTipoContrato = getTipoContratoPorVencimento(clientData.data_vencimento);
@@ -246,6 +275,7 @@ async function criarContrato(novoClienteId: string, clientData: any, dataCadastr
         'dia_fixo_vencimento': clientData.data_vencimento,
         'obs': clientData.obs,
         'endereco_padrao_cliente': 'N',
+        
         'cep': clientData.cep,
         'endereco': clientData.endereco,
         'numero': clientData.numero,
@@ -256,8 +286,13 @@ async function criarContrato(novoClienteId: string, clientData: any, dataCadastr
         'apartamento': clientData.apartamento,
         'referencia': clientData.referencia,
         'id_condominio': clientData.id_condominio,
+        
         'tipo': 'I',
-        'id_filial': clientData.id_filial,
+        
+        'id_filial': options.id_filial,                     
+        'id_carteira_cobranca': options.id_carteira_cobranca, 
+        'bloqueio_automatico': options.bloqueio_automatico,   
+
         'data_assinatura': today,
         'data': getIxcDateDMY(),
         'status': 'P',
@@ -268,12 +303,10 @@ async function criarContrato(novoClienteId: string, clientData: any, dataCadastr
         'id_tipo_contrato': idTipoContrato,
         'id_modelo': idModelo,
         'id_tipo_documento': '501',
-        'id_carteira_cobranca': clientData.id_carteira_cobranca,
         'cc_previsao': 'P',
         'tipo_cobranca': 'P',
         'renovacao_automatica': 'S',
         'base_geracao_tipo_doc': 'P',
-        'bloqueio_automatico': clientData.bloqueio_automatico,
         'aviso_atraso': 'S',
         'fidelidade': '12',
         'ultima_atualizacao': dataCadastro,
@@ -520,14 +553,60 @@ async function abrirAtendimentoOS(novoClienteId: string, clientData: any, nomePl
     return ticketId.toString(); 
 }
 
+async function abrirChamadoSuporteInterno(mensagemErro: string): Promise<string> {
+    console.log("Tentando abrir chamado de suporte automático/manual...");
+
+    const suportePayload = {
+        "tipo": "E",
+        "id_estrutura": "1",
+        "id_cliente": "1",
+        "id_filial": "3",
+        "id_assunto": "175",
+        "titulo": "SUPORTE TECNICO - ERRO SISTEMA",
+        "id_wfl_processo": "50",
+        "id_ticket_setor": "2",
+        "id_responsavel_tecnico": "138",
+        "prioridade": "M",
+        "id_ticket_origem": "I",
+        "id_usuarios": "61",
+        "id_resposta": "0",
+        "menssagem": mensagemErro,
+        "interacao_pendente": "I",
+        "su_status": "EP",
+        "id_evento_status_processo": "0",
+        "id_canal_atendimento": "0",
+        "status": "OSAB",
+        "id_su_diagnostico": "0"
+    };
+
+    try {
+        const response = await makeIxcRequest('POST', '/su_ticket', suportePayload, 'incluir');
+        
+        const ticketId = response.id || response.id_su_ticket;
+        if (!ticketId) throw new Error("ID do ticket não retornado.");
+
+        console.log(`Chamado de suporte aberto com sucesso. ID: ${ticketId}`);
+        return ticketId;
+    } catch (error) {
+        console.error("ALERTA CRÍTICO: Falha ao abrir chamado de suporte automático:", error.message);
+        return null;
+    }
+}
+
 async function atualizarCliente(clientId: string, clientData: any, dataCadastro: string): Promise<void> {
     console.log(`Iniciando Etapa 1.5: Atualização (PUT) do Cliente ID ${clientId}...`);
     const today = dataCadastro.split(' ')[0];
 
+    const usaEnderecoCliente = clientData.cep_cliente && clientData.cep_cliente !== '';
+
     const updatePayload = {
         'ativo': 'S', 'tipo_pessoa': 'F', 'tipo_cliente_scm': clientData.tipo_cliente_scm, 'pais': 'Brasil',
         'nacionalidade': 'Brasileiro', 'tipo_assinante': clientData.tipo_assinante, 'id_tipo_cliente': clientData.id_tipo_cliente,
-        'contribuinte_icms': 'N', 'filial_id': '3', 'filtra_filial': 'S', 'tipo_localidade': 'U',
+        'contribuinte_icms': 'N', 
+        
+        'filial_id': clientData.id_filial, 
+        
+        'filtra_filial': 'S', 'tipo_localidade': 'U',
         'acesso_automatico_central': 'P', 'alterar_senha_primeiro_acesso': 'P', 'senha_hotsite_md5': 'N',
         'hotsite_acesso': '0', 'crm': 'S', 'status_prospeccao': 'V', 'cadastrado_via_viabilidade': 'N',
         'participa_cobranca': 'S', 'participa_pre_cobranca': 'S', 'cob_envia_email': 'S',
@@ -545,17 +624,19 @@ async function atualizarCliente(clientId: string, clientData: any, dataCadastro:
         'whatsapp': clientData.whatsapp,
         'email': clientData.email,
         
-        // Endereço
-        'cep': clientData.cep,
-        'endereco': clientData.endereco,
-        'numero': clientData.numero,
-        'complemento': clientData.complemento,
-        'bairro': clientData.bairro,
-        'cidade': clientData.cidade,
-        'uf': clientData.uf,
-        'bloco': clientData.bloco,
-        'apartamento': clientData.apartamento,
-        'referencia': clientData.referencia,
+        // Endereço Condicional (Matriz vs Instalação)
+        'cep': usaEnderecoCliente ? clientData.cep_cliente : clientData.cep,
+        'endereco': usaEnderecoCliente ? clientData.endereco_cliente : clientData.endereco,
+        'numero': usaEnderecoCliente ? clientData.numero_cliente : clientData.numero,
+        'complemento': usaEnderecoCliente ? clientData.complemento_cliente : clientData.complemento,
+        'bairro': usaEnderecoCliente ? clientData.bairro_cliente : clientData.bairro,
+        'cidade': usaEnderecoCliente ? clientData.cidade_cliente : clientData.cidade,
+        'uf': usaEnderecoCliente ? clientData.uf_cliente : clientData.uf,
+        
+        // Dados de instalação
+        'bloco': usaEnderecoCliente ? '' : clientData.bloco,
+        'apartamento': usaEnderecoCliente ? '' : clientData.apartamento,
+        'referencia': usaEnderecoCliente ? '' : clientData.referencia,
         'id_condominio': clientData.id_condominio
     };
 
@@ -695,6 +776,7 @@ router.post('/cliente', async (req, res) => {
             console.log("Nenhum Cliente ID fornecido. Executando Etapa 1 (Cadastro de Cliente)...");
             novoClienteId = await cadastrarCliente(clientData, dataCadastro);
         }
+        
         const novoContratoId = await criarContrato(novoClienteId, clientData, dataCadastro, nomePlano);
         const novoLoginId = await criarLogin(novoClienteId, novoContratoId, clientData, dataCadastro);
         const novoTicketId = await abrirAtendimentoOS(novoClienteId, clientData, nomePlano, novoLoginId, novoContratoId);
@@ -709,7 +791,32 @@ router.post('/cliente', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Erro no fluxo de cadastro:', error);
+        console.error('ERRO FATAL no cadastro BANDA LARGA:', error);
+
+        try {
+            const mensagemErroAutomatico = `
+ERRO AUTOMÁTICO - FALHA NO CADASTRO BANDA LARGA
+-------------------------------------------------------
+DATA/HORA: ${getIxcDate()}
+CLIENTE TENTATIVA: ${clientData.nome || 'N/A'}
+CPF/CNPJ: ${clientData.cnpj_cpf || 'N/A'}
+VENDEDOR ID: ${clientData.id_vendedor || 'N/A'}
+
+MENSAGEM DE ERRO DO SISTEMA:
+${error.message || JSON.stringify(error)}
+
+DADOS RECEBIDOS (RESUMO):
+Plano: ${clientData.id_plano_ixc}
+Endereço: ${clientData.endereco}, ${clientData.numero} - ${clientData.bairro}
+Condomínio ID: ${clientData.id_condominio}
+            `.trim();
+
+            await abrirChamadoSuporteInterno(mensagemErroAutomatico);
+
+        } catch (supportError) {
+            console.error("Não foi possível abrir o chamado de erro automático:", supportError);
+        }
+
         res.status(500).json({
             success: false,
             error: error.message 
@@ -722,6 +829,13 @@ router.post('/cliente-corporativo', async (req, res) => {
     const dataCadastro = getIxcDate();
     let novoClienteId: string;
 
+    const FILIAL_CORPORATIVO = '1';
+    const OPCOES_CONTRATO_CORP = {
+        id_filial: '1',
+        id_carteira_cobranca: '10',
+        bloqueio_automatico: 'N'
+    };
+
     try {
         let nomePlano = `ID ${clientData.id_plano_ixc}`;
         try {
@@ -730,7 +844,7 @@ router.post('/cliente-corporativo', async (req, res) => {
                 nomePlano = planoInfo.registros[0].nome;
             }
         } catch (e) {
-            console.warn(`Aviso: Não foi possível buscar o nome do plano ${clientData.id_plano_ixc}. Usando ID.`);
+            console.warn(`Aviso: erro ao buscar plano.`);
         }
 
         if (existingClientId) {
@@ -738,14 +852,14 @@ router.post('/cliente-corporativo', async (req, res) => {
             await atualizarCliente(novoClienteId, clientData, dataCadastro);
         } else {
             try {
-                novoClienteId = await cadastrarCliente(clientData, dataCadastro);
+                novoClienteId = await cadastrarCliente(clientData, dataCadastro, FILIAL_CORPORATIVO);
             } catch (error) {
                 const errorMsg = error.message || '';
                 if (errorMsg.includes('Este CNPJ/CPF já está Cadastrado') || errorMsg.includes('já está Cadastrado')) {
                     const match = errorMsg.match(/ID:\s*(\d+)/);
                     if (match && match[1]) {
                         novoClienteId = match[1];
-                        console.log(`Cliente recuperado ID: ${novoClienteId}. Atualizando dados...`);
+                        console.log(`Cliente recuperado ID: ${novoClienteId}.`);
                         await atualizarCliente(novoClienteId, clientData, dataCadastro);
                     } else {
                         throw error;
@@ -756,7 +870,7 @@ router.post('/cliente-corporativo', async (req, res) => {
             }
         }
 
-        const novoContratoId = await criarContrato(novoClienteId, clientData, dataCadastro, nomePlano);
+        const novoContratoId = await criarContrato(novoClienteId, clientData, dataCadastro, nomePlano, OPCOES_CONTRATO_CORP);
         const novoLoginId = await criarLogin(novoClienteId, novoContratoId, clientData, dataCadastro);
         const novoTicketId = await abrirAtendimentoOS(novoClienteId, clientData, nomePlano, novoLoginId, novoContratoId);
         
@@ -764,7 +878,7 @@ router.post('/cliente-corporativo', async (req, res) => {
 
         res.status(201).json({
             success: true,
-            message: "Venda finalizada com sucesso! " + (existingClientId ? "Cliente atualizado" : "Cliente processado") + ", Contrato, Login e Atendimento/OS criados.",
+            message: "Venda finalizada com sucesso!",
             clienteId: novoClienteId,
             contratoId: novoContratoId,
             loginId: novoLoginId,
@@ -772,7 +886,32 @@ router.post('/cliente-corporativo', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Erro no fluxo de cadastro corporativo:', error);
+        console.error('ERRO FATAL no cadastro corporativo:', error);
+
+        try {
+            const mensagemErroAutomatico = `
+ERRO AUTOMÁTICO - FALHA NO CADASTRO CORPORATIVO
+-------------------------------------------------------
+DATA/HORA: ${getIxcDate()}
+CLIENTE TENTATIVA: ${clientData.nome || 'N/A'}
+CPF/CNPJ: ${clientData.cnpj_cpf || 'N/A'}
+VENDEDOR ID: ${clientData.id_vendedor || 'N/A'}
+
+MENSAGEM DE ERRO DO SISTEMA:
+${error.message || JSON.stringify(error)}
+
+DADOS RECEBIDOS (RESUMO):
+Plano: ${clientData.id_plano_ixc}
+Valor: ${clientData.valor_acordado}
+Endereço Instalação: ${clientData.endereco}, ${clientData.numero} - ${clientData.bairro}
+            `.trim();
+
+            await abrirChamadoSuporteInterno(mensagemErroAutomatico);
+
+        } catch (supportError) {
+            console.error("Não foi possível abrir o chamado de erro automático:", supportError);
+        }
+
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -911,6 +1050,24 @@ router.post('/consultar-endereco', async (req, res) => {
     } catch (error) {
         console.error("Erro ao consultar por endereço:", error.message);
         res.status(500).json({ error: `Erro ao consultar endereço: ${error.message}` });
+    }
+});
+
+router.post('/abrir-chamado-suporte', async (req, res) => {
+    const { mensagem } = req.body;
+    if (!mensagem) return res.status(400).json({ error: 'Mensagem obrigatória.' });
+
+    const msgFinal = `[ABERTURA MANUAL]\n\n${mensagem}`;
+
+    try {
+        const ticketId = await abrirChamadoSuporteInterno(msgFinal);
+        if (ticketId) {
+            res.json({ success: true, id_ticket: ticketId });
+        } else {
+            throw new Error("Falha ao criar ticket.");
+        }
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 });
 

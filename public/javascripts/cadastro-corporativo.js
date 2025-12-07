@@ -7,6 +7,7 @@ let bsPlanosModal = null;
 let allActivePlans = [];
 let tipoConsulta = 'cnpj';
 let clienteConsultado = null;
+let bsSuporteModal = null;
 
 document.addEventListener('DOMContentLoaded', function() {
     
@@ -18,6 +19,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (complementoModalElement) complementoModal = new bootstrap.Modal(complementoModalElement);
     const planosModalElement = document.getElementById('planosModal');
     if (planosModalElement) bsPlanosModal = new bootstrap.Modal(planosModalElement);
+    const suporteModalElement = document.getElementById('suporteModal');
+    if (suporteModalElement) bsSuporteModal = new bootstrap.Modal(suporteModalElement);
 
     initializeThemeAndUserInfo();
     loadSellers();
@@ -27,11 +30,19 @@ document.addEventListener('DOMContentLoaded', function() {
     
     $('#input-documento').inputmask('99.999.999/9999-99');
     
+    $('#btn-abrir-modal-suporte').on('click', function() {
+        $('#descricao-problema').val('');
+        bsSuporteModal.show();
+    });
+
+    $('#btn-enviar-suporte').on('click', enviarChamadoSuporte);
+
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('data_nascimento').setAttribute('max', today);
     $('#whatsapp').inputmask('(99) 99999-9999');
     $('#telefone_celular').inputmask('(99) 99999-9999');
     $('#cep').inputmask('99999-999');
+    $('#cep_cliente').inputmask('99999-999');
     $('#input-cep-consulta').inputmask('99999-999');
     
     $('#valor_acordado').inputmask('currency', {
@@ -164,42 +175,70 @@ function setupTela1Listeners() {
 
 function setupModalListeners() {
     const confirmModalElement = document.getElementById('confirmModal');
+    if (confirmModalElement) {
+        const closeElements = confirmModalElement.querySelectorAll('.btn-close, [data-bs-dismiss="modal"]');
+        closeElements.forEach(el => {
+            el.addEventListener('click', (e) => {
+                e.preventDefault();
+                const submitButton = document.getElementById('btn-finalizar-venda');
+                if (submitButton) submitButton.disabled = false;
+                checkFormValidity();
+                bsConfirmModal.hide();
+            });
+        });
+    }
+
     const infoModalElement = document.getElementById('infoModal');
+    if (infoModalElement) {
+        const closeElements = infoModalElement.querySelectorAll('.btn-close, [data-bs-dismiss="modal"]');
+        closeElements.forEach(el => {
+            el.addEventListener('click', (e) => {
+                e.preventDefault();
+                bsInfoModal.hide();
+            });
+        });
 
-    const confirmNoButton = confirmModalElement.querySelector('.btn-secondary[data-bs-dismiss="modal"]');
-    if (confirmNoButton) {
-        confirmNoButton.addEventListener('click', (e) => {
-            e.preventDefault();
-            const submitButton = document.getElementById('btn-finalizar-venda');
-            submitButton.disabled = false;
-            checkFormValidity();
-            bsConfirmModal.hide();
+        infoModalElement.addEventListener('hidden.bs.modal', () => {
+            if (infoModalElement.dataset.reloadOnClose === 'true') {
+                infoModalElement.dataset.reloadOnClose = 'false';
+                irParaTela('consulta');
+                resetFormularioCompleto();
+            }
         });
     }
 
-    const infoCloseX = infoModalElement.querySelector('.btn-close');
-    if (infoCloseX) {
-        infoCloseX.addEventListener('click', (e) => {
-            e.preventDefault();
-            bsInfoModal.hide();
+    const complementoModalElement = document.getElementById('complementoModal');
+    if (complementoModalElement) {
+        const closeElements = complementoModalElement.querySelectorAll('.btn-close, [data-bs-dismiss="modal"]');
+        closeElements.forEach(el => {
+            el.addEventListener('click', (e) => {
+                e.preventDefault();
+                complementoModal.hide();
+            });
         });
     }
 
-    const infoCloseButton = infoModalElement.querySelector('.btn-secondary[data-bs-dismiss="modal"]');
-    if (infoCloseButton) {
-        infoCloseButton.addEventListener('click', (e) => {
-            e.preventDefault();
-            bsInfoModal.hide();
+    const suporteModalElement = document.getElementById('suporteModal');
+    if (suporteModalElement) {
+        const closeElements = suporteModalElement.querySelectorAll('.btn-close, [data-bs-dismiss="modal"]');
+        closeElements.forEach(el => {
+            el.addEventListener('click', (e) => {
+                e.preventDefault();
+                bsSuporteModal.hide();
+            });
         });
     }
 
-    infoModalElement.addEventListener('hidden.bs.modal', () => {
-        if (infoModalElement.dataset.reloadOnClose === 'true') {
-            infoModalElement.dataset.reloadOnClose = 'false';
-            irParaTela('consulta');
-            resetFormularioCompleto();
-        }
-    });
+    const planosModalElement = document.getElementById('planosModal');
+    if (planosModalElement) {
+        const closeElements = planosModalElement.querySelectorAll('.btn-close, [data-bs-dismiss="modal"]');
+        closeElements.forEach(el => {
+            el.addEventListener('click', (e) => {
+                e.preventDefault();
+                bsPlanosModal.hide();
+            });
+        });
+    }
 }
 
 async function consultarClientePorDocumento() {
@@ -302,8 +341,9 @@ async function consultarClientePorDocumento() {
     }
 }
 
-async function buscarEnderecoPorCEP() {
-    const cepField = document.getElementById('cep'); 
+async function buscarEnderecoPorCEP(suffix = '') {
+    const idCep = suffix ? `cep${suffix}` : 'cep';
+    const cepField = document.getElementById(idCep); 
     
     if (!cepField || !$(cepField).inputmask('isComplete')) {
         return; 
@@ -314,43 +354,34 @@ async function buscarEnderecoPorCEP() {
     
     try {
         const response = await fetch(`/api/v5/geo/cep-lookup?cep=${cep}`);
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            let errorMessage = 'CEP não encontrado';
-            try {
-                const err = JSON.parse(errorText);
-                errorMessage = err.error || 'CEP não encontrado';
-            } catch (e) {
-                console.error("Resposta não JSON:", errorText);
-                errorMessage = `Erro no servidor (${response.status})`;
-            }
-            throw new Error(errorMessage);
-        }
+        if (!response.ok) throw new Error('CEP não encontrado');
         
         const data = await response.json();
 
-        $('#endereco').val(data.rua || '').prop('readonly', true);
-        $('#bairro').val(data.bairro || '').prop('readonly', true);
-        $('#cidade').val(data.cidade || '').prop('readonly', true);
-        $('#uf').val(data.uf || '').prop('readonly', true);
+        $(`#endereco${suffix}`).val(data.rua || '').prop('readonly', true);
+        $(`#bairro${suffix}`).val(data.bairro || '').prop('readonly', true);
+        $(`#cidade${suffix}`).val(data.cidade || '').prop('readonly', true);
+        $(`#uf${suffix}`).val(data.uf || '').prop('readonly', true);
+        
         const cidadeId = getCidadeIdPorNome(data.cidade);
-        $('#hidden-cidade-id').val(cidadeId);
+        
+        if (suffix === '_cliente') {
+            $('#hidden-cidade-id-cliente').val(cidadeId);
+        } else {
+            $('#hidden-cidade-id').val(cidadeId);
+        }
 
-        validateField(document.getElementById('endereco'));
-        validateField(document.getElementById('bairro'));
-        validateField(document.getElementById('cidade'));
-        validateField(document.getElementById('uf'));
+        validateField(document.getElementById(`endereco${suffix}`));
+        validateField(document.getElementById(`bairro${suffix}`));
+        validateField(document.getElementById(`cidade${suffix}`));
+        validateField(document.getElementById(`uf${suffix}`));
 
-        $('#numero').focus();
+        $(`#numero${suffix}`).focus();
 
     } catch (error) {
-        console.error("Erro ao buscar CEP:", error);
+        console.error("Erro CEP:", error);
         showModal('Erro de CEP', error.message, 'warning');
-        $('#endereco').val('').prop('readonly', false);
-        $('#bairro').val('').prop('readonly', false);
-        $('#cidade').val('').prop('readonly', false);
-        $('#uf').val('').prop('readonly', false);
+        $(`#endereco${suffix}, #bairro${suffix}, #cidade${suffix}, #uf${suffix}`).val('').prop('readonly', false);
     } finally {
         cepField.disabled = false;
         validateField(cepField);
@@ -446,12 +477,15 @@ function preencherFormularioComCliente() {
     const form = $('#venda-form');
     const btnFinalizar = $('#btn-finalizar-venda');
     const tituloForm = $('#titulo-form-cadastro');
+    const sectionEnderecoCliente = $('#section-endereco-cliente');
 
     resetFormularioCompleto();
 
     if (clienteConsultado) {
         tituloForm.text('2. Cadastrar Novo Contrato Corporativo');
         btnFinalizar.text('Finalizar Novo Contrato');
+        sectionEnderecoCliente.hide();
+        toggleRequiredEnderecoCliente(false);
         
         $('#nome').val(clienteConsultado.razao).prop('disabled', true);
         $('#cpf').val(clienteConsultado.cnpj_cpf).prop('disabled', true);
@@ -460,7 +494,6 @@ function preencherFormularioComCliente() {
         $('#telefone_celular').val(clienteConsultado.telefone_celular);
         $('#email').val(clienteConsultado.email);
         
-        // Campos de endereço ficam vazios para preenchimento
         $('#cep, #endereco, #numero, #bairro, #cidade, #uf, #hidden-cidade-id, #referencia, #complemento').val('');
 
         form.find('input, select, button').each(function() {
@@ -472,6 +505,8 @@ function preencherFormularioComCliente() {
     } else {
         tituloForm.text('2. Cadastrar Novo Cliente Corporativo');
         btnFinalizar.text('Finalizar Cadastro');
+        sectionEnderecoCliente.show();
+        toggleRequiredEnderecoCliente(true);
         
         form.find('input, select').prop('disabled', false);
         
@@ -482,6 +517,13 @@ function preencherFormularioComCliente() {
     }
     
     checkFormValidity();
+}
+function toggleRequiredEnderecoCliente(isRequired) {
+    const fields = ['#cep_cliente', '#numero_cliente'];
+    fields.forEach(selector => {
+        $(selector).prop('required', isRequired);
+        $(selector).removeClass('is-valid is-invalid'); 
+    });
 }
 
 function resetFormularioCompleto() {
@@ -537,6 +579,8 @@ function setupFormValidation() {
                 telefone_celular: document.getElementById('telefone_celular').value.replace(/\D/g,''),
                 whatsapp: document.getElementById('whatsapp').value.replace(/\D/g,''),
                 email: document.getElementById('email').value.trim(),
+                
+                // Endereço de instalação
                 cep: document.getElementById('cep').value.trim(),
                 endereco: document.getElementById('endereco').value.trim(),
                 numero: document.getElementById('numero').value.trim(),
@@ -548,6 +592,16 @@ function setupFormValidation() {
                 complemento: document.getElementById('complemento').value.trim(),
                 referencia: document.getElementById('referencia').value.trim(),
                 id_condominio: document.getElementById('hidden-condominio-id').value,
+
+                // endereço da matriz (cliente)
+                cep_cliente: document.getElementById('cep_cliente').value.trim(),
+                endereco_cliente: document.getElementById('endereco_cliente').value.trim(),
+                numero_cliente: document.getElementById('numero_cliente').value.trim(),
+                bairro_cliente: document.getElementById('bairro_cliente').value.trim(),
+                cidade_cliente: document.getElementById('hidden-cidade-id-cliente').value,
+                uf_cliente: document.getElementById('uf_cliente').value,
+                complemento_cliente: document.getElementById('complemento_cliente').value.trim(),
+                
                 id_vendedor: document.getElementById('vendedor').value,
                 id_plano_ixc: document.getElementById('plano').value, 
                 valor_acordado: document.getElementById('valor_acordado').value,
@@ -705,6 +759,48 @@ async function loadSellers() {
     }
 }
 
+async function enviarChamadoSuporte() {
+    const textarea = document.getElementById('descricao-problema');
+    const mensagem = textarea.value.trim();
+    const btnEnviar = document.getElementById('btn-enviar-suporte');
+
+    if (!mensagem) {
+        alert("Por favor, descreva o problema antes de enviar.");
+        textarea.focus();
+        return;
+    }
+
+    const textoOriginal = btnEnviar.innerHTML;
+    btnEnviar.disabled = true;
+    btnEnviar.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Enviando...';
+
+    try {
+        const usuarioLogado = document.querySelector('.user-info span')?.textContent || 'Usuário Desconhecido';
+        const mensagemFinal = `Usuário Solicitante: ${usuarioLogado}\n\nDescrição do Problema:\n${mensagem}`;
+
+        const response = await fetch('/api/v5/ixc/abrir-chamado-suporte', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mensagem: mensagemFinal })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.error || 'Erro ao comunicar com o servidor.');
+        }
+
+        bsSuporteModal.hide();
+        showModal('Chamado Aberto', `Seu chamado foi aberto com sucesso!<br><strong>ID do Ticket:</strong> ${result.id_ticket}`, 'success');
+
+    } catch (error) {
+        console.error("Erro ao enviar suporte:", error);
+        alert(`Erro ao abrir chamado: ${error.message}`);
+    } finally {
+        btnEnviar.disabled = false;
+        btnEnviar.innerHTML = textoOriginal;
+    }
+}
 
 function getTechnologyString(technologyId) {
     const map = { 1: 'FTTH', 2: 'AIRMAX', 3: null, 4: 'FTTH', 5: 'FTTH' };
@@ -731,7 +827,8 @@ function setupFieldValidation() {
         }
     });
     
-    $('#cep').on('blur', buscarEnderecoPorCEP);
+    $('#cep').on('blur', function() { buscarEnderecoPorCEP(''); });
+    $('#cep_cliente').on('blur', function() { buscarEnderecoPorCEP('_cliente'); });
     
     $('#btn-cartao-cpf').on('click', function() {
         const doc = document.getElementById('cpf').value.replace(/\D/g, '');
@@ -868,11 +965,16 @@ function initializeThemeAndUserInfo() {
         .then(response => response.json())
         .then(data => {
             const username = data.username || 'Visitante';
+            const rawGroup = data.group || '';
             const group = data.group || 'Sem grupo';
             if (username === 'Visitante') {
                 showModal('Sessão Expirada', 'Será necessário refazer o login!', 'warning');
                 setTimeout(() => { window.location = "/"; }, 300);
                 return;
+            } 
+            else if (group !== 'NOC' && group !== 'CORPORATIVO') {
+                console.log("Acesso negado para o grupo:", group);
+                document.getElementById('modalAlerta').style.display = 'flex';
             }
             document.querySelectorAll('.user-info span').forEach(el => {
                 if (el.textContent.includes('{username}')) {
@@ -886,5 +988,9 @@ function initializeThemeAndUserInfo() {
             console.error('Erro ao obter o nome do usuário e grupo:', error);
              showModal('Erro de Autenticação', 'Não foi possível verificar seu usuário. Por favor, faça o login novamente.', 'danger');
              setTimeout(() => { window.location = "/"; }, 300);
+        });
+        document.getElementById('closeModalBtn').addEventListener('click', function() {
+            document.getElementById('modalAlerta').style.display = 'none';
+            window.location = "/main";
         });
 }

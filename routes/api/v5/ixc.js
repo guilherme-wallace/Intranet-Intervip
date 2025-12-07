@@ -299,18 +299,22 @@ router.get('/planos-ativos', function (req, res) { return __awaiter(void 0, void
         }
     });
 }); });
-function cadastrarCliente(clientData, dataCadastro) {
+function cadastrarCliente(clientData, dataCadastro, filialId) {
+    if (filialId === void 0) { filialId = '3'; }
     return __awaiter(this, void 0, void 0, function () {
-        var today, clientePayload, clienteResponse, errorMessage;
+        var today, usaEnderecoCliente, clientePayload, clienteResponse, errorMessage;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    console.log("Iniciando Etapa 1: Cadastro do Cliente...");
+                    console.log("Iniciando Etapa 1: Cadastro do Cliente (Filial ".concat(filialId, ")..."));
                     today = dataCadastro.split(' ')[0];
+                    usaEnderecoCliente = clientData.cep_cliente && clientData.cep_cliente !== '';
                     clientePayload = {
                         'ativo': 'S', 'pais': 'Brasil',
                         'nacionalidade': 'Brasileiro',
-                        'contribuinte_icms': 'N', 'filial_id': '3', 'filtra_filial': 'S', 'tipo_localidade': 'U',
+                        'contribuinte_icms': 'N',
+                        'filial_id': clientData.id_filial,
+                        'filtra_filial': 'S', 'tipo_localidade': 'U',
                         'acesso_automatico_central': 'P', 'alterar_senha_primeiro_acesso': 'P', 'senha_hotsite_md5': 'N',
                         'hotsite_acesso': '0', 'crm': 'S', 'status_prospeccao': 'V', 'cadastrado_via_viabilidade': 'N',
                         'participa_cobranca': 'S', 'participa_pre_cobranca': 'S', 'cob_envia_email': 'S',
@@ -325,11 +329,19 @@ function cadastrarCliente(clientData, dataCadastro) {
                         'ie_identidade': clientData.ie_identidade, 'data_nascimento': formatarDataNasParaDMY(clientData.data_nascimento),
                         'fone': clientData.telefone_celular, 'telefone_celular': clientData.telefone_celular,
                         'whatsapp': clientData.whatsapp, 'email': clientData.email,
-                        'cep': clientData.cep,
-                        'endereco': clientData.endereco, 'numero': clientData.numero, 'complemento': clientData.complemento,
-                        'bairro': clientData.bairro, 'cidade': clientData.cidade, 'uf': clientData.uf,
-                        'bloco': clientData.bloco, 'apartamento': clientData.apartamento,
-                        'referencia': clientData.referencia, 'id_condominio': clientData.id_condominio,
+                        // Endereço de cliente (Matriz)
+                        'cep': usaEnderecoCliente ? clientData.cep_cliente : clientData.cep,
+                        'endereco': usaEnderecoCliente ? clientData.endereco_cliente : clientData.endereco,
+                        'numero': usaEnderecoCliente ? clientData.numero_cliente : clientData.numero,
+                        'complemento': usaEnderecoCliente ? clientData.complemento_cliente : clientData.complemento,
+                        'bairro': usaEnderecoCliente ? clientData.bairro_cliente : clientData.bairro,
+                        'cidade': usaEnderecoCliente ? clientData.cidade_cliente : clientData.cidade,
+                        'uf': usaEnderecoCliente ? clientData.uf_cliente : clientData.uf,
+                        // Campos de instalação
+                        'bloco': usaEnderecoCliente ? '' : clientData.bloco,
+                        'apartamento': usaEnderecoCliente ? '' : clientData.apartamento,
+                        'referencia': usaEnderecoCliente ? '' : clientData.referencia,
+                        'id_condominio': clientData.id_condominio,
                         'id_vendedor': clientData.id_vendedor, 'obs': clientData.obs,
                         'hotsite_email': clientData.cnpj_cpf.replace(/\D/g, ''),
                         'senha': clientData.cnpj_cpf.replace(/\D/g, '')
@@ -348,7 +360,8 @@ function cadastrarCliente(clientData, dataCadastro) {
         });
     });
 }
-function criarContrato(novoClienteId, clientData, dataCadastro, nomePlano) {
+function criarContrato(novoClienteId, clientData, dataCadastro, nomePlano, options) {
+    if (options === void 0) { options = { id_filial: '3', id_carteira_cobranca: '11', bloqueio_automatico: 'S' }; }
     return __awaiter(this, void 0, void 0, function () {
         var today, idTipoContrato, idModelo, contratoPayload, contratoResponse, errorMessage;
         return __generator(this, function (_a) {
@@ -376,7 +389,9 @@ function criarContrato(novoClienteId, clientData, dataCadastro, nomePlano) {
                         'referencia': clientData.referencia,
                         'id_condominio': clientData.id_condominio,
                         'tipo': 'I',
-                        'id_filial': clientData.id_filial,
+                        'id_filial': options.id_filial,
+                        'id_carteira_cobranca': options.id_carteira_cobranca,
+                        'bloqueio_automatico': options.bloqueio_automatico,
                         'data_assinatura': today,
                         'data': getIxcDateDMY(),
                         'status': 'P',
@@ -387,12 +402,10 @@ function criarContrato(novoClienteId, clientData, dataCadastro, nomePlano) {
                         'id_tipo_contrato': idTipoContrato,
                         'id_modelo': idModelo,
                         'id_tipo_documento': '501',
-                        'id_carteira_cobranca': clientData.id_carteira_cobranca,
                         'cc_previsao': 'P',
                         'tipo_cobranca': 'P',
                         'renovacao_automatica': 'S',
                         'base_geracao_tipo_doc': 'P',
-                        'bloqueio_automatico': clientData.bloqueio_automatico,
                         'aviso_atraso': 'S',
                         'fidelidade': '12',
                         'ultima_atualizacao': dataCadastro,
@@ -627,18 +640,70 @@ function abrirAtendimentoOS(novoClienteId, clientData, nomePlano, novoLoginId, n
         });
     });
 }
+function abrirChamadoSuporteInterno(mensagemErro) {
+    return __awaiter(this, void 0, void 0, function () {
+        var suportePayload, response, ticketId, error_7;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    console.log("Tentando abrir chamado de suporte automático/manual...");
+                    suportePayload = {
+                        "tipo": "E",
+                        "id_estrutura": "1",
+                        "id_cliente": "1",
+                        "id_filial": "3",
+                        "id_assunto": "175",
+                        "titulo": "SUPORTE TECNICO - ERRO SISTEMA",
+                        "id_wfl_processo": "50",
+                        "id_ticket_setor": "2",
+                        "id_responsavel_tecnico": "138",
+                        "prioridade": "M",
+                        "id_ticket_origem": "I",
+                        "id_usuarios": "61",
+                        "id_resposta": "0",
+                        "menssagem": mensagemErro,
+                        "interacao_pendente": "I",
+                        "su_status": "EP",
+                        "id_evento_status_processo": "0",
+                        "id_canal_atendimento": "0",
+                        "status": "OSAB",
+                        "id_su_diagnostico": "0"
+                    };
+                    _a.label = 1;
+                case 1:
+                    _a.trys.push([1, 3, , 4]);
+                    return [4 /*yield*/, makeIxcRequest('POST', '/su_ticket', suportePayload, 'incluir')];
+                case 2:
+                    response = _a.sent();
+                    ticketId = response.id || response.id_su_ticket;
+                    if (!ticketId)
+                        throw new Error("ID do ticket não retornado.");
+                    console.log("Chamado de suporte aberto com sucesso. ID: ".concat(ticketId));
+                    return [2 /*return*/, ticketId];
+                case 3:
+                    error_7 = _a.sent();
+                    console.error("ALERTA CRÍTICO: Falha ao abrir chamado de suporte automático:", error_7.message);
+                    return [2 /*return*/, null];
+                case 4: return [2 /*return*/];
+            }
+        });
+    });
+}
 function atualizarCliente(clientId, clientData, dataCadastro) {
     return __awaiter(this, void 0, void 0, function () {
-        var today, updatePayload, updateResponse;
+        var today, usaEnderecoCliente, updatePayload, updateResponse;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
                     console.log("Iniciando Etapa 1.5: Atualiza\u00E7\u00E3o (PUT) do Cliente ID ".concat(clientId, "..."));
                     today = dataCadastro.split(' ')[0];
+                    usaEnderecoCliente = clientData.cep_cliente && clientData.cep_cliente !== '';
                     updatePayload = {
                         'ativo': 'S', 'tipo_pessoa': 'F', 'tipo_cliente_scm': clientData.tipo_cliente_scm, 'pais': 'Brasil',
                         'nacionalidade': 'Brasileiro', 'tipo_assinante': clientData.tipo_assinante, 'id_tipo_cliente': clientData.id_tipo_cliente,
-                        'contribuinte_icms': 'N', 'filial_id': '3', 'filtra_filial': 'S', 'tipo_localidade': 'U',
+                        'contribuinte_icms': 'N',
+                        'filial_id': clientData.id_filial,
+                        'filtra_filial': 'S', 'tipo_localidade': 'U',
                         'acesso_automatico_central': 'P', 'alterar_senha_primeiro_acesso': 'P', 'senha_hotsite_md5': 'N',
                         'hotsite_acesso': '0', 'crm': 'S', 'status_prospeccao': 'V', 'cadastrado_via_viabilidade': 'N',
                         'participa_cobranca': 'S', 'participa_pre_cobranca': 'S', 'cob_envia_email': 'S',
@@ -654,17 +719,18 @@ function atualizarCliente(clientId, clientData, dataCadastro) {
                         'telefone_celular': clientData.telefone_celular,
                         'whatsapp': clientData.whatsapp,
                         'email': clientData.email,
-                        // Endereço
-                        'cep': clientData.cep,
-                        'endereco': clientData.endereco,
-                        'numero': clientData.numero,
-                        'complemento': clientData.complemento,
-                        'bairro': clientData.bairro,
-                        'cidade': clientData.cidade,
-                        'uf': clientData.uf,
-                        'bloco': clientData.bloco,
-                        'apartamento': clientData.apartamento,
-                        'referencia': clientData.referencia,
+                        // Endereço Condicional (Matriz vs Instalação)
+                        'cep': usaEnderecoCliente ? clientData.cep_cliente : clientData.cep,
+                        'endereco': usaEnderecoCliente ? clientData.endereco_cliente : clientData.endereco,
+                        'numero': usaEnderecoCliente ? clientData.numero_cliente : clientData.numero,
+                        'complemento': usaEnderecoCliente ? clientData.complemento_cliente : clientData.complemento,
+                        'bairro': usaEnderecoCliente ? clientData.bairro_cliente : clientData.bairro,
+                        'cidade': usaEnderecoCliente ? clientData.cidade_cliente : clientData.cidade,
+                        'uf': usaEnderecoCliente ? clientData.uf_cliente : clientData.uf,
+                        // Dados de instalação
+                        'bloco': usaEnderecoCliente ? '' : clientData.bloco,
+                        'apartamento': usaEnderecoCliente ? '' : clientData.apartamento,
+                        'referencia': usaEnderecoCliente ? '' : clientData.referencia,
                         'id_condominio': clientData.id_condominio
                     };
                     return [4 /*yield*/, makeIxcRequest('PUT', "/cliente/".concat(clientId), updatePayload, 'alterar')];
@@ -682,7 +748,7 @@ function atualizarCliente(clientId, clientData, dataCadastro) {
 }
 function ajustarFinanceiroContrato(contratoId, valorAcordadoStr, idPlano) {
     return __awaiter(this, void 0, void 0, function () {
-        var valorAcordado, targetSCM, targetSVA, produtosPayload, produtosResponse, _i, _a, produto, valorOriginal, descricaoProduto, diferenca, tipoServico, targetValor, valorAbsoluto, percentual, descontoPayload, acrescimoPayload, error_7;
+        var valorAcordado, targetSCM, targetSVA, produtosPayload, produtosResponse, _i, _a, produto, valorOriginal, descricaoProduto, diferenca, tipoServico, targetValor, valorAbsoluto, percentual, descontoPayload, acrescimoPayload, error_8;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
@@ -778,8 +844,8 @@ function ajustarFinanceiroContrato(contratoId, valorAcordadoStr, idPlano) {
                     return [3 /*break*/, 3];
                 case 8: return [3 /*break*/, 10];
                 case 9:
-                    error_7 = _b.sent();
-                    console.error("Erro ao ajustar financeiro: ".concat(error_7.message));
+                    error_8 = _b.sent();
+                    console.error("Erro ao ajustar financeiro: ".concat(error_8.message));
                     return [3 /*break*/, 10];
                 case 10: return [2 /*return*/];
             }
@@ -787,7 +853,7 @@ function ajustarFinanceiroContrato(contratoId, valorAcordadoStr, idPlano) {
     });
 }
 router.post('/cliente', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var _a, existingClientId, clientData, dataCadastro, novoClienteId, nomePlano, planoInfo, e_1, novoContratoId, novoLoginId, novoTicketId, error_8;
+    var _a, existingClientId, clientData, dataCadastro, novoClienteId, nomePlano, planoInfo, e_1, novoContratoId, novoLoginId, novoTicketId, error_9, mensagemErroAutomatico, supportError_1;
     return __generator(this, function (_b) {
         switch (_b.label) {
             case 0:
@@ -795,7 +861,7 @@ router.post('/cliente', function (req, res) { return __awaiter(void 0, void 0, v
                 dataCadastro = getIxcDate();
                 _b.label = 1;
             case 1:
-                _b.trys.push([1, 13, , 14]);
+                _b.trys.push([1, 13, , 18]);
                 nomePlano = "ID ".concat(clientData.id_plano_ixc);
                 _b.label = 2;
             case 2:
@@ -842,29 +908,48 @@ router.post('/cliente', function (req, res) { return __awaiter(void 0, void 0, v
                     loginId: novoLoginId,
                     ticketId: novoTicketId
                 });
-                return [3 /*break*/, 14];
+                return [3 /*break*/, 18];
             case 13:
-                error_8 = _b.sent();
-                console.error('Erro no fluxo de cadastro:', error_8);
+                error_9 = _b.sent();
+                console.error('ERRO FATAL no cadastro BANDA LARGA:', error_9);
+                _b.label = 14;
+            case 14:
+                _b.trys.push([14, 16, , 17]);
+                mensagemErroAutomatico = "\nERRO AUTOM\u00C1TICO - FALHA NO CADASTRO BANDA LARGA\n-------------------------------------------------------\nDATA/HORA: ".concat(getIxcDate(), "\nCLIENTE TENTATIVA: ").concat(clientData.nome || 'N/A', "\nCPF/CNPJ: ").concat(clientData.cnpj_cpf || 'N/A', "\nVENDEDOR ID: ").concat(clientData.id_vendedor || 'N/A', "\n\nMENSAGEM DE ERRO DO SISTEMA:\n").concat(error_9.message || JSON.stringify(error_9), "\n\nDADOS RECEBIDOS (RESUMO):\nPlano: ").concat(clientData.id_plano_ixc, "\nEndere\u00E7o: ").concat(clientData.endereco, ", ").concat(clientData.numero, " - ").concat(clientData.bairro, "\nCondom\u00EDnio ID: ").concat(clientData.id_condominio, "\n            ").trim();
+                return [4 /*yield*/, abrirChamadoSuporteInterno(mensagemErroAutomatico)];
+            case 15:
+                _b.sent();
+                return [3 /*break*/, 17];
+            case 16:
+                supportError_1 = _b.sent();
+                console.error("Não foi possível abrir o chamado de erro automático:", supportError_1);
+                return [3 /*break*/, 17];
+            case 17:
                 res.status(500).json({
                     success: false,
-                    error: error_8.message
+                    error: error_9.message
                 });
-                return [3 /*break*/, 14];
-            case 14: return [2 /*return*/];
+                return [3 /*break*/, 18];
+            case 18: return [2 /*return*/];
         }
     });
 }); });
 router.post('/cliente-corporativo', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var _a, existingClientId, clientData, dataCadastro, novoClienteId, nomePlano, planoInfo, e_2, error_9, errorMsg, match, novoContratoId, novoLoginId, novoTicketId, error_10;
+    var _a, existingClientId, clientData, dataCadastro, novoClienteId, FILIAL_CORPORATIVO, OPCOES_CONTRATO_CORP, nomePlano, planoInfo, e_2, error_10, errorMsg, match, novoContratoId, novoLoginId, novoTicketId, error_11, mensagemErroAutomatico, supportError_2;
     return __generator(this, function (_b) {
         switch (_b.label) {
             case 0:
                 _a = req.body, existingClientId = _a.existingClientId, clientData = __rest(_a, ["existingClientId"]);
                 dataCadastro = getIxcDate();
+                FILIAL_CORPORATIVO = '1';
+                OPCOES_CONTRATO_CORP = {
+                    id_filial: '1',
+                    id_carteira_cobranca: '10',
+                    bloqueio_automatico: 'N'
+                };
                 _b.label = 1;
             case 1:
-                _b.trys.push([1, 20, , 21]);
+                _b.trys.push([1, 20, , 25]);
                 nomePlano = "ID ".concat(clientData.id_plano_ixc);
                 _b.label = 2;
             case 2:
@@ -878,7 +963,7 @@ router.post('/cliente-corporativo', function (req, res) { return __awaiter(void 
                 return [3 /*break*/, 5];
             case 4:
                 e_2 = _b.sent();
-                console.warn("Aviso: N\u00E3o foi poss\u00EDvel buscar o nome do plano ".concat(clientData.id_plano_ixc, ". Usando ID."));
+                console.warn("Aviso: erro ao buscar plano.");
                 return [3 /*break*/, 5];
             case 5:
                 if (!existingClientId) return [3 /*break*/, 7];
@@ -889,27 +974,27 @@ router.post('/cliente-corporativo', function (req, res) { return __awaiter(void 
                 return [3 /*break*/, 15];
             case 7:
                 _b.trys.push([7, 9, , 15]);
-                return [4 /*yield*/, cadastrarCliente(clientData, dataCadastro)];
+                return [4 /*yield*/, cadastrarCliente(clientData, dataCadastro, FILIAL_CORPORATIVO)];
             case 8:
                 novoClienteId = _b.sent();
                 return [3 /*break*/, 15];
             case 9:
-                error_9 = _b.sent();
-                errorMsg = error_9.message || '';
+                error_10 = _b.sent();
+                errorMsg = error_10.message || '';
                 if (!(errorMsg.includes('Este CNPJ/CPF já está Cadastrado') || errorMsg.includes('já está Cadastrado'))) return [3 /*break*/, 13];
                 match = errorMsg.match(/ID:\s*(\d+)/);
                 if (!(match && match[1])) return [3 /*break*/, 11];
                 novoClienteId = match[1];
-                console.log("Cliente recuperado ID: ".concat(novoClienteId, ". Atualizando dados..."));
+                console.log("Cliente recuperado ID: ".concat(novoClienteId, "."));
                 return [4 /*yield*/, atualizarCliente(novoClienteId, clientData, dataCadastro)];
             case 10:
                 _b.sent();
                 return [3 /*break*/, 12];
-            case 11: throw error_9;
+            case 11: throw error_10;
             case 12: return [3 /*break*/, 14];
-            case 13: throw error_9;
+            case 13: throw error_10;
             case 14: return [3 /*break*/, 15];
-            case 15: return [4 /*yield*/, criarContrato(novoClienteId, clientData, dataCadastro, nomePlano)];
+            case 15: return [4 /*yield*/, criarContrato(novoClienteId, clientData, dataCadastro, nomePlano, OPCOES_CONTRATO_CORP)];
             case 16:
                 novoContratoId = _b.sent();
                 return [4 /*yield*/, criarLogin(novoClienteId, novoContratoId, clientData, dataCadastro)];
@@ -923,24 +1008,37 @@ router.post('/cliente-corporativo', function (req, res) { return __awaiter(void 
                 _b.sent();
                 res.status(201).json({
                     success: true,
-                    message: "Venda finalizada com sucesso! " + (existingClientId ? "Cliente atualizado" : "Cliente processado") + ", Contrato, Login e Atendimento/OS criados.",
+                    message: "Venda finalizada com sucesso!",
                     clienteId: novoClienteId,
                     contratoId: novoContratoId,
                     loginId: novoLoginId,
                     ticketId: novoTicketId
                 });
-                return [3 /*break*/, 21];
+                return [3 /*break*/, 25];
             case 20:
-                error_10 = _b.sent();
-                console.error('Erro no fluxo de cadastro corporativo:', error_10);
-                res.status(500).json({ success: false, error: error_10.message });
-                return [3 /*break*/, 21];
-            case 21: return [2 /*return*/];
+                error_11 = _b.sent();
+                console.error('ERRO FATAL no cadastro corporativo:', error_11);
+                _b.label = 21;
+            case 21:
+                _b.trys.push([21, 23, , 24]);
+                mensagemErroAutomatico = "\nERRO AUTOM\u00C1TICO - FALHA NO CADASTRO CORPORATIVO\n-------------------------------------------------------\nDATA/HORA: ".concat(getIxcDate(), "\nCLIENTE TENTATIVA: ").concat(clientData.nome || 'N/A', "\nCPF/CNPJ: ").concat(clientData.cnpj_cpf || 'N/A', "\nVENDEDOR ID: ").concat(clientData.id_vendedor || 'N/A', "\n\nMENSAGEM DE ERRO DO SISTEMA:\n").concat(error_11.message || JSON.stringify(error_11), "\n\nDADOS RECEBIDOS (RESUMO):\nPlano: ").concat(clientData.id_plano_ixc, "\nValor: ").concat(clientData.valor_acordado, "\nEndere\u00E7o Instala\u00E7\u00E3o: ").concat(clientData.endereco, ", ").concat(clientData.numero, " - ").concat(clientData.bairro, "\n            ").trim();
+                return [4 /*yield*/, abrirChamadoSuporteInterno(mensagemErroAutomatico)];
+            case 22:
+                _b.sent();
+                return [3 /*break*/, 24];
+            case 23:
+                supportError_2 = _b.sent();
+                console.error("Não foi possível abrir o chamado de erro automático:", supportError_2);
+                return [3 /*break*/, 24];
+            case 24:
+                res.status(500).json({ success: false, error: error_11.message });
+                return [3 /*break*/, 25];
+            case 25: return [2 /*return*/];
         }
     });
 }); });
 router.post('/consultar-cliente', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var cnpj_cpf, clientePayload, clienteResponse, cliente, contratoPayload, contratoResponse, contratos, financeiroPayload, financeiroResponse, contratosComAtraso_1, hoje_1, error_11;
+    var cnpj_cpf, clientePayload, clienteResponse, cliente, contratoPayload, contratoResponse, contratos, financeiroPayload, financeiroResponse, contratosComAtraso_1, hoje_1, error_12;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
@@ -1021,16 +1119,16 @@ router.post('/consultar-cliente', function (req, res) { return __awaiter(void 0,
                 });
                 return [3 /*break*/, 6];
             case 5:
-                error_11 = _a.sent();
-                console.error("Erro ao consultar cliente:", error_11.message);
-                res.status(500).json({ error: "Erro ao consultar cliente: ".concat(error_11.message) });
+                error_12 = _a.sent();
+                console.error("Erro ao consultar cliente:", error_12.message);
+                res.status(500).json({ error: "Erro ao consultar cliente: ".concat(error_12.message) });
                 return [3 /*break*/, 6];
             case 6: return [2 /*return*/];
         }
     });
 }); });
 router.post('/consultar-endereco', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var _a, cep, numero, payload, response, clientesComStatus, error_12;
+    var _a, cep, numero, payload, response, clientesComStatus, error_13;
     return __generator(this, function (_b) {
         switch (_b.label) {
             case 0:
@@ -1080,11 +1178,41 @@ router.post('/consultar-endereco', function (req, res) { return __awaiter(void 0
                 _b.label = 5;
             case 5: return [3 /*break*/, 7];
             case 6:
-                error_12 = _b.sent();
-                console.error("Erro ao consultar por endereço:", error_12.message);
-                res.status(500).json({ error: "Erro ao consultar endere\u00E7o: ".concat(error_12.message) });
+                error_13 = _b.sent();
+                console.error("Erro ao consultar por endereço:", error_13.message);
+                res.status(500).json({ error: "Erro ao consultar endere\u00E7o: ".concat(error_13.message) });
                 return [3 /*break*/, 7];
             case 7: return [2 /*return*/];
+        }
+    });
+}); });
+router.post('/abrir-chamado-suporte', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var mensagem, msgFinal, ticketId, error_14;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                mensagem = req.body.mensagem;
+                if (!mensagem)
+                    return [2 /*return*/, res.status(400).json({ error: 'Mensagem obrigatória.' })];
+                msgFinal = "[ABERTURA MANUAL]\n\n".concat(mensagem);
+                _a.label = 1;
+            case 1:
+                _a.trys.push([1, 3, , 4]);
+                return [4 /*yield*/, abrirChamadoSuporteInterno(msgFinal)];
+            case 2:
+                ticketId = _a.sent();
+                if (ticketId) {
+                    res.json({ success: true, id_ticket: ticketId });
+                }
+                else {
+                    throw new Error("Falha ao criar ticket.");
+                }
+                return [3 /*break*/, 4];
+            case 3:
+                error_14 = _a.sent();
+                res.status(500).json({ error: error_14.message });
+                return [3 /*break*/, 4];
+            case 4: return [2 /*return*/];
         }
     });
 }); });

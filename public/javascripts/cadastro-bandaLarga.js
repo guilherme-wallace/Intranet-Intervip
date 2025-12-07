@@ -3,6 +3,7 @@ let bsConfirmModal = null;
 let complementoModal = null;
 let currentBlocks = [];
 let selectedBlock = null;
+let bsSuporteModal = null;
 
 let tipoConsulta = 'cpf';
 let clienteConsultado = null;
@@ -15,6 +16,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (confirmModalElement) bsConfirmModal = new bootstrap.Modal(confirmModalElement);
     const complementoModalElement = document.getElementById('complementoModal');
     if (complementoModalElement) complementoModal = new bootstrap.Modal(complementoModalElement);
+    const suporteModalElement = document.getElementById('suporteModal');
+    if (suporteModalElement) bsSuporteModal = new bootstrap.Modal(suporteModalElement);
 
     initializeThemeAndUserInfo();
     loadSellers();
@@ -36,6 +39,13 @@ document.addEventListener('DOMContentLoaded', function() {
     setupModalListeners();
     
     setupTela1Listeners();
+
+    $('#btn-abrir-modal-suporte').on('click', function() {
+        $('#descricao-problema').val('');
+        bsSuporteModal.show();
+    });
+
+    $('#btn-enviar-suporte').on('click', enviarChamadoSuporte);
 
     $('#btn-complemento').on('click', openComplementoModal);
     $('#btn-confirmar-complemento').on('click', () => confirmComplemento(null));
@@ -69,42 +79,59 @@ function setupTela1Listeners() {
 
 function setupModalListeners() {
     const confirmModalElement = document.getElementById('confirmModal');
+    if (confirmModalElement) {
+        const closeElements = confirmModalElement.querySelectorAll('.btn-close, [data-bs-dismiss="modal"]');
+        closeElements.forEach(el => {
+            el.addEventListener('click', (e) => {
+                e.preventDefault();
+                const submitButton = document.getElementById('btn-finalizar-venda');
+                if (submitButton) submitButton.disabled = false;
+                checkFormValidity();
+                bsConfirmModal.hide();
+            });
+        });
+    }
+
     const infoModalElement = document.getElementById('infoModal');
+    if (infoModalElement) {
+        const closeElements = infoModalElement.querySelectorAll('.btn-close, [data-bs-dismiss="modal"]');
+        closeElements.forEach(el => {
+            el.addEventListener('click', (e) => {
+                e.preventDefault();
+                bsInfoModal.hide();
+            });
+        });
 
-    const confirmNoButton = confirmModalElement.querySelector('.btn-secondary[data-bs-dismiss="modal"]');
-    if (confirmNoButton) {
-        confirmNoButton.addEventListener('click', (e) => {
-            e.preventDefault();
-            const submitButton = document.getElementById('btn-finalizar-venda');
-            submitButton.disabled = false;
-            checkFormValidity();
-            bsConfirmModal.hide();
+        infoModalElement.addEventListener('hidden.bs.modal', () => {
+            if (infoModalElement.dataset.reloadOnClose === 'true') {
+                infoModalElement.dataset.reloadOnClose = 'false';
+                irParaTela('consulta');
+                resetFormularioCompleto();
+            }
         });
     }
 
-    const infoCloseX = infoModalElement.querySelector('.btn-close');
-    if (infoCloseX) {
-        infoCloseX.addEventListener('click', (e) => {
-            e.preventDefault();
-            bsInfoModal.hide();
+    const complementoModalElement = document.getElementById('complementoModal');
+    if (complementoModalElement) {
+        const closeElements = complementoModalElement.querySelectorAll('.btn-close, [data-bs-dismiss="modal"]');
+        closeElements.forEach(el => {
+            el.addEventListener('click', (e) => {
+                e.preventDefault();
+                complementoModal.hide();
+            });
         });
     }
 
-    const infoCloseButton = infoModalElement.querySelector('.btn-secondary[data-bs-dismiss="modal"]');
-    if (infoCloseButton) {
-        infoCloseButton.addEventListener('click', (e) => {
-            e.preventDefault();
-            bsInfoModal.hide();
+    const suporteModalElement = document.getElementById('suporteModal');
+    if (suporteModalElement) {
+        const closeElements = suporteModalElement.querySelectorAll('.btn-close, [data-bs-dismiss="modal"]');
+        closeElements.forEach(el => {
+            el.addEventListener('click', (e) => {
+                e.preventDefault();
+                bsSuporteModal.hide();
+            });
         });
     }
-
-    infoModalElement.addEventListener('hidden.bs.modal', () => {
-        if (infoModalElement.dataset.reloadOnClose === 'true') {
-            infoModalElement.dataset.reloadOnClose = 'false';
-            irParaTela('consulta');
-            resetFormularioCompleto();
-        }
-    });
 }
 
 async function consultarClientePorDocumento() {
@@ -907,6 +934,7 @@ function validateField(field) {
     }
     return isValid;
 }
+
 function checkFormValidity() {
     const form = document.getElementById('venda-form');
     const fieldsToValidate = form.querySelectorAll('input[required]:not(:disabled), select[required]:not(:disabled), button[required]:not(:disabled)');
@@ -938,6 +966,7 @@ function checkFormValidity() {
         validityMessage.style.display = 'block';
     }
 }
+
 function showConfirmModal(title, message, yesCallback) {
     if (!bsConfirmModal) {
         console.error("Modal de confirmação não inicializado!");
@@ -955,18 +984,65 @@ function showConfirmModal(title, message, yesCallback) {
     });
     bsConfirmModal.show();
 }
+
 function getTechnologyIdFromString(technologyString) {
     const map = { 'Fibra': 1, 'Rádio': 2, 'Sem estrutura': 3, 'FTTH': 4, 'FTTB': 5 };
     return map[technologyString] || null;
 }
+
 function getCidadeNome(cidadeId) {
     const cidades = {"3173": "Vitória", "3172": "Vila Velha", "3169": "Viana", "3165": "Serra", "3159": "Santa Teresa", "3112": "Cariacica"};
     return cidades[cidadeId] || '';
 }
+
 function getUfFromCidadeId(cidadeId) {
     if (cidadeId) return 'ES';
     return '';
 }
+
+async function enviarChamadoSuporte() {
+    const textarea = document.getElementById('descricao-problema');
+    const mensagem = textarea.value.trim();
+    const btnEnviar = document.getElementById('btn-enviar-suporte');
+
+    if (!mensagem) {
+        alert("Por favor, descreva o problema antes de enviar.");
+        textarea.focus();
+        return;
+    }
+
+    const textoOriginal = btnEnviar.innerHTML;
+    btnEnviar.disabled = true;
+    btnEnviar.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Enviando...';
+
+    try {
+        const usuarioLogado = document.querySelector('.user-info span')?.textContent || 'Usuário Desconhecido';
+        const mensagemFinal = `Usuário Solicitante: ${usuarioLogado}\n\nDescrição do Problema:\n${mensagem}`;
+
+        const response = await fetch('/api/v5/ixc/abrir-chamado-suporte', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mensagem: mensagemFinal })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.error || 'Erro ao comunicar com o servidor.');
+        }
+
+        bsSuporteModal.hide();
+        showModal('Chamado Aberto', `Seu chamado foi aberto com sucesso!<br><strong>ID do Ticket:</strong> ${result.id_ticket}`, 'success');
+
+    } catch (error) {
+        console.error("Erro ao enviar suporte:", error);
+        alert(`Erro ao abrir chamado: ${error.message}`);
+    } finally {
+        btnEnviar.disabled = false;
+        btnEnviar.innerHTML = textoOriginal;
+    }
+}
+
 function initializeThemeAndUserInfo() {
     const currentTheme = localStorage.getItem('theme') || 'light';
     const bodyElement = document.querySelector('body');
@@ -1000,9 +1076,7 @@ function initializeThemeAndUserInfo() {
                 showModal('Sessão Expirada', 'Será necessário refazer o login!', 'warning');
                 setTimeout(() => { window.location = "/"; }, 300);
                 return;
-            } else if (group !== 'NOC' && group !== 'Corporativo') {
-			  document.getElementById('modalAlerta').style.display = 'flex';
-			}
+            }
             document.querySelectorAll('.user-info span').forEach(el => {
                 if (el.textContent.includes('{username}')) {
                     el.textContent = username;

@@ -37,9 +37,15 @@
 
     <main class="ivp-main">
         <div class="container py-4">
-            <a href="cadastro-de-vendas" class="btn btn-sm btn-outline-light rounded-pill px-3 me-3" title="Voltar ao Hub">
-                <i class="bi bi-arrow-left me-1"></i> Voltar para o Hub de Vendas
-            </a>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <a href="cadastro-de-vendas" class="btn btn-sm btn-outline-dark rounded-pill px-3" title="Voltar ao Hub">
+                    <i class="bi bi-arrow-left me-1"></i> Voltar para o Hub de Vendas
+                </a>
+
+                <button type="button" class="btn btn-sm btn-warning rounded-pill px-3 fw-bold" id="btn-abrir-modal-suporte">
+                    <i class="bi bi-headset me-1"></i> Abrir chamado com o suporte
+                </button>
+            </div>
             <div class="row justify-content-center">
                 <div class="col-lg-10">
                     <div id="tela-1-consulta">
@@ -179,7 +185,7 @@
                                                 <div class="invalid-feedback">WhatsApp inválido. Use o formato (00) 00000-0000.</div>
                                             </div>
                                             <div class="col-md-6">
-                                                <label for="telefone_celular" class="form-label">Telefone / Celular (Opcional)</label>
+                                                <label for="telefone_celular" class="form-label">Telefone / Celular</label>
                                                 <input type="tel" class="form-control" id="telefone_celular" placeholder="(27) 3333-3333">
                                                 <div class="invalid-feedback">Telefone inválido.</div>
                                             </div>
@@ -370,6 +376,31 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <div class="modal fade" id="suporteModal" tabindex="-1" aria-labelledby="suporteModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title" id="suporteModalLabel"><i class="bi bi-tools me-2"></i>Reportar Problema Técnico</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="form-suporte">
+                        <div class="mb-3">
+                            <label for="descricao-problema" class="form-label">Descreva o problema encontrado:</label>
+                            <textarea class="form-control" id="descricao-problema" rows="5" placeholder="Informe aqui o problema encontrado." required></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="btn-enviar-suporte">
+                        Enviar Chamado <i class="bi bi-send-fill ms-1"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="javascripts/jquery.js"></script>
