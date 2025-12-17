@@ -54,6 +54,12 @@ document.addEventListener('DOMContentLoaded', function() {
         autoGroup: true,
         rightAlign: false
     });
+    $('#numero').on('input', function() {
+        this.value = this.value.replace(/[^0-9]/g, '');
+    });
+    $('#numero_cliente').on('input', function() {
+        this.value = this.value.replace(/[^0-9]/g, '');
+    });
 
     setupPlanosModalListeners();
     setupModalListeners();
@@ -245,6 +251,20 @@ async function consultarClientePorDocumento() {
     const documento = $('#input-documento').val();
     if (!$('#input-documento').inputmask('isComplete')) {
         showModal('Atenção', 'Por favor, preencha o documento corretamente.', 'warning');
+        return;
+    }
+
+    const cleanDoc = documento.replace(/\D/g, '');
+    let isValid = false;
+
+    if (tipoConsulta === 'cpf') {
+        isValid = validarCPF(cleanDoc);
+    } else {
+        isValid = validarCNPJ(cleanDoc);
+    }
+
+    if (!isValid) {
+        showModal('Atenção', `O ${tipoConsulta.toUpperCase()} informado é inválido. Verifique os dígitos e tente novamente.`, 'warning');
         return;
     }
 
@@ -867,7 +887,15 @@ function validateField(field) {
         isValid = $(field).inputmask('isComplete');
     } else if (field.id === 'cpf') {
         const cleanValue = value.replace(/\D/g, '');
-        isValid = (cleanValue.length === 11 || cleanValue.length === 14);
+        if (cleanValue.length === 11) {
+            isValid = validarCPF(cleanValue);
+        } else if (cleanValue.length === 14) {
+            isValid = validarCNPJ(cleanValue);
+        } else {
+            isValid = false;
+        }
+        if (!isValid && value !== '') {
+        }
     } else if (field.type === 'email') {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         isValid = value !== '' && emailRegex.test(value);
@@ -937,6 +965,59 @@ function getUfFromCidadeId(cidadeId) {
     if (cidadeId) return 'ES';
     return '';
 }
+
+function validarCPF(cpf) {
+    cpf = cpf.replace(/[^\d]+/g, '');
+    if (cpf === '') return false;
+    if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+
+    let add = 0;
+    for (let i = 0; i < 9; i++) add += parseInt(cpf.charAt(i)) * (10 - i);
+    let rev = 11 - (add % 11);
+    if (rev === 10 || rev === 11) rev = 0;
+    if (rev !== parseInt(cpf.charAt(9))) return false;
+
+    add = 0;
+    for (let i = 0; i < 10; i++) add += parseInt(cpf.charAt(i)) * (11 - i);
+    rev = 11 - (add % 11);
+    if (rev === 10 || rev === 11) rev = 0;
+    if (rev !== parseInt(cpf.charAt(10))) return false;
+
+    return true;
+}
+
+function validarCNPJ(cnpj) {
+    cnpj = cnpj.replace(/[^\d]+/g, '');
+    if (cnpj === '') return false;
+    if (cnpj.length !== 14) return false;
+    if (/^(\d)\1{13}$/.test(cnpj)) return false;
+
+    let tamanho = cnpj.length - 2;
+    let numeros = cnpj.substring(0, tamanho);
+    let digitos = cnpj.substring(tamanho);
+    let soma = 0;
+    let pos = tamanho - 7;
+    for (let i = tamanho; i >= 1; i--) {
+        soma += numeros.charAt(tamanho - i) * pos--;
+        if (pos < 2) pos = 9;
+    }
+    let resultado = soma % 11 < 2 ? 0 : 11 - soma % 11;
+    if (resultado !== parseInt(digitos.charAt(0))) return false;
+
+    tamanho = tamanho + 1;
+    numeros = cnpj.substring(0, tamanho);
+    soma = 0;
+    pos = tamanho - 7;
+    for (let i = tamanho; i >= 1; i--) {
+        soma += numeros.charAt(tamanho - i) * pos--;
+        if (pos < 2) pos = 9;
+    }
+    resultado = soma % 11 < 2 ? 0 : 11 - soma % 11;
+    if (resultado !== parseInt(digitos.charAt(1))) return false;
+
+    return true;
+}
+
 function initializeThemeAndUserInfo() {
     const currentTheme = localStorage.getItem('theme') || 'light';
     const bodyElement = document.querySelector('body');

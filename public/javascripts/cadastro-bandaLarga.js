@@ -34,7 +34,45 @@ document.addEventListener('DOMContentLoaded', function() {
     $('#telefone_celular').inputmask('(99) 9999[9]-9999');
     $('#cep').inputmask('99999-999');
     $('#input-cep-consulta').inputmask('99999-999');
+    $('#numero').on('input', function() {
+        this.value = this.value.replace(/[^0-9]/g, '');
+    });
     //$('#input-numero-consulta').inputmask('regex', { regex: "^[0-9a-zA-Z -]*$" });
+
+    $('#input-complemento-livre').on('input', function() {
+        $('#complemento').val($(this).val());
+        validateField(this);
+        checkFormValidity();
+    });
+
+    $('#chk-sem-condominio').on('change', function() {
+        const isChecked = $(this).is(':checked');
+        const inputCondo = $('#input-condominio-venda');
+        const hiddenCondo = $('#hidden-condominio-id');        
+        const btnComplemento = $('#btn-complemento');
+        const inputComplemento = $('#input-complemento-livre');
+
+        if (isChecked) {
+            inputCondo.val('').prop('disabled', true).removeClass('is-invalid is-valid');
+            hiddenCondo.val(''); 
+            currentBlocks = [];
+            btnComplemento.hide();
+            inputComplemento.show().prop('disabled', false).val('').focus();
+            
+            loadPlans('ALL');
+            
+        } else {
+            inputCondo.prop('disabled', false);
+            if (hiddenCondo.val() === '') inputCondo.removeClass('is-valid').addClass('is-invalid');
+
+            inputComplemento.hide().prop('disabled', true).val('');
+            btnComplemento.show().text('Selecione o complemento...').removeClass('is-valid is-invalid');
+
+            loadPlans(null);
+        }
+        $('#complemento').val('');
+        checkFormValidity();
+    });
     
     setupModalListeners();
     
@@ -138,6 +176,19 @@ async function consultarClientePorDocumento() {
     const documento = $('#input-documento').val();
     if (!$('#input-documento').inputmask('isComplete')) {
         showModal('Atenção', 'Por favor, preencha o documento corretamente.', 'warning');
+        return;
+    }
+    const cleanDoc = documento.replace(/\D/g, '');
+    let isValid = false;
+
+    if (tipoConsulta === 'cpf') {
+        isValid = validarCPF(cleanDoc);
+    } else {
+        isValid = validarCNPJ(cleanDoc);
+    }
+
+    if (!isValid) {
+        showModal('Atenção', `O ${tipoConsulta.toUpperCase()} informado é inválido. Verifique os dígitos e tente novamente.`, 'warning');
         return;
     }
 
@@ -260,6 +311,8 @@ async function buscarEnderecoPorCEP() {
         $('#bairro').val(data.bairro || '');
         $('#cidade').val(data.cidade || '');
         $('#uf').val(data.uf || '');
+        const cidadeId = getCidadeIdPorNome(data.cidade);
+        $('#hidden-cidade-id').val(cidadeId);
 
         validateField(document.getElementById('endereco'));
         validateField(document.getElementById('bairro'));
@@ -452,13 +505,24 @@ function setupFormValidation() {
         event.stopPropagation();
 
         let isFormFullyValid = true;
+        
         form.querySelectorAll('input[required]:not(:disabled), select[required]:not(:disabled)').forEach(field => {
             if (!validateField(field)) {
                 isFormFullyValid = false;
             }
         });
-        if (!validateField(document.getElementById('btn-complemento'))) {
-            isFormFullyValid = false;
+
+        const semCondominio = $('#chk-sem-condominio').is(':checked');
+        
+        if (semCondominio) {
+            if (!validateField(document.getElementById('input-complemento-livre'))) {
+                isFormFullyValid = false;
+            }
+            document.getElementById('btn-complemento').classList.remove('is-invalid');
+        } else {
+            if (!validateField(document.getElementById('btn-complemento'))) {
+                isFormFullyValid = false;
+            }
         }
 
         checkFormValidity();
@@ -496,7 +560,7 @@ function setupFormValidation() {
                 ativo: "S", tipo_pessoa: "F", contribuinte_icms: "N", tipo_cliente_scm: "03", id_tipo_cliente: "6", id_filial: "3", bloqueio_automatico: "S",
                 tipo_assinante: "3", tipo_localidade: "U", iss_classificacao_padrao: "99", id_carteira_cobranca: "11",
 
-                // Capos atendimento
+                // Campos atendimento
                 assunto_ticket: "1", id_assunto: "1", id_wfl_processo: "3", titulo_atendimento: "INSTALAÇÃO - BANDA LARGA"
             };
             
@@ -631,6 +695,7 @@ function showModal(title, message, type = 'info') {
     }
     bsInfoModal.show();
 }
+
 async function loadSellers() {
     const sellerSelect = document.getElementById('vendedor');
     try {
@@ -647,34 +712,48 @@ async function loadSellers() {
         showModal('Erro', 'Não foi possível carregar a lista de vendedores.', 'danger');
     }
 }
+
 async function loadPlans(technologyId) {
     const planSelect = document.getElementById('plano');
     const planoHelper = document.getElementById('plano-helper');
     planSelect.innerHTML = '';
+    
     if (technologyId === null) {
         planSelect.innerHTML = '<option selected disabled value="">Selecione o complemento primeiro...</option>';
         planoHelper.textContent = 'Preencha o endereço e complemento para ver os planos.';
         planSelect.disabled = true;
         return;
     }
-    const techString = getTechnologyString(technologyId);
-    if (!techString) {
-        planSelect.innerHTML = '<option selected disabled value="">Tecnologia não suportada</option>';
-        planoHelper.textContent = 'A tecnologia deste bloco não possui planos de venda associados.';
-        planSelect.disabled = true;
-        return;
-    }
+
     planSelect.innerHTML = '<option value="">Carregando...</option>';
     planSelect.disabled = true;
+
     try {
         const response = await fetch('/api/v5/ixc/planos-home');
         if (!response.ok) throw new Error('Falha ao buscar planos');
         const allPlans = await response.json();
-        const filteredPlans = allPlans.filter(p => p.nome.toUpperCase().includes(techString));
+        
+        let filteredPlans = [];
+        if (technologyId === 'ALL') {
+            filteredPlans = allPlans;
+            planoHelper.textContent = 'Todos os planos disponíveis (Modo Manual).';
+        } else {
+            const techString = getTechnologyString(technologyId);
+            if (!techString) {
+                planSelect.innerHTML = '<option selected disabled value="">Tecnologia não suportada</option>';
+                planoHelper.textContent = 'A tecnologia deste bloco não possui planos de venda associados.';
+                planSelect.disabled = true;
+                return;
+            }
+            filteredPlans = allPlans.filter(p => p.nome.toUpperCase().includes(techString));
+            planoHelper.textContent = `Planos ${techString} disponíveis.`;
+        }
+
         planSelect.innerHTML = '<option selected disabled value="">Selecione...</option>';
+        
         if (filteredPlans.length === 0) {
             planSelect.innerHTML = '<option selected disabled value="">Nenhum plano encontrado</option>';
-            planoHelper.textContent = `Nenhum plano "${techString}" encontrado.`;
+            if (technologyId !== 'ALL') planoHelper.textContent = `Nenhum plano encontrado.`;
         } else {
             filteredPlans.forEach(plan => {
                 const option = document.createElement('option');
@@ -691,7 +770,6 @@ async function loadPlans(technologyId) {
                 planSelect.add(option);
             });
             planSelect.disabled = false;
-            planoHelper.textContent = `Planos ${techString} disponíveis.`;
         }
     } catch (error) {
         console.error("Erro ao carregar planos:", error);
@@ -700,10 +778,12 @@ async function loadPlans(technologyId) {
         showModal('Erro', 'Não foi possível carregar a lista de planos.', 'danger');
     }
 }
+
 function getTechnologyString(technologyId) {
     const map = { 1: 'FTTH', 2: 'AIRMAX', 3: null, 4: 'FTTH', 5: 'FTTH' };
     return map[technologyId] || null;
 }
+
 function setupCondoSearchVenda() {
     $('#input-condominio-venda').autoComplete({
         minLength: 1,
@@ -746,6 +826,7 @@ function setupCondoSearchVenda() {
             });
     });
 }
+
 function openComplementoModal() {
     if (!currentBlocks || currentBlocks.length === 0) {
         showModal('Atenção', 'Selecione um Condomínio / Localidade válido antes de definir o complemento.', 'warning');
@@ -776,6 +857,7 @@ function openComplementoModal() {
     });
     complementoModal.show();
 }
+
 function selectBlockInModal(block) {
     selectedBlock = block;
     const complementoDetails = document.getElementById('complemento-details');
@@ -808,6 +890,7 @@ function selectBlockInModal(block) {
         }
     }
 }
+
 function confirmComplemento(complementString) {
     let finalComplement;
     let bloco = "";
@@ -834,6 +917,7 @@ function confirmComplemento(complementString) {
     complementoModal.hide();
     checkFormValidity();
 }
+
 function resetComplementoAndPlano() {
     $('#complemento').val('').removeClass('is-valid is-invalid');
     $('#btn-complemento').text('Selecione o complemento...').removeClass('is-valid is-invalid');
@@ -891,25 +975,40 @@ function setupFieldValidation() {
 
 function validateField(field) {
     if (!field) return false;
+    
     if (field.disabled) {
         field.classList.remove('is-invalid');
-        field.classList.add('is-valid');
         return true;
     }
     
     let isValid = false;
-    let value = '';
-    if (field.id === 'btn-complemento') {
-        value = document.getElementById('complemento').value.trim();
-    } else {
-        value = field.value.trim();
+    let value = field.value.trim();
+
+    if (field.id === 'input-condominio-venda') {
+        const semCondominio = $('#chk-sem-condominio').is(':checked');
+        isValid = semCondominio ? true : value !== '';
     }
-    
-    if (field.id === 'whatsapp' || field.id === 'cep') {
+    else if (field.id === 'btn-complemento') {
+        if ($('#chk-sem-condominio').is(':checked')) {
+            isValid = true;
+        } else {
+            isValid = document.getElementById('complemento').value.trim() !== '';
+        }
+    }
+    else if (field.id === 'input-complemento-livre') {
+        isValid = value !== '';
+    }
+    else if (field.id === 'whatsapp' || field.id === 'cep') {
         isValid = $(field).inputmask('isComplete');
     } else if (field.id === 'cpf') {
         const cleanValue = value.replace(/\D/g, '');
-        isValid = (cleanValue.length === 11 || cleanValue.length === 14);
+        if (cleanValue.length === 11) {
+            isValid = validarCPF(cleanValue);
+        } else if (cleanValue.length === 14) {
+            isValid = validarCNPJ(cleanValue);
+        } else {
+            isValid = false;
+        }
     } else if (field.id === 'telefone_celular') {
         isValid = (value === '' || $(field).inputmask('isComplete'));
     } else if (field.type === 'email') {
@@ -921,10 +1020,9 @@ function validateField(field) {
     } else {
         isValid = value !== '';
     }
-    if (field.id === 'input-condominio-venda' && value !== '') {
-        isValid = true;
-    }
-    const fieldToStyle = (field.id === 'complemento') ? document.getElementById('btn-complemento') : field;
+
+    const fieldToStyle = field;
+
     if (isValid) {
         fieldToStyle.classList.add('is-valid');
         fieldToStyle.classList.remove('is-invalid');
@@ -944,16 +1042,30 @@ function checkFormValidity() {
 
     fieldsToValidate.forEach(field => {
         let fieldIsValid = false;
-        if (field.id === 'btn-complemento') {
-            fieldIsValid = document.getElementById('complemento').value.trim() !== '';
-        } else if (field.id === 'whatsapp' || field.id === 'cep') {
+
+        if (field.id === 'input-condominio-venda') {
+            const semCondominio = $('#chk-sem-condominio').is(':checked');
+            fieldIsValid = semCondominio ? true : field.value.trim() !== '';
+        }
+        else if (field.id === 'btn-complemento') {
+             if (!$('#chk-sem-condominio').is(':checked')) {
+                 fieldIsValid = document.getElementById('complemento').value.trim() !== '';
+             } else {
+                 fieldIsValid = true;
+             }
+        }
+        else if (field.id === 'input-complemento-livre') {
+             fieldIsValid = field.value.trim() !== '';
+        }
+        else if (field.id === 'whatsapp' || field.id === 'cep') {
             fieldIsValid = $(field).inputmask('isComplete');
         } else if (field.id === 'cpf') {
             const cleanValue = field.value.replace(/\D/g, '');
-            fieldIsValid = (cleanValue.length === 11 || cleanValue.length === 14);
+            fieldIsValid = (cleanValue.length === 11 || cleanValue.length === 14) && (cleanValue.length === 11 ? validarCPF(cleanValue) : validarCNPJ(cleanValue));
         } else {
              fieldIsValid = field.value.trim() !== '';
         }
+
         if (!fieldIsValid) {
             isFormValid = false;
         }
@@ -995,9 +1107,78 @@ function getCidadeNome(cidadeId) {
     return cidades[cidadeId] || '';
 }
 
+function getCidadeIdPorNome(nomeCidade) {
+    if (!nomeCidade) return '';
+    const nome = nomeCidade.toString().toUpperCase().trim();
+    
+    const mapaCidades = {
+        "VITÓRIA": "3173",
+        "VITORIA": "3173",
+        "VILA VELHA": "3172",
+        "VIANA": "3169",
+        "SERRA": "3165",
+        "SANTA TERESA": "3159",
+        "CARIACICA": "3112"
+    };
+
+    return mapaCidades[nome] || ''; 
+}
+
 function getUfFromCidadeId(cidadeId) {
     if (cidadeId) return 'ES';
     return '';
+}
+
+function validarCPF(cpf) {
+    cpf = cpf.replace(/[^\d]+/g, '');
+    if (cpf === '') return false;
+    if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+
+    let add = 0;
+    for (let i = 0; i < 9; i++) add += parseInt(cpf.charAt(i)) * (10 - i);
+    let rev = 11 - (add % 11);
+    if (rev === 10 || rev === 11) rev = 0;
+    if (rev !== parseInt(cpf.charAt(9))) return false;
+
+    add = 0;
+    for (let i = 0; i < 10; i++) add += parseInt(cpf.charAt(i)) * (11 - i);
+    rev = 11 - (add % 11);
+    if (rev === 10 || rev === 11) rev = 0;
+    if (rev !== parseInt(cpf.charAt(10))) return false;
+
+    return true;
+}
+
+function validarCNPJ(cnpj) {
+    cnpj = cnpj.replace(/[^\d]+/g, '');
+    if (cnpj === '') return false;
+    if (cnpj.length !== 14) return false;
+    if (/^(\d)\1{13}$/.test(cnpj)) return false;
+
+    let tamanho = cnpj.length - 2;
+    let numeros = cnpj.substring(0, tamanho);
+    let digitos = cnpj.substring(tamanho);
+    let soma = 0;
+    let pos = tamanho - 7;
+    for (let i = tamanho; i >= 1; i--) {
+        soma += numeros.charAt(tamanho - i) * pos--;
+        if (pos < 2) pos = 9;
+    }
+    let resultado = soma % 11 < 2 ? 0 : 11 - soma % 11;
+    if (resultado !== parseInt(digitos.charAt(0))) return false;
+
+    tamanho = tamanho + 1;
+    numeros = cnpj.substring(0, tamanho);
+    soma = 0;
+    pos = tamanho - 7;
+    for (let i = tamanho; i >= 1; i--) {
+        soma += numeros.charAt(tamanho - i) * pos--;
+        if (pos < 2) pos = 9;
+    }
+    resultado = soma % 11 < 2 ? 0 : 11 - soma % 11;
+    if (resultado !== parseInt(digitos.charAt(1))) return false;
+
+    return true;
 }
 
 async function enviarChamadoSuporte() {

@@ -201,7 +201,16 @@
                                         <div class="row g-3">
                                             <div class="col-md-12 ivp-search-box mb-3">
                                                 <label for="input-condominio-venda" class="form-label">Buscar Condomínio / Localidade<span style="color: red; margin: 0; padding: 0;"> * </span></label>
-                                                <input type="text" class="form-control form-control-lg ivp-input" id="input-condominio-venda" placeholder="Digite o nome para buscar..." autocomplete="off" required>
+                                                <div class="d-flex align-items-center mb-2">
+                                                    <input type="text" class="form-control form-control-lg ivp-input me-3" id="input-condominio-venda" placeholder="Digite o nome para buscar..." autocomplete="off" required>
+                                                    
+                                                    <div class="form-check text-nowrap">
+                                                        <input class="form-check-input" type="checkbox" id="chk-sem-condominio">
+                                                        <label class="form-check-label small" for="chk-sem-condominio">
+                                                            Bairro / Condomínio não cadastrado
+                                                        </label>
+                                                    </div>
+                                                </div>
                                                 <div class="invalid-feedback">Selecione uma localidade válida da busca.</div>
                                             </div>
                                             <div class="col-md-4">
@@ -236,8 +245,13 @@
                                             </div>
                                             <div class="col-12">
                                                 <label for="btn-complemento" class="form-label">Complemento (Bloco, Apto, etc.)<span style="color: red; margin: 0; padding: 0;"> * </span></label>
-                                                <button type="button" class="form-control btn btn-outline-secondary text-start" id="btn-complemento" required>Selecione o complemento...</button>
-                                                <input type="hidden" id="complemento" required> <div class="invalid-feedback">Por favor, selecione o complemento.</div>
+                                                
+                                                <button type="button" class="form-control btn btn-outline-secondary text-start" id="btn-complemento">Selecione o complemento...</button>
+                                                
+                                                <input type="text" class="form-control" id="input-complemento-livre" style="display: none;" disabled placeholder="Digite o complemento (Ex: Casa, Apto 101, Térreo...)">
+
+                                                <input type="hidden" id="complemento" required> 
+                                                <div class="invalid-feedback">Por favor, informe o complemento.</div>
                                             </div>
                                             <div class="col-12">
                                                 <label for="referencia" class="form-label">Ponto de Referência</label>
