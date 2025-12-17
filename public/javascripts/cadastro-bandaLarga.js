@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', function() {
         checkFormValidity();
     });
 
-    $('#chk-sem-condominio').on('change', function() {
+$('#chk-sem-condominio').on('change', function() {
         const isChecked = $(this).is(':checked');
         const inputCondo = $('#input-condominio-venda');
         const hiddenCondo = $('#hidden-condominio-id');        
@@ -53,18 +53,26 @@ document.addEventListener('DOMContentLoaded', function() {
         const inputComplemento = $('#input-complemento-livre');
 
         if (isChecked) {
-            inputCondo.val('').prop('disabled', true).removeClass('is-invalid is-valid');
+            inputCondo.prop('disabled', false)
+                      .val('')
+                      .attr('placeholder', 'Digite o nome do Bairro / Condomínio')
+                      .removeClass('is-invalid is-valid')
+                      .focus();
+            
             hiddenCondo.val(''); 
+            
             currentBlocks = [];
             btnComplemento.hide();
-            inputComplemento.show().prop('disabled', false).val('').focus();
+            inputComplemento.show().prop('disabled', false).val('');
             
             loadPlans('ALL');
             
         } else {
-            inputCondo.prop('disabled', false);
-            if (hiddenCondo.val() === '') inputCondo.removeClass('is-valid').addClass('is-invalid');
-
+            inputCondo.prop('disabled', false)
+                      .val('')
+                      .attr('placeholder', 'Digite o nome para buscar...')
+                      .removeClass('is-invalid is-valid');
+            
             inputComplemento.hide().prop('disabled', true).val('');
             btnComplemento.show().text('Selecione o complemento...').removeClass('is-valid is-invalid');
 
@@ -528,6 +536,7 @@ function setupFormValidation() {
         checkFormValidity();
 
         if (isFormFullyValid) {
+            const semCondominio = $('#chk-sem-condominio').is(':checked');
             const clientData = {
                 // Dados Pessoais
                 nome: document.getElementById('nome').value.trim(),
@@ -549,6 +558,7 @@ function setupFormValidation() {
                 apartamento: document.getElementById('hidden-apartamento').value,
                 complemento: document.getElementById('complemento').value.trim(),
                 referencia: document.getElementById('referencia').value.trim(),
+                condominio_novo_nome: semCondominio ? document.getElementById('input-condominio-venda').value.trim() : '',
                 id_condominio: document.getElementById('hidden-condominio-id').value,
                 // Venda
                 id_vendedor: document.getElementById('vendedor').value,
@@ -985,8 +995,7 @@ function validateField(field) {
     let value = field.value.trim();
 
     if (field.id === 'input-condominio-venda') {
-        const semCondominio = $('#chk-sem-condominio').is(':checked');
-        isValid = semCondominio ? true : value !== '';
+        isValid = value !== '';
     }
     else if (field.id === 'btn-complemento') {
         if ($('#chk-sem-condominio').is(':checked')) {

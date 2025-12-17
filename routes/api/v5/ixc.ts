@@ -594,6 +594,59 @@ async function abrirChamadoSuporteInterno(mensagemErro: string): Promise<string>
     }
 }
 
+async function abrirChamadoNocCadastro(nomeNovoCondominio: string, clientData: any, clienteId: string): Promise<void> {
+    console.log("Abrindo chamado para o NOC - Cadastro de Condomínio...");
+
+    const mensagem = `
+SOLICITAÇÃO DE CADASTRO DE NOVO CONDOMÍNIO/LOCALIDADE
+-----------------------------------------------------
+O vendedor informou um local não cadastrado no sistema.
+
+NOME DO CONDOMÍNIO/BAIRRO INFORMADO:
+>> ${nomeNovoCondominio.toUpperCase()} <<
+
+CLIENTE VINCULADO À INSTALAÇÃO:
+ID Cliente: ${clienteId}
+Nome: ${clientData.nome}
+CPF/CNPJ: ${clientData.cnpj_cpf}
+Endereço: ${clientData.endereco}, ${clientData.numero}
+Bairro: ${clientData.bairro}
+Cidade: ${clientData.cidade}
+Complemento: ${clientData.complemento}
+
+    `.trim();
+
+    const suportePayload = {
+        "tipo": "E",
+        "id_estrutura": "3",
+        "id_cliente": clienteId,
+        "id_filial": "3",
+        "id_assunto": "175",
+        "titulo": "CADASTRO DE NOVO CONDOMINIO - VENDAS",
+        "id_wfl_processo": "50",
+        "id_ticket_setor": "2",
+        "id_responsavel_tecnico": "138",
+        "prioridade": "A",
+        "id_ticket_origem": "I",
+        "id_usuarios": "61",
+        "id_resposta": "0",
+        "menssagem": mensagem,
+        "interacao_pendente": "I",
+        "su_status": "EP",
+        "id_evento_status_processo": "0",
+        "id_canal_atendimento": "0",
+        "status": "OSAB",
+        "id_su_diagnostico": "0"
+    };
+
+    try {
+        await makeIxcRequest('POST', '/su_ticket', suportePayload, 'incluir');
+        console.log("Chamado NOC criado com sucesso.");
+    } catch (error) {
+        console.error("Erro ao criar chamado NOC:", error.message);
+    }
+}
+
 async function atualizarCliente(clientId: string, clientData: any, dataCadastro: string): Promise<void> {
     console.log(`Iniciando Etapa 1.5: Atualização (PUT) do Cliente ID ${clientId}...`);
     const today = dataCadastro.split(' ')[0];
@@ -754,7 +807,7 @@ async function ajustarFinanceiroContrato(contratoId: string, valorAcordadoStr: s
 }
 
 router.post('/cliente', async (req, res) => {
-    const { existingClientId, ...clientData } = req.body; 
+    const { existingClientId, condominio_novo_nome, ...clientData } = req.body; 
     const dataCadastro = getIxcDate();
     let novoClienteId: string;
 
@@ -782,6 +835,10 @@ router.post('/cliente', async (req, res) => {
         const novoLoginId = await criarLogin(novoClienteId, novoContratoId, clientData, dataCadastro);
         const novoTicketId = await abrirAtendimentoOS(novoClienteId, clientData, nomePlano, novoLoginId, novoContratoId);
         
+        if (condominio_novo_nome && condominio_novo_nome.trim() !== '') {
+            await abrirChamadoNocCadastro(condominio_novo_nome, clientData, novoClienteId);
+        }
+
         res.status(201).json({
             success: true,
             message: "Venda finalizada com sucesso! Cliente, Contrato, Login e Atendimento/OS criados.",
