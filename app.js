@@ -216,6 +216,7 @@ APP.use('/lead', protectRoutes, index_1.default);
 APP.use('/main', protectRoutes, index_1.default);
 APP.use('/e-mails', protectRoutes, index_1.default);
 APP.use('/migra-onu', protectRoutes, index_1.default);
+APP.use('/soc-report', protectRoutes, index_1.default);
 APP.use('/equipamentos', protectRoutes, index_1.default);
 APP.use('/clientes-online', protectRoutes, index_1.default);
 APP.use('/teste-de-lentidao', protectRoutes, index_1.default);

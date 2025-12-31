@@ -274,6 +274,7 @@ APP.use('/lead', protectRoutes, ROUTES);
 APP.use('/main', protectRoutes, ROUTES);
 APP.use('/e-mails', protectRoutes, ROUTES);
 APP.use('/migra-onu', protectRoutes, ROUTES);
+APP.use('/soc-report', protectRoutes, ROUTES);
 APP.use('/equipamentos', protectRoutes, ROUTES);
 APP.use('/clientes-online', protectRoutes, ROUTES);
 APP.use('/teste-de-lentidao', protectRoutes, ROUTES);
