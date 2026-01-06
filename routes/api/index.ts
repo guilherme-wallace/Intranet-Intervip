@@ -1,3 +1,5 @@
+// routes/api/index.ts
+
 import { Request, Response } from 'express-serve-static-core';
 import { Technology } from '../../types/technology';
 import { Research } from '../../types/research';
