@@ -1,0 +1,106 @@
+.ivp-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    overflow: hidden;
+}
+
+@media (min-width: 1200px) {
+    .modal-xl {
+        max-width: 90%;
+    }
+}
+
+#modalAnalise textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.table thead th {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+    padding: 1rem;
+}
+
+.table tbody td {
+    padding: 1rem;
+    font-size: 0.9rem;
+}
+
+.status-badge {
+    padding: 0.4em 0.8em;
+    border-radius: 50px;
+    font-weight: 500;
+    font-size: 0.75rem;
+}
+
+.dark-mode .table {
+    color: #e0e0e0;
+    border-color: #333;
+}
+
+.dark-mode .table-light {
+    background-color: #2d2d2d;
+    color: #fff;
+    border-color: #444;
+}
+
+.dark-mode .table-hover tbody tr:hover {
+    background-color: rgba(255,255,255,0.02);
+}
+
+.dark-mode .modal-content {
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+    border: 1px solid #333;
+}
+
+.dark-mode .modal-header, 
+.dark-mode .modal-footer {
+    border-color: #333;
+}
+
+.dark-mode .modal-header .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+.dark-mode .form-control, 
+.dark-mode .form-select {
+    background-color: #2b2b2b;
+    border-color: #444;
+    color: #fff;
+}
+
+.dark-mode .form-control:focus, 
+.dark-mode .form-select:focus {
+    background-color: #333;
+    border-color: var(--primary-color);
+    color: #fff;
+}
+
+.dark-mode .form-label {
+    color: #bbb;
+}
+
+.dark-mode ::placeholder {
+    color: #888 !important;
+    opacity: 1; 
+}
+
+.dark-mode :-ms-input-placeholder {
+    color: #888 !important;
+}
+
+.dark-mode ::-ms-input-placeholder {
+    color: #888 !important;
+}
+
+.dark-mode .form-control:read-only {
+    background-color: #252525 !important;
+    color: #999 !important;
+    border-color: #333 !important;
+    cursor: not-allowed;
+}

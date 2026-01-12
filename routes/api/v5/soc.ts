@@ -19,38 +19,75 @@ router.get('/eventos', async (req, res) => {
 });
 
 router.post('/salvar', async (req, res) => {
-    const { 
-        id, data_evento, ip_interno, cliente_nome, cliente_id_ixc, 
+    let { 
+        id, id_wanguard, data_evento, ip_interno, cliente_nome, cliente_id_ixc, login,
         trafego_upload, trafego_download, equipamento, analise, 
-        acao, observacoes, status, usuario_responsavel 
+        acao_tomada, observacoes, status, usuario_responsavel 
     } = req.body;
+
+    if (!id && !cliente_id_ixc && ip_interno) {
+        try {
+            const infoIxc = await consultarIxcPorIp(ip_interno);
+            if (infoIxc && infoIxc.total > 0) {
+                const registro = infoIxc.registros[0];
+                cliente_id_ixc = registro.id_cliente;
+                login = registro.login;
+
+                const respCliente = await axios.post(`${process.env.IXC_API_URL}/webservice/v1/cliente`, {
+                    qtype: "cliente.id", query: cliente_id_ixc, oper: "=", rp: "1"
+                }, { headers: { 'Authorization': `Basic ${process.env.IXC_API_TOKEN}`, 'ixcsoft': 'listar' } });
+                
+                if (respCliente.data?.registros?.length > 0) {
+                    cliente_nome = respCliente.data.registros[0].razao;
+                }
+            }
+        } catch (e) { console.error("Erro na busca automática:", e); }
+    }
 
     if (id) {
         const QUERY = `UPDATE soc_wanguard_report SET 
-            equipamento = ?, analise_preliminar = ?, acao_tomada = ?, observacoes = ?, status = ? 
+            equipamento = ?, analise_preliminar = ?, acao_tomada = ?, observacoes = ?, status = ?, login = ?
             WHERE id = ?`;
-        
-        LOCALHOST.query(QUERY, [equipamento, analise, acao, observacoes, status, id], (error) => {
+        LOCALHOST.query(QUERY, [equipamento, analise, acao_tomada, observacoes, status, login, id], (error) => {
             if (error) return res.status(500).json({ error: error.message });
-            res.json({ success: true, message: 'Evento atualizado' });
+            res.json({ success: true, message: 'Atualizado' });
         });
     } else {
-        const QUERY = `INSERT INTO soc_wanguard_report 
-            (data_evento, ip_interno, cliente_nome, cliente_id_ixc, trafego_upload, trafego_download, equipamento, analise_preliminar, acao_tomada, observacoes, status, usuario_responsavel) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-        
-        LOCALHOST.query(QUERY, [
-            data_evento, ip_interno, cliente_nome, cliente_id_ixc, 
-            trafego_upload, trafego_download, equipamento, analise, 
-            acao, observacoes, status, usuario_responsavel
-        ], (error, result) => {
-            if (error) {
-                console.error("Erro SQL ao inserir:", error);
-                return res.status(500).json({ error: error.message });
+        const CHECK_SQL = `SELECT id, qtd_anomalias FROM soc_wanguard_report 
+                           WHERE ip_interno = ? AND status != 'Concluído' 
+                           ORDER BY id DESC LIMIT 1`;
+
+        LOCALHOST.query(CHECK_SQL, [ip_interno], (err, results: any) => {
+            if (results && results.length > 0) {
+                const INC_SQL = `UPDATE soc_wanguard_report SET qtd_anomalias = qtd_anomalias + 1, trafego_upload = ?, trafego_download = ?, id_wanguard = ? WHERE id = ?`;
+                LOCALHOST.query(INC_SQL, [trafego_upload, trafego_download, id_wanguard, results[0].id], (e) => {
+                    if (e) return res.status(500).json({ error: e.message });
+                    res.json({ success: true, message: 'Qtd incrementada' });
+                });
+            } else {
+                const INS_SQL = `INSERT INTO soc_wanguard_report 
+                    (id_wanguard, data_evento, ip_interno, cliente_nome, cliente_id_ixc, login, trafego_upload, trafego_download, status, analise_preliminar, usuario_responsavel, qtd_anomalias) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pendente', ?, ?, 1)`;
+                LOCALHOST.query(INS_SQL, [id_wanguard, data_evento, ip_interno, cliente_nome, cliente_id_ixc, login, trafego_upload, trafego_download, analise, usuario_responsavel], (e, r) => {
+                    if (e) return res.status(500).json({ error: e.message });
+                    res.json({ success: true, id: r.insertId });
+                });
             }
-            res.json({ success: true, id: result.insertId });
         });
     }
+});
+
+router.delete('/excluir/:id', async (req, res) => {
+    const { id } = req.params;
+    const QUERY = `DELETE FROM soc_wanguard_report WHERE id = ?`;
+    
+    LOCALHOST.query(QUERY, [id], (error) => {
+        if (error) {
+            console.error("Erro SQL ao excluir:", error);
+            return res.status(500).json({ error: error.message });
+        }
+        res.json({ success: true, message: 'Registro excluído com sucesso' });
+    });
 });
 
 const consultarIxcPorIp = async (ip: string) => {
@@ -78,18 +115,49 @@ const consultarIxcPorIp = async (ip: string) => {
 
 router.get('/buscar-cliente-ip/:ip', async (req, res) => {
     const { ip } = req.params;
+    const urlBase = `${process.env.IXC_API_URL}/webservice/v1`;
+    const headers = {
+        'Authorization': `Basic ${process.env.IXC_API_TOKEN}`,
+        'ixcsoft': 'listar',
+        'Content-Type': 'application/json'
+    };
+
     try {
-        const data = await consultarIxcPorIp(ip);
-        if (data && data.total > 0) {
-            const registro = data.registros[0];
-            res.json({
-                cliente_id: registro.id_cliente,
-                login: registro.login,
-            });
-        } else {
-            res.status(404).json({ message: "IP não encontrado no IXC" });
+        const respRad = await axios.post(`${urlBase}/radusuarios`, {
+            qtype: "radusuarios.ip",
+            query: ip,
+            oper: "=",
+            rp: "1"
+        }, { headers });
+
+        if (!respRad.data || respRad.data.total <= 0) {
+            return res.status(404).json({ message: "IP não encontrado" });
         }
+
+        const registroRad = respRad.data.registros[0];
+        const idCliente = registroRad.id_cliente;
+        const loginEncontrado = registroRad.login;
+
+        const respCliente = await axios.post(`${urlBase}/cliente`, {
+            qtype: "cliente.id",
+            query: idCliente,
+            oper: "=",
+            rp: "1"
+        }, { headers });
+
+        let nomeCliente = "Nome não encontrado";
+        if (respCliente.data && respCliente.data.total > 0) {
+            nomeCliente = respCliente.data.registros[0].razao;
+        }
+
+        res.json({
+            cliente_id: idCliente,
+            cliente_nome: nomeCliente,
+            login: loginEncontrado 
+        });
+
     } catch (error) {
+        console.error("Erro IXC:", error.message);
         res.status(500).json({ error: error.message });
     }
 });

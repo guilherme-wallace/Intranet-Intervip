@@ -56,31 +56,83 @@ router.get('/eventos', function (req, res) { return __awaiter(void 0, void 0, vo
     });
 }); });
 router.post('/salvar', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var _a, id, data_evento, ip_interno, cliente_nome, cliente_id_ixc, trafego_upload, trafego_download, equipamento, analise, acao, observacoes, status, usuario_responsavel, QUERY, QUERY;
-    return __generator(this, function (_b) {
-        _a = req.body, id = _a.id, data_evento = _a.data_evento, ip_interno = _a.ip_interno, cliente_nome = _a.cliente_nome, cliente_id_ixc = _a.cliente_id_ixc, trafego_upload = _a.trafego_upload, trafego_download = _a.trafego_download, equipamento = _a.equipamento, analise = _a.analise, acao = _a.acao, observacoes = _a.observacoes, status = _a.status, usuario_responsavel = _a.usuario_responsavel;
-        if (id) {
-            QUERY = "UPDATE soc_wanguard_report SET \n            equipamento = ?, analise_preliminar = ?, acao_tomada = ?, observacoes = ?, status = ? \n            WHERE id = ?";
-            database_1.LOCALHOST.query(QUERY, [equipamento, analise, acao, observacoes, status, id], function (error) {
-                if (error)
-                    return res.status(500).json({ error: error.message });
-                res.json({ success: true, message: 'Evento atualizado' });
-            });
-        }
-        else {
-            QUERY = "INSERT INTO soc_wanguard_report \n            (data_evento, ip_interno, cliente_nome, cliente_id_ixc, trafego_upload, trafego_download, equipamento, analise_preliminar, acao_tomada, observacoes, status, usuario_responsavel) \n            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            database_1.LOCALHOST.query(QUERY, [
-                data_evento, ip_interno, cliente_nome, cliente_id_ixc,
-                trafego_upload, trafego_download, equipamento, analise,
-                acao, observacoes, status, usuario_responsavel
-            ], function (error, result) {
-                if (error) {
-                    console.error("Erro SQL ao inserir:", error);
-                    return res.status(500).json({ error: error.message });
+    var _a, id, id_wanguard, data_evento, ip_interno, cliente_nome, cliente_id_ixc, login, trafego_upload, trafego_download, equipamento, analise, acao_tomada, observacoes, status, usuario_responsavel, infoIxc, registro, respCliente, e_1, QUERY, CHECK_SQL;
+    var _b, _c;
+    return __generator(this, function (_d) {
+        switch (_d.label) {
+            case 0:
+                _a = req.body, id = _a.id, id_wanguard = _a.id_wanguard, data_evento = _a.data_evento, ip_interno = _a.ip_interno, cliente_nome = _a.cliente_nome, cliente_id_ixc = _a.cliente_id_ixc, login = _a.login, trafego_upload = _a.trafego_upload, trafego_download = _a.trafego_download, equipamento = _a.equipamento, analise = _a.analise, acao_tomada = _a.acao_tomada, observacoes = _a.observacoes, status = _a.status, usuario_responsavel = _a.usuario_responsavel;
+                if (!(!id && !cliente_id_ixc && ip_interno)) return [3 /*break*/, 6];
+                _d.label = 1;
+            case 1:
+                _d.trys.push([1, 5, , 6]);
+                return [4 /*yield*/, consultarIxcPorIp(ip_interno)];
+            case 2:
+                infoIxc = _d.sent();
+                if (!(infoIxc && infoIxc.total > 0)) return [3 /*break*/, 4];
+                registro = infoIxc.registros[0];
+                cliente_id_ixc = registro.id_cliente;
+                login = registro.login;
+                return [4 /*yield*/, axios_1.default.post("".concat(process.env.IXC_API_URL, "/webservice/v1/cliente"), {
+                        qtype: "cliente.id", query: cliente_id_ixc, oper: "=", rp: "1"
+                    }, { headers: { 'Authorization': "Basic ".concat(process.env.IXC_API_TOKEN), 'ixcsoft': 'listar' } })];
+            case 3:
+                respCliente = _d.sent();
+                if (((_c = (_b = respCliente.data) === null || _b === void 0 ? void 0 : _b.registros) === null || _c === void 0 ? void 0 : _c.length) > 0) {
+                    cliente_nome = respCliente.data.registros[0].razao;
                 }
-                res.json({ success: true, id: result.insertId });
-            });
+                _d.label = 4;
+            case 4: return [3 /*break*/, 6];
+            case 5:
+                e_1 = _d.sent();
+                console.error("Erro na busca automática:", e_1);
+                return [3 /*break*/, 6];
+            case 6:
+                if (id) {
+                    QUERY = "UPDATE soc_wanguard_report SET \n            equipamento = ?, analise_preliminar = ?, acao_tomada = ?, observacoes = ?, status = ?, login = ?\n            WHERE id = ?";
+                    database_1.LOCALHOST.query(QUERY, [equipamento, analise, acao_tomada, observacoes, status, login, id], function (error) {
+                        if (error)
+                            return res.status(500).json({ error: error.message });
+                        res.json({ success: true, message: 'Atualizado' });
+                    });
+                }
+                else {
+                    CHECK_SQL = "SELECT id, qtd_anomalias FROM soc_wanguard_report \n                           WHERE ip_interno = ? AND status != 'Conclu\u00EDdo' \n                           ORDER BY id DESC LIMIT 1";
+                    database_1.LOCALHOST.query(CHECK_SQL, [ip_interno], function (err, results) {
+                        if (results && results.length > 0) {
+                            var INC_SQL = "UPDATE soc_wanguard_report SET qtd_anomalias = qtd_anomalias + 1, trafego_upload = ?, trafego_download = ?, id_wanguard = ? WHERE id = ?";
+                            database_1.LOCALHOST.query(INC_SQL, [trafego_upload, trafego_download, id_wanguard, results[0].id], function (e) {
+                                if (e)
+                                    return res.status(500).json({ error: e.message });
+                                res.json({ success: true, message: 'Qtd incrementada' });
+                            });
+                        }
+                        else {
+                            var INS_SQL = "INSERT INTO soc_wanguard_report \n                    (id_wanguard, data_evento, ip_interno, cliente_nome, cliente_id_ixc, login, trafego_upload, trafego_download, status, analise_preliminar, usuario_responsavel, qtd_anomalias) \n                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pendente', ?, ?, 1)";
+                            database_1.LOCALHOST.query(INS_SQL, [id_wanguard, data_evento, ip_interno, cliente_nome, cliente_id_ixc, login, trafego_upload, trafego_download, analise, usuario_responsavel], function (e, r) {
+                                if (e)
+                                    return res.status(500).json({ error: e.message });
+                                res.json({ success: true, id: r.insertId });
+                            });
+                        }
+                    });
+                }
+                return [2 /*return*/];
         }
+    });
+}); });
+router.delete('/excluir/:id', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var id, QUERY;
+    return __generator(this, function (_a) {
+        id = req.params.id;
+        QUERY = "DELETE FROM soc_wanguard_report WHERE id = ?";
+        database_1.LOCALHOST.query(QUERY, [id], function (error) {
+            if (error) {
+                console.error("Erro SQL ao excluir:", error);
+                return res.status(500).json({ error: error.message });
+            }
+            res.json({ success: true, message: 'Registro excluído com sucesso' });
+        });
         return [2 /*return*/];
     });
 }); });
@@ -112,33 +164,58 @@ var consultarIxcPorIp = function (ip) { return __awaiter(void 0, void 0, void 0,
     });
 }); };
 router.get('/buscar-cliente-ip/:ip', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var ip, data, registro, error_1;
+    var ip, urlBase, headers, respRad, registroRad, idCliente, loginEncontrado, respCliente, nomeCliente, error_1;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
                 ip = req.params.ip;
+                urlBase = "".concat(process.env.IXC_API_URL, "/webservice/v1");
+                headers = {
+                    'Authorization': "Basic ".concat(process.env.IXC_API_TOKEN),
+                    'ixcsoft': 'listar',
+                    'Content-Type': 'application/json'
+                };
                 _a.label = 1;
             case 1:
-                _a.trys.push([1, 3, , 4]);
-                return [4 /*yield*/, consultarIxcPorIp(ip)];
+                _a.trys.push([1, 4, , 5]);
+                return [4 /*yield*/, axios_1.default.post("".concat(urlBase, "/radusuarios"), {
+                        qtype: "radusuarios.ip",
+                        query: ip,
+                        oper: "=",
+                        rp: "1"
+                    }, { headers: headers })];
             case 2:
-                data = _a.sent();
-                if (data && data.total > 0) {
-                    registro = data.registros[0];
-                    res.json({
-                        cliente_id: registro.id_cliente,
-                        login: registro.login,
-                    });
+                respRad = _a.sent();
+                if (!respRad.data || respRad.data.total <= 0) {
+                    return [2 /*return*/, res.status(404).json({ message: "IP não encontrado" })];
                 }
-                else {
-                    res.status(404).json({ message: "IP não encontrado no IXC" });
-                }
-                return [3 /*break*/, 4];
+                registroRad = respRad.data.registros[0];
+                idCliente = registroRad.id_cliente;
+                loginEncontrado = registroRad.login;
+                return [4 /*yield*/, axios_1.default.post("".concat(urlBase, "/cliente"), {
+                        qtype: "cliente.id",
+                        query: idCliente,
+                        oper: "=",
+                        rp: "1"
+                    }, { headers: headers })];
             case 3:
+                respCliente = _a.sent();
+                nomeCliente = "Nome não encontrado";
+                if (respCliente.data && respCliente.data.total > 0) {
+                    nomeCliente = respCliente.data.registros[0].razao;
+                }
+                res.json({
+                    cliente_id: idCliente,
+                    cliente_nome: nomeCliente,
+                    login: loginEncontrado
+                });
+                return [3 /*break*/, 5];
+            case 4:
                 error_1 = _a.sent();
+                console.error("Erro IXC:", error_1.message);
                 res.status(500).json({ error: error_1.message });
-                return [3 /*break*/, 4];
-            case 4: return [2 /*return*/];
+                return [3 /*break*/, 5];
+            case 5: return [2 /*return*/];
         }
     });
 }); });

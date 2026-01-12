@@ -19,6 +19,7 @@ var scriptmigraOnusRoute_1 = require("./src/routes/scriptmigraOnusRoute");
 var geospatial_1 = require("./routes/api/v5/geospatial");
 var ixc_1 = require("./routes/api/v5/ixc");
 var loginConfig_1 = require("./src/configs/loginConfig");
+var soc_1 = require("./routes/api/v5/soc");
 var jwt = require("jsonwebtoken");
 process.on('uncaughtException', function (error) {
     console.error('--- ERRO NÃO CAPTURADO (Uncaught Exception) ---');
@@ -200,6 +201,7 @@ APP.use('/api', protectApi, index_2.default);
 APP.use('/api/email', protectApi, emailRoutes_1.default);
 APP.use('/api', protectApi, scriptmigraOnusRoute_1.default);
 APP.use('/api', protectApi, scriptAddCondominiumsBDRoute_1.default);
+APP.use('/api/v5/soc', protectApi, soc_1.default);
 APP.get('/api/username', protectApi, function (req, res) {
     if (req.user) {
         return res.json({ username: req.user.username, group: req.user.group });

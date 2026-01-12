@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Intervip - SOC Wanguard Report</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="stylesheets/style.css"> <link rel="stylesheet" href="stylesheets/soc-report.css">
+</head>
+
+<body class="gerenciaIVP-body">
+
+    <header class="header-modern">
+        <div class="container-fluid">
+            <div class="d-flex align-items-center">
+                <a href="/main" class="d-flex align-items-center text-decoration-none">
+                    <img class="logo me-3" src="images/logo.png" alt="Logo Intervip">
+                </a>
+            </div>
+            <h1 class="header-title fs-4 fw-semibold text-white m-0">🛡️ SOC Wanguard Report</h1>
+            <div class="d-flex align-items-center">
+                <div class="user-info text-end me-4">
+                    <p class="m-0 small text-white-80">Acessando como: <span class="fw-medium">{username}</span></p>
+                    <p class="m-0 small text-white-80">Setor: <span class="fw-medium">{group}</span></p>
+                </div>
+                <button id="theme-toggle" class="btn btn-sm btn-outline-light rounded-pill px-3">
+                    <i class="bi bi-moon-stars"></i>
+                </button>
+                <button id="btnLogout" class="btn btn-sm btn-outline-danger rounded-pill px-3 ms-2">
+                    <i class="bi bi-box-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container-fluid py-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="ivp-card">
+                    <div class="card-header d-flex justify-content-between align-items-center bg-transparent border-bottom">
+                        <h5 class="mb-0">Eventos Detectados</h5>
+                        <div class="d-flex gap-2">
+                            <input type="text" id="filtro-ip" class="form-control form-control-sm" placeholder="Filtrar IP...">
+                            <button class="btn btn-primary btn-sm" id="btn-novo-evento">
+                                <i class="bi bi-plus-lg"></i> Novo Registro
+                            </button>
+                        </div>
+                    </div>
+                    <br>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0" id="tabela-soc">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Data/Hora</th>
+                                        <th>IP Interno</th>
+                                        <th>Cliente x Qtd Anomalias</th>
+                                        <th>Equipamento</th>
+                                        <th>Análise</th>
+                                        <th>Ação</th>
+                                        <th>Status</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div class="modal fade" id="modalAnalise" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-shield-check me-2"></i>Detalhes do Evento SOC</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="form-analise-soc">
+                        <input type="hidden" id="m-id">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">Data do Evento</label>
+                                <input type="datetime-local" id="m-data" class="form-control" autocomplete="off">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">IP Interno</label>
+                                <input type="text" id="m-ip" class="form-control" placeholder="0.0.0.0" autocomplete="off">
+                            </div>
+                            <div class="col-md-1">
+                                <label class="form-label fw-bold">Qtd</label>
+                                <input type="text" id="m-qtd" class="form-control bg-warning-subtle fw-bold" readonly>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label fw-bold">ID IXC</label>
+                                <input type="text" id="m-cliente-id" class="form-control" placeholder="Ex: 53558" autocomplete="off">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">Nome do Cliente</label>
+                                <input type="text" id="m-cliente-nome" class="form-control" placeholder="Nome Completo" autocomplete="off">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label fw-bold">Login PPPoE</label>
+                                <input type="text" id="m-login" class="form-control" placeholder="Ex: 53558" autocomplete="off">
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label fw-bold">Tráfego Upload</label>
+                                <input type="text" id="m-upload" class="form-control" placeholder="Ex: 100 Mbps" autocomplete="off">
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label fw-bold">Tráfego Download</label>
+                                <input type="text" id="m-download" class="form-control" placeholder="Ex: 500 Mbps" autocomplete="off">
+                            </div>
+
+                            <hr>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold text-primary">Equipamento</label>
+                                <input type="text" id="m-equipamento" class="form-control" placeholder="Modelo do roteador/ONU">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold text-primary">Status</label>
+                                <select id="m-status" class="form-select fw-bold">
+                                    <option value="Pendente">🟡 Pendente</option>
+                                    <option value="Em Análise">🔵 Em Análise</option>
+                                    <option value="Concluído">🟢 Concluído</option>
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-bold text-primary">Análise Preliminar</label>
+                                <textarea id="m-analise" class="form-control" rows="2"></textarea>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-bold text-primary">Ação Tomada</label>
+                                <input type="text" id="m-acao" class="form-control" placeholder="Ex: Bloqueio de MAC realizado">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-bold text-primary">Observações Adicionais</label>
+                                <textarea id="m-observacoes" class="form-control" rows="2"></textarea>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer d-flex justify-content-between">
+                    <div>
+                        <button type="button" class="btn btn-outline-danger" id="btn-excluir-registro" style="display: none;">
+                            <i class="bi bi-trash me-1"></i> Excluir Registro
+                        </button>
+                    </div>
+                    
+                    <div>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                        <button type="button" class="btn btn-success" id="btn-salvar-modal">
+                            <i class="bi bi-save me-1"></i> Salvar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalAlerta" style="display: none; position: fixed; z-index: 999; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.8); justify-content: center; align-items: center;">
+        <div id="modalContent" style="background-color: white; padding: 20px; text-align: center; border-radius: 10px; max-width: 500px;">
+            <h3>Você não pode passar!</h3>
+            <img src="images/lord-of-the-rings-you-shall-not-pass.gif" alt="You shall not pass GIF" style="max-width: 100%; border-radius: 10px;">
+            <br>
+            <button id="closeModalBtn" class="btn btn-danger mt-3">Fechar</button>
+        </div>
+    </div>
+
+    <script src="javascripts/jquery.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="javascripts/soc-report.js"></script>
+</body>
+</html>
