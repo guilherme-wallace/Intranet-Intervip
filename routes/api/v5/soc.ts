@@ -41,7 +41,7 @@ router.post('/salvar', async (req, res) => {
                     cliente_nome = respCliente.data.registros[0].razao;
                 }
             }
-        } catch (e) { console.error("Erro na busca automática:", e); }
+        } catch (e) { console.error("Falha ao identificar cliente pelo IP:", e); }
     }
 
     if (id) {
