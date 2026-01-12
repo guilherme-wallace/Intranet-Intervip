@@ -23,6 +23,8 @@ import geospatialRoutes from './routes/api/v5/geospatial';
 import ixcRoutes from './routes/api/v5/ixc';
 import { config_login } from './src/configs/loginConfig';
 
+import socRoutes from './routes/api/v5/soc';
+
 import * as jwt from 'jsonwebtoken';
 
 
@@ -256,6 +258,7 @@ APP.use('/api', protectApi, API);
 APP.use('/api/email', protectApi, emailRoutes);
 APP.use('/api', protectApi, scriptmigraOnusRoute);
 APP.use('/api', protectApi, scriptAddCondominiumsBDRoute);
+APP.use('/api/v5/soc', protectApi, socRoutes);
 
 APP.get('/api/username', protectApi, (req, res) => {
     if (req.user) {
