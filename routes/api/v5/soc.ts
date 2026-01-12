@@ -25,7 +25,19 @@ router.post('/salvar', async (req, res) => {
         acao_tomada, observacoes, status, usuario_responsavel 
     } = req.body;
 
-    if (!id && !cliente_id_ixc && ip_interno) {
+    if (id) {
+        const QUERY = `UPDATE soc_wanguard_report SET 
+            equipamento = ?, analise_preliminar = ?, acao_tomada = ?, observacoes = ?, status = ?, login = ?
+            WHERE id = ?`;
+        
+        LOCALHOST.query(QUERY, [equipamento, analise, acao_tomada, observacoes, status, login, id], (error) => {
+            if (error) return res.status(500).json({ error: error.message });
+            res.json({ success: true, message: 'Evento atualizado manualmente' });
+        });
+        return;
+    }
+
+    if (!cliente_id_ixc && ip_interno) {
         try {
             const infoIxc = await consultarIxcPorIp(ip_interno);
             if (infoIxc && infoIxc.total > 0) {
@@ -35,46 +47,62 @@ router.post('/salvar', async (req, res) => {
 
                 const respCliente = await axios.post(`${process.env.IXC_API_URL}/webservice/v1/cliente`, {
                     qtype: "cliente.id", query: cliente_id_ixc, oper: "=", rp: "1"
-                }, { headers: { 'Authorization': `Basic ${process.env.IXC_API_TOKEN}`, 'ixcsoft': 'listar' } });
+                }, { 
+                    headers: { 'Authorization': `Basic ${process.env.IXC_API_TOKEN}`, 'ixcsoft': 'listar' } 
+                });
                 
                 if (respCliente.data?.registros?.length > 0) {
                     cliente_nome = respCliente.data.registros[0].razao;
                 }
             }
-        } catch (e) { console.error("Falha ao identificar cliente pelo IP:", e); }
+        } catch (e) {
+            console.error("Erro na identificação automática durante o salvamento:", e);
+        }
     }
 
-    if (id) {
-        const QUERY = `UPDATE soc_wanguard_report SET 
-            equipamento = ?, analise_preliminar = ?, acao_tomada = ?, observacoes = ?, status = ?, login = ?
-            WHERE id = ?`;
-        LOCALHOST.query(QUERY, [equipamento, analise, acao_tomada, observacoes, status, login, id], (error) => {
-            if (error) return res.status(500).json({ error: error.message });
-            res.json({ success: true, message: 'Atualizado' });
-        });
-    } else {
-        const CHECK_SQL = `SELECT id, qtd_anomalias FROM soc_wanguard_report 
-                           WHERE ip_interno = ? AND status != 'Concluído' 
-                           ORDER BY id DESC LIMIT 1`;
+    const CHECK_ID_WANGUARD = `SELECT id FROM soc_wanguard_report WHERE id_wanguard = ? LIMIT 1`;
 
-        LOCALHOST.query(CHECK_SQL, [ip_interno], (err, results: any) => {
+    LOCALHOST.query(CHECK_ID_WANGUARD, [id_wanguard], (err, idExists: any) => {
+        if (err) return res.status(500).json({ error: err.message });
+        
+        if (idExists && idExists.length > 0 && id_wanguard !== null) {
+            return res.json({ success: true, message: 'Anomalia já processada. Ignorando duplicata.' });
+        }
+
+        const CHECK_OPEN_RECORD = `SELECT id, qtd_anomalias FROM soc_wanguard_report 
+                                   WHERE ip_interno = ? AND cliente_id_ixc = ? AND status != 'Concluído' 
+                                   ORDER BY id DESC LIMIT 1`;
+
+        LOCALHOST.query(CHECK_OPEN_RECORD, [ip_interno, cliente_id_ixc], (err, results: any) => {
+            if (err) return res.status(500).json({ error: err.message });
+
             if (results && results.length > 0) {
-                const INC_SQL = `UPDATE soc_wanguard_report SET qtd_anomalias = qtd_anomalias + 1, trafego_upload = ?, trafego_download = ?, id_wanguard = ? WHERE id = ?`;
-                LOCALHOST.query(INC_SQL, [trafego_upload, trafego_download, id_wanguard, results[0].id], (e) => {
+                const UPDATE_INC = `UPDATE soc_wanguard_report SET 
+                                    qtd_anomalias = qtd_anomalias + 1,
+                                    trafego_upload = ?,
+                                    trafego_download = ?,
+                                    id_wanguard = ?
+                                    WHERE id = ?`;
+                
+                LOCALHOST.query(UPDATE_INC, [trafego_upload, trafego_download, id_wanguard, results[0].id], (e) => {
                     if (e) return res.status(500).json({ error: e.message });
-                    res.json({ success: true, message: 'Qtd incrementada' });
+                    res.json({ success: true, message: 'Nova anomalia somada ao registro aberto do cliente.' });
                 });
             } else {
-                const INS_SQL = `INSERT INTO soc_wanguard_report 
+                const INSERT_SQL = `INSERT INTO soc_wanguard_report 
                     (id_wanguard, data_evento, ip_interno, cliente_nome, cliente_id_ixc, login, trafego_upload, trafego_download, status, analise_preliminar, usuario_responsavel, qtd_anomalias) 
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pendente', ?, ?, 1)`;
-                LOCALHOST.query(INS_SQL, [id_wanguard, data_evento, ip_interno, cliente_nome, cliente_id_ixc, login, trafego_upload, trafego_download, analise, usuario_responsavel], (e, r) => {
+                
+                LOCALHOST.query(INSERT_SQL, [
+                    id_wanguard, data_evento, ip_interno, cliente_nome, cliente_id_ixc, login, 
+                    trafego_upload, trafego_download, analise, usuario_responsavel
+                ], (e, r) => {
                     if (e) return res.status(500).json({ error: e.message });
                     res.json({ success: true, id: r.insertId });
                 });
             }
         });
-    }
+    });
 });
 
 router.delete('/excluir/:id', async (req, res) => {

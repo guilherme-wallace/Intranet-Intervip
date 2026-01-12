@@ -56,13 +56,22 @@ router.get('/eventos', function (req, res) { return __awaiter(void 0, void 0, vo
     });
 }); });
 router.post('/salvar', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var _a, id, id_wanguard, data_evento, ip_interno, cliente_nome, cliente_id_ixc, login, trafego_upload, trafego_download, equipamento, analise, acao_tomada, observacoes, status, usuario_responsavel, infoIxc, registro, respCliente, e_1, QUERY, CHECK_SQL;
+    var _a, id, id_wanguard, data_evento, ip_interno, cliente_nome, cliente_id_ixc, login, trafego_upload, trafego_download, equipamento, analise, acao_tomada, observacoes, status, usuario_responsavel, QUERY, infoIxc, registro, respCliente, e_1, CHECK_ID_WANGUARD;
     var _b, _c;
     return __generator(this, function (_d) {
         switch (_d.label) {
             case 0:
                 _a = req.body, id = _a.id, id_wanguard = _a.id_wanguard, data_evento = _a.data_evento, ip_interno = _a.ip_interno, cliente_nome = _a.cliente_nome, cliente_id_ixc = _a.cliente_id_ixc, login = _a.login, trafego_upload = _a.trafego_upload, trafego_download = _a.trafego_download, equipamento = _a.equipamento, analise = _a.analise, acao_tomada = _a.acao_tomada, observacoes = _a.observacoes, status = _a.status, usuario_responsavel = _a.usuario_responsavel;
-                if (!(!id && !cliente_id_ixc && ip_interno)) return [3 /*break*/, 6];
+                if (id) {
+                    QUERY = "UPDATE soc_wanguard_report SET \n            equipamento = ?, analise_preliminar = ?, acao_tomada = ?, observacoes = ?, status = ?, login = ?\n            WHERE id = ?";
+                    database_1.LOCALHOST.query(QUERY, [equipamento, analise, acao_tomada, observacoes, status, login, id], function (error) {
+                        if (error)
+                            return res.status(500).json({ error: error.message });
+                        res.json({ success: true, message: 'Evento atualizado manualmente' });
+                    });
+                    return [2 /*return*/];
+                }
+                if (!(!cliente_id_ixc && ip_interno)) return [3 /*break*/, 6];
                 _d.label = 1;
             case 1:
                 _d.trys.push([1, 5, , 6]);
@@ -75,7 +84,9 @@ router.post('/salvar', function (req, res) { return __awaiter(void 0, void 0, vo
                 login = registro.login;
                 return [4 /*yield*/, axios_1.default.post("".concat(process.env.IXC_API_URL, "/webservice/v1/cliente"), {
                         qtype: "cliente.id", query: cliente_id_ixc, oper: "=", rp: "1"
-                    }, { headers: { 'Authorization': "Basic ".concat(process.env.IXC_API_TOKEN), 'ixcsoft': 'listar' } })];
+                    }, {
+                        headers: { 'Authorization': "Basic ".concat(process.env.IXC_API_TOKEN), 'ixcsoft': 'listar' }
+                    })];
             case 3:
                 respCliente = _d.sent();
                 if (((_c = (_b = respCliente.data) === null || _b === void 0 ? void 0 : _b.registros) === null || _c === void 0 ? void 0 : _c.length) > 0) {
@@ -85,38 +96,41 @@ router.post('/salvar', function (req, res) { return __awaiter(void 0, void 0, vo
             case 4: return [3 /*break*/, 6];
             case 5:
                 e_1 = _d.sent();
-                console.error("Erro na busca automática:", e_1);
+                console.error("Erro na identificação automática durante o salvamento:", e_1);
                 return [3 /*break*/, 6];
             case 6:
-                if (id) {
-                    QUERY = "UPDATE soc_wanguard_report SET \n            equipamento = ?, analise_preliminar = ?, acao_tomada = ?, observacoes = ?, status = ?, login = ?\n            WHERE id = ?";
-                    database_1.LOCALHOST.query(QUERY, [equipamento, analise, acao_tomada, observacoes, status, login, id], function (error) {
-                        if (error)
-                            return res.status(500).json({ error: error.message });
-                        res.json({ success: true, message: 'Atualizado' });
-                    });
-                }
-                else {
-                    CHECK_SQL = "SELECT id, qtd_anomalias FROM soc_wanguard_report \n                           WHERE ip_interno = ? AND status != 'Conclu\u00EDdo' \n                           ORDER BY id DESC LIMIT 1";
-                    database_1.LOCALHOST.query(CHECK_SQL, [ip_interno], function (err, results) {
+                CHECK_ID_WANGUARD = "SELECT id FROM soc_wanguard_report WHERE id_wanguard = ? LIMIT 1";
+                database_1.LOCALHOST.query(CHECK_ID_WANGUARD, [id_wanguard], function (err, idExists) {
+                    if (err)
+                        return res.status(500).json({ error: err.message });
+                    if (idExists && idExists.length > 0 && id_wanguard !== null) {
+                        return res.json({ success: true, message: 'Anomalia já processada. Ignorando duplicata.' });
+                    }
+                    var CHECK_OPEN_RECORD = "SELECT id, qtd_anomalias FROM soc_wanguard_report \n                                   WHERE ip_interno = ? AND cliente_id_ixc = ? AND status != 'Conclu\u00EDdo' \n                                   ORDER BY id DESC LIMIT 1";
+                    database_1.LOCALHOST.query(CHECK_OPEN_RECORD, [ip_interno, cliente_id_ixc], function (err, results) {
+                        if (err)
+                            return res.status(500).json({ error: err.message });
                         if (results && results.length > 0) {
-                            var INC_SQL = "UPDATE soc_wanguard_report SET qtd_anomalias = qtd_anomalias + 1, trafego_upload = ?, trafego_download = ?, id_wanguard = ? WHERE id = ?";
-                            database_1.LOCALHOST.query(INC_SQL, [trafego_upload, trafego_download, id_wanguard, results[0].id], function (e) {
+                            var UPDATE_INC = "UPDATE soc_wanguard_report SET \n                                    qtd_anomalias = qtd_anomalias + 1,\n                                    trafego_upload = ?,\n                                    trafego_download = ?,\n                                    id_wanguard = ?\n                                    WHERE id = ?";
+                            database_1.LOCALHOST.query(UPDATE_INC, [trafego_upload, trafego_download, id_wanguard, results[0].id], function (e) {
                                 if (e)
                                     return res.status(500).json({ error: e.message });
-                                res.json({ success: true, message: 'Qtd incrementada' });
+                                res.json({ success: true, message: 'Nova anomalia somada ao registro aberto do cliente.' });
                             });
                         }
                         else {
-                            var INS_SQL = "INSERT INTO soc_wanguard_report \n                    (id_wanguard, data_evento, ip_interno, cliente_nome, cliente_id_ixc, login, trafego_upload, trafego_download, status, analise_preliminar, usuario_responsavel, qtd_anomalias) \n                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pendente', ?, ?, 1)";
-                            database_1.LOCALHOST.query(INS_SQL, [id_wanguard, data_evento, ip_interno, cliente_nome, cliente_id_ixc, login, trafego_upload, trafego_download, analise, usuario_responsavel], function (e, r) {
+                            var INSERT_SQL = "INSERT INTO soc_wanguard_report \n                    (id_wanguard, data_evento, ip_interno, cliente_nome, cliente_id_ixc, login, trafego_upload, trafego_download, status, analise_preliminar, usuario_responsavel, qtd_anomalias) \n                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pendente', ?, ?, 1)";
+                            database_1.LOCALHOST.query(INSERT_SQL, [
+                                id_wanguard, data_evento, ip_interno, cliente_nome, cliente_id_ixc, login,
+                                trafego_upload, trafego_download, analise, usuario_responsavel
+                            ], function (e, r) {
                                 if (e)
                                     return res.status(500).json({ error: e.message });
                                 res.json({ success: true, id: r.insertId });
                             });
                         }
                     });
-                }
+                });
                 return [2 /*return*/];
         }
     });
