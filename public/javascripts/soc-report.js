@@ -47,7 +47,13 @@ document.addEventListener('DOMContentLoaded', function() {
         
         linhas.forEach(linha => {
             const ip = linha.querySelector('td:nth-child(2)').textContent.toLowerCase();
-            linha.style.display = ip.includes(termo) ? '' : 'none';
+            const cliente = linha.querySelector('td:nth-child(3)').textContent.toLowerCase();
+            
+            if (ip.includes(termo) || cliente.includes(termo)) {
+                linha.style.display = '';
+            } else {
+                linha.style.display = 'none';
+            }
         });
     });
 });
