@@ -1,6 +1,8 @@
 :root {
     --primary-color: #2c5fdf;
     --primary-hover: #1a4bc8;
+    --primary-light: rgba(44, 95, 223, 0.1);
+    --primary-rgb: 44, 95, 223;
     --secondary-color: #6c757d;
     --success-color: #28a745;
     --danger-color: #dc3545;
@@ -15,16 +17,21 @@
     --border-color: #e2e8f0;
     --header-bg: #1a365d;
     --footer-bg: #1a365d;
+    --success-color-rgb: 40, 167, 69;
+    --danger-color-rgb: 220, 53, 69;
+    --warning-color-rgb: 255, 193, 7;
 }
 
-/* Dark Mode */
 .dark-mode {
     --primary-color: #4d9fec;
     --primary-hover: #3a8bda;
+    --primary-light: rgba(44, 95, 223, 0.2);
     --body-bg: #121212;
     --card-bg: #1e1e1e;
+    --card-bg-dark: #2d2d2d;
+    --card-bg-painel: rgba(95,95,95, 0.3);
     --text-color: #e0e0e0;
-    --text-muted: #a0a0a0;
+    --text-muted: #ffffff;
     --border-color: #333333;
     --header-bg: #0d1b2a;
     --footer-bg: #0d1b2a;
@@ -282,24 +289,24 @@ html, body {
     box-shadow: 0 0 0 0.2rem rgba(44, 95, 223, 0.25);
 }
 
-/* Footer */
-.footer-modern {
+/* FOOTER */
+.ivp-footer {
     background-color: var(--footer-bg);
     color: white;
-    padding: 1.5rem 0;
-    text-align: center;
+    margin-top: auto;
 }
-
-.footer-modern a {
+.ivp-footer-text {
+    margin: 0;
+    font-size: 0.9rem;
+}
+.ivp-footer a {
     color: white;
     text-decoration: none;
-    transition: color 0.3s ease;
 }
-
-.footer-modern a:hover {
-    color: #a0aec0;
+.ivp-footer a:hover {
     text-decoration: underline;
 }
+
 
 /* Theme Toggle */
 #theme-toggle {
