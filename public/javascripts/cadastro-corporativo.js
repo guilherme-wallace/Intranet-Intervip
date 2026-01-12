@@ -1053,7 +1053,7 @@ function initializeThemeAndUserInfo() {
                 setTimeout(() => { window.location = "/"; }, 300);
                 return;
             } 
-            else if (group !== 'NOC' && group !== 'CORPORATIVO') {
+            else if (group !== 'NOC' && group !== 'Corporativo') {
                 console.log("Acesso negado para o grupo:", group);
                 document.getElementById('modalAlerta').style.display = 'flex';
             }
