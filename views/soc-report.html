@@ -38,20 +38,69 @@
         <div class="row">
             <div class="col-12">
                 <div class="ivp-card">
-                    <div class="card-header d-flex justify-content-between align-items-center bg-transparent border-bottom">
-                        <h5 class="mb-0">Eventos Detectados</h5>
-                        <div class="d-flex gap-2">
-                            <input type="text" id="filtro-ip" class="form-control form-control-sm" placeholder="Filtrar IP ou Código do CLiente...">
-                            <button class="btn btn-primary btn-sm" id="btn-novo-evento">
-                                <i class="bi bi-plus-lg"></i> Novo Registro
-                            </button>
+                    
+                    <div class="card-header bg-transparent border-bottom py-3">
+                        <div class="row align-items-center g-3">
+                            
+                            <div class="col-md-3">
+                                <h5 class="mb-0 fw-bold text-primary">
+                                    <i class="bi bi-shield-check me-2"></i>Eventos Detectados
+                                </h5>
+                            </div>
+
+                            <div class="col-md-9">
+                                <div class="d-flex justify-content-md-end gap-2">
+                                    
+                                    <div class="dropdown">
+                                        <button class="btn btn-outline-secondary btn-sm dropdown-toggle d-flex align-items-center gap-2" type="button" id="dropdownFiltroStatus" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="bi bi-funnel"></i> Filtros
+                                        </button>
+                                        <ul class="dropdown-menu p-3 shadow" aria-labelledby="dropdownFiltroStatus" style="min-width: 240px;">
+                                            <li><h6 class="dropdown-header text-uppercase small fw-bold">Exibir Status:</h6></li>
+                                            <li>
+                                                <div class="form-check my-1">
+                                                    <input class="form-check-input filtro-status-chk" type="checkbox" value="Pendente" id="chkPendente" checked>
+                                                    <label class="form-check-label badge bg-danger text-white w-100 text-start" for="chkPendente">Pendente</label>
+                                                </div>
+                                            </li>
+                                            <li>
+                                                <div class="form-check my-1">
+                                                    <input class="form-check-input filtro-status-chk" type="checkbox" value="Em Análise" id="chkAnalise" checked>
+                                                    <label class="form-check-label badge bg-primary text-dark w-100 text-start" for="chkAnalise">Em Análise</label>
+                                                </div>
+                                            </li>
+                                            <li>
+                                                <div class="form-check my-1">
+                                                    <input class="form-check-input filtro-status-chk" type="checkbox" value="Sem acesso remoto" id="chkSemAcesso" checked>
+                                                    <label class="form-check-label badge bg-warning text-dark w-100 text-start" for="chkSemAcesso">Sem acesso</label>
+                                                </div>
+                                            </li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <div class="form-check my-1">
+                                                    <input class="form-check-input filtro-status-chk" type="checkbox" value="Concluído" id="chkConcluido">
+                                                    <label class="form-check-label badge bg-success text-white w-100 text-start" for="chkConcluido">Concluído</label>
+                                                </div>
+                                            </li>
+                                        </ul>
+                                    </div>
+
+                                    <div class="d-flex gap-2">
+                                        <input type="text" id="filtro-geral" class="form-control form-control-sm" placeholder="Buscar IP, Cliente ou ID...">
+                                    </div>
+
+                                    <button class="btn btn-primary btn-sm px-3" id="btn-novo-evento">
+                                        <i class="bi bi-plus-lg me-1"></i> Novo
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <br>
+
                     <div class="card-body p-0">
                         <div class="table-responsive">
                             <table class="table table-hover align-middle mb-0" id="tabela-soc">
-                                <thead class="table-light">
+                                <thead class="table-light text-secondary small text-uppercase">
                                     <tr>
                                         <th>Data/Hora</th>
                                         <th>IP Interno</th>
@@ -64,11 +113,19 @@
                                         <th>Ações</th>
                                     </tr>
                                 </thead>
-                                <tbody>
+                                <tbody class="border-top-0">
                                     </tbody>
                             </table>
                         </div>
                     </div>
+
+                    <div class="card-footer bg-white border-top py-3">
+                        <nav aria-label="Navegação da tabela">
+                            <ul class="pagination justify-content-center pagination-sm mb-2" id="paginacao-container"></ul>
+                            <p class="text-center text-muted small mb-0" id="contador-registros">Carregando...</p>
+                        </nav>
+                    </div>
+
                 </div>
             </div>
         </div>

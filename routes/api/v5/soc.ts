@@ -32,7 +32,7 @@ router.post('/salvar', async (req, res) => {
         
         LOCALHOST.query(QUERY, [equipamento, analise, acao_tomada, observacoes, status, login, id], (error) => {
             if (error) return res.status(500).json({ error: error.message });
-            res.json({ success: true, message: 'Evento atualizado manualmente' });
+            res.json({ success: true, message: 'Evento atualizado' });
         });
         return;
     }
@@ -55,9 +55,7 @@ router.post('/salvar', async (req, res) => {
                     cliente_nome = respCliente.data.registros[0].razao;
                 }
             }
-        } catch (e) {
-            console.error("Erro na identificação automática durante o salvamento:", e);
-        }
+        } catch (e) { console.error("Erro identificação automática:", e); }
     }
 
     const CHECK_ID_WANGUARD = `SELECT id FROM soc_wanguard_report WHERE id_wanguard = ? LIMIT 1`;
@@ -66,36 +64,36 @@ router.post('/salvar', async (req, res) => {
         if (err) return res.status(500).json({ error: err.message });
         
         if (idExists && idExists.length > 0 && id_wanguard !== null) {
-            return res.json({ success: true, message: 'Anomalia já processada. Ignorando duplicata.' });
+            return res.json({ success: true, message: 'Duplicata ignorada.' });
         }
 
-        const CHECK_OPEN_RECORD = `SELECT id, qtd_anomalias FROM soc_wanguard_report 
-                                   WHERE ip_interno = ? AND cliente_id_ixc = ? AND status != 'Concluído' 
-                                   ORDER BY id DESC LIMIT 1`;
+        const CHECK_OPEN = `SELECT id, qtd_anomalias FROM soc_wanguard_report 
+                            WHERE ip_interno = ? AND cliente_id_ixc = ? AND status != 'Concluído' 
+                            ORDER BY id DESC LIMIT 1`;
 
-        LOCALHOST.query(CHECK_OPEN_RECORD, [ip_interno, cliente_id_ixc], (err, results: any) => {
+        LOCALHOST.query(CHECK_OPEN, [ip_interno, cliente_id_ixc], (err, results: any) => {
             if (err) return res.status(500).json({ error: err.message });
 
             if (results && results.length > 0) {
                 const UPDATE_INC = `UPDATE soc_wanguard_report SET 
                                     qtd_anomalias = qtd_anomalias + 1,
-                                    trafego_upload = ?,
-                                    trafego_download = ?,
-                                    id_wanguard = ?
+                                    trafego_upload = ?, trafego_download = ?, id_wanguard = ?
                                     WHERE id = ?`;
-                
                 LOCALHOST.query(UPDATE_INC, [trafego_upload, trafego_download, id_wanguard, results[0].id], (e) => {
                     if (e) return res.status(500).json({ error: e.message });
-                    res.json({ success: true, message: 'Nova anomalia somada ao registro aberto do cliente.' });
+                    res.json({ success: true, message: 'Quantidade incrementada.' });
                 });
             } else {
                 const INSERT_SQL = `INSERT INTO soc_wanguard_report 
-                    (id_wanguard, data_evento, ip_interno, cliente_nome, cliente_id_ixc, login, trafego_upload, trafego_download, status, analise_preliminar, usuario_responsavel, qtd_anomalias) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pendente', ?, ?, 1)`;
+                    (id_wanguard, data_evento, ip_interno, cliente_nome, cliente_id_ixc, login, trafego_upload, trafego_download, status, analise_preliminar, usuario_responsavel, qtd_anomalias, equipamento, acao_tomada, observacoes) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`;
                 
+                const statusFinal = status || 'Pendente';
+
                 LOCALHOST.query(INSERT_SQL, [
                     id_wanguard, data_evento, ip_interno, cliente_nome, cliente_id_ixc, login, 
-                    trafego_upload, trafego_download, analise, usuario_responsavel
+                    trafego_upload, trafego_download, statusFinal, analise, usuario_responsavel,
+                    equipamento, acao_tomada, observacoes 
                 ], (e, r) => {
                     if (e) return res.status(500).json({ error: e.message });
                     res.json({ success: true, id: r.insertId });

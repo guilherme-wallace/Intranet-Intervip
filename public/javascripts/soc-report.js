@@ -1,11 +1,18 @@
+let eventosAtuais = [];
+let paginaAtual = 1;
+const itensPorPagina = 15;
+let statusSelecionados = ['Pendente', 'Em Análise', 'Sem acesso remoto'];
+
 document.addEventListener('DOMContentLoaded', function() {
     carregarEventos();
     initializeThemeAndUserInfo();
     carregarListaEquipamentos();
+    configurarFiltros();
 
     const btnSalvar = document.getElementById('btn-salvar-modal');
     if (btnSalvar) {
-        btnSalvar.addEventListener('click', salvarAlteracoes);
+        btnSalvar.replaceWith(btnSalvar.cloneNode(true));
+        document.getElementById('btn-salvar-modal').addEventListener('click', salvarAlteracoes);
     }
 
     const btnExcluir = document.getElementById('btn-excluir-registro');
@@ -16,109 +23,243 @@ document.addEventListener('DOMContentLoaded', function() {
     const btnNovo = document.getElementById('btn-novo-evento');
     if(btnNovo) {
         btnNovo.addEventListener('click', function() {
-            document.getElementById('form-analise-soc').reset();
-            document.getElementById('m-id').value = "";
-            document.getElementById('btn-excluir-registro').style.display = 'none';
-
-            alternarBloqueioCampos(false);
+            const form = document.getElementById('form-analise-soc');
+            if(form) form.reset();
             
-            const modal = new bootstrap.Modal(document.getElementById('modalAnalise'));
-            modal.show();
+            const elId = document.getElementById('m-id');
+            if(elId) elId.value = "";
+            
+            const btnExc = document.getElementById('btn-excluir-registro');
+            if(btnExc) btnExc.style.display = 'none';
+
+            if(typeof alternarBloqueioCampos === 'function') alternarBloqueioCampos(false);
+            
+            abrirModal();
+        });
+    }
+
+    const inputIpModal = document.getElementById('m-ip');
+    if (inputIpModal) {
+        inputIpModal.addEventListener('blur', async function() {
+            const ip = this.value;
+            const elId = document.getElementById('m-id');
+            if (ip.length > 7 && (!elId || !elId.value)) {
+                try {
+                    const response = await fetch(`/api/v5/soc/buscar-cliente-ip/${ip}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        setVal('m-cliente-id', data.cliente_id);
+                        setVal('m-cliente-nome', data.cliente_nome);
+                        setVal('m-login', data.login);
+                    }
+                } catch (err) { console.error("Erro busca cliente:", err); }
+            }
         });
     }
 
     const statusSelect = document.getElementById('m-status');
-function atualizarCorSelect() {
-        statusSelect.classList.remove('text-danger', 'text-warning', 'text-success', 'text-secondary', 'border-danger', 'border-warning', 'border-success', 'border-secondary');
-        
-        switch(statusSelect.value) {
-            case 'Pendente': 
-                statusSelect.classList.add('text-danger', 'border-danger'); 
-                break;
-            case 'Em Análise': 
-                statusSelect.classList.add('text-primary', 'border-primary'); 
-                break;
-            case 'Concluído': 
-                statusSelect.classList.add('text-success', 'border-success'); 
-                break;
-            case 'Sem acesso remoto': 
-                statusSelect.classList.add('text-warning', 'border-warning'); 
-                break;
-        }
-    }
-
     if (statusSelect) {
         statusSelect.addEventListener('change', function() {
             atualizarCorSelect();
-
             if (this.value === 'Sem acesso remoto') {
-                const modalElement = document.getElementById('modalAvisoTecnico');
-                const modalAviso = new bootstrap.Modal(modalElement);
-                modalAviso.show();
-            }
-        });
-    }
-    document.getElementById('m-ip').addEventListener('blur', async function() {
-        const ip = this.value;
-        if (ip.length > 7 && !document.getElementById('m-id').value) {
-            try {
-                const response = await fetch(`/api/v5/soc/buscar-cliente-ip/${ip}`);
-                if (response.ok) {
-                    const data = await response.json();
-                    document.getElementById('m-cliente-id').value = data.cliente_id;
-                    document.getElementById('m-cliente-nome').value = data.cliente_nome;
-                    document.getElementById('m-login').value = data.login || '';
+                const modalAvisoEl = document.getElementById('modalAvisoTecnico');
+                if(modalAvisoEl) {
+                    const modalAviso = new bootstrap.Modal(modalAvisoEl);
+                    modalAviso.show();
                 }
-            } catch (err) { console.error("Erro na busca de cliente"); }
-        }
-    });
-
-    document.getElementById('filtro-ip').addEventListener('keyup', function() {
-        const termo = this.value.toLowerCase();
-        const linhas = document.querySelectorAll('#tabela-soc tbody tr');
-        
-        linhas.forEach(linha => {
-            const ip = linha.querySelector('td:nth-child(2)').textContent.toLowerCase();
-            const cliente = linha.querySelector('td:nth-child(3)').textContent.toLowerCase();
-            
-            if (ip.includes(termo) || cliente.includes(termo)) {
-                linha.style.display = '';
-            } else {
-                linha.style.display = 'none';
             }
         });
-    });
-});
-
-
-let eventosAtuais = [];
-
-async function carregarEventos() {
-    try {
-        const response = await fetch('/api/v5/soc/eventos');
-        eventosAtuais = await response.json();
-        renderizarTabela(eventosAtuais);
-    } catch (error) {
-        console.error("Erro ao carregar eventos:", error);
     }
+});
+function setVal(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.value = (val === null || val === undefined) ? '' : val;
+}
+
+function getVal(id) {
+    const el = document.getElementById(id);
+    return el ? el.value : '';
+}
+
+function abrirModal() {
+    const modalEl = document.getElementById('modalAnalise');
+    if(modalEl) {
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+    }
+}
+
+function fecharModal() {
+    const modalEl = document.getElementById('modalAnalise');
+    if(modalEl) {
+        let modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if (!modalInstance) {
+            modalInstance = new bootstrap.Modal(modalEl);
+        }
+        modalInstance.hide();
+        
+        setTimeout(() => {
+            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+            document.body.classList.remove('modal-open');
+            document.body.style = '';
+        }, 500);
+    }
+}
+
+async function salvarAlteracoes() {
+    //console.log("Iniciando salvamento...");
+
+    const idVal = getVal('m-id');
+    
+    const dados = {
+        id: idVal ? parseInt(idVal) : null,
+        data_evento: getVal('m-data') || new Date().toISOString().slice(0, 19).replace('T', ' '),
+        ip_interno: getVal('m-ip'),
+        cliente_nome: getVal('m-cliente-nome'),
+        cliente_id_ixc: getVal('m-cliente-id'),
+        login: getVal('m-login'),
+        equipamento: getVal('m-equipamento'),
+        analise: getVal('m-analise'),
+        acao_tomada: getVal('m-acao'),
+        observacoes: getVal('m-obs'),
+        status: getVal('m-status'),
+        trafego_upload: getVal('m-upload') || '0 Mbps',
+        trafego_download: getVal('m-download') || '0 Mbps',
+        usuario_responsavel: 'Técnico' 
+    };
+
+    //console.log("Dados a enviar:", dados);
+
+    try {
+        const response = await fetch('/api/v5/soc/salvar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dados)
+        });
+        
+        if (response.ok) {
+            //console.log("Salvo com sucesso!");
+            fecharModal();
+            carregarEventos();
+        } else {
+            const erroTxt = await response.text();
+            //console.error("Erro API:", erroTxt);
+            alert('Erro ao salvar no servidor. Verifique o console.');
+        }
+    } catch (error) { 
+        console.error('Erro de conexão/JS:', error); 
+        alert("Erro ao tentar salvar: " + error.message);
+    }
+}
+
+function editarEvento(id) {
+    const evento = eventosAtuais.find(e => e.id === id);
+    if (!evento) return;
+
+    setVal('m-id', evento.id);
+    setVal('m-data', evento.data_evento);
+    setVal('m-ip', evento.ip_interno);
+    setVal('m-cliente-id', evento.cliente_id_ixc);
+    setVal('m-cliente-nome', evento.cliente_nome);
+    setVal('m-login', evento.login);
+    setVal('m-qtd', (evento.qtd_anomalias || 1) + 'x');
+    setVal('m-upload', evento.trafego_upload);
+    setVal('m-download', evento.trafego_download);
+    setVal('m-equipamento', evento.equipamento);
+    setVal('m-analise', evento.analise_preliminar);
+    setVal('m-acao', evento.acao_tomada);
+    setVal('m-obs', evento.observacoes);
+    
+    const statusSelect = document.getElementById('m-status');
+    if (statusSelect) {
+        statusSelect.value = evento.status;
+        atualizarCorSelect();
+    }
+
+    alternarBloqueioCampos(true);
+    
+    const btnExc = document.getElementById('btn-excluir-registro');
+    if(btnExc) btnExc.style.display = 'block';
+
+    abrirModal();
+}
+
+function configurarFiltros() {
+    const filtroGeral = document.getElementById('filtro-geral');
+    if (filtroGeral) {
+        filtroGeral.addEventListener('keyup', function() {
+            paginaAtual = 1; 
+            aplicarFiltrosRenderizar();
+        });
+    }
+
+    const checkboxes = document.querySelectorAll('.filtro-status-chk');
+    checkboxes.forEach(chk => {
+        chk.addEventListener('change', function() {
+            statusSelecionados = Array.from(checkboxes)
+                .filter(c => c.checked)
+                .map(c => c.value);
+            paginaAtual = 1;
+            aplicarFiltrosRenderizar();
+        });
+    });
+}
+
+function aplicarFiltrosRenderizar() {
+    const filtroGeral = document.getElementById('filtro-geral');
+    const termo = filtroGeral ? filtroGeral.value.toLowerCase() : '';
+
+    const dadosFiltrados = eventosAtuais.filter(item => {
+        if (!statusSelecionados.includes(item.status)) return false;
+
+        const textoRow = `
+            ${item.ip_interno || ''} 
+            ${item.cliente_nome || ''} 
+            ${item.cliente_id_ixc || ''} 
+            ${item.equipamento || ''}
+        `.toLowerCase();
+        
+        return textoRow.includes(termo);
+    });
+
+    const totalItens = dadosFiltrados.length;
+    const totalPaginas = Math.ceil(totalItens / itensPorPagina);
+    
+    if (paginaAtual > totalPaginas && totalPaginas > 0) paginaAtual = totalPaginas;
+    if (paginaAtual < 1) paginaAtual = 1;
+
+    const inicio = (paginaAtual - 1) * itensPorPagina;
+    const fim = inicio + itensPorPagina;
+    const dadosPagina = dadosFiltrados.slice(inicio, fim);
+
+    renderizarTabela(dadosPagina);
+    renderizarControlesPaginacao(totalPaginas, totalItens);
 }
 
 function renderizarTabela(dados) {
     const tbody = document.querySelector('#tabela-soc tbody');
+    if (!tbody) return;
+    
+    if (dados.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">Nenhum registro encontrado.</td></tr>';
+        return;
+    }
+
     tbody.innerHTML = dados.map(item => `
         <tr>
-            <td class="small">${item.data_evento}</td> 
+            <td class="small text-nowrap">${item.data_evento}</td> 
             <td>
                 <span class="fw-bold text-primary">${item.ip_interno}</span>
-                <span class="badge bg-secondary ms-1">${item.qtd_anomalias}x</span>
+                <span class="badge bg-secondary ms-1" title="Reincidências">${item.qtd_anomalias || 1}x</span>
             </td> 
-            <td>${item.cliente_id_ixc || ''} - ${item.cliente_nome || ''}</td>
-            
-            <td class="text-danger"><i class="bi bi-arrow-up"></i> ${item.trafego_upload || '0 Mbps'}</td>
-            <td class="text-success"><i class="bi bi-arrow-down"></i> ${item.trafego_download || '0 Mbps'}</td>
-            
+            <td>
+                <div class="small fw-bold">${item.cliente_id_ixc || '-'}</div>
+                <div class="small text-muted text-truncate" style="max-width: 150px;">${item.cliente_nome || 'Não ident.'}</div>
+            </td>
+            <td class="text-danger small"><i class="bi bi-arrow-up"></i> ${item.trafego_upload || '0'}</td>
+            <td class="text-success small"><i class="bi bi-arrow-down"></i> ${item.trafego_download || '0'}</td>
             <td><span class="badge bg-light text-dark border">${item.equipamento || '-'}</span></td>
-            <td>${item.acao_tomada || ''}</td>
+            <td class="small text-truncate" style="max-width: 150px;">${item.acao_tomada || ''}</td>
             <td>${getStatusBadge(item.status)}</td>
             <td>
                 <button class="btn btn-sm btn-outline-primary btn-editar" data-id="${item.id}">
@@ -130,10 +271,111 @@ function renderizarTabela(dados) {
 
     document.querySelectorAll('.btn-editar').forEach(btn => {
         btn.addEventListener('click', function() {
-            const id = parseInt(this.getAttribute('data-id'));
-            editarEvento(id);
+            editarEvento(parseInt(this.dataset.id));
         });
     });
+}
+
+function renderizarControlesPaginacao(totalPaginas, totalItens) {
+    const container = document.getElementById('paginacao-container');
+    const contador = document.getElementById('contador-registros');
+    if(!container || !contador) return;
+    
+    container.innerHTML = '';
+    
+    if (totalPaginas <= 1) {
+        contador.innerText = `Total: ${totalItens} registros`;
+        return; 
+    }
+
+    const criarBotao = (texto, page, disabled, active) => {
+        const li = document.createElement('li');
+        li.className = `page-item ${disabled ? 'disabled' : ''} ${active ? 'active' : ''}`;
+        li.innerHTML = `<a class="page-link" href="#">${texto}</a>`;
+        if (!disabled) {
+            li.addEventListener('click', (e) => {
+                e.preventDefault();
+                paginaAtual = page;
+                aplicarFiltrosRenderizar();
+            });
+        }
+        return li;
+    };
+
+    container.appendChild(criarBotao('Anterior', paginaAtual - 1, paginaAtual === 1));
+
+    let startPage = Math.max(1, paginaAtual - 2);
+    let endPage = Math.min(totalPaginas, paginaAtual + 2);
+    for (let i = startPage; i <= endPage; i++) {
+        container.appendChild(criarBotao(i, i, false, i === paginaAtual));
+    }
+
+    container.appendChild(criarBotao('Próximo', paginaAtual + 1, paginaAtual === totalPaginas));
+
+    const inicioExibido = (paginaAtual - 1) * itensPorPagina + 1;
+    const fimExibido = Math.min(paginaAtual * itensPorPagina, totalItens);
+    contador.innerText = `Exibindo ${inicioExibido} a ${fimExibido} de ${totalItens} registros`;
+}
+
+async function carregarEventos() {
+    try {
+        const response = await fetch('/api/v5/soc/eventos');
+        const dados = await response.json();
+        eventosAtuais = dados;
+        aplicarFiltrosRenderizar();
+    } catch (error) { console.error('Erro carregar eventos:', error); }
+}
+
+async function carregarListaEquipamentos() {
+    try {
+        const response = await fetch('/api/v5/soc/equipamentos-lista');
+        if (response.ok) {
+            const equipamentos = await response.json();
+            const select = document.getElementById('m-equipamento');
+            if(select) {
+                select.innerHTML = '<option value="">Selecione...</option>';
+                equipamentos.forEach(eq => {
+                    const nome = `${eq.marca} ${eq.modelo}`;
+                    const opt = document.createElement('option');
+                    opt.value = nome; opt.textContent = nome;
+                    select.appendChild(opt);
+                });
+            }
+        }
+    } catch (error) { console.error("Erro equipamentos:", error); }
+}
+
+async function excluirRegistro() {
+    const idVal = getVal('m-id');
+    if (!idVal || !confirm('Tem certeza que deseja excluir este registro?')) return;
+
+    try {
+        await fetch(`/api/v5/soc/excluir/${idVal}`, { method: 'DELETE' });
+        fecharModal();
+        carregarEventos();
+    } catch (error) { console.error('Erro excluir:', error); }
+}
+
+function getStatusBadge(status) {
+    switch (status) {
+        case 'Pendente': return '<span class="badge bg-danger">Pendente</span>';
+        case 'Em Análise': return '<span class="badge bg-primary text-dark">Em Análise</span>';
+        case 'Concluído': return '<span class="badge bg-success">Concluído</span>';
+        case 'Sem acesso remoto': return '<span class="badge bg-warning text-dark">Sem Acesso</span>';
+        default: return `<span class="badge bg-light text-dark border">${status || '-'}</span>`;
+    }
+}
+
+function atualizarCorSelect() {
+    const s = document.getElementById('m-status');
+    if(!s) return;
+    s.classList.remove('text-danger', 'text-warning', 'text-success', 'text-secondary', 'border-danger', 'border-warning', 'border-success', 'border-secondary');
+    switch(s.value) {
+        case 'Pendente': s.classList.add('text-danger', 'border-danger'); break;
+        case 'Em Análise': s.classList.add('text-primary', 'border-primary'); break;
+        case 'Concluído': s.classList.add('text-success', 'border-success'); break;
+        case 'Sem acesso remoto': s.classList.add('text-warning', 'border-warning'); break;
+    }
 }
 
 function alternarBloqueioCampos(isReadonly) {
@@ -149,165 +391,6 @@ function alternarBloqueioCampos(isReadonly) {
             }
         }
     });
-}
-
-function getStatusBadge(status) {
-    switch (status) {
-        case 'Pendente': 
-            return '<span class="badge bg-danger">Pendente</span>';
-        case 'Em Análise': 
-            return '<span class="badge bg-primary text-dark">Em Análise</span>';
-        case 'Concluído': 
-            return '<span class="badge bg-success">Concluído</span>';
-        case 'Sem acesso remoto': 
-            return '<span class="badge bg-warning">Sem Acesso Remoto</span>';
-        default: 
-            return `<span class="badge bg-light text-dark border">${status || '-'}</span>`;
-    }
-}
-
-function editarEvento(id) {
-    const evento = eventosAtuais.find(e => e.id === id);
-    if (!evento) return;
-
-    alternarBloqueioCampos(true);
-
-    let dataFormatada = "";
-    if (evento.data_evento) {
-        dataFormatada = evento.data_evento.replace(" ", "T").substring(0, 16);
-    }
-
-    document.getElementById('m-id').value = evento.id;
-    document.getElementById('m-data').value = dataFormatada;
-    document.getElementById('m-qtd').value = (evento.qtd_anomalias || 1) + 'x';
-    document.getElementById('m-ip').value = evento.ip_interno;
-    document.getElementById('m-cliente-id').value = evento.cliente_id_ixc || '';
-    document.getElementById('m-login').value = evento.login || '';
-    document.getElementById('m-cliente-nome').value = evento.cliente_nome || '';
-    document.getElementById('m-upload').value = evento.trafego_upload || '';
-    document.getElementById('m-download').value = evento.trafego_download || '';
-    
-    // Campos Editáveis
-    document.getElementById('m-equipamento').value = evento.equipamento || '';
-    document.getElementById('m-status').value = evento.status || 'Pendente';
-    document.getElementById('m-analise').value = evento.analise_preliminar || '';
-    document.getElementById('m-acao').value = evento.acao_tomada || '';
-    document.getElementById('m-observacoes').value = evento.observacoes || '';
-
-    document.getElementById('btn-excluir-registro').style.display = 'block';
-
-    const modal = new bootstrap.Modal(document.getElementById('modalAnalise'));
-    document.getElementById('m-status').dispatchEvent(new Event('change'));
-    modal.show();
-}
-
-async function salvarAlteracoes() {
-    const id = document.getElementById('m-id').value;
-    const dataInput = document.getElementById('m-data').value;
-    
-    let dataFinal;
-    if (!dataInput) {
-        const agora = new Date();
-        const ano = agora.getFullYear();
-        const mes = String(agora.getMonth() + 1).padStart(2, '0');
-        const dia = String(agora.getDate()).padStart(2, '0');
-        const hora = String(agora.getHours()).padStart(2, '0');
-        const minuto = String(agora.getMinutes()).padStart(2, '0');
-        const segundo = String(agora.getSeconds()).padStart(2, '0');
-        
-        dataFinal = `${ano}-${mes}-${dia} ${hora}:${minuto}:${segundo}`;
-    } else {
-        dataFinal = dataInput.replace("T", " ");
-    }
-
-    const clienteIdIxc = document.getElementById('m-cliente-id').value;
-    const clienteNome = document.getElementById('m-cliente-nome').value;
-
-    const dadosParaEnviar = {
-        id: id || null,
-        data_evento: dataFinal,
-        ip_interno: document.getElementById('m-ip').value,
-        cliente_id_ixc: document.getElementById('m-cliente-id').value,
-        cliente_nome: document.getElementById('m-cliente-nome').value,
-        trafego_upload: document.getElementById('m-upload').value,
-        trafego_download: document.getElementById('m-download').value,
-        equipamento: document.getElementById('m-equipamento').value,
-        status: document.getElementById('m-status').value,
-        analise: document.getElementById('m-analise').value,
-        acao_tomada: document.getElementById('m-acao').value,
-        observacoes: document.getElementById('m-observacoes').value,
-        usuario_responsavel: document.querySelector('.user-info span').textContent.trim()
-    };
-
-    try {
-        const response = await fetch('/api/v5/soc/salvar', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(dadosParaEnviar)
-        });
-
-        if (response.ok) {
-            alert("Dados salvos com sucesso!");
-            const modalElement = document.getElementById('modalAnalise');
-            const modalInstance = bootstrap.Modal.getInstance(modalElement);
-            if (modalInstance) modalInstance.hide();
-            
-            carregarEventos();
-        } else {
-            const errorData = await response.json();
-            alert("Erro ao salvar: " + (errorData.error || "Erro desconhecido"));
-        }
-    } catch (error) {
-        alert("Erro de conexão ao salvar no banco de dados.");
-        console.error(error);
-    }
-}
-
-async function excluirRegistro() {
-    const id = document.getElementById('m-id').value;
-    if (!id) return;
-
-    if (confirm("Tem certeza que deseja excluir este registro permanentemente? Esta ação não pode ser desfeita.")) {
-        try {
-            const response = await fetch(`/api/v5/soc/excluir/${id}`, {
-                method: 'DELETE'
-            });
-
-            if (response.ok) {
-                alert("Registro excluído com sucesso!");
-                const modalInstance = bootstrap.Modal.getInstance(document.getElementById('modalAnalise'));
-                if (modalInstance) modalInstance.hide();
-                carregarEventos();
-            } else {
-                alert("Erro ao tentar excluir o registro.");
-            }
-        } catch (error) {
-            console.error("Erro de conexão:", error);
-            alert("Não foi possível comunicar com o servidor.");
-        }
-    }
-}
-
-async function carregarListaEquipamentos() {
-    try {
-        const response = await fetch('/api/v5/soc/equipamentos-lista');
-        if (response.ok) {
-            const equipamentos = await response.json();
-            const select = document.getElementById('m-equipamento');
-            
-            select.innerHTML = '<option value="">Selecione o equipamento...</option>';
-            
-            equipamentos.forEach(eq => {
-                const nomeCompleto = `${eq.marca} ${eq.modelo}`;
-                const option = document.createElement('option');
-                option.value = nomeCompleto; 
-                option.textContent = nomeCompleto;
-                select.appendChild(option);
-            });
-        }
-    } catch (error) {
-        console.error("Erro ao carregar equipamentos:", error);
-    }
 }
 
 function initializeThemeAndUserInfo() {

@@ -67,7 +67,7 @@ router.post('/salvar', function (req, res) { return __awaiter(void 0, void 0, vo
                     database_1.LOCALHOST.query(QUERY, [equipamento, analise, acao_tomada, observacoes, status, login, id], function (error) {
                         if (error)
                             return res.status(500).json({ error: error.message });
-                        res.json({ success: true, message: 'Evento atualizado manualmente' });
+                        res.json({ success: true, message: 'Evento atualizado' });
                     });
                     return [2 /*return*/];
                 }
@@ -96,7 +96,7 @@ router.post('/salvar', function (req, res) { return __awaiter(void 0, void 0, vo
             case 4: return [3 /*break*/, 6];
             case 5:
                 e_1 = _d.sent();
-                console.error("Erro na identificação automática durante o salvamento:", e_1);
+                console.error("Erro identificação automática:", e_1);
                 return [3 /*break*/, 6];
             case 6:
                 CHECK_ID_WANGUARD = "SELECT id FROM soc_wanguard_report WHERE id_wanguard = ? LIMIT 1";
@@ -104,25 +104,27 @@ router.post('/salvar', function (req, res) { return __awaiter(void 0, void 0, vo
                     if (err)
                         return res.status(500).json({ error: err.message });
                     if (idExists && idExists.length > 0 && id_wanguard !== null) {
-                        return res.json({ success: true, message: 'Anomalia já processada. Ignorando duplicata.' });
+                        return res.json({ success: true, message: 'Duplicata ignorada.' });
                     }
-                    var CHECK_OPEN_RECORD = "SELECT id, qtd_anomalias FROM soc_wanguard_report \n                                   WHERE ip_interno = ? AND cliente_id_ixc = ? AND status != 'Conclu\u00EDdo' \n                                   ORDER BY id DESC LIMIT 1";
-                    database_1.LOCALHOST.query(CHECK_OPEN_RECORD, [ip_interno, cliente_id_ixc], function (err, results) {
+                    var CHECK_OPEN = "SELECT id, qtd_anomalias FROM soc_wanguard_report \n                            WHERE ip_interno = ? AND cliente_id_ixc = ? AND status != 'Conclu\u00EDdo' \n                            ORDER BY id DESC LIMIT 1";
+                    database_1.LOCALHOST.query(CHECK_OPEN, [ip_interno, cliente_id_ixc], function (err, results) {
                         if (err)
                             return res.status(500).json({ error: err.message });
                         if (results && results.length > 0) {
-                            var UPDATE_INC = "UPDATE soc_wanguard_report SET \n                                    qtd_anomalias = qtd_anomalias + 1,\n                                    trafego_upload = ?,\n                                    trafego_download = ?,\n                                    id_wanguard = ?\n                                    WHERE id = ?";
+                            var UPDATE_INC = "UPDATE soc_wanguard_report SET \n                                    qtd_anomalias = qtd_anomalias + 1,\n                                    trafego_upload = ?, trafego_download = ?, id_wanguard = ?\n                                    WHERE id = ?";
                             database_1.LOCALHOST.query(UPDATE_INC, [trafego_upload, trafego_download, id_wanguard, results[0].id], function (e) {
                                 if (e)
                                     return res.status(500).json({ error: e.message });
-                                res.json({ success: true, message: 'Nova anomalia somada ao registro aberto do cliente.' });
+                                res.json({ success: true, message: 'Quantidade incrementada.' });
                             });
                         }
                         else {
-                            var INSERT_SQL = "INSERT INTO soc_wanguard_report \n                    (id_wanguard, data_evento, ip_interno, cliente_nome, cliente_id_ixc, login, trafego_upload, trafego_download, status, analise_preliminar, usuario_responsavel, qtd_anomalias) \n                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pendente', ?, ?, 1)";
+                            var INSERT_SQL = "INSERT INTO soc_wanguard_report \n                    (id_wanguard, data_evento, ip_interno, cliente_nome, cliente_id_ixc, login, trafego_upload, trafego_download, status, analise_preliminar, usuario_responsavel, qtd_anomalias, equipamento, acao_tomada, observacoes) \n                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)";
+                            var statusFinal = status || 'Pendente';
                             database_1.LOCALHOST.query(INSERT_SQL, [
                                 id_wanguard, data_evento, ip_interno, cliente_nome, cliente_id_ixc, login,
-                                trafego_upload, trafego_download, analise, usuario_responsavel
+                                trafego_upload, trafego_download, statusFinal, analise, usuario_responsavel,
+                                equipamento, acao_tomada, observacoes
                             ], function (e, r) {
                                 if (e)
                                     return res.status(500).json({ error: e.message });
