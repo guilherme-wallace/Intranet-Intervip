@@ -37,6 +37,17 @@ document.addEventListener('DOMContentLoaded', function() {
     $('#numero').on('input', function() {
         this.value = this.value.replace(/[^0-9]/g, '');
     });
+    $('#btn-sem-numero').on('click', function() {
+        const input = $('#numero');
+        if (input.val() === 'SN') {
+            input.val('').prop('readonly', false).focus();
+            $(this).removeClass('btn-secondary text-white').addClass('btn-outline-secondary');
+        } else {
+            input.val('SN').prop('readonly', true).removeClass('is-invalid').addClass('is-valid');
+            $(this).removeClass('btn-outline-secondary').addClass('btn-secondary text-white');
+        }
+        checkFormValidity(); // Revalida o formulário
+    });
     //$('#input-numero-consulta').inputmask('regex', { regex: "^[0-9a-zA-Z -]*$" });
 
     $('#input-complemento-livre').on('input', function() {
@@ -562,6 +573,7 @@ function setupFormValidation() {
                 id_condominio: document.getElementById('hidden-condominio-id').value,
                 // Venda
                 id_vendedor: document.getElementById('vendedor').value,
+                nome_vendedor: document.getElementById('vendedor').options[document.getElementById('vendedor').selectedIndex].text,
                 id_plano_ixc: document.getElementById('plano').value, 
                 data_vencimento: document.getElementById('data_vencimento').value,
                 // Observações
