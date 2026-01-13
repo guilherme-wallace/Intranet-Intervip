@@ -233,4 +233,18 @@ router.get('/buscar-cliente-ip/:ip', function (req, res) { return __awaiter(void
         }
     });
 }); });
+router.get('/equipamentos-lista', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var QUERY;
+    return __generator(this, function (_a) {
+        QUERY = "SELECT id_equipamento, marca, modelo FROM equipamentos_rede ORDER BY marca, modelo ASC";
+        database_1.LOCALHOST.query(QUERY, function (error, results) {
+            if (error) {
+                console.error("Erro ao buscar equipamentos:", error);
+                return res.status(500).json({ error: error.message });
+            }
+            res.json(results);
+        });
+        return [2 /*return*/];
+    });
+}); });
 exports.default = router;

@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     carregarEventos();
     initializeThemeAndUserInfo();
+    carregarListaEquipamentos();
 
     const btnSalvar = document.getElementById('btn-salvar-modal');
     if (btnSalvar) {
@@ -26,6 +27,37 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    const statusSelect = document.getElementById('m-status');
+function atualizarCorSelect() {
+        statusSelect.classList.remove('text-danger', 'text-warning', 'text-success', 'text-secondary', 'border-danger', 'border-warning', 'border-success', 'border-secondary');
+        
+        switch(statusSelect.value) {
+            case 'Pendente': 
+                statusSelect.classList.add('text-danger', 'border-danger'); 
+                break;
+            case 'Em Análise': 
+                statusSelect.classList.add('text-primary', 'border-primary'); 
+                break;
+            case 'Concluído': 
+                statusSelect.classList.add('text-success', 'border-success'); 
+                break;
+            case 'Sem acesso remoto': 
+                statusSelect.classList.add('text-warning', 'border-warning'); 
+                break;
+        }
+    }
+
+    if (statusSelect) {
+        statusSelect.addEventListener('change', function() {
+            atualizarCorSelect();
+
+            if (this.value === 'Sem acesso remoto') {
+                const modalElement = document.getElementById('modalAvisoTecnico');
+                const modalAviso = new bootstrap.Modal(modalElement);
+                modalAviso.show();
+            }
+        });
+    }
     document.getElementById('m-ip').addEventListener('blur', async function() {
         const ip = this.value;
         if (ip.length > 7 && !document.getElementById('m-id').value) {
@@ -73,33 +105,28 @@ async function carregarEventos() {
 
 function renderizarTabela(dados) {
     const tbody = document.querySelector('#tabela-soc tbody');
-    if (!tbody) return;
-
-    tbody.innerHTML = dados.map(item => {
-        const clienteExibicao = (item.cliente_id_ixc && item.cliente_nome) 
-            ? `${item.cliente_id_ixc} - ${item.cliente_nome}` 
-            : (item.cliente_nome || 'Não identificado');
-
-        return `
-            <tr>
-                <td class="small">${item.data_evento}</td> 
-                <td class="fw-bold text-primary">${item.ip_interno}</td>
-                <td>
-                    <span class="fw-bold text-primary">${clienteExibicao}</span>
-                    <span class="badge bg-secondary ms-1" title="Quantidade de ocorrências">${item.qtd_anomalias}x</span>
-                </td>
-                <td><span class="badge bg-light text-dark border">${item.equipamento || '-'}</span></td>
-                <td class="text-truncate" style="max-width: 200px;">${item.analise_preliminar || ''}</td> 
-                <td>${item.acao_tomada || ''}</td>
-                <td>${getStatusBadge(item.status)}</td>
-                <td>
-                    <button class="btn btn-sm btn-outline-primary btn-editar" data-id="${item.id}">
-                        <i class="bi bi-pencil-square"></i>
-                    </button>
-                </td>
-            </tr>
-        `;
-    }).join('');
+    tbody.innerHTML = dados.map(item => `
+        <tr>
+            <td class="small">${item.data_evento}</td> 
+            <td>
+                <span class="fw-bold text-primary">${item.ip_interno}</span>
+                <span class="badge bg-secondary ms-1">${item.qtd_anomalias}x</span>
+            </td> 
+            <td>${item.cliente_id_ixc || ''} - ${item.cliente_nome || ''}</td>
+            
+            <td class="text-danger"><i class="bi bi-arrow-up"></i> ${item.trafego_upload || '0 Mbps'}</td>
+            <td class="text-success"><i class="bi bi-arrow-down"></i> ${item.trafego_download || '0 Mbps'}</td>
+            
+            <td><span class="badge bg-light text-dark border">${item.equipamento || '-'}</span></td>
+            <td>${item.acao_tomada || ''}</td>
+            <td>${getStatusBadge(item.status)}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary btn-editar" data-id="${item.id}">
+                    <i class="bi bi-pencil"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
 
     document.querySelectorAll('.btn-editar').forEach(btn => {
         btn.addEventListener('click', function() {
@@ -125,12 +152,18 @@ function alternarBloqueioCampos(isReadonly) {
 }
 
 function getStatusBadge(status) {
-    const classes = {
-        'Pendente': 'bg-warning text-dark',
-        'Em Análise': 'bg-info text-dark',
-        'Concluído': 'bg-success text-white'
-    };
-    return `<span class="status-badge ${classes[status] || 'bg-secondary'}">${status}</span>`;
+    switch (status) {
+        case 'Pendente': 
+            return '<span class="badge bg-danger">Pendente</span>';
+        case 'Em Análise': 
+            return '<span class="badge bg-primary text-dark">Em Análise</span>';
+        case 'Concluído': 
+            return '<span class="badge bg-success">Concluído</span>';
+        case 'Sem acesso remoto': 
+            return '<span class="badge bg-warning">Sem Acesso Remoto</span>';
+        default: 
+            return `<span class="badge bg-light text-dark border">${status || '-'}</span>`;
+    }
 }
 
 function editarEvento(id) {
@@ -164,6 +197,7 @@ function editarEvento(id) {
     document.getElementById('btn-excluir-registro').style.display = 'block';
 
     const modal = new bootstrap.Modal(document.getElementById('modalAnalise'));
+    document.getElementById('m-status').dispatchEvent(new Event('change'));
     modal.show();
 }
 
@@ -251,6 +285,28 @@ async function excluirRegistro() {
             console.error("Erro de conexão:", error);
             alert("Não foi possível comunicar com o servidor.");
         }
+    }
+}
+
+async function carregarListaEquipamentos() {
+    try {
+        const response = await fetch('/api/v5/soc/equipamentos-lista');
+        if (response.ok) {
+            const equipamentos = await response.json();
+            const select = document.getElementById('m-equipamento');
+            
+            select.innerHTML = '<option value="">Selecione o equipamento...</option>';
+            
+            equipamentos.forEach(eq => {
+                const nomeCompleto = `${eq.marca} ${eq.modelo}`;
+                const option = document.createElement('option');
+                option.value = nomeCompleto; 
+                option.textContent = nomeCompleto;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error("Erro ao carregar equipamentos:", error);
     }
 }
 

@@ -190,4 +190,16 @@ router.get('/buscar-cliente-ip/:ip', async (req, res) => {
     }
 });
 
+router.get('/equipamentos-lista', async (req, res) => {
+    const QUERY = `SELECT id_equipamento, marca, modelo FROM equipamentos_rede ORDER BY marca, modelo ASC`;
+    
+    LOCALHOST.query(QUERY, (error, results) => {
+        if (error) {
+            console.error("Erro ao buscar equipamentos:", error);
+            return res.status(500).json({ error: error.message });
+        }
+        res.json(results);
+    });
+});
+
 export default router;

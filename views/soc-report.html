@@ -55,10 +55,11 @@
                                     <tr>
                                         <th>Data/Hora</th>
                                         <th>IP Interno</th>
-                                        <th>Cliente x Qtd Anomalias</th>
+                                        <th>Cliente</th>
+                                        <th>Upload</th>
+                                        <th>Download</th>
                                         <th>Equipamento</th>
-                                        <th>Análise</th>
-                                        <th>Ação</th>
+                                        <th>Ação Tomada</th>
                                         <th>Status</th>
                                         <th>Ações</th>
                                     </tr>
@@ -133,14 +134,22 @@
 
                             <div class="col-md-6">
                                 <label class="form-label fw-bold text-primary">Equipamento</label>
-                                <input type="text" id="m-equipamento" class="form-control" placeholder="Modelo do roteador/ONU">
+                                <div class="input-group">
+                                    <select id="m-equipamento" class="form-select">
+                                        <option value="">Selecione ou aguarde...</option>
+                                        </select>
+                                    <a href="/equipamentos" target="_blank" class="btn btn-outline-secondary" title="Gerenciar Equipamentos">
+                                        <i class="bi bi-gear-wide-connected"></i>
+                                    </a>
+                                </div>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-bold text-primary">Status</label>
+                                <label class="form-label fw-bold text-primary">Status Atual</label>
                                 <select id="m-status" class="form-select fw-bold">
-                                    <option value="Pendente">🟡 Pendente</option>
-                                    <option value="Em Análise">🔵 Em Análise</option>
-                                    <option value="Concluído">🟢 Concluído</option>
+                                    <option value="Pendente" class="text-danger">Pendente</option>
+                                    <option value="Em Análise" class="text-primary">Em Análise</option>
+                                    <option value="Concluído" class="text-success">Concluído</option>
+                                    <option value="Sem acesso remoto" class="text-warning">Sem acesso remoto</option>
                                 </select>
                             </div>
                             <div class="col-12">
@@ -182,6 +191,25 @@
             <img src="images/lord-of-the-rings-you-shall-not-pass.gif" alt="You shall not pass GIF" style="max-width: 100%; border-radius: 10px;">
             <br>
             <button id="closeModalBtn" class="btn btn-danger mt-3">Fechar</button>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalAvisoTecnico" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-warning">
+                <div class="modal-header bg-warning-subtle">
+                    <h5 class="modal-title fw-bold text-warning-emphasis">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>Atenção
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center py-4">
+                    <p class="mb-0">Lembre-se de <strong>abrir um chamado</strong> e <strong>agendar um técnico</strong> para este cliente.</p>
+                </div>
+                <div class="modal-footer justify-content-center">
+                    <button type="button" class="btn btn-primary px-4" data-bs-dismiss="modal">Entendido</button>
+                </div>
+            </div>
         </div>
     </div>
 
