@@ -193,6 +193,7 @@ async function cadastrarCliente(clientData: any, dataCadastro: string, filialId:
     console.log(`Iniciando Etapa 1: Cadastro do Cliente (Filial ${filialId})...`);
     const today = dataCadastro.split(' ')[0];
     const usaEnderecoCliente = clientData.cep_cliente && clientData.cep_cliente !== '';
+    const celularParaEnviar = clientData.telefone_celular || clientData.whatsapp;
     
     const clientePayload = {
         'ativo': 'S', 'pais': 'Brasil',
@@ -214,7 +215,8 @@ async function cadastrarCliente(clientData: any, dataCadastro: string, filialId:
         'razao': clientData.nome,
         'cnpj_cpf': formatarCPF(clientData.cnpj_cpf),
         'ie_identidade': clientData.ie_identidade, 'data_nascimento': formatarDataNasParaDMY(clientData.data_nascimento),
-        'fone': clientData.telefone_celular, 'telefone_celular': clientData.telefone_celular,
+        'fone': celularParaEnviar, 
+        'telefone_celular': celularParaEnviar,
         'whatsapp': clientData.whatsapp, 'email': clientData.email, 
 
         // Endereço de cliente (Matriz)
@@ -858,7 +860,7 @@ ERRO AUTOMÁTICO - FALHA NO CADASTRO BANDA LARGA
 DATA/HORA: ${getIxcDate()}
 CLIENTE TENTATIVA: ${clientData.nome || 'N/A'}
 CPF/CNPJ: ${clientData.cnpj_cpf || 'N/A'}
-VENDEDOR ID: ${clientData.id_vendedor || 'N/A'}
+VENDEDOR: ${clientData.nome_vendedor || clientData.id_vendedor || 'N/A'}
 
 MENSAGEM DE ERRO DO SISTEMA:
 ${error.message || JSON.stringify(error)}
@@ -953,7 +955,7 @@ ERRO AUTOMÁTICO - FALHA NO CADASTRO CORPORATIVO
 DATA/HORA: ${getIxcDate()}
 CLIENTE TENTATIVA: ${clientData.nome || 'N/A'}
 CPF/CNPJ: ${clientData.cnpj_cpf || 'N/A'}
-VENDEDOR ID: ${clientData.id_vendedor || 'N/A'}
+VENDEDOR: ${clientData.nome_vendedor || clientData.id_vendedor || 'N/A'}
 
 MENSAGEM DE ERRO DO SISTEMA:
 ${error.message || JSON.stringify(error)}

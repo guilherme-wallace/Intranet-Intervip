@@ -302,13 +302,14 @@ router.get('/planos-ativos', function (req, res) { return __awaiter(void 0, void
 function cadastrarCliente(clientData, dataCadastro, filialId) {
     if (filialId === void 0) { filialId = '3'; }
     return __awaiter(this, void 0, void 0, function () {
-        var today, usaEnderecoCliente, clientePayload, clienteResponse, errorMessage;
+        var today, usaEnderecoCliente, celularParaEnviar, clientePayload, clienteResponse, errorMessage;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
                     console.log("Iniciando Etapa 1: Cadastro do Cliente (Filial ".concat(filialId, ")..."));
                     today = dataCadastro.split(' ')[0];
                     usaEnderecoCliente = clientData.cep_cliente && clientData.cep_cliente !== '';
+                    celularParaEnviar = clientData.telefone_celular || clientData.whatsapp;
                     clientePayload = {
                         'ativo': 'S', 'pais': 'Brasil',
                         'nacionalidade': 'Brasileiro',
@@ -327,7 +328,8 @@ function cadastrarCliente(clientData, dataCadastro, filialId) {
                         'razao': clientData.nome,
                         'cnpj_cpf': formatarCPF(clientData.cnpj_cpf),
                         'ie_identidade': clientData.ie_identidade, 'data_nascimento': formatarDataNasParaDMY(clientData.data_nascimento),
-                        'fone': clientData.telefone_celular, 'telefone_celular': clientData.telefone_celular,
+                        'fone': celularParaEnviar,
+                        'telefone_celular': celularParaEnviar,
                         'whatsapp': clientData.whatsapp, 'email': clientData.email,
                         // Endereço de cliente (Matriz)
                         'cep': usaEnderecoCliente ? clientData.cep_cliente : clientData.cep,
@@ -969,7 +971,7 @@ router.post('/cliente', function (req, res) { return __awaiter(void 0, void 0, v
                 _b.label = 16;
             case 16:
                 _b.trys.push([16, 18, , 19]);
-                mensagemErroAutomatico = "\nERRO AUTOM\u00C1TICO - FALHA NO CADASTRO BANDA LARGA\n-------------------------------------------------------\nDATA/HORA: ".concat(getIxcDate(), "\nCLIENTE TENTATIVA: ").concat(clientData.nome || 'N/A', "\nCPF/CNPJ: ").concat(clientData.cnpj_cpf || 'N/A', "\nVENDEDOR ID: ").concat(clientData.id_vendedor || 'N/A', "\n\nMENSAGEM DE ERRO DO SISTEMA:\n").concat(error_10.message || JSON.stringify(error_10), "\n\nDADOS RECEBIDOS (RESUMO):\nPlano: ").concat(clientData.id_plano_ixc, "\nEndere\u00E7o: ").concat(clientData.endereco, ", ").concat(clientData.numero, " - ").concat(clientData.bairro, "\nCondom\u00EDnio ID: ").concat(clientData.id_condominio, "\n            ").trim();
+                mensagemErroAutomatico = "\nERRO AUTOM\u00C1TICO - FALHA NO CADASTRO BANDA LARGA\n-------------------------------------------------------\nDATA/HORA: ".concat(getIxcDate(), "\nCLIENTE TENTATIVA: ").concat(clientData.nome || 'N/A', "\nCPF/CNPJ: ").concat(clientData.cnpj_cpf || 'N/A', "\nVENDEDOR: ").concat(clientData.nome_vendedor || clientData.id_vendedor || 'N/A', "\n\nMENSAGEM DE ERRO DO SISTEMA:\n").concat(error_10.message || JSON.stringify(error_10), "\n\nDADOS RECEBIDOS (RESUMO):\nPlano: ").concat(clientData.id_plano_ixc, "\nEndere\u00E7o: ").concat(clientData.endereco, ", ").concat(clientData.numero, " - ").concat(clientData.bairro, "\nCondom\u00EDnio ID: ").concat(clientData.id_condominio, "\n            ").trim();
                 return [4 /*yield*/, abrirChamadoSuporteInterno(mensagemErroAutomatico)];
             case 17:
                 _b.sent();
@@ -1075,7 +1077,7 @@ router.post('/cliente-corporativo', function (req, res) { return __awaiter(void 
                 _b.label = 21;
             case 21:
                 _b.trys.push([21, 23, , 24]);
-                mensagemErroAutomatico = "\nERRO AUTOM\u00C1TICO - FALHA NO CADASTRO CORPORATIVO\n-------------------------------------------------------\nDATA/HORA: ".concat(getIxcDate(), "\nCLIENTE TENTATIVA: ").concat(clientData.nome || 'N/A', "\nCPF/CNPJ: ").concat(clientData.cnpj_cpf || 'N/A', "\nVENDEDOR ID: ").concat(clientData.id_vendedor || 'N/A', "\n\nMENSAGEM DE ERRO DO SISTEMA:\n").concat(error_12.message || JSON.stringify(error_12), "\n\nDADOS RECEBIDOS (RESUMO):\nPlano: ").concat(clientData.id_plano_ixc, "\nValor: ").concat(clientData.valor_acordado, "\nEndere\u00E7o Instala\u00E7\u00E3o: ").concat(clientData.endereco, ", ").concat(clientData.numero, " - ").concat(clientData.bairro, "\n            ").trim();
+                mensagemErroAutomatico = "\nERRO AUTOM\u00C1TICO - FALHA NO CADASTRO CORPORATIVO\n-------------------------------------------------------\nDATA/HORA: ".concat(getIxcDate(), "\nCLIENTE TENTATIVA: ").concat(clientData.nome || 'N/A', "\nCPF/CNPJ: ").concat(clientData.cnpj_cpf || 'N/A', "\nVENDEDOR: ").concat(clientData.nome_vendedor || clientData.id_vendedor || 'N/A', "\n\nMENSAGEM DE ERRO DO SISTEMA:\n").concat(error_12.message || JSON.stringify(error_12), "\n\nDADOS RECEBIDOS (RESUMO):\nPlano: ").concat(clientData.id_plano_ixc, "\nValor: ").concat(clientData.valor_acordado, "\nEndere\u00E7o Instala\u00E7\u00E3o: ").concat(clientData.endereco, ", ").concat(clientData.numero, " - ").concat(clientData.bairro, "\n            ").trim();
                 return [4 /*yield*/, abrirChamadoSuporteInterno(mensagemErroAutomatico)];
             case 22:
                 _b.sent();
