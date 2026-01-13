@@ -245,7 +245,11 @@
                                             </div>
                                             <div class="col-md-4">
                                                 <label for="numero" class="form-label">Número<span style="color: red;"> * </span></label>
-                                                <input type="text" class="form-control" id="numero" required>
+                                                <div class="input-group has-validation">
+                                                    <input type="text" class="form-control" id="numero" required>
+                                                    <button class="btn btn-outline-secondary" type="button" id="btn-sem-numero" title="Sem Número">S/N</button>
+                                                    <div class="invalid-feedback">Informe o número ou S/N.</div>
+                                                </div>
                                             </div>
                                             <div class="col-md-8">
                                                 <label for="bairro" class="form-label">Bairro</label>
