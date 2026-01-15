@@ -200,4 +200,68 @@ router.get('/equipamentos-lista', async (req, res) => {
     });
 });
 
+router.get('/relatorio-consumo/:loginPPPoE', async (req, res) => {
+    const { loginPPPoE } = req.params;
+    const urlBase = `${process.env.IXC_API_URL}/webservice/v1`;
+    const headers = {
+        'Authorization': `Basic ${process.env.IXC_API_TOKEN}`,
+        'ixcsoft': 'listar',
+        'Content-Type': 'application/json'
+    };
+
+    try {
+        const respId = await axios.post(`${urlBase}/radusuarios`, {
+            qtype: "radusuarios.login",
+            query: loginPPPoE,
+            oper: "=",
+            rp: "1"
+        }, { headers });
+
+        if (!respId.data || respId.data.total <= 0) {
+            return res.status(404).json({ message: "Login não encontrado no IXC." });
+        }
+
+        const idLoginNumerico = respId.data.registros[0].id;
+
+        const respConsumo = await axios.post(`${urlBase}/radusuarios_consumo_d`, {
+            qtype: "radusuarios_consumo_d.id_login",
+            query: idLoginNumerico,
+            oper: "=",
+            page: "1",
+            rp: "15",
+            sortname: "radusuarios_consumo_d.id",
+            sortorder: "desc"
+        }, { headers });
+
+        const registros = respConsumo.data.registros || [];
+        
+        let totalDownload = 0;
+        let totalUpload = 0;
+
+        const dadosFormatados = registros.map((reg: any) => {
+            const down = parseFloat(reg.consumo || 0);
+            const up = parseFloat(reg.consumo_upload || 0);
+            
+            totalDownload += down;
+            totalUpload += up;
+
+            return {
+                data: reg.data,
+                download_bytes: down,
+                upload_bytes: up
+            };
+        });
+
+        res.json({
+            historico: dadosFormatados,
+            total_download: totalDownload,
+            total_upload: totalUpload
+        });
+
+    } catch (error) {
+        console.error("Erro ao buscar consumo:", error.message);
+        res.status(500).json({ error: "Falha na comunicação com o IXC" });
+    }
+});
+
 export default router;

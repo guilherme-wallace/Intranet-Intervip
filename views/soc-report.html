@@ -44,7 +44,7 @@
                             
                             <div class="col-md-3">
                                 <h5 class="mb-0 fw-bold text-primary">
-                                    <i class="bi bi-shield-check me-2"></i>Eventos Detectados
+                                    <i class="bi me-2"></i>Eventos Detectados
                                 </h5>
                             </div>
 
@@ -72,7 +72,7 @@
                                             <li>
                                                 <div class="form-check my-1">
                                                     <input class="form-check-input filtro-status-chk" type="checkbox" value="Sem acesso remoto" id="chkSemAcesso" checked>
-                                                    <label class="form-check-label badge bg-warning text-dark w-100 text-start" for="chkSemAcesso">Sem acesso</label>
+                                                    <label class="form-check-label badge bg-warning text-dark w-100 text-start" for="chkSemAcesso">Sem acesso remoto</label>
                                                 </div>
                                             </li>
                                             <li><hr class="dropdown-divider"></li>
@@ -90,7 +90,7 @@
                                     </div>
 
                                     <button class="btn btn-primary btn-sm px-3" id="btn-novo-evento">
-                                        <i class="bi bi-plus-lg me-1"></i> Novo
+                                        <i class="bi bi-plus-lg me-1"></i> Novo Registro
                                     </button>
                                 </div>
                             </div>
@@ -219,7 +219,7 @@
                             </div>
                             <div class="col-12">
                                 <label class="form-label fw-bold text-primary">Observações Adicionais</label>
-                                <textarea id="m-observacoes" class="form-control" rows="2"></textarea>
+                                <textarea id="m-obs" class="form-control" rows="2"></textarea>
                             </div>
                         </div>
                     </form>
@@ -230,12 +230,57 @@
                             <i class="bi bi-trash me-1"></i> Excluir Registro
                         </button>
                     </div>
+                    <button type="button" class="btn btn-info text-white" id="btn-relatorio-conexao" style="display: none;">
+                        <i class="bi bi-graph-up-arrow me-1"></i> Relatório de Conexão
+                    </button>
                     
                     <div>
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
                         <button type="button" class="btn btn-success" id="btn-salvar-modal">
                             <i class="bi bi-save me-1"></i> Salvar
                         </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalRelatorioConexao" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-activity me-2"></i>Consumo - Últimos 15 Dias
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="loading-relatorio" class="text-center py-5" style="display: none;">
+                        <div class="spinner-border text-info" role="status"></div>
+                        <p class="mt-2 text-muted">Buscando dados no IXC...</p>
+                    </div>
+
+                    <div id="conteudo-relatorio" style="display: none;">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped table-hover text-center align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Data</th>
+                                        <th>Download</th>
+                                        <th>Upload</th>
+                                        <th>Total Diário</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-relatorio">
+                                    </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="alert alert-light border d-flex justify-content-around mt-3 fw-bold text-secondary">
+                            <span>Total Download: <span id="total-down-val" class="text-success">0 GB</span></span>
+                            <span>Total Upload: <span id="total-up-val" class="text-danger">0 GB</span></span>
+                            <span>Consumo Geral: <span id="total-geral-val" class="text-primary">0 GB</span></span>
+                        </div>
                     </div>
                 </div>
             </div>

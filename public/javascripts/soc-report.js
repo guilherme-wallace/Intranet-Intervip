@@ -32,6 +32,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const btnExc = document.getElementById('btn-excluir-registro');
             if(btnExc) btnExc.style.display = 'none';
 
+            const btnRel = document.getElementById('btn-relatorio-conexao');
+            if(btnRel) btnRel.style.display = 'none';
+
             if(typeof alternarBloqueioCampos === 'function') alternarBloqueioCampos(false);
             
             abrirModal();
@@ -69,6 +72,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         });
+    }
+
+    const btnRelatorio = document.getElementById('btn-relatorio-conexao');
+    if (btnRelatorio) {
+        btnRelatorio.addEventListener('click', abrirRelatorioConexao);
     }
 });
 function setVal(id, val) {
@@ -181,7 +189,70 @@ function editarEvento(id) {
     const btnExc = document.getElementById('btn-excluir-registro');
     if(btnExc) btnExc.style.display = 'block';
 
+    const btnRelatorio = document.getElementById('btn-relatorio-conexao');
+    if (btnRelatorio) {
+        if (evento.login && evento.login.length > 1) {
+            btnRelatorio.style.display = 'block';
+        } else {
+            btnRelatorio.style.display = 'none';
+        }
+    }
+
     abrirModal();
+}
+
+async function abrirRelatorioConexao() {
+    const login = document.getElementById('m-login').value;
+    if (!login) {
+        alert("Necessário ter um Login PPPoE preenchido para gerar o relatório.");
+        return;
+    }
+
+    const modalRelatorio = new bootstrap.Modal(document.getElementById('modalRelatorioConexao'));
+    modalRelatorio.show();
+
+    document.getElementById('loading-relatorio').style.display = 'block';
+    document.getElementById('conteudo-relatorio').style.display = 'none';
+    const tbody = document.getElementById('tbody-relatorio');
+    tbody.innerHTML = '';
+
+    try {
+        const response = await fetch(`/api/v5/soc/relatorio-consumo/${login}`);
+        if (!response.ok) throw new Error("Erro na busca");
+
+        const data = await response.json();
+        
+        const formatBytes = (bytes) => {
+            if (bytes === 0) return '0 GB';
+            const gb = bytes / (1024 * 1024 * 1024);
+            return gb.toFixed(2) + ' GB';
+        };
+
+        tbody.innerHTML = data.historico.map(item => {
+            const dataObj = new Date(item.data);
+            const dataFormatada = dataObj.toLocaleDateString('pt-BR', {timeZone: 'UTC'});
+            
+            return `
+            <tr>
+                <td>${dataFormatada}</td>
+                <td class="text-success fw-bold">${formatBytes(item.download_bytes)}</td>
+                <td class="text-danger fw-bold">${formatBytes(item.upload_bytes)}</td>
+                <td class="fw-bold">${formatBytes(item.download_bytes + item.upload_bytes)}</td>
+            </tr>
+            `;
+        }).join('');
+
+        document.getElementById('total-down-val').textContent = formatBytes(data.total_download);
+        document.getElementById('total-up-val').textContent = formatBytes(data.total_upload);
+        document.getElementById('total-geral-val').textContent = formatBytes(data.total_download + data.total_upload);
+
+    } catch (error) {
+        console.error(error);
+        tbody.innerHTML = `<tr><td colspan="4" class="text-danger">Erro ao buscar dados do cliente. Verifique se o login existe no IXC.</td></tr>`;
+    } finally {
+        document.getElementById('loading-relatorio').style.display = 'none';
+        document.getElementById('conteudo-relatorio').style.display = 'block';
+    }
 }
 
 function configurarFiltros() {

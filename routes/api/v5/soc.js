@@ -249,4 +249,71 @@ router.get('/equipamentos-lista', function (req, res) { return __awaiter(void 0,
         return [2 /*return*/];
     });
 }); });
+router.get('/relatorio-consumo/:loginPPPoE', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var loginPPPoE, urlBase, headers, respId, idLoginNumerico, respConsumo, registros, totalDownload_1, totalUpload_1, dadosFormatados, error_2;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                loginPPPoE = req.params.loginPPPoE;
+                urlBase = "".concat(process.env.IXC_API_URL, "/webservice/v1");
+                headers = {
+                    'Authorization': "Basic ".concat(process.env.IXC_API_TOKEN),
+                    'ixcsoft': 'listar',
+                    'Content-Type': 'application/json'
+                };
+                _a.label = 1;
+            case 1:
+                _a.trys.push([1, 4, , 5]);
+                return [4 /*yield*/, axios_1.default.post("".concat(urlBase, "/radusuarios"), {
+                        qtype: "radusuarios.login",
+                        query: loginPPPoE,
+                        oper: "=",
+                        rp: "1"
+                    }, { headers: headers })];
+            case 2:
+                respId = _a.sent();
+                if (!respId.data || respId.data.total <= 0) {
+                    return [2 /*return*/, res.status(404).json({ message: "Login não encontrado no IXC." })];
+                }
+                idLoginNumerico = respId.data.registros[0].id;
+                return [4 /*yield*/, axios_1.default.post("".concat(urlBase, "/radusuarios_consumo_d"), {
+                        qtype: "radusuarios_consumo_d.id_login",
+                        query: idLoginNumerico,
+                        oper: "=",
+                        page: "1",
+                        rp: "15",
+                        sortname: "radusuarios_consumo_d.id",
+                        sortorder: "desc"
+                    }, { headers: headers })];
+            case 3:
+                respConsumo = _a.sent();
+                registros = respConsumo.data.registros || [];
+                totalDownload_1 = 0;
+                totalUpload_1 = 0;
+                dadosFormatados = registros.map(function (reg) {
+                    var down = parseFloat(reg.consumo || 0);
+                    var up = parseFloat(reg.consumo_upload || 0);
+                    totalDownload_1 += down;
+                    totalUpload_1 += up;
+                    return {
+                        data: reg.data,
+                        download_bytes: down,
+                        upload_bytes: up
+                    };
+                });
+                res.json({
+                    historico: dadosFormatados,
+                    total_download: totalDownload_1,
+                    total_upload: totalUpload_1
+                });
+                return [3 /*break*/, 5];
+            case 4:
+                error_2 = _a.sent();
+                console.error("Erro ao buscar consumo:", error_2.message);
+                res.status(500).json({ error: "Falha na comunicação com o IXC" });
+                return [3 /*break*/, 5];
+            case 5: return [2 /*return*/];
+        }
+    });
+}); });
 exports.default = router;
