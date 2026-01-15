@@ -115,7 +115,6 @@ function fecharModal() {
 }
 
 async function salvarAlteracoes() {
-    //console.log("Iniciando salvamento...");
 
     const idVal = getVal('m-id');
     
@@ -136,8 +135,6 @@ async function salvarAlteracoes() {
         usuario_responsavel: 'Técnico' 
     };
 
-    //console.log("Dados a enviar:", dados);
-
     try {
         const response = await fetch('/api/v5/soc/salvar', {
             method: 'POST',
@@ -146,12 +143,10 @@ async function salvarAlteracoes() {
         });
         
         if (response.ok) {
-            //console.log("Salvo com sucesso!");
             fecharModal();
             carregarEventos();
         } else {
             const erroTxt = await response.text();
-            //console.error("Erro API:", erroTxt);
             alert('Erro ao salvar no servidor. Verifique o console.');
         }
     } catch (error) { 
