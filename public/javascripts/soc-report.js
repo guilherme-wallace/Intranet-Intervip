@@ -3,6 +3,8 @@ let paginaAtual = 1;
 const itensPorPagina = 15;
 let statusSelecionados = ['Pendente', 'Em Análise', 'Sem acesso remoto'];
 
+const cacheConsumo = {}; 
+
 document.addEventListener('DOMContentLoaded', function() {
     carregarEventos();
     initializeThemeAndUserInfo();
@@ -26,8 +28,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('form-analise-soc');
             if(form) form.reset();
             
-            const elId = document.getElementById('m-id');
-            if(elId) elId.value = "";
+            setVal('m-id', '');
+            setVal('m-upload', '');
+            setVal('m-download', '');
             
             const btnExc = document.getElementById('btn-excluir-registro');
             if(btnExc) btnExc.style.display = 'none';
@@ -54,6 +57,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         setVal('m-cliente-id', data.cliente_id);
                         setVal('m-cliente-nome', data.cliente_nome);
                         setVal('m-login', data.login);
+                        
+                        if(data.login) buscarConsumoParaCampo(data.login);
                     }
                 } catch (err) { console.error("Erro busca cliente:", err); }
             }
@@ -79,80 +84,288 @@ document.addEventListener('DOMContentLoaded', function() {
         btnRelatorio.addEventListener('click', abrirRelatorioConexao);
     }
 });
-function setVal(id, val) {
-    const el = document.getElementById(id);
-    if (el) el.value = (val === null || val === undefined) ? '' : val;
-}
 
-function getVal(id) {
-    const el = document.getElementById(id);
-    return el ? el.value : '';
-}
+function aplicarFiltrosRenderizar() {
+    const filtroGeral = document.getElementById('filtro-geral');
+    const termo = filtroGeral ? filtroGeral.value.toLowerCase() : '';
 
-function abrirModal() {
-    const modalEl = document.getElementById('modalAnalise');
-    if(modalEl) {
-        const modal = new bootstrap.Modal(modalEl);
-        modal.show();
-    }
-}
+    const dadosFiltrados = eventosAtuais.filter(item => {
+        if (!statusSelecionados.includes(item.status)) return false;
 
-function fecharModal() {
-    const modalEl = document.getElementById('modalAnalise');
-    if(modalEl) {
-        let modalInstance = bootstrap.Modal.getInstance(modalEl);
-        if (!modalInstance) {
-            modalInstance = new bootstrap.Modal(modalEl);
-        }
-        modalInstance.hide();
+        const textoRow = `
+            ${item.ip_interno || ''} 
+            ${item.cliente_nome || ''} 
+            ${item.cliente_id_ixc || ''} 
+            ${item.equipamento || ''}
+        `.toLowerCase();
         
-        setTimeout(() => {
-            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
-            document.body.classList.remove('modal-open');
-            document.body.style = '';
-        }, 500);
+        return textoRow.includes(termo);
+    });
+
+    const grupos = {};
+    dadosFiltrados.forEach(item => {
+        const key = item.cliente_id_ixc ? `CLI-${item.cliente_id_ixc}` : `IP-${item.ip_interno}`;
+        if (!grupos[key]) grupos[key] = [];
+        grupos[key].push(item);
+    });
+
+    const listaGrupos = Object.values(grupos).sort((a, b) => {
+        const dataA = new Date(a[0].data_evento);
+        const dataB = new Date(b[0].data_evento);
+        return dataB - dataA;
+    });
+
+    const totalGrupos = listaGrupos.length;
+    const totalPaginas = Math.ceil(totalGrupos / itensPorPagina);
+    
+    if (paginaAtual > totalPaginas && totalPaginas > 0) paginaAtual = totalPaginas;
+    if (paginaAtual < 1) paginaAtual = 1;
+
+    const inicio = (paginaAtual - 1) * itensPorPagina;
+    const fim = inicio + itensPorPagina;
+    const gruposPagina = listaGrupos.slice(inicio, fim);
+
+    renderizarTabelaAgrupada(gruposPagina);
+    renderizarControlesPaginacao(totalPaginas, totalGrupos);
+    
+    buscarConsumosDaPagina(gruposPagina);
+}
+
+function renderizarTabelaAgrupada(grupos) {
+    const tbody = document.querySelector('#tabela-soc tbody');
+    if (!tbody) return;
+    
+    if (grupos.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-muted">Nenhum registro encontrado.</td></tr>';
+        return;
+    }
+
+    let html = '';
+
+    grupos.forEach(grupo => {
+        grupo.sort((a, b) => new Date(b.data_evento) - new Date(a.data_evento));
+        
+        const principal = grupo[0];
+        const qtdTotalRegistros = grupo.length;
+        const temFilhos = qtdTotalRegistros > 1;
+        const groupId = `group-${principal.id}`;
+        const totalAnomaliasMae = grupo.reduce((acc, curr) => acc + (parseInt(curr.qtd_anomalias) || 1), 0);
+        const registroComEquip = grupo.find(g => g.equipamento && g.equipamento.trim().length > 0);
+        const equipParaExibir = registroComEquip ? registroComEquip.equipamento : (principal.equipamento || '-');
+
+        html += `
+        <tr class="align-middle ${temFilhos ? 'fw-bold table-light' : ''}">
+            <td class="text-center">
+                ${temFilhos ? 
+                    `<button class="btn btn-sm btn-link text-decoration-none btn-toggle-group" 
+                        data-group-id="${groupId}">
+                        <i class="bi bi-chevron-right"></i>
+                     </button>` : 
+                    `<span class="text-muted small">●</span>`
+                }
+            </td>
+            <td class="small text-nowrap">
+                ${principal.data_evento}
+            </td>
+            <td>
+                <span class="text-primary">${principal.ip_interno}</span>
+                <span class="badge bg-secondary ms-1" title="Soma total de anomalias do grupo">${totalAnomaliasMae}x</span>
+            </td> 
+            <td>
+                <div class="small fw-bold">
+                    ${principal.cliente_id_ixc || '-'}
+                    ${temFilhos ? `<span class="badge bg-primary rounded-pill ms-1" style="font-size: 0.7em;" title="Ver todos os ${qtdTotalRegistros} registros">+${qtdTotalRegistros}</span>` : ''}
+                </div>
+                <div class="small text-muted text-truncate" style="max-width: 150px;">${principal.cliente_nome || 'Não ident.'}</div>
+            </td>
+            
+            <td class="small text-danger" id="consumo-up-${principal.login || 'nologin'}-${principal.id}">
+                <div class="spinner-border spinner-border-sm text-secondary" style="width: 0.8rem; height: 0.8rem;" role="status"></div>
+            </td>
+            <td class="small text-success" id="consumo-down-${principal.login || 'nologin'}-${principal.id}">
+                <div class="spinner-border spinner-border-sm text-secondary" style="width: 0.8rem; height: 0.8rem;" role="status"></div>
+            </td>
+
+            <td><span class="badge bg-light text-dark border">${equipParaExibir}</span></td>
+            
+            <td class="small text-truncate" style="max-width: 150px;" title="${principal.acao_tomada || ''}">
+                ${principal.acao_tomada || ''}
+            </td>
+
+            <td>${getStatusBadge(principal.status)}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary btn-editar" data-id="${principal.id}">
+                    <i class="bi bi-pencil"></i>
+                </button>
+            </td>
+        </tr>
+        `;
+
+        if (temFilhos) {
+            for (let i = 0; i < grupo.length; i++) {
+                const filho = grupo[i];
+                html += `
+                <tr class="row-filha ${groupId}" style="display: none;">
+                    <td></td> 
+                    <td class="small ps-4 border-start border-3 border-primary text-muted">
+                        <i class="bi bi-arrow-return-right me-1"></i> ${filho.data_evento}
+                    </td>
+                    <td>
+                        <span class="small">${filho.ip_interno}</span>
+                        <span class="badge bg-secondary ms-1" style="zoom: 0.8;">${filho.qtd_anomalias || 1}x</span>
+                    </td>
+                    
+                    <td class="small text-muted text-truncate" style="max-width: 150px;">
+                        ${filho.cliente_nome || '-'}
+                    </td>
+                    
+                    <td class="small text-muted"><i class="bi bi-speedometer2"></i> ${filho.trafego_upload || '-'}</td>
+                    <td class="small text-muted"><i class="bi bi-speedometer2"></i> ${filho.trafego_download || '-'}</td>
+                    
+                    <td class="small text-muted">${filho.equipamento || '-'}</td>
+                    
+                    <td class="small text-muted text-truncate" style="max-width: 150px;">${filho.acao_tomada || '-'}</td>
+
+                    <td class="small">${getStatusBadge(filho.status)}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-secondary btn-editar" style="zoom: 0.8;" data-id="${filho.id}">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                    </td>
+                </tr>
+                `;
+            }
+        }
+    });
+
+    tbody.innerHTML = html;
+
+    document.querySelectorAll('.btn-toggle-group').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const groupId = this.getAttribute('data-group-id');
+            toggleGrupo(groupId, this);
+        });
+    });
+
+    document.querySelectorAll('.btn-editar').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const id = parseInt(this.getAttribute('data-id'));
+            editarEvento(id);
+        });
+    });
+}
+
+function toggleGrupo(groupId, btn) {
+    const linhas = document.querySelectorAll(`.${groupId}`);
+    if(linhas.length === 0) return;
+
+    const isHidden = linhas[0].style.display === 'none';
+    
+    linhas.forEach(tr => {
+        tr.style.display = isHidden ? 'table-row' : 'none';
+    });
+
+    if(btn) {
+        const icon = btn.querySelector('i');
+        if(isHidden) {
+            btn.classList.add('expanded');
+            if(icon) icon.classList.replace('bi-chevron-right', 'bi-chevron-down');
+        } else {
+            btn.classList.remove('expanded');
+            if(icon) icon.classList.replace('bi-chevron-down', 'bi-chevron-right');
+        }
+    }
+};
+
+async function buscarConsumosDaPagina(grupos) {
+    const loginsProcessados = new Set();
+
+    for (const grupo of grupos) {
+        const principal = grupo[0];
+        const login = principal.login;
+        const idRow = `-${login || 'nologin'}-${principal.id}`;
+
+        if (!login) {
+            atualizarCelulasConsumo(idRow, '-', '-');
+            continue;
+        }
+
+        if (cacheConsumo[login]) {
+            const c = cacheConsumo[login];
+            atualizarCelulasConsumo(idRow, c.up, c.down);
+            continue;
+        }
+
+        if (!loginsProcessados.has(login)) {
+            loginsProcessados.add(login);
+            
+            try {
+                const res = await fetch(`/api/v5/soc/relatorio-consumo/${login}`);
+                if (res.ok) {
+                    const data = await responseToJson(res);
+                    const upGB = formatBytesToGB(data.total_upload);
+                    const downGB = formatBytesToGB(data.total_download);
+                    
+                    cacheConsumo[login] = { up: upGB, down: downGB };
+                    atualizarCelulasConsumo(idRow, upGB, downGB);
+                } else {
+                    atualizarCelulasConsumo(idRow, 'Erro', 'Erro');
+                }
+            } catch (e) {
+                console.error(e);
+                atualizarCelulasConsumo(idRow, 'Falha', 'Falha');
+            }
+        }
     }
 }
 
-async function salvarAlteracoes() {
-
-    const idVal = getVal('m-id');
+function atualizarCelulasConsumo(suffixId, up, down) {
+    const elUp = document.getElementById(`consumo-up${suffixId}`);
+    const elDown = document.getElementById(`consumo-down${suffixId}`);
     
-    const dados = {
-        id: idVal ? parseInt(idVal) : null,
-        data_evento: getVal('m-data') || new Date().toISOString().slice(0, 19).replace('T', ' '),
-        ip_interno: getVal('m-ip'),
-        cliente_nome: getVal('m-cliente-nome'),
-        cliente_id_ixc: getVal('m-cliente-id'),
-        login: getVal('m-login'),
-        equipamento: getVal('m-equipamento'),
-        analise: getVal('m-analise'),
-        acao_tomada: getVal('m-acao'),
-        observacoes: getVal('m-obs'),
-        status: getVal('m-status'),
-        trafego_upload: getVal('m-upload') || '0 Mbps',
-        trafego_download: getVal('m-download') || '0 Mbps',
-        usuario_responsavel: 'Técnico' 
-    };
+    if (elUp) elUp.innerHTML = `<span class="fw-bold">${up}</span>`;
+    if (elDown) elDown.innerHTML = `<span class="fw-bold">${down}</span>`;
+}
+
+async function buscarConsumoParaCampo(login) {
+    if(!login) return;
+    
+    const elUp = document.getElementById('m-upload');
+    const elDown = document.getElementById('m-download');
+    
+    if(elUp) elUp.value = "Carregando...";
+    if(elDown) elDown.value = "Carregando...";
+
+    if (cacheConsumo[login]) {
+        if(elUp) elUp.value = cacheConsumo[login].up;
+        if(elDown) elDown.value = cacheConsumo[login].down;
+        return;
+    }
 
     try {
-        const response = await fetch('/api/v5/soc/salvar', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(dados)
-        });
-        
-        if (response.ok) {
-            fecharModal();
-            carregarEventos();
-        } else {
-            const erroTxt = await response.text();
-            alert('Erro ao salvar no servidor. Verifique o console.');
+        const res = await fetch(`/api/v5/soc/relatorio-consumo/${login}`);
+        if(res.ok) {
+            const data = await res.json();
+            const upGB = formatBytesToGB(data.total_upload);
+            const downGB = formatBytesToGB(data.total_download);
+            
+            cacheConsumo[login] = { up: upGB, down: downGB };
+            
+            if(elUp) elUp.value = upGB;
+            if(elDown) elDown.value = downGB;
         }
-    } catch (error) { 
-        console.error('Erro de conexão/JS:', error); 
-        alert("Erro ao tentar salvar: " + error.message);
+    } catch(e) {
+        if(elUp) elUp.value = "Erro ao buscar";
+        if(elDown) elDown.value = "Erro ao buscar";
     }
+}
+
+async function responseToJson(res) {
+    return await res.json();
+}
+function formatBytesToGB(bytes) {
+    if (!bytes || bytes === 0) return '0 GB';
+    return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
 }
 
 function editarEvento(id) {
@@ -166,13 +379,19 @@ function editarEvento(id) {
     setVal('m-cliente-nome', evento.cliente_nome);
     setVal('m-login', evento.login);
     setVal('m-qtd', (evento.qtd_anomalias || 1) + 'x');
-    setVal('m-upload', evento.trafego_upload);
-    setVal('m-download', evento.trafego_download);
+    
     setVal('m-equipamento', evento.equipamento);
     setVal('m-analise', evento.analise_preliminar);
     setVal('m-acao', evento.acao_tomada);
     setVal('m-obs', evento.observacoes);
     
+    if (evento.login) {
+        buscarConsumoParaCampo(evento.login);
+    } else {
+        setVal('m-upload', evento.trafego_upload || '0');
+        setVal('m-download', evento.trafego_download || '0');
+    }
+
     const statusSelect = document.getElementById('m-status');
     if (statusSelect) {
         statusSelect.value = evento.status;
@@ -196,10 +415,78 @@ function editarEvento(id) {
     abrirModal();
 }
 
+async function salvarAlteracoes() {
+    const idVal = getVal('m-id');
+    
+    const dados = {
+        id: idVal ? parseInt(idVal) : null,
+        data_evento: getVal('m-data') || new Date().toISOString().slice(0, 19).replace('T', ' '),
+        ip_interno: getVal('m-ip'),
+        cliente_nome: getVal('m-cliente-nome'),
+        cliente_id_ixc: getVal('m-cliente-id'),
+        login: getVal('m-login'),
+        equipamento: getVal('m-equipamento'),
+        analise: getVal('m-analise'),
+        acao_tomada: getVal('m-acao'),
+        observacoes: getVal('m-obs'),
+        status: getVal('m-status'),
+        usuario_responsavel: 'Técnico' 
+    };
+
+    try {
+        const response = await fetch('/api/v5/soc/salvar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dados)
+        });
+        
+        if (response.ok) {
+            fecharModal();
+            carregarEventos();
+        } else {
+            alert('Erro ao salvar.');
+        }
+    } catch (error) { 
+        console.error('Erro:', error); 
+    }
+}
+
+function setVal(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.value = (val === null || val === undefined) ? '' : val;
+}
+
+function getVal(id) {
+    const el = document.getElementById(id);
+    return el ? el.value : '';
+}
+
+function abrirModal() {
+    const modalEl = document.getElementById('modalAnalise');
+    if(modalEl) {
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+    }
+}
+
+function fecharModal() {
+    const modalEl = document.getElementById('modalAnalise');
+    if(modalEl) {
+        let modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if (!modalInstance) modalInstance = new bootstrap.Modal(modalEl);
+        modalInstance.hide();
+        setTimeout(() => {
+            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+            document.body.classList.remove('modal-open');
+            document.body.style = '';
+        }, 500);
+    }
+}
+
 async function abrirRelatorioConexao() {
     const login = document.getElementById('m-login').value;
     if (!login) {
-        alert("Necessário ter um Login PPPoE preenchido para gerar o relatório.");
+        alert("Necessário ter um Login PPPoE.");
         return;
     }
 
@@ -213,37 +500,26 @@ async function abrirRelatorioConexao() {
 
     try {
         const response = await fetch(`/api/v5/soc/relatorio-consumo/${login}`);
-        if (!response.ok) throw new Error("Erro na busca");
+        if (!response.ok) throw new Error("Erro");
 
         const data = await response.json();
         
-        const formatBytes = (bytes) => {
-            if (bytes === 0) return '0 GB';
-            const gb = bytes / (1024 * 1024 * 1024);
-            return gb.toFixed(2) + ' GB';
-        };
-
         tbody.innerHTML = data.historico.map(item => {
-            const dataObj = new Date(item.data);
-            const dataFormatada = dataObj.toLocaleDateString('pt-BR', {timeZone: 'UTC'});
-            
-            return `
-            <tr>
-                <td>${dataFormatada}</td>
-                <td class="text-success fw-bold">${formatBytes(item.download_bytes)}</td>
-                <td class="text-danger fw-bold">${formatBytes(item.upload_bytes)}</td>
-                <td class="fw-bold">${formatBytes(item.download_bytes + item.upload_bytes)}</td>
-            </tr>
-            `;
+            const dataF = new Date(item.data).toLocaleDateString('pt-BR', {timeZone: 'UTC'});
+            return `<tr>
+                <td>${dataF}</td>
+                <td class="text-success">${formatBytesToGB(item.download_bytes)}</td>
+                <td class="text-danger">${formatBytesToGB(item.upload_bytes)}</td>
+                <td class="fw-bold">${formatBytesToGB(item.download_bytes + item.upload_bytes)}</td>
+            </tr>`;
         }).join('');
 
-        document.getElementById('total-down-val').textContent = formatBytes(data.total_download);
-        document.getElementById('total-up-val').textContent = formatBytes(data.total_upload);
-        document.getElementById('total-geral-val').textContent = formatBytes(data.total_download + data.total_upload);
+        document.getElementById('total-down-val').textContent = formatBytesToGB(data.total_download);
+        document.getElementById('total-up-val').textContent = formatBytesToGB(data.total_upload);
+        document.getElementById('total-geral-val').textContent = formatBytesToGB(data.total_download + data.total_upload);
 
     } catch (error) {
-        console.error(error);
-        tbody.innerHTML = `<tr><td colspan="4" class="text-danger">Erro ao buscar dados do cliente. Verifique se o login existe no IXC.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" class="text-danger">Erro ao buscar dados.</td></tr>`;
     } finally {
         document.getElementById('loading-relatorio').style.display = 'none';
         document.getElementById('conteudo-relatorio').style.display = 'block';
@@ -253,106 +529,30 @@ async function abrirRelatorioConexao() {
 function configurarFiltros() {
     const filtroGeral = document.getElementById('filtro-geral');
     if (filtroGeral) {
-        filtroGeral.addEventListener('keyup', function() {
+        filtroGeral.addEventListener('keyup', () => { paginaAtual = 1; aplicarFiltrosRenderizar(); });
+    }
+    document.querySelectorAll('.filtro-status-chk').forEach(chk => {
+        chk.addEventListener('change', () => {
+            statusSelecionados = Array.from(document.querySelectorAll('.filtro-status-chk'))
+                .filter(c => c.checked).map(c => c.value);
             paginaAtual = 1; 
             aplicarFiltrosRenderizar();
         });
-    }
-
-    const checkboxes = document.querySelectorAll('.filtro-status-chk');
-    checkboxes.forEach(chk => {
-        chk.addEventListener('change', function() {
-            statusSelecionados = Array.from(checkboxes)
-                .filter(c => c.checked)
-                .map(c => c.value);
-            paginaAtual = 1;
-            aplicarFiltrosRenderizar();
-        });
     });
 }
 
-function aplicarFiltrosRenderizar() {
-    const filtroGeral = document.getElementById('filtro-geral');
-    const termo = filtroGeral ? filtroGeral.value.toLowerCase() : '';
-
-    const dadosFiltrados = eventosAtuais.filter(item => {
-        if (!statusSelecionados.includes(item.status)) return false;
-
-        const textoRow = `
-            ${item.ip_interno || ''} 
-            ${item.cliente_nome || ''} 
-            ${item.cliente_id_ixc || ''} 
-            ${item.equipamento || ''}
-        `.toLowerCase();
-        
-        return textoRow.includes(termo);
-    });
-
-    const totalItens = dadosFiltrados.length;
-    const totalPaginas = Math.ceil(totalItens / itensPorPagina);
-    
-    if (paginaAtual > totalPaginas && totalPaginas > 0) paginaAtual = totalPaginas;
-    if (paginaAtual < 1) paginaAtual = 1;
-
-    const inicio = (paginaAtual - 1) * itensPorPagina;
-    const fim = inicio + itensPorPagina;
-    const dadosPagina = dadosFiltrados.slice(inicio, fim);
-
-    renderizarTabela(dadosPagina);
-    renderizarControlesPaginacao(totalPaginas, totalItens);
-}
-
-function renderizarTabela(dados) {
-    const tbody = document.querySelector('#tabela-soc tbody');
-    if (!tbody) return;
-    
-    if (dados.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">Nenhum registro encontrado.</td></tr>';
-        return;
-    }
-
-    tbody.innerHTML = dados.map(item => `
-        <tr>
-            <td class="small text-nowrap">${item.data_evento}</td> 
-            <td>
-                <span class="fw-bold text-primary">${item.ip_interno}</span>
-                <span class="badge bg-secondary ms-1" title="Reincidências">${item.qtd_anomalias || 1}x</span>
-            </td> 
-            <td>
-                <div class="small fw-bold">${item.cliente_id_ixc || '-'}</div>
-                <div class="small text-muted text-truncate" style="max-width: 150px;">${item.cliente_nome || 'Não ident.'}</div>
-            </td>
-            <td class="text-danger small"><i class="bi bi-arrow-up"></i> ${item.trafego_upload || '0'}</td>
-            <td class="text-success small"><i class="bi bi-arrow-down"></i> ${item.trafego_download || '0'}</td>
-            <td><span class="badge bg-light text-dark border">${item.equipamento || '-'}</span></td>
-            <td class="small text-truncate" style="max-width: 150px;">${item.acao_tomada || ''}</td>
-            <td>${getStatusBadge(item.status)}</td>
-            <td>
-                <button class="btn btn-sm btn-outline-primary btn-editar" data-id="${item.id}">
-                    <i class="bi bi-pencil"></i>
-                </button>
-            </td>
-        </tr>
-    `).join('');
-
-    document.querySelectorAll('.btn-editar').forEach(btn => {
-        btn.addEventListener('click', function() {
-            editarEvento(parseInt(this.dataset.id));
-        });
-    });
-}
-
-function renderizarControlesPaginacao(totalPaginas, totalItens) {
+function renderizarControlesPaginacao(totalPaginas, totalGrupos) {
     const container = document.getElementById('paginacao-container');
     const contador = document.getElementById('contador-registros');
     if(!container || !contador) return;
     
     container.innerHTML = '';
     
-    if (totalPaginas <= 1) {
-        contador.innerText = `Total: ${totalItens} registros`;
-        return; 
-    }
+    const inicioExibido = (paginaAtual - 1) * itensPorPagina + 1;
+    const fimExibido = Math.min(paginaAtual * itensPorPagina, totalGrupos);
+    contador.innerText = `Exibindo ${totalGrupos > 0 ? inicioExibido : 0} a ${fimExibido} de ${totalGrupos} clientes`;
+
+    if (totalPaginas <= 1) return;
 
     const criarBotao = (texto, page, disabled, active) => {
         const li = document.createElement('li');
@@ -365,31 +565,24 @@ function renderizarControlesPaginacao(totalPaginas, totalItens) {
                 aplicarFiltrosRenderizar();
             });
         }
-        return li;
+        container.appendChild(li);
     };
 
-    container.appendChild(criarBotao('Anterior', paginaAtual - 1, paginaAtual === 1));
-
+    criarBotao('Anterior', paginaAtual - 1, paginaAtual === 1);
+    
     let startPage = Math.max(1, paginaAtual - 2);
     let endPage = Math.min(totalPaginas, paginaAtual + 2);
-    for (let i = startPage; i <= endPage; i++) {
-        container.appendChild(criarBotao(i, i, false, i === paginaAtual));
-    }
-
-    container.appendChild(criarBotao('Próximo', paginaAtual + 1, paginaAtual === totalPaginas));
-
-    const inicioExibido = (paginaAtual - 1) * itensPorPagina + 1;
-    const fimExibido = Math.min(paginaAtual * itensPorPagina, totalItens);
-    contador.innerText = `Exibindo ${inicioExibido} a ${fimExibido} de ${totalItens} registros`;
+    for (let i = startPage; i <= endPage; i++) criarBotao(i, i, false, i === paginaAtual);
+    
+    criarBotao('Próximo', paginaAtual + 1, paginaAtual === totalPaginas);
 }
 
 async function carregarEventos() {
     try {
         const response = await fetch('/api/v5/soc/eventos');
-        const dados = await response.json();
-        eventosAtuais = dados;
+        eventosAtuais = await response.json();
         aplicarFiltrosRenderizar();
-    } catch (error) { console.error('Erro carregar eventos:', error); }
+    } catch (error) { console.error(error); }
 }
 
 async function carregarListaEquipamentos() {
@@ -408,18 +601,17 @@ async function carregarListaEquipamentos() {
                 });
             }
         }
-    } catch (error) { console.error("Erro equipamentos:", error); }
+    } catch (error) { console.error(error); }
 }
 
 async function excluirRegistro() {
     const idVal = getVal('m-id');
-    if (!idVal || !confirm('Tem certeza que deseja excluir este registro?')) return;
-
+    if (!idVal || !confirm('Confirmar exclusão?')) return;
     try {
         await fetch(`/api/v5/soc/excluir/${idVal}`, { method: 'DELETE' });
         fecharModal();
         carregarEventos();
-    } catch (error) { console.error('Erro excluir:', error); }
+    } catch (error) { console.error(error); }
 }
 
 function getStatusBadge(status) {
@@ -447,15 +639,8 @@ function atualizarCorSelect() {
 function alternarBloqueioCampos(isReadonly) {
     const campos = ['m-data', 'm-ip', 'm-cliente-id', 'm-cliente-nome', 'm-upload', 'm-download'];
     campos.forEach(id => {
-        const elemento = document.getElementById(id);
-        if (elemento) {
-            elemento.readOnly = isReadonly;
-            if (isReadonly) {
-                elemento.classList.add('bg-light');
-            } else {
-                elemento.classList.remove('bg-light');
-            }
-        }
+        const el = document.getElementById(id);
+        if (el) el.readOnly = isReadonly;
     });
 }
 

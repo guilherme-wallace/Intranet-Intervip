@@ -96,6 +96,22 @@ body {
     overflow: hidden;
 }
 
+.row-filha {
+    background-color: #f8f9fa;
+    font-size: 0.85rem;
+}
+.row-filha td {
+    border-top: none;
+    color: #555;
+}
+
+.btn-toggle-group {
+    transition: transform 0.2s;
+}
+.btn-toggle-group.expanded {
+    transform: rotate(90deg);
+}
+
 @media (min-width: 1200px) {
     .modal-xl {
         max-width: 90%;

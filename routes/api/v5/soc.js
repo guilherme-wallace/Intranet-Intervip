@@ -106,15 +106,19 @@ router.post('/salvar', function (req, res) { return __awaiter(void 0, void 0, vo
                     if (idExists && idExists.length > 0 && id_wanguard !== null) {
                         return res.json({ success: true, message: 'Duplicata ignorada.' });
                     }
-                    var CHECK_OPEN = "SELECT id, qtd_anomalias FROM soc_wanguard_report \n                            WHERE ip_interno = ? AND cliente_id_ixc = ? AND status != 'Conclu\u00EDdo' \n                            ORDER BY id DESC LIMIT 1";
+                    var CHECK_OPEN = "SELECT id, qtd_anomalias, alerta_ixc FROM soc_wanguard_report \n                            WHERE ip_interno = ? AND cliente_id_ixc = ? AND status != 'Conclu\u00EDdo' \n                            ORDER BY id DESC LIMIT 1";
                     database_1.LOCALHOST.query(CHECK_OPEN, [ip_interno, cliente_id_ixc], function (err, results) {
                         if (err)
                             return res.status(500).json({ error: err.message });
                         if (results && results.length > 0) {
+                            var regExistente_1 = results[0];
                             var UPDATE_INC = "UPDATE soc_wanguard_report SET \n                                    qtd_anomalias = qtd_anomalias + 1,\n                                    trafego_upload = ?, trafego_download = ?, id_wanguard = ?\n                                    WHERE id = ?";
-                            database_1.LOCALHOST.query(UPDATE_INC, [trafego_upload, trafego_download, id_wanguard, results[0].id], function (e) {
+                            database_1.LOCALHOST.query(UPDATE_INC, [trafego_upload, trafego_download, id_wanguard, regExistente_1.id], function (e) {
                                 if (e)
                                     return res.status(500).json({ error: e.message });
+                                if (regExistente_1.alerta_ixc === 'Não' && cliente_id_ixc) {
+                                    processarAlertaIxc(regExistente_1.id, cliente_id_ixc);
+                                }
                                 res.json({ success: true, message: 'Quantidade incrementada.' });
                             });
                         }
@@ -128,6 +132,9 @@ router.post('/salvar', function (req, res) { return __awaiter(void 0, void 0, vo
                             ], function (e, r) {
                                 if (e)
                                     return res.status(500).json({ error: e.message });
+                                if (cliente_id_ixc) {
+                                    processarAlertaIxc(r.insertId, cliente_id_ixc);
+                                }
                                 res.json({ success: true, id: r.insertId });
                             });
                         }
@@ -316,4 +323,62 @@ router.get('/relatorio-consumo/:loginPPPoE', function (req, res) { return __awai
         }
     });
 }); });
+var processarAlertaIxc = function (idReportLocal, idClienteIxc) { return __awaiter(void 0, void 0, void 0, function () {
+    var urlBase, headersListar, headersEditar, respGet, clienteDados, mensagemAlerta, alertaAtual, UPDATE_LOCAL_1, novoAlerta, UPDATE_LOCAL, error_3;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                if (!idClienteIxc)
+                    return [2 /*return*/];
+                urlBase = "".concat(process.env.IXC_API_URL, "/webservice/v1");
+                headersListar = {
+                    'Authorization': "Basic ".concat(process.env.IXC_API_TOKEN),
+                    'ixcsoft': 'listar',
+                    'Content-Type': 'application/json'
+                };
+                headersEditar = {
+                    'Authorization': "Basic ".concat(process.env.IXC_API_TOKEN),
+                    'Content-Type': 'application/json'
+                };
+                _a.label = 1;
+            case 1:
+                _a.trys.push([1, 4, , 5]);
+                return [4 /*yield*/, axios_1.default.post("".concat(urlBase, "/cliente"), {
+                        qtype: "cliente.id", query: idClienteIxc, oper: "=", rp: "1"
+                    }, { headers: headersListar })];
+            case 2:
+                respGet = _a.sent();
+                if (!respGet.data || respGet.data.total <= 0)
+                    return [2 /*return*/];
+                clienteDados = respGet.data.registros[0];
+                mensagemAlerta = "ATENÇÃO: Este cliente possui alerta de uso incomum de internet, podendo ser um equipamento tvbox infectado com virus";
+                alertaAtual = clienteDados.alerta || "";
+                if (alertaAtual.includes("uso incomum de internet")) {
+                    UPDATE_LOCAL_1 = "UPDATE soc_wanguard_report SET alerta_ixc = 'Sim' WHERE id = ?";
+                    database_1.LOCALHOST.query(UPDATE_LOCAL_1, [idReportLocal], function () { });
+                    return [2 /*return*/];
+                }
+                novoAlerta = alertaAtual
+                    ? "".concat(mensagemAlerta, "\n\n").concat(alertaAtual)
+                    : mensagemAlerta;
+                clienteDados.alerta = novoAlerta;
+                return [4 /*yield*/, axios_1.default.put("".concat(urlBase, "/cliente/").concat(idClienteIxc), clienteDados, { headers: headersEditar })];
+            case 3:
+                _a.sent();
+                UPDATE_LOCAL = "UPDATE soc_wanguard_report SET alerta_ixc = 'Sim' WHERE id = ?";
+                database_1.LOCALHOST.query(UPDATE_LOCAL, [idReportLocal], function (err) {
+                    if (err)
+                        console.error("Erro ao atualizar flag alerta_ixc:", err);
+                    else
+                        console.log("Alerta IXC atualizado com sucesso para o cliente ".concat(idClienteIxc));
+                });
+                return [3 /*break*/, 5];
+            case 4:
+                error_3 = _a.sent();
+                console.error("Erro ao processar alerta IXC:", error_3.message);
+                return [3 /*break*/, 5];
+            case 5: return [2 /*return*/];
+        }
+    });
+}); };
 exports.default = router;

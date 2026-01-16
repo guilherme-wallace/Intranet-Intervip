@@ -67,7 +67,7 @@ router.post('/salvar', async (req, res) => {
             return res.json({ success: true, message: 'Duplicata ignorada.' });
         }
 
-        const CHECK_OPEN = `SELECT id, qtd_anomalias FROM soc_wanguard_report 
+        const CHECK_OPEN = `SELECT id, qtd_anomalias, alerta_ixc FROM soc_wanguard_report 
                             WHERE ip_interno = ? AND cliente_id_ixc = ? AND status != 'Concluído' 
                             ORDER BY id DESC LIMIT 1`;
 
@@ -75,14 +75,23 @@ router.post('/salvar', async (req, res) => {
             if (err) return res.status(500).json({ error: err.message });
 
             if (results && results.length > 0) {
+                const regExistente = results[0];
+                
                 const UPDATE_INC = `UPDATE soc_wanguard_report SET 
                                     qtd_anomalias = qtd_anomalias + 1,
                                     trafego_upload = ?, trafego_download = ?, id_wanguard = ?
                                     WHERE id = ?`;
-                LOCALHOST.query(UPDATE_INC, [trafego_upload, trafego_download, id_wanguard, results[0].id], (e) => {
+                
+                LOCALHOST.query(UPDATE_INC, [trafego_upload, trafego_download, id_wanguard, regExistente.id], (e) => {
                     if (e) return res.status(500).json({ error: e.message });
+                    
+                    if (regExistente.alerta_ixc === 'Não' && cliente_id_ixc) {
+                        processarAlertaIxc(regExistente.id, cliente_id_ixc);
+                    }
+
                     res.json({ success: true, message: 'Quantidade incrementada.' });
                 });
+
             } else {
                 const INSERT_SQL = `INSERT INTO soc_wanguard_report 
                     (id_wanguard, data_evento, ip_interno, cliente_nome, cliente_id_ixc, login, trafego_upload, trafego_download, status, analise_preliminar, usuario_responsavel, qtd_anomalias, equipamento, acao_tomada, observacoes) 
@@ -96,6 +105,11 @@ router.post('/salvar', async (req, res) => {
                     equipamento, acao_tomada, observacoes 
                 ], (e, r) => {
                     if (e) return res.status(500).json({ error: e.message });
+                    
+                    if (cliente_id_ixc) {
+                        processarAlertaIxc(r.insertId, cliente_id_ixc);
+                    }
+
                     res.json({ success: true, id: r.insertId });
                 });
             }
@@ -263,5 +277,57 @@ router.get('/relatorio-consumo/:loginPPPoE', async (req, res) => {
         res.status(500).json({ error: "Falha na comunicação com o IXC" });
     }
 });
+
+const processarAlertaIxc = async (idReportLocal: number, idClienteIxc: string) => {
+    if (!idClienteIxc) return;
+
+    const urlBase = `${process.env.IXC_API_URL}/webservice/v1`;
+    
+    const headersListar = {
+        'Authorization': `Basic ${process.env.IXC_API_TOKEN}`,
+        'ixcsoft': 'listar', 
+        'Content-Type': 'application/json'
+    };
+
+    const headersEditar = {
+        'Authorization': `Basic ${process.env.IXC_API_TOKEN}`,
+        'Content-Type': 'application/json'
+    };
+
+    try {
+        const respGet = await axios.post(`${urlBase}/cliente`, {
+            qtype: "cliente.id", query: idClienteIxc, oper: "=", rp: "1"
+        }, { headers: headersListar });
+
+        if (!respGet.data || respGet.data.total <= 0) return;
+
+        const clienteDados = respGet.data.registros[0];
+        const mensagemAlerta = "ATENÇÃO: Este cliente possui alerta de uso incomum de internet, podendo ser um equipamento tvbox infectado com virus.";
+        
+        let alertaAtual = clienteDados.alerta || "";
+        if (alertaAtual.includes("uso incomum de internet")) {
+            const UPDATE_LOCAL = `UPDATE soc_wanguard_report SET alerta_ixc = 'Sim' WHERE id = ?`;
+            LOCALHOST.query(UPDATE_LOCAL, [idReportLocal], () => {});
+            return;
+        }
+
+        const novoAlerta = alertaAtual 
+            ? `${mensagemAlerta}\n\n${alertaAtual}` 
+            : mensagemAlerta;
+
+        clienteDados.alerta = novoAlerta;
+
+        await axios.put(`${urlBase}/cliente/${idClienteIxc}`, clienteDados, { headers: headersEditar });
+
+        const UPDATE_LOCAL = `UPDATE soc_wanguard_report SET alerta_ixc = 'Sim' WHERE id = ?`;
+        LOCALHOST.query(UPDATE_LOCAL, [idReportLocal], (err) => {
+            if (err) console.error("Erro ao atualizar flag alerta_ixc:", err);
+            else console.log(`Alerta IXC atualizado com sucesso para o cliente ${idClienteIxc}`);
+        });
+
+    } catch (error) {
+        console.error("Erro ao processar alerta IXC:", error.message);
+    }
+};
 
 export default router;
