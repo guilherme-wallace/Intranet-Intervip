@@ -838,7 +838,13 @@ function setupCondoSearchVenda() {
                 return fetch(`api/v1/block/${item.value}`);
             })
             .then(response => response.ok ? response.json() : [])
-            .then(blocks => { currentBlocks = blocks; })
+            .then(blocks => { 
+                currentBlocks = blocks.sort((a, b) => {
+                    const nameA = a.name || '';
+                    const nameB = b.name || '';
+                    return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
+                });
+            })
             .catch(err => {
                 console.error("Erro detalhes condomínio/blocos:", err);
                 showModal('Erro', 'Não foi possível carregar os detalhes do condomínio.', 'danger');
