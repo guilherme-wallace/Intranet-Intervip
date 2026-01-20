@@ -1,7 +1,9 @@
 let eventosAtuais = [];
 let paginaAtual = 1;
-const itensPorPagina = 15;
+const itensPorPagina = 20;
 let statusSelecionados = ['Pendente', 'Em Análise', 'Sem acesso remoto'];
+
+let currentSort = { column: 'data_evento', direction: 'desc' };
 
 const cacheConsumo = {}; 
 
@@ -10,6 +12,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeThemeAndUserInfo();
     carregarListaEquipamentos();
     configurarFiltros();
+    configurarOrdenacao();
 
     const btnSalvar = document.getElementById('btn-salvar-modal');
     if (btnSalvar) {
@@ -85,6 +88,42 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+
+function configurarOrdenacao() {
+    document.querySelectorAll('th.sortable').forEach(th => {
+        th.addEventListener('click', () => {
+            const column = th.getAttribute('data-sort');
+            
+            if (currentSort.column === column) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.column = column;
+                currentSort.direction = 'asc';
+            }
+
+            atualizarIconesOrdenacao();
+            aplicarFiltrosRenderizar();
+        });
+    });
+}
+
+function atualizarIconesOrdenacao() {
+    document.querySelectorAll('th.sortable i').forEach(icon => {
+        icon.className = 'bi bi-arrow-down-up small ms-1 text-muted'; // Reseta
+    });
+
+    const activeTh = document.querySelector(`th[data-sort="${currentSort.column}"]`);
+    if (activeTh) {
+        const icon = activeTh.querySelector('i');
+        if (currentSort.direction === 'asc') {
+            icon.className = 'bi bi-sort-up ms-1 text-primary';
+        } else {
+            icon.className = 'bi bi-sort-down ms-1 text-primary';
+        }
+    }
+}
+
+
 function aplicarFiltrosRenderizar() {
     const filtroGeral = document.getElementById('filtro-geral');
     const termo = filtroGeral ? filtroGeral.value.toLowerCase() : '';
@@ -109,10 +148,33 @@ function aplicarFiltrosRenderizar() {
         grupos[key].push(item);
     });
 
-    const listaGrupos = Object.values(grupos).sort((a, b) => {
-        const dataA = new Date(a[0].data_evento);
-        const dataB = new Date(b[0].data_evento);
-        return dataB - dataA;
+    let listaGrupos = Object.values(grupos);
+
+    listaGrupos.sort((grupoA, grupoB) => {
+        grupoA.sort((a, b) => new Date(b.data_evento) - new Date(a.data_evento));
+        grupoB.sort((a, b) => new Date(b.data_evento) - new Date(a.data_evento));
+
+        const principalA = grupoA[0];
+        const principalB = grupoB[0];
+
+        let valA, valB;
+
+        if (currentSort.column === 'qtd_anomalias') {
+            valA = grupoA.reduce((acc, curr) => acc + (parseInt(curr.qtd_anomalias) || 1), 0);
+            valB = grupoB.reduce((acc, curr) => acc + (parseInt(curr.qtd_anomalias) || 1), 0);
+        } 
+        else if (currentSort.column === 'data_evento') {
+            valA = new Date(principalA.data_evento);
+            valB = new Date(principalB.data_evento);
+        } 
+        else {
+            valA = (principalA[currentSort.column] || '').toString().toLowerCase();
+            valB = (principalB[currentSort.column] || '').toString().toLowerCase();
+        }
+
+        if (valA < valB) return currentSort.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return currentSort.direction === 'asc' ? 1 : -1;
+        return 0;
     });
 
     const totalGrupos = listaGrupos.length;
@@ -127,7 +189,6 @@ function aplicarFiltrosRenderizar() {
 
     renderizarTabelaAgrupada(gruposPagina);
     renderizarControlesPaginacao(totalPaginas, totalGrupos);
-    
     buscarConsumosDaPagina(gruposPagina);
 }
 
@@ -143,13 +204,14 @@ function renderizarTabelaAgrupada(grupos) {
     let html = '';
 
     grupos.forEach(grupo => {
-        grupo.sort((a, b) => new Date(b.data_evento) - new Date(a.data_evento));
         
-        const principal = grupo[0];
+        const principal = grupo[0]; // Pai
         const qtdTotalRegistros = grupo.length;
         const temFilhos = qtdTotalRegistros > 1;
         const groupId = `group-${principal.id}`;
+
         const totalAnomaliasMae = grupo.reduce((acc, curr) => acc + (parseInt(curr.qtd_anomalias) || 1), 0);
+
         const registroComEquip = grupo.find(g => g.equipamento && g.equipamento.trim().length > 0);
         const equipParaExibir = registroComEquip ? registroComEquip.equipamento : (principal.equipamento || '-');
 
@@ -254,6 +316,7 @@ function renderizarTabelaAgrupada(grupos) {
         });
     });
 }
+
 
 function toggleGrupo(groupId, btn) {
     const linhas = document.querySelectorAll(`.${groupId}`);

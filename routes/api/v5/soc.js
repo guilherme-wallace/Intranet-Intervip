@@ -351,7 +351,7 @@ var processarAlertaIxc = function (idReportLocal, idClienteIxc) { return __await
                 if (!respGet.data || respGet.data.total <= 0)
                     return [2 /*return*/];
                 clienteDados = respGet.data.registros[0];
-                mensagemAlerta = "ATENÇÃO: Este cliente possui alerta de uso incomum de internet, podendo ser um equipamento tvbox infectado com virus";
+                mensagemAlerta = "ATENÇÃO: Este cliente possui alerta de uso incomum de internet, podendo ser um equipamento tvbox infectado com virus.";
                 alertaAtual = clienteDados.alerta || "";
                 if (alertaAtual.includes("uso incomum de internet")) {
                     UPDATE_LOCAL_1 = "UPDATE soc_wanguard_report SET alerta_ixc = 'Sim' WHERE id = ?";

@@ -103,14 +103,30 @@
                                 <thead class="table-light text-secondary small text-uppercase">
                                     <tr>
                                         <th style="width: 50px;">#</th> 
-                                        <th>Data/Hora</th>
-                                        <th>IP Interno</th>
-                                        <th>Cliente</th>
+                                        <th class="sortable" data-sort="data_evento">
+                                            Data/Hora <i class="bi bi-arrow-down-up small ms-1"></i>
+                                        </th>
+                                        <th class="sortable" data-sort="qtd_anomalias">
+                                            IP Interno <i class="bi bi-arrow-down-up small ms-1"></i>
+                                        </th>
+                                        <th class="sortable" data-sort="cliente_nome">
+                                            Cliente <i class="bi bi-arrow-down-up small ms-1"></i>
+                                        </th>
+                                        
                                         <th>Consumo 15d (Up)</th> 
                                         <th>Consumo 15d (Down)</th> 
-                                        <th>Equipamento</th>
-                                        <th>Ação Tomada</th> <th>Status</th>
-                                        <th>Editar</th> </tr>
+                                        
+                                        <th class="sortable" data-sort="equipamento">
+                                            Equipamento <i class="bi bi-arrow-down-up small ms-1"></i>
+                                        </th>
+                                        <th class="sortable" data-sort="acao_tomada">
+                                            Ação Tomada <i class="bi bi-arrow-down-up small ms-1"></i>
+                                        </th> 
+                                        <th class="sortable" data-sort="status">
+                                            Status <i class="bi bi-arrow-down-up small ms-1"></i>
+                                        </th>
+                                        <th>Editar</th> 
+                                    </tr>
                                 </thead>
                                 <tbody class="border-top-0">
                                     </tbody>

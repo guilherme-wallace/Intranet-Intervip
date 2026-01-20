@@ -131,6 +131,15 @@ body {
     padding: 1rem;
 }
 
+.sortable {
+        cursor: pointer;
+        user-select: none;
+}
+
+.sortable:hover {
+    background-color: #e9ecef !important;
+}
+
 .table tbody td {
     padding: 1rem;
     font-size: 0.9rem;
