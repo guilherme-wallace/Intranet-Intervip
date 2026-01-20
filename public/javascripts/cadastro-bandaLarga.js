@@ -325,11 +325,19 @@ async function buscarEnderecoPorCEP() {
         }
         
         const data = await response.json();
+    
+        const rua = data.rua || '';
+        $('#endereco').val(rua).prop('readonly', rua.length > 0);
 
-        $('#endereco').val(data.rua || '');
-        $('#bairro').val(data.bairro || '');
-        $('#cidade').val(data.cidade || '');
-        $('#uf').val(data.uf || '');
+        const bairro = data.bairro || '';
+        $('#bairro').val(bairro).prop('readonly', bairro.length > 0);
+
+        const cidade = data.cidade || '';
+        $('#cidade').val(cidade).prop('readonly', cidade.length > 0);
+
+        const uf = data.uf || '';
+        $('#uf').val(uf).prop('readonly', uf.length > 0);
+
         const cidadeId = getCidadeIdPorNome(data.cidade);
         $('#hidden-cidade-id').val(cidadeId);
 
@@ -1145,7 +1153,8 @@ function getCidadeIdPorNome(nomeCidade) {
         "VIANA": "3169",
         "SERRA": "3165",
         "SANTA TERESA": "3159",
-        "CARIACICA": "3112"
+        "CARIACICA": "3112",
+        "GUARAPARI": "3124",
     };
 
     return mapaCidades[nome] || ''; 
