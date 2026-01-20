@@ -962,7 +962,7 @@ function checkFormValidity() {
     }
 }
 function getCidadeNome(cidadeId) {
-    const cidades = {"3173": "Vitória", "3172": "Vila Velha", "3169": "Viana", "3165": "Serra", "3159": "Santa Teresa", "3112": "Cariacica"};
+    const cidades = {"3173": "Vitória", "3172": "Vila Velha", "3169": "Viana", "3165": "Serra", "3159": "Santa Teresa", "3112": "Cariacica", "3124": "Guarapari"};
     return cidades[cidadeId] || '';
 }
 function getCidadeIdPorNome(nomeCidade) {
