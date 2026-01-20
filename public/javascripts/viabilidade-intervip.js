@@ -129,6 +129,7 @@ function displayBlockDetails(blocks) {
     statusElement.style.display = 'none';
 
     if (blocks && blocks.length > 0) {
+        blocks.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
         blocks.forEach(block => {
             const row = tableBody.insertRow();
             row.innerHTML = `<td>${block.name}</td><td>${block.technology}</td>`;
