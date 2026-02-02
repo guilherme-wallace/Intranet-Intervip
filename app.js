@@ -20,6 +20,7 @@ var geospatial_1 = require("./routes/api/v5/geospatial");
 var ixc_1 = require("./routes/api/v5/ixc");
 var loginConfig_1 = require("./src/configs/loginConfig");
 var soc_1 = require("./routes/api/v5/soc");
+var rede_neutra_1 = require("./routes/api/v5/rede_neutra");
 var jwt = require("jsonwebtoken");
 process.on('uncaughtException', function (error) {
     console.error('--- ERRO NÃO CAPTURADO (Uncaught Exception) ---');
@@ -202,6 +203,7 @@ APP.use('/api/email', protectApi, emailRoutes_1.default);
 APP.use('/api', protectApi, scriptmigraOnusRoute_1.default);
 APP.use('/api', protectApi, scriptAddCondominiumsBDRoute_1.default);
 APP.use('/api/v5/soc', protectApi, soc_1.default);
+APP.use('/api/v5/rede_neutra', protectApi, rede_neutra_1.default);
 APP.get('/api/username', protectApi, function (req, res) {
     if (req.user) {
         return res.json({ username: req.user.username, group: req.user.group });
@@ -229,7 +231,7 @@ APP.use('/viabilidade-intervip', protectRoutes, index_1.default);
 APP.use('/cadastro-de-vendas', protectRoutes, index_1.default);
 APP.use('/cadastro-bandaLarga', protectRoutes, index_1.default);
 APP.use('/cadastro-corporativo', protectRoutes, index_1.default);
-APP.use('/cadastro-rede-neutra', protectRoutes, index_1.default);
+APP.use('/cadastro-redeNeutra', protectRoutes, index_1.default);
 APP.use('/problemas-sites-e-APP', protectRoutes, index_1.default);
 APP.use('/lead-Venda', protectRoutes, index_1.default);
 APP.use('/pedidos-linha-telefonica', protectRoutes, index_1.default);

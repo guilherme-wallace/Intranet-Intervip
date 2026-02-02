@@ -24,6 +24,7 @@ import ixcRoutes from './routes/api/v5/ixc';
 import { config_login } from './src/configs/loginConfig';
 
 import socRoutes from './routes/api/v5/soc';
+import rede_neutraRoutes from './routes/api/v5/rede_neutra';
 
 import * as jwt from 'jsonwebtoken';
 
@@ -259,6 +260,7 @@ APP.use('/api/email', protectApi, emailRoutes);
 APP.use('/api', protectApi, scriptmigraOnusRoute);
 APP.use('/api', protectApi, scriptAddCondominiumsBDRoute);
 APP.use('/api/v5/soc', protectApi, socRoutes);
+APP.use('/api/v5/rede_neutra', protectApi, rede_neutraRoutes);
 
 APP.get('/api/username', protectApi, (req, res) => {
     if (req.user) {
@@ -288,7 +290,7 @@ APP.use('/viabilidade-intervip', protectRoutes, ROUTES);
 APP.use('/cadastro-de-vendas', protectRoutes, ROUTES);
 APP.use('/cadastro-bandaLarga', protectRoutes, ROUTES);
 APP.use('/cadastro-corporativo', protectRoutes, ROUTES);
-APP.use('/cadastro-rede-neutra', protectRoutes, ROUTES);
+APP.use('/cadastro-redeNeutra', protectRoutes, ROUTES);
 APP.use('/problemas-sites-e-APP', protectRoutes, ROUTES);
 APP.use('/lead-Venda', protectRoutes, ROUTES);
 APP.use('/pedidos-linha-telefonica', protectRoutes, ROUTES);
