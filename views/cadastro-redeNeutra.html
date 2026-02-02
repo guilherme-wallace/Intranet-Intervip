@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Intervip - Cadastro Rede Neutra</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="stylesheets/cadastro-vendas.css">
+    <link rel="stylesheet" href="stylesheets/cadastro-redeNeutra.css">
+</head>
+
+<body class="gerenciaIVP-body">
+    <header class="header-modern">
+        <div class="container-fluid">
+            <div class="d-flex align-items-center">
+                <a href="/main" class="d-flex align-items-center text-decoration-none">
+                    <img class="logo me-3" src="images/logo.png" alt="Logo Intervip">
+                </a>
+            </div>
+            <h1 class="header-title fs-4 fw-semibold text-white m-0">Cadastro Venda Rede Neutra</h1>
+            <div class="d-flex align-items-center">
+                
+                <div class="user-info text-end me-4">
+                    <p class="m-0 small text-white-80">Acessando como: <span class="fw-medium">{username}</span></p>
+                    <p class="m-0 small text-white-80">Setor: <span class="fw-medium">{group}</span></p>
+                </div>
+                <button id="theme-toggle" class="btn btn-sm btn-outline-dark rounded-pill px-3">
+                    <i class="bi bi-moon-stars"></i>
+                </button>
+                <button id="btnLogout" class="btn btn-sm btn-outline-danger rounded-pill px-3 ms-2">
+                    <i class="bi bi-box-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="ivp-main">
+        <div class="container py-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <a href="cadastro-de-vendas" class="btn btn-sm btn-outline-light rounded-pill px-3" title="Voltar ao Hub">
+                    <i class="bi bi-arrow-left me-1"></i> Voltar para o Hub de Vendas
+                </a>
+
+                <button type="button" class="btn btn-sm btn-warning rounded-pill px-3 fw-bold" id="btn-abrir-modal-suporte">
+                    <i class="bi bi-headset me-1"></i> Abrir chamado com o suporte
+                </button>
+            </div>
+
+            <div class="row justify-content-center">
+                <div class="col-lg-12">
+                    
+                    <div class="ivp-card mb-4">
+                        <div class="card-body p-4">
+                            <div class="row align-items-end g-3">
+                                <div class="col-md-8">
+                                    <label for="select-parceiro" class="form-label fw-bold">Selecione o Parceiro / Provedor</label>
+                                    <select id="select-parceiro" class="form-select form-select-lg">
+                                        <option value="" selected disabled>Carregando parceiros...</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4 text-end">
+                                    <button id="btn-novo-cliente" class="btn btn-primary btn-lg w-100" disabled>
+                                        <i class="bi bi-person-plus-fill me-2"></i>Cadastrar Novo Cliente
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="painel-clientes" class="ivp-card" style="display: none;">
+                        <div class="card-body p-4">
+                            
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h4 class="ivp-title m-0"><i class="bi bi-people-fill me-2"></i>Carteira de Clientes</h4>
+                                <div class="d-flex gap-3 text-end">
+                                    <div class="p-2 border rounded bg-light">
+                                        <small class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Valor Fixo</small>
+                                        <span id="stats-valor-fixo" class="fw-bold text-primary fs-5">--</span>
+                                    </div>
+                                    <div class="p-2 border rounded bg-light">
+                                        <small class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Total Clientes</small>
+                                        <span id="stats-total-clientes" class="fw-bold text-dark fs-5">0</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Descrição / Login</th>
+                                            <th>Data Ativação</th>
+                                            <th>Valor</th>
+                                            <th>Status Login</th>
+                                            <th class="text-end">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tabela-clientes-body">
+                                        </tbody>
+                                </table>
+                            </div>
+                            
+                            <div id="loading-clientes" class="text-center py-5" style="display: none;">
+                                <div class="spinner-border text-primary" role="status"></div>
+                                <p class="mt-2 text-muted">Sincronizando carteira...</p>
+                            </div>
+
+                            <div id="empty-clientes" class="text-center py-5 text-muted" style="display: none;">
+                                <i class="bi bi-inbox fs-1"></i>
+                                <p>Nenhum cliente encontrado para este parceiro.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <footer class="ivp-footer">
+         <div class="container-fluid py-3">
+            <div class="text-center">
+                <img src="images/logo.png" alt="Logo Intervip" width="100">
+                <p class="ivp-footer-text">
+                    © 2025 Gerência Intervip | Desenvolvido por 
+                    <a href="https://github.com/guilherme-wallace" target="_blank">Guilherme Wallace</a>
+                </p>
+            </div>
+        </div>
+    </footer>
+
+	<div id="modalAlerta">
+	  <div id="modalContent">
+		<h3>Você não pode passar!</h3>
+		<img src="images/lord-of-the-rings-you-shall-not-pass.gif" alt="You shall not pass GIF">
+		<button id="closeModalBtn">Fechar</button>
+	  </div>
+	</div>
+    
+    <div class="modal fade" id="suporteModal" tabindex="-1" aria-labelledby="suporteModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title" id="suporteModalLabel"><i class="bi bi-tools me-2"></i>Reportar Problema Técnico</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="form-suporte">
+                        <div class="mb-3">
+                            <label for="descricao-problema" class="form-label">Descreva o problema encontrado:</label>
+                            <textarea class="form-control" id="descricao-problema" rows="5" placeholder="Informe aqui o problema encontrado." required></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="btn-enviar-suporte">
+                        Enviar Chamado <i class="bi bi-send-fill ms-1"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade modal-soc-style" id="modalCadastroCliente" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i>Novo Cliente Rede Neutra</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="form-cadastro-rn" class="needs-validation" novalidate>
+                        <div class="row g-3">
+                            
+                            <div class="col-lg-6 border-end pe-lg-4">
+                                <h6 class="text-uppercase text-muted fw-bold mb-3 small">Dados do Ponto</h6>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Código Cliente Parceiro</label>
+                                        <input type="text" class="form-control" id="rn-cod-cliente-parceiro" placeholder="Opcional">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Plano IXC <span class="text-danger">*</span></label>
+                                        <select id="rn-plano" class="form-select" required>
+                                            <option value="" selected disabled>Carregando...</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <label class="form-label">Caixa de Atendimento</label>
+                                        <input type="text" class="form-control" id="rn-caixa-atendimento" placeholder="Ex: CTO-01">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Porta</label>
+                                        <input type="text" class="form-control" id="rn-porta" placeholder="Ex: 8">
+                                    </div>
+                                    
+                                    <div class="col-12">
+                                        <div class="alert alert-light border small mt-3">
+                                            <i class="bi bi-info-circle me-1"></i>
+                                            O login será gerado automaticamente.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-6 ps-lg-4">
+                                <h6 class="text-uppercase text-muted fw-bold mb-3 small">Endereço de Instalação</h6>
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label">CEP <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="rn-cep" required>
+                                    </div>
+                                    <div class="col-md-8">
+                                        <label class="form-label">Endereço <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control bg-light" id="rn-endereco" readonly required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Número <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="rn-numero" required>
+                                    </div>
+                                    <div class="col-md-8">
+                                        <label class="form-label">Bairro <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control bg-light" id="rn-bairro" readonly required>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer d-flex justify-content-between">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-primary" id="btn-salvar-sem-onu">
+                            <i class="bi bi-save me-2"></i>Criar Cliente (Sem ONU)
+                        </button>
+                        
+                        <button type="button" class="btn btn-success" id="btn-salvar-com-onu">
+                            <i class="bi bi-router me-2"></i>Criar e Autorizar ONU
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade modal-soc-style" id="modalEditarCliente" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Editar Cliente Rede Neutra</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="form-editar-cliente">
+                        <input type="hidden" id="edit-id">
+                        <input type="hidden" id="edit-token">
+                        <input type="hidden" id="edit-login-id-ixc">
+                        <input type="hidden" id="edit-mac-atual">
+
+                        <div class="row g-3">
+                            <div class="col-lg-8 border-end pe-lg-4">
+                                <h6 class="text-uppercase text-muted fw-bold mb-3 small">Dados do Cliente e Login</h6>
+                                <div class="row g-3">
+                                    <div class="col-md-12">
+                                        <label class="form-label">Descrição do Produto (Identificação)</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-light text-muted" id="edit-prefixo-token">TOKEN-</span>
+                                            <input type="text" class="form-control fw-bold" id="edit-descricao" required>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label">Login PPPoE</label>
+                                        <input type="text" class="form-control font-monospace" id="edit-login" required>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label">Status</label>
+                                        <select class="form-select fw-bold" id="edit-status">
+                                            <option value="1" class="text-success">Ativo</option>
+                                            <option value="0" class="text-danger">Inativo / Cancelado</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-12 mt-4">
+                                        <h6 class="text-uppercase text-muted fw-bold mb-3 small">Endereço de Instalação</h6>
+                                    </div>
+
+                                    <div class="col-md-4">
+                                        <label class="form-label">CEP</label>
+                                        <input type="text" class="form-control" id="edit-cep">
+                                    </div>
+                                    <div class="col-md-8">
+                                        <label class="form-label">Endereço</label>
+                                        <input type="text" class="form-control" id="edit-endereco">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Número</label>
+                                        <input type="text" class="form-control" id="edit-numero">
+                                    </div>
+                                    <div class="col-md-8">
+                                        <label class="form-label">Bairro</label>
+                                        <input type="text" class="form-control" id="edit-bairro">
+                                    </div>
+
+                                    <div class="col-12 mt-3">
+                                        <label class="form-label">Observações</label>
+                                        <textarea class="form-control" id="edit-obs" rows="3"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-4 ps-lg-4">
+                                <h6 class="text-uppercase text-muted fw-bold mb-3 small">Gerenciamento Técnico</h6>
+                                
+                                <div class="card bg-light border-0 mb-3">
+                                    <div class="card-body">
+                                        <label class="form-label fw-bold">Status ONU / Sinal</label>
+                                        <div id="display-status-onu" class="mb-3 p-2 bg-white rounded border">
+                                            <span class="badge bg-secondary">Aguardando dados...</span>
+                                        </div>
+                                        
+                                        <button type="button" class="btn btn-outline-primary w-100" id="btn-abrir-gerenciar-onu">
+                                            <i class="bi bi-router me-2"></i>Gerenciar / Autorizar ONU
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer d-flex justify-content-between">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-success px-4" id="btn-salvar-edicao">
+                        <i class="bi bi-save me-2"></i>Salvar Alterações
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalGerenciarONU" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title"><i class="bi bi-router me-2"></i>Gerenciamento de ONU</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="alert alert-info d-flex align-items-center">
+                        <i class="bi bi-info-circle-fill me-2 fs-4"></i>
+                        <div>
+                            Cliente: <strong id="onu-cliente-nome">---</strong><br>
+                            ID Contrato: <span id="onu-contrato-id">---</span>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Status Atual</label>
+                        <div id="onu-status-display" class="p-2 border rounded bg-light text-center fw-bold text-muted">
+                            Desconhecido
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="onu-mac" class="form-label">Serial / MAC da ONU</label>
+                        <input type="text" class="form-control font-monospace" id="onu-mac" placeholder="Ex: 48575443..." style="text-transform: uppercase;">
+                        <div class="form-text">Insira o Serial GPON ou MAC Address para autorização.</div>
+                    </div>
+
+                    <div id="onu-actions" class="d-grid gap-2">
+                        <button type="button" class="btn btn-success" id="btn-autorizar-onu">
+                            <i class="bi bi-check-circle me-2"></i>Autorizar ONU
+                        </button>
+                        <button type="button" class="btn btn-danger" id="btn-desautorizar-onu" style="display: none;">
+                            <i class="bi bi-x-circle me-2"></i>Desautorizar / Desvincular
+                        </button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="javascripts/jquery.js"></script>
+    <script src="javascripts/bootstrap.bundle.min.js"></script>
+    <script src="javascripts/bootstrap-autocomplete.min.js"></script> 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.inputmask/5.0.9/jquery.inputmask.min.js"></script>
+    <script src="javascripts/cadastro-redeNeutra.js"></script>
+</body>
+</html>
