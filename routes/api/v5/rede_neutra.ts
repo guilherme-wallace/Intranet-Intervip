@@ -26,10 +26,11 @@ const makeIxcRequest = async (method: Method, endpoint: string, data: any = null
         method = 'POST'; 
     }
     try {
+        //console.log(`[IXC Req] ${endpoint}`, data ? JSON.stringify(data) : '');
         const response = await axios({ method, url, headers, data });
         return response.data;
     } catch (error) {
-        console.error(`Erro IXC Rede Neutra (${endpoint}):`, error.message);
+        console.error(`[IXC Err] ${endpoint}:`, error.response?.data || error.message);
         throw error;
     }
 };
@@ -317,12 +318,18 @@ router.post('/cliente', async (req, res) => {
         parceiro_id, cod_cliente_parceiro,
         caixa_atendimento, porta,
         cep, endereco, numero, bairro, 
-        plano_id, plano_nome, plano_valor 
+        plano_id, plano_nome, plano_nome_original, plano_valor 
     } = req.body;
 
+    console.log("=== INÍCIO CADASTRO REDE NEUTRA ===");
+
     if (!parceiro_id || !cep) {
-        return res.status(400).json({ error: "Dados obrigatórios faltando (Parceiro ou CEP)." });
+        return res.status(400).json({ error: "Dados obrigatórios faltando." });
     }
+
+    let ixcProdResp = null;
+    let ixcLoginResp = null;
+    let novoIdLocal = null;
 
     try {
         const parceiros = await executeDb(`SELECT * FROM rn_parceiros WHERE id = ?`, [parceiro_id]);
@@ -330,17 +337,38 @@ router.post('/cliente', async (req, res) => {
         const parceiro = parceiros[0];
 
         const valorFinal = plano_valor ? plano_valor : (parceiro.valor_fixo || 30.00);
-        
         const token = await gerarTokenUnico();
 
         const sufixoCliente = cod_cliente_parceiro ? `-${cod_cliente_parceiro}` : '';
         const identificadorUnico = `${token}-RN-${parceiro.ixc_cliente_id}${sufixoCliente}`;
         
         const infoTecnica = [];
-        if (cod_cliente_parceiro) infoTecnica.push(`Cód. Parc: ${cod_cliente_parceiro}`);
+        if (cod_cliente_parceiro) infoTecnica.push(`Cód: ${cod_cliente_parceiro}`);
         if (caixa_atendimento) infoTecnica.push(`CTO: ${caixa_atendimento}`);
         if (porta) infoTecnica.push(`Porta: ${porta}`);
         const obsString = `Token: ${token} | ${infoTecnica.join(' | ')}`;
+
+        let idPlanoVelocidade = "0"; 
+        if (plano_nome_original) {
+            console.log(`Buscando Plano de Velocidade (Radgrupo): ${plano_nome_original}...`);
+            try {
+                const planResp = await makeIxcRequest('POST', '/radgrupos', {
+                    qtype: 'radgrupos.grupo',
+                    query: plano_nome_original,
+                    oper: '=',
+                    rp: '1'
+                });
+                
+                if (planResp.registros && planResp.registros.length > 0) {
+                    idPlanoVelocidade = planResp.registros[0].id;
+                    console.log(`Plano encontrado! ID: ${idPlanoVelocidade}`);
+                } else {
+                    console.warn(`AVISO: Plano '${plano_nome_original}' não encontrado em radgrupos. O cadastro pode falhar.`);
+                }
+            } catch (e) {
+                console.error("Erro ao buscar plano de velocidade:", e.message);
+            }
+        }
 
         const insertResult = await executeDb(
             `INSERT INTO rn_clientes 
@@ -351,33 +379,58 @@ router.post('/cliente', async (req, res) => {
                 obsString, cep, endereco, numero, bairro, caixa_atendimento, porta
             ]
         );
-        const novoIdLocal = insertResult.insertId;
+        novoIdLocal = insertResult.insertId;
 
         const produtoPayload = {
             "id_contrato": parceiro.ixc_contrato_id,
-            "id_produto": plano_id,
-            "tipo": "I",
+            "id_produto": plano_id, 
+            "tipo": "I", 
             "qtde": "1",
             "valor_unit": valorFinal,
             "descricao": identificadorUnico,
-            "obs": obsString
+            "obs": obsString,
+            "id_plano": idPlanoVelocidade,
+            "fixar_ip": "0" 
         };
-        const ixcProdResp = await makeIxcRequest('POST', '/vd_contratos_produtos', produtoPayload);
+
+        console.log("Enviando Produto IXC...");
+        ixcProdResp = await makeIxcRequest('POST', '/vd_contratos_produtos', produtoPayload);
+        
+        if (ixcProdResp.type === 'error') {
+            throw new Error(`Erro IXC (Produto): ${ixcProdResp.message}`);
+        }
         
         const loginPayload = {
             "id_contrato": parceiro.ixc_contrato_id,
             "id_cliente": parceiro.ixc_cliente_id,
             "login": identificadorUnico,
-            "senha": `ivp@ivp_${parceiro.ixc_cliente_id}`,
+            "senha": `ivp@${token}`,
             "ativo": "S",
             "obs": obsString,
-            "cep": cep,
-            "endereco": endereco,
-            "numero": numero,
-            "bairro": bairro,
-            "endereco_padrao_cliente": "N"
+            "cep": cep, "endereco": endereco, "numero": numero, "bairro": bairro,
+            "endereco_padrao_cliente": "N",
+            "autenticacao": "L", 
+            "tipo_conexao_mapa": "58", 
+            
+            "id_grupo": idPlanoVelocidade, 
+            
+            "login_simultaneo": "1",
+            "senha_md5": "N",
+            "auto_preencher_ip": "S",
+            "fixar_ip": "N",
+            "relacionar_ip_ao_login": "N",
+            "autenticacao_por_mac": "N",
+            "auto_preencher_mac": "S",
+            "relacionar_mac_ao_login": "S",
+            "tipo_vinculo_plano": "D"
         };
-        const ixcLoginResp = await makeIxcRequest('POST', '/radusuarios', loginPayload);
+
+        console.log("Enviando Login IXC...");
+        ixcLoginResp = await makeIxcRequest('POST', '/radusuarios', loginPayload);
+
+        if (ixcLoginResp.type === 'error') {
+            throw new Error(`Erro IXC (Login): ${ixcLoginResp.message}`);
+        }
 
         await executeDb(
             `UPDATE rn_clientes SET ixc_produto_id = ?, ixc_login_id = ? WHERE id = ?`,
@@ -393,7 +446,7 @@ router.post('/cliente', async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Erro no cadastro de cliente:", error);
+        console.error("ERRO NO CADASTRO:", error.message);
         res.status(500).json({ error: error.message });
     }
 });

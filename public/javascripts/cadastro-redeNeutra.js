@@ -514,18 +514,16 @@ async function salvarNovoCliente(autorizarOnu = false) {
 
     const payload = {
         parceiro_id: document.getElementById('select-parceiro').value,
-        
         cod_cliente_parceiro: document.getElementById('rn-cod-cliente-parceiro').value.trim(),
         caixa_atendimento: document.getElementById('rn-caixa-atendimento').value.trim(),
         porta: document.getElementById('rn-porta').value.trim(),
-        
         cep: document.getElementById('rn-cep').value,
         endereco: document.getElementById('rn-endereco').value,
         numero: document.getElementById('rn-numero').value,
         bairro: document.getElementById('rn-bairro').value,
-        
         plano_id: selectPlano.value,
         plano_nome: planoOption.dataset.nome,
+        plano_nome_original: planoOption.dataset.originalName,
         plano_valor: planoOption.dataset.valor
     };
 
@@ -541,15 +539,10 @@ async function salvarNovoCliente(autorizarOnu = false) {
         if (!response.ok) throw new Error(result.error || 'Erro ao salvar');
 
         modalCadastro.hide();
-        
         carregarCarteiraClientes(payload.parceiro_id);
 
-        if (autorizarOnu) {
-            if (result.ixc_login_id) {
-                abrirModalONU(result.ixc_login_id, result.login, "Novo Contrato", "");
-            } else {
-                alert(`Cliente Criado, mas sem Login vinculado para autorizar ONU.\nLogin: ${result.login}`);
-            }
+        if (autorizarOnu && result.ixc_login_id) {
+            abrirModalONU(result.ixc_login_id, result.login, "Novo Contrato", "");
         } else {
             alert(`Cliente Cadastrado com Sucesso!\nLogin: ${result.login}`);
         }
@@ -700,6 +693,7 @@ async function carregarPlanosRedeNeutra() {
             
             option.dataset.precoOriginal = p.preco; 
             option.dataset.nome = p.nome_exibicao;
+            option.dataset.originalName = p.nome_original;
             
             option.dataset.valor = p.preco; 
             
@@ -737,35 +731,57 @@ async function buscarEnderecoPorCEP(prefixoId = 'rn') {
 
     if (cep.length !== 8) return;
 
-    const campos = ['endereco', 'bairro', 'numero'];
-    campos.forEach(c => {
-        const el = document.getElementById(`${prefixoId}-${c}`);
-        if(el) el.readOnly = true;
-    });
+    const elEndereco = document.getElementById(`${prefixoId}-endereco`);
+    const elBairro = document.getElementById(`${prefixoId}-bairro`);
+    const elNumero = document.getElementById(`${prefixoId}-numero`);
+
+    elEndereco.value = "Buscando...";
+    elBairro.value = "Buscando...";
+    elEndereco.readOnly = true;
+    elBairro.readOnly = true;
 
     try {
         const response = await fetch(`/api/v5/geo/cep-lookup?cep=${cep}`);
-        if (!response.ok) throw new Error('CEP não encontrado');
-        
-        const data = await response.json();
-
-        const elEndereco = document.getElementById(`${prefixoId}-endereco`);
-        const elBairro = document.getElementById(`${prefixoId}-bairro`);
-        
-        if (elEndereco) elEndereco.value = data.rua || '';
-        if (elBairro) elBairro.value = data.bairro || '';
-        
-        const elNumero = document.getElementById(`${prefixoId}-numero`);
-        if (elNumero) {
-            elNumero.readOnly = false;
-            elNumero.focus();
+        if (response.ok) {
+            const data = await response.json();
+            if (data.rua && data.bairro) {
+                preencherCamposEndereco(prefixoId, data.rua, data.bairro);
+                return;
+            }
         }
+    } catch (e) { console.warn("API Interna falhou, tentando externa..."); }
 
-    } catch (e) {
-        console.error("Erro CEP:", e);
-        document.getElementById(`${prefixoId}-endereco`).readOnly = false;
-        document.getElementById(`${prefixoId}-bairro`).readOnly = false;
-        document.getElementById(`${prefixoId}-endereco`).focus();
+    try {
+        const responseVia = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+        const dataVia = await responseVia.json();
+        if (!dataVia.erro) {
+            preencherCamposEndereco(prefixoId, dataVia.logradouro, dataVia.bairro);
+            return;
+        }
+    } catch (e) { console.warn("ViaCEP falhou."); }
+
+    elEndereco.value = "";
+    elBairro.value = "";
+    elEndereco.readOnly = false;
+    elBairro.readOnly = false;
+    elEndereco.focus();
+    alert("CEP não encontrado. Por favor, preencha o endereço manualmente.");
+}
+
+function preencherCamposEndereco(prefixoId, rua, bairro) {
+    const elEndereco = document.getElementById(`${prefixoId}-endereco`);
+    const elBairro = document.getElementById(`${prefixoId}-bairro`);
+    const elNumero = document.getElementById(`${prefixoId}-numero`);
+
+    elEndereco.value = rua || '';
+    elBairro.value = bairro || '';
+
+    elEndereco.readOnly = (rua && rua.trim() !== '');
+    elBairro.readOnly = (bairro && bairro.trim() !== '');
+
+    if (elNumero) {
+        elNumero.readOnly = false;
+        elNumero.focus();
     }
 }
 
