@@ -71,7 +71,6 @@
 
                     <div id="painel-clientes" class="ivp-card" style="display: none;">
                         <div class="card-body p-4">
-                            
                             <div class="d-flex justify-content-between align-items-center mb-4">
                                 <h4 class="ivp-title m-0"><i class="bi bi-people-fill me-2"></i>Carteira de Clientes</h4>
                                 <div class="d-flex gap-3 text-end">
@@ -79,9 +78,14 @@
                                         <small class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Valor Fixo</small>
                                         <span id="stats-valor-fixo" class="fw-bold text-primary fs-5">--</span>
                                     </div>
-                                    <div class="p-2 border rounded bg-light">
-                                        <small class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Total Clientes</small>
-                                        <span id="stats-total-clientes" class="fw-bold text-dark fs-5">0</span>
+                                    <div class="p-2 border rounded bg-light d-flex align-items-center">
+                                        <div>
+                                            <small class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Total Clientes</small>
+                                            <span id="stats-total-clientes" class="fw-bold text-dark fs-5">0</span>
+                                        </div>
+                                        <button id="btn-refresh-carteira" class="btn btn-sm btn-link text-secondary ms-2" title="Atualizar Lista">
+                                            <i class="bi bi-arrow-clockwise fs-5"></i>
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -174,72 +178,126 @@
                 <div class="modal-body">
                     <form id="form-cadastro-rn" class="needs-validation" novalidate>
                         <div class="row g-3">
-                            <div class="col-lg-6 border-end pe-lg-4">
+                            
+                            <div class="col-lg-5 border-end pe-lg-4">
                                 <h6 class="text-uppercase text-muted fw-bold mb-3 small">Dados do Ponto</h6>
+                                <div class="mb-3">
+                                    <label class="form-label">Plano IXC <span class="text-danger">*</span></label>
+                                    <select id="rn-plano" class="form-select" required>
+                                        <option value="" selected disabled>Carregando...</option>
+                                    </select>
+                                </div>
                                 <div class="row g-3">
                                     <div class="col-md-6">
-                                        <label class="form-label">Código Cliente Parceiro</label>
-                                        <input type="text" class="form-control" id="rn-cod-cliente-parceiro" placeholder="Opcional">
+                                        <label class="form-label">Cod. Cliente</label>
+                                        <input type="text" class="form-control" id="rn-cod-cliente-parceiro">
                                     </div>
                                     <div class="col-md-6">
-                                        <label class="form-label">Plano IXC <span class="text-danger">*</span></label>
-                                        <select id="rn-plano" class="form-select" required>
-                                            <option value="" selected disabled>Carregando...</option>
-                                        </select>
-                                    </div>
-                                    
-                                    <div class="col-md-6">
-                                        <label class="form-label">Caixa de Atendimento</label>
-                                        <input type="text" class="form-control" id="rn-caixa-atendimento" placeholder="Ex: CTO-01">
+                                        <label class="form-label">Caixa (CTO)</label>
+                                        <input type="text" class="form-control" id="rn-caixa-atendimento">
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">Porta</label>
-                                        <input type="text" class="form-control" id="rn-porta" placeholder="Ex: 8">
-                                    </div>
-                                    
-                                    <div class="col-12">
-                                        <div class="alert alert-light border small mt-3">
-                                            <i class="bi bi-info-circle me-1"></i>
-                                            O login será gerado automaticamente.
-                                        </div>
+                                        <input type="text" class="form-control" id="rn-porta">
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="col-lg-6 ps-lg-4">
+                            <div class="col-lg-7 ps-lg-4">
                                 <h6 class="text-uppercase text-muted fw-bold mb-3 small">Endereço de Instalação</h6>
-                                <div class="row g-3">
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Buscar Condomínio / Localidade <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="input-condominio-venda" placeholder="Digite o nome..." autocomplete="off">
+                                        <div class="input-group-text bg-white">
+                                            <input class="form-check-input mt-0" type="checkbox" id="chk-sem-condominio">
+                                            <label class="form-check-label ms-2 small" for="chk-sem-condominio">Não cadastrado</label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row g-2">
                                     <div class="col-md-4">
-                                        <label class="form-label">CEP <span class="text-danger">*</span></label>
+                                        <label class="form-label">CEP</label>
                                         <input type="text" class="form-control" id="rn-cep" required>
                                     </div>
                                     <div class="col-md-8">
-                                        <label class="form-label">Endereço <span class="text-danger">*</span></label>
+                                        <label class="form-label">Endereço</label>
                                         <input type="text" class="form-control bg-light" id="rn-endereco" readonly required>
                                     </div>
                                     <div class="col-md-4">
-                                        <label class="form-label">Número <span class="text-danger">*</span></label>
+                                        <label class="form-label">Número</label>
                                         <input type="text" class="form-control" id="rn-numero" required>
                                     </div>
                                     <div class="col-md-8">
-                                        <label class="form-label">Bairro <span class="text-danger">*</span></label>
+                                        <label class="form-label">Bairro</label>
                                         <input type="text" class="form-control bg-light" id="rn-bairro" readonly required>
                                     </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Cidade</label>
+                                        <input type="text" class="form-control bg-light" id="rn-cidade" readonly>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">UF</label>
+                                        <input type="text" class="form-control bg-light" id="rn-uf" readonly>
+                                    </div>
+                                    
+                                    <div class="col-md-12 mt-2">
+                                        <label class="form-label">Complemento (Bloco/Apto)</label>
+                                        <button type="button" class="form-control btn btn-outline-secondary text-start" id="btn-complemento" disabled>
+                                            Selecione o condomínio primeiro...
+                                        </button>
+                                        <input type="hidden" id="rn-complemento">
+                                    </div>
+                                    
+                                    <div class="col-md-12">
+                                        <label class="form-label">Ponto de Referência</label>
+                                        <input type="text" class="form-control" id="rn-referencia">
+                                    </div>
                                 </div>
+
+                                <input type="hidden" id="hidden-condominio-id">
+                                <input type="hidden" id="hidden-cidade-id">
+                                <input type="hidden" id="hidden-bloco">
+                                <input type="hidden" id="hidden-apartamento">
                             </div>
+
                         </div>
                     </form>
                 </div>
                 <div class="modal-footer d-flex justify-content-between">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <div class="d-flex gap-2">
-                        <button type="button" class="btn btn-outline-primary" id="btn-salvar-sem-onu">
-                            <i class="bi bi-save me-2"></i>Criar (Sem ONU)
-                        </button>
-                        <button type="button" class="btn btn-success" id="btn-salvar-com-onu">
-                            <i class="bi bi-router me-2"></i>Criar e Autorizar ONU
-                        </button>
+                        <button type="button" class="btn btn-outline-primary" id="btn-salvar-sem-onu">Criar (Sem ONU)</button>
+                        <button type="button" class="btn btn-success" id="btn-salvar-com-onu">Criar e Autorizar ONU</button>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="complementoModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Selecionar Complemento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-5 border-end">
+                            <h6>1. Selecione o Bloco</h6>
+                            <div id="blocos-lista-modal" class="list-group" style="max-height: 300px; overflow-y: auto;"></div>
+                        </div>
+                        <div class="col-md-7">
+                            <div id="complemento-details" style="display: none;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="btn-confirmar-complemento" style="display: none;">Confirmar</button>
                 </div>
             </div>
         </div>
@@ -264,7 +322,7 @@
                                 <h6 class="text-uppercase text-muted fw-bold mb-3 small">Dados do Cliente e Login</h6>
                                 <div class="row g-3">
                                     <div class="col-md-12">
-                                        <label class="form-label">Descrição do Produto (Identificação)</label>
+                                        <label class="form-label">Descrição (Identificação)</label>
                                         <div class="input-group">
                                             <span class="input-group-text bg-light text-muted" id="edit-prefixo-token">TOKEN-</span>
                                             <input type="text" class="form-control fw-bold" id="edit-descricao" required>
@@ -288,6 +346,21 @@
                                         <h6 class="text-uppercase text-muted fw-bold mb-3 small">Endereço de Instalação</h6>
                                     </div>
 
+                                    <div class="col-md-12">
+                                        <label class="form-label">Condomínio / Localidade</label>
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" id="edit-condominio" placeholder="Buscar condomínio..." autocomplete="off">
+                                            <div class="input-group-text bg-white">
+                                                <input class="form-check-input mt-0" type="checkbox" id="edit-sem-condominio">
+                                                <label class="form-check-label ms-2 small" for="edit-sem-condominio">Manual</label>
+                                            </div>
+                                        </div>
+                                        <input type="hidden" id="edit-hidden-condominio-id">
+                                        <input type="hidden" id="edit-hidden-cidade-id">
+                                        <input type="hidden" id="edit-hidden-bloco">
+                                        <input type="hidden" id="edit-hidden-apartamento">
+                                    </div>
+
                                     <div class="col-md-4">
                                         <label class="form-label">CEP</label>
                                         <input type="text" class="form-control" id="edit-cep">
@@ -304,6 +377,30 @@
                                         <label class="form-label">Bairro</label>
                                         <input type="text" class="form-control" id="edit-bairro">
                                     </div>
+                                    
+                                    <div class="col-md-6">
+                                        <label class="form-label">Cidade</label>
+                                        <input type="text" class="form-control bg-light" id="edit-cidade" readonly>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">UF</label>
+                                        <input type="text" class="form-control bg-light" id="edit-uf" readonly>
+                                    </div>
+
+                                    <div class="col-md-12 mt-2">
+                                        <label class="form-label">Complemento</label>
+                                        <div class="input-group">
+                                            <button type="button" class="btn btn-outline-secondary" id="btn-edit-complemento" disabled>
+                                                Selecionar...
+                                            </button>
+                                            <input type="text" class="form-control" id="edit-complemento-text" placeholder="Complemento manual">
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-12">
+                                        <label class="form-label">Referência</label>
+                                        <input type="text" class="form-control" id="edit-referencia">
+                                    </div>
 
                                     <div class="col-12 mt-3">
                                         <label class="form-label">Observações</label>
@@ -314,14 +411,12 @@
 
                             <div class="col-lg-4 ps-lg-4">
                                 <h6 class="text-uppercase text-muted fw-bold mb-3 small">Gerenciamento Técnico</h6>
-                                
                                 <div class="card bg-light border-0 mb-3">
                                     <div class="card-body">
                                         <label class="form-label fw-bold">Status ONU / Sinal</label>
                                         <div id="display-status-onu" class="mb-3 p-2 bg-white rounded border">
                                             <span class="badge bg-secondary">Aguardando dados...</span>
                                         </div>
-                                        
                                         <button type="button" class="btn btn-outline-primary w-100" id="btn-abrir-gerenciar-onu">
                                             <i class="bi bi-router me-2"></i>Gerenciar / Autorizar ONU
                                         </button>

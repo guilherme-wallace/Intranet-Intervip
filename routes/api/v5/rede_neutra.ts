@@ -318,6 +318,8 @@ router.post('/cliente', async (req, res) => {
         parceiro_id, cod_cliente_parceiro,
         caixa_atendimento, porta,
         cep, endereco, numero, bairro, 
+        cidade, uf,
+        id_condominio, bloco, apartamento, complemento, referencia,
         plano_id, plano_nome, plano_nome_original, plano_valor 
     } = req.body;
 
@@ -346,29 +348,25 @@ router.post('/cliente', async (req, res) => {
         if (cod_cliente_parceiro) infoTecnica.push(`Cód: ${cod_cliente_parceiro}`);
         if (caixa_atendimento) infoTecnica.push(`CTO: ${caixa_atendimento}`);
         if (porta) infoTecnica.push(`Porta: ${porta}`);
-        const obsString = `Token: ${token} | ${infoTecnica.join(' | ')}`;
+        const obsLocal = `Token: ${token} | ${infoTecnica.join(' | ')}`;
+
+        const dataHoje = new Date().toLocaleDateString('pt-BR');
+        const obsIXC = `Data de Ativação: ${dataHoje}`;
 
         let idPlanoVelocidade = "0"; 
         if (plano_nome_original) {
-            console.log(`Buscando Plano de Velocidade (Radgrupo): ${plano_nome_original}...`);
+            console.log(`Buscando Plano: ${plano_nome_original}...`);
             try {
                 const planResp = await makeIxcRequest('POST', '/radgrupos', {
-                    qtype: 'radgrupos.grupo',
-                    query: plano_nome_original,
-                    oper: '=',
-                    rp: '1'
+                    qtype: 'radgrupos.grupo', query: plano_nome_original, oper: '=', rp: '1'
                 });
-                
                 if (planResp.registros && planResp.registros.length > 0) {
                     idPlanoVelocidade = planResp.registros[0].id;
-                    console.log(`Plano encontrado! ID: ${idPlanoVelocidade}`);
-                } else {
-                    console.warn(`AVISO: Plano '${plano_nome_original}' não encontrado em radgrupos. O cadastro pode falhar.`);
                 }
-            } catch (e) {
-                console.error("Erro ao buscar plano de velocidade:", e.message);
-            }
+            } catch (e) { console.error("Erro plano:", e.message); }
         }
+
+        const complementoFinal = [complemento, bloco ? `Bloco ${bloco}` : '', apartamento ? `Apto ${apartamento}` : ''].filter(Boolean).join(' - ');
 
         const insertResult = await executeDb(
             `INSERT INTO rn_clientes 
@@ -376,7 +374,7 @@ router.post('/cliente', async (req, res) => {
             VALUES (?, ?, ?, ?, ?, ?, 1, ?, NULL, ?, ?, ?, ?, ?, ?, NOW())`,
             [
                 parceiro.id, token, identificadorUnico, identificadorUnico, valorFinal, plano_nome, 
-                obsString, cep, endereco, numero, bairro, caixa_atendimento, porta
+                obsLocal, cep, endereco, numero, bairro, caixa_atendimento, porta
             ]
         );
         novoIdLocal = insertResult.insertId;
@@ -388,32 +386,39 @@ router.post('/cliente', async (req, res) => {
             "qtde": "1",
             "valor_unit": valorFinal,
             "descricao": identificadorUnico,
-            "obs": obsString,
-            "id_plano": idPlanoVelocidade,
+            "obs": obsIXC,
+            "id_plano": idPlanoVelocidade, 
             "fixar_ip": "0" 
         };
 
         console.log("Enviando Produto IXC...");
         ixcProdResp = await makeIxcRequest('POST', '/vd_contratos_produtos', produtoPayload);
         
-        if (ixcProdResp.type === 'error') {
-            throw new Error(`Erro IXC (Produto): ${ixcProdResp.message}`);
-        }
+        if (ixcProdResp.type === 'error') throw new Error(`Erro IXC (Produto): ${ixcProdResp.message}`);
         
-        const loginPayload = {
+        const loginPayload: any = {
             "id_contrato": parceiro.ixc_contrato_id,
             "id_cliente": parceiro.ixc_cliente_id,
             "login": identificadorUnico,
-            "senha": `ivp@${token}`,
+            "senha": `ivp@${parceiro.ixc_cliente_id}`,
             "ativo": "S",
-            "obs": obsString,
-            "cep": cep, "endereco": endereco, "numero": numero, "bairro": bairro,
+            "obs": obsIXC,
+            
+            "cep": cep, 
+            "endereco": endereco, 
+            "numero": numero, 
+            "bairro": bairro,
+            "cidade": cidade,
+            "complemento": complemento,
+            "referencia": referencia,
+            "bloco": bloco,
+            "apartamento": apartamento,
+            "id_condominio": id_condominio || "0",
             "endereco_padrao_cliente": "N",
+
             "autenticacao": "L", 
             "tipo_conexao_mapa": "58", 
-            
             "id_grupo": idPlanoVelocidade, 
-            
             "login_simultaneo": "1",
             "senha_md5": "N",
             "auto_preencher_ip": "S",
@@ -428,9 +433,7 @@ router.post('/cliente', async (req, res) => {
         console.log("Enviando Login IXC...");
         ixcLoginResp = await makeIxcRequest('POST', '/radusuarios', loginPayload);
 
-        if (ixcLoginResp.type === 'error') {
-            throw new Error(`Erro IXC (Login): ${ixcLoginResp.message}`);
-        }
+        if (ixcLoginResp.type === 'error') throw new Error(`Erro IXC (Login): ${ixcLoginResp.message}`);
 
         await executeDb(
             `UPDATE rn_clientes SET ixc_produto_id = ?, ixc_login_id = ? WHERE id = ?`,
@@ -453,7 +456,13 @@ router.post('/cliente', async (req, res) => {
 
 router.put('/cliente/:id', async (req, res) => {
     const { id } = req.params;
-    const { descricao_produto, login_pppoe, status_ativo, obs, cep, endereco, numero, bairro } = req.body;
+    const { 
+        descricao_produto, login_pppoe, status_ativo, obs, 
+        cep, endereco, numero, bairro,
+        cidade, uf, id_condominio, bloco, apartamento, complemento, referencia
+    } = req.body;
+
+    console.log(`[Edit] Atualizando Cliente ID ${id}...`);
 
     if (!id) return res.status(400).json({ error: "ID não informado" });
 
@@ -479,14 +488,25 @@ router.put('/cliente/:id', async (req, res) => {
             }
 
             if (cli.ixc_login_id) {
-                await makeIxcRequest('PUT', `/radusuarios/${cli.ixc_login_id}`, {
+                const loginPayload = {
                     "login": login_pppoe,
                     "ativo": status_ativo == 1 ? "S" : "N",
                     "cep": cep,
                     "endereco": endereco,
                     "numero": numero,
-                    "bairro": bairro
-                });
+                    "bairro": bairro,
+                    "cidade": cidade,
+                    "uf": uf,
+                    "id_condominio": id_condominio || "0",
+                    "bloco": bloco,
+                    "apartamento": apartamento,
+                    "complemento": complemento,
+                    "referencia": referencia,
+                    "autenticacao": "L"
+                };
+                
+                console.log(`[Edit] Payload Login IXC:`, JSON.stringify(loginPayload));
+                await makeIxcRequest('PUT', `/radusuarios/${cli.ixc_login_id}`, loginPayload);
             }
         }
 
@@ -507,7 +527,7 @@ router.get('/onu-detalhes/:id_login', async (req, res) => {
         });
 
         if (!loginResp.registros || loginResp.registros.length === 0) {
-            return res.json({ online: 'N', sinal_rx: null, sinal_tx: null, mac: null });
+            return res.json({ online: 'N', sinal_rx: null });
         }
 
         const loginData = loginResp.registros[0];
@@ -517,7 +537,22 @@ router.get('/onu-detalhes/:id_login', async (req, res) => {
         });
 
         let dadosTecnicos: any = {
-            online: 'N', mac: loginData.onu_mac, sinal_rx: '-', sinal_tx: '-', data_sinal: '-',
+            online: 'N', 
+            mac: loginData.onu_mac,
+            
+            cep: loginData.cep,
+            endereco: loginData.endereco,
+            numero: loginData.numero,
+            bairro: loginData.bairro,
+            cidade: loginData.cidade,
+            uf: '',
+            complemento: loginData.complemento,
+            referencia: loginData.referencia,
+            id_condominio: loginData.id_condominio,
+            bloco: loginData.bloco,
+            apartamento: loginData.apartamento,
+
+            sinal_rx: '-', sinal_tx: '-', data_sinal: '-',
             nome: '-', id_transmissor: '-', id_caixa_ftth: '-', porta_ftth: '-', onu_tipo: '-',
             ponid: '-', onu_numero: '-', temperatura: '-', voltagem: '-', user_vlan: '-', id_fibra: null
         };
@@ -525,7 +560,6 @@ router.get('/onu-detalhes/:id_login', async (req, res) => {
         if (fibraResp.registros && fibraResp.registros.length > 0) {
             const fibra = fibraResp.registros[0];
             dadosTecnicos.id_fibra = fibra.id;
-
             dadosTecnicos.sinal_rx = fibra.sinal_rx ? fibra.sinal_rx.replace(',', '.') : '-';
             dadosTecnicos.sinal_tx = fibra.sinal_tx ? fibra.sinal_tx.replace(',', '.') : '-';
             dadosTecnicos.data_sinal = fibra.data_sinal || '-';
@@ -546,15 +580,11 @@ router.get('/onu-detalhes/:id_login', async (req, res) => {
                 const matchVlan = fibra.comandos.match(/user-vlan\s+(\d+)/);
                 if (matchVlan && matchVlan[1]) dadosTecnicos.user_vlan = matchVlan[1];
             }
-
+            
             if (fibra.id_transmissor) {
                 try {
-                    const popResp = await makeIxcRequest('POST', '/radpop', {
-                        qtype: "radpop.id", query: fibra.id_transmissor, oper: "=", rp: "1"
-                    });
-                    if (popResp.registros && popResp.registros.length > 0) {
-                        dadosTecnicos.id_transmissor = popResp.registros[0].pop;
-                    }
+                    const popResp = await makeIxcRequest('POST', '/radpop', { qtype: "radpop.id", query: fibra.id_transmissor, oper: "=", rp: "1" });
+                    if (popResp.registros && popResp.registros.length > 0) dadosTecnicos.id_transmissor = popResp.registros[0].pop;
                 } catch (e) {}
             }
         }

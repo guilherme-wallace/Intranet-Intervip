@@ -3,27 +3,42 @@
 let modalCadastro = null;
 let modalONU = null;
 let modalEditar = null;
+let complementoModal = null;
 let modalSuporte = null;
 let parceiroIdSelecionado = null;
 let loginAtualId = null;
 let nomeAtual = null;
+let currentBlocks = [];
+let selectedBlock = null;
+let contextComplemento = 'rn';
 
 document.addEventListener('DOMContentLoaded', function() {
     modalCadastro = new bootstrap.Modal(document.getElementById('modalCadastroCliente'));
     modalONU = new bootstrap.Modal(document.getElementById('modalGerenciarONU'));
     modalEditar = new bootstrap.Modal(document.getElementById('modalEditarCliente'));
-    modalSuporte = new bootstrap.Modal(document.getElementById('suporteModal'));
+    
+    const complementoModalEl = document.getElementById('complementoModal');
+    if(complementoModalEl) complementoModal = new bootstrap.Modal(complementoModalEl);
 
-    $('#rn-cpf').inputmask('999.999.999-99');
-    $('#rn-telefone').inputmask('(99) 99999-9999');
     $('#rn-cep').inputmask('99999-999');
     $('#edit-cep').inputmask('99999-999');
-    
     $('#onu-mac').on('input', function() {
         this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
     });
 
+    document.getElementById('btn-edit-complemento').addEventListener('click', function() {
+        contextComplemento = 'edit';
+        openComplementoModal();
+    });
+
+    document.getElementById('btn-complemento').addEventListener('click', function() {
+        contextComplemento = 'rn';
+        openComplementoModal();
+    });
+
     setupListeners();
+    setupCondoSearch();
+    setupCondoSearchEdit(); 
     carregarParceiros();
     carregarPlanosRedeNeutra();
     initializeThemeAndUserInfo();
@@ -33,63 +48,221 @@ function setupListeners() {
     document.getElementById('select-parceiro').addEventListener('change', function(e) {
         parceiroIdSelecionado = e.target.value;
         const btnNovo = document.getElementById('btn-novo-cliente');
+        const option = e.target.options[e.target.selectedIndex];
         
-        const optionParceiro = e.target.options[e.target.selectedIndex];
-        const valorFixo = parseFloat(optionParceiro.dataset.valorFixo);
-        
-        const displayValor = (valorFixo && valorFixo > 0) 
-            ? `R$ ${valorFixo.toFixed(2)}` 
-            : 'N/A';
-        document.getElementById('stats-valor-fixo').textContent = displayValor;
+        const valorFixo = parseFloat(option.dataset.valorFixo);
+        document.getElementById('stats-valor-fixo').textContent = (valorFixo > 0) ? `R$ ${valorFixo.toFixed(2)}` : 'N/A';
 
         const selectPlanos = document.getElementById('rn-plano');
-        const opcoesPlanos = selectPlanos.querySelectorAll('option');
-
-        opcoesPlanos.forEach(opt => {
+        selectPlanos.querySelectorAll('option').forEach(opt => {
             if (opt.value === "") return;
-
-            const precoOriginal = parseFloat(opt.dataset.precoOriginal);
-            const nomeExibicao = opt.dataset.nome;
-            let precoFinal = 0;
-
-            if (valorFixo && valorFixo > 0) {
-                precoFinal = valorFixo;
-            } else {
-                precoFinal = precoOriginal;
-            }
-
-            opt.textContent = `${nomeExibicao} (R$ ${precoFinal.toFixed(2)})`;
-            opt.dataset.valor = precoFinal; 
+            const preco = (valorFixo > 0) ? valorFixo : parseFloat(opt.dataset.precoOriginal);
+            opt.textContent = `${opt.dataset.nome} (R$ ${preco.toFixed(2)})`;
+            opt.dataset.valor = preco;
         });
+
         if (parceiroIdSelecionado) {
             btnNovo.disabled = false;
             carregarCarteiraClientes(parceiroIdSelecionado);
-        } else {
-            btnNovo.disabled = true;
-            document.getElementById('painel-clientes').style.display = 'none';
         }
+    });
+
+    document.getElementById('btn-refresh-carteira').addEventListener('click', () => {
+        if(parceiroIdSelecionado) carregarCarteiraClientes(parceiroIdSelecionado);
     });
 
     document.getElementById('btn-novo-cliente').addEventListener('click', () => {
         resetFormCadastro();
         modalCadastro.show();
     });
-
+    
     document.getElementById('btn-salvar-sem-onu').addEventListener('click', () => salvarNovoCliente(false));
     document.getElementById('btn-salvar-com-onu').addEventListener('click', () => salvarNovoCliente(true));
 
-    document.getElementById('btn-salvar-edicao').addEventListener('click', salvarEdicaoCliente);
-    
-    document.getElementById('btn-abrir-gerenciar-onu').addEventListener('click', function() {
-        if(!loginAtualId) { alert("Sem Login vinculado para gerenciar ONU."); return; }
-        abrirModalONU(loginAtualId, nomeAtual, "Edição", document.getElementById('edit-mac-atual').value);
-    });
-
-    document.getElementById('btn-autorizar-onu').addEventListener('click', autorizarONU);
-    document.getElementById('btn-desautorizar-onu').addEventListener('click', desautorizarONU);
-    
     $('#rn-cep').on('blur', () => buscarEnderecoPorCEP('rn'));
     $('#edit-cep').on('blur', () => buscarEnderecoPorCEP('edit'));
+    
+    $('#chk-sem-condominio').on('change', function() {
+        const checked = $(this).is(':checked');
+        const inputCondo = $('#input-condominio-venda');
+        
+        if (checked) {
+            inputCondo.val('').attr('placeholder', 'Digite o nome do Bairro / Condomínio');
+            $('#hidden-condominio-id').val('');
+            currentBlocks = [];
+        } else {
+            inputCondo.attr('placeholder', 'Digite o nome para buscar...');
+        }
+    });
+
+    $('#btn-complemento').on('click', openComplementoModal);
+    $('#btn-confirmar-complemento').on('click', () => confirmComplemento(null));
+
+    document.getElementById('btn-salvar-edicao').addEventListener('click', salvarEdicaoCliente);
+}
+
+function setupCondoSearch() {
+    $('#input-condominio-venda').autoComplete({
+        minLength: 1,
+        resolver: 'custom',
+        events: {
+            search: function(query, callback) {
+                fetch(`api/v4/condominio?query=${query}`)
+                    .then(response => response.json()).then(data => callback(data))
+                    .catch(err => console.error("Erro busca condomínios:", err));
+            }
+        }
+    });
+
+    $('#input-condominio-venda').on('autocomplete.select', function (e, item) {
+        if (!item?.value) return;
+        $("#hidden-condominio-id").val(item.value);
+        
+        fetch(`api/v1/condominio/${item.value}`)
+            .then(response => response.json())
+            .then(condo => {
+                $("#rn-cep").val(condo.cep || '');
+                $('#rn-numero').val(condo.numero || ''); 
+                $("#rn-endereco").val(condo.endereco || '');
+                $("#rn-bairro").val(condo.bairro || '');
+                $("#rn-cidade").val(getCidadeNome(condo.cidadeId) || '');
+                $("#rn-uf").val('ES');
+                $("#hidden-cidade-id").val(condo.cidadeId || '');
+                
+                return fetch(`api/v1/block/${item.value}`);
+            })
+            .then(response => response.ok ? response.json() : [])
+            .then(blocks => { 
+                currentBlocks = blocks;
+                $('#btn-complemento').text('Selecione o complemento...').prop('disabled', false);
+            });
+    });
+}
+
+function setupCondoSearchEdit() {
+    $('#edit-condominio').autoComplete({
+        minLength: 1,
+        resolver: 'custom',
+        events: {
+            search: function(query, callback) {
+                fetch(`api/v4/condominio?query=${query}`)
+                    .then(response => response.json()).then(data => callback(data));
+            }
+        }
+    });
+
+    $('#edit-condominio').on('autocomplete.select', function (e, item) {
+        if (!item?.value) return;
+        $("#edit-hidden-condominio-id").val(item.value);
+        
+        fetch(`api/v1/condominio/${item.value}`)
+            .then(response => response.json())
+            .then(condo => {
+                $("#edit-cep").val(condo.cep || '');
+                $('#edit-numero').val(condo.numero || ''); 
+                $("#edit-endereco").val(condo.endereco || '');
+                $("#edit-bairro").val(condo.bairro || '');
+                $("#edit-cidade").val(getCidadeNome(condo.cidadeId) || '');
+                $("#edit-uf").val('ES');
+                $("#edit-hidden-cidade-id").val(condo.cidadeId || '');
+                
+                return fetch(`api/v1/block/${item.value}`);
+            })
+            .then(response => response.ok ? response.json() : [])
+            .then(blocks => { 
+                currentBlocks = blocks;
+                $('#btn-edit-complemento').prop('disabled', false).text('Selecionar...');
+                $('#edit-complemento-text').val('');
+            });
+    });
+
+    $('#edit-sem-condominio').on('change', function() {
+        const checked = $(this).is(':checked');
+        const inputCondo = $('#edit-condominio');
+        const btnComp = $('#btn-edit-complemento');
+        
+        if (checked) {
+            inputCondo.val('').attr('placeholder', 'Nome do local manual...');
+            $('#edit-hidden-condominio-id').val('');
+            btnComp.prop('disabled', true);
+        } else {
+            inputCondo.attr('placeholder', 'Buscar condomínio...');
+        }
+    });
+}
+
+function openComplementoModal() {
+    if(contextComplemento === 'rn') {
+        if ($('#chk-sem-condominio').is(':checked')) return;
+    } else {
+        if ($('#edit-sem-condominio').is(':checked')) return;
+    }
+    
+    if (!currentBlocks || currentBlocks.length === 0) {
+        alert('Selecione um Condomínio válido primeiro ou marque "Não cadastrado".');
+        return;
+    }
+    
+    const blocosLista = document.getElementById('blocos-lista-modal');
+    blocosLista.innerHTML = '';
+    document.getElementById('complemento-details').style.display = 'none';
+    
+    currentBlocks.forEach(block => {
+        const btn = document.createElement('a');
+        btn.className = 'list-group-item list-group-item-action';
+        btn.textContent = (block.type === 'Casa' && block.name === 'Unico') ? 'Casas' : block.name;
+        btn.onclick = () => selectBlockInModal(block);
+        blocosLista.appendChild(btn);
+    });
+    complementoModal.show();
+}
+
+function selectBlockInModal(block) {
+    selectedBlock = block;
+    const details = document.getElementById('complemento-details');
+    details.style.display = 'block';
+    
+    if (block.type === 'Casa' || block.floors === null) {
+        details.innerHTML = `<h6>Informe o Complemento</h6><input type="text" class="form-control" id="casa-complemento-input" placeholder="Ex: Casa 05">`;
+        document.getElementById('btn-confirmar-complemento').style.display = 'block';
+    } else {
+        let html = `<h6>Selecione a Unidade</h6><div class="d-flex flex-wrap gap-2">`;
+        for (let j = 0; j <= (block.floors - block.initialFloor); j++) {
+            for (let k = 1; k <= block.units; k++) {
+                const apt = `${parseInt(block.initialFloor) + j}${k.toString().padStart(2, '0')}`;
+                html += `<button class="btn btn-outline-primary btn-sm" onclick="confirmComplemento('Apto ${apt}')">${apt}</button>`;
+            }
+        }
+        html += `</div>`;
+        details.innerHTML = html;
+        document.getElementById('btn-confirmar-complemento').style.display = 'none';
+    }
+}
+
+function confirmComplemento(compString) {
+    let finalComp = compString;
+    let bloco = (selectedBlock && selectedBlock.name !== 'Unico') ? selectedBlock.name : '';
+    
+    if (!finalComp) {
+        finalComp = document.getElementById('casa-complemento-input').value;
+    }
+    
+    const display = bloco ? `${bloco} - ${finalComp}` : finalComp;
+    const apto = finalComp.replace('Apto ', '').trim();
+
+    if (contextComplemento === 'rn') {
+        $('#btn-complemento').text(display);
+        $('#rn-complemento').val(finalComp);
+        $('#hidden-bloco').val(bloco);
+        $('#hidden-apartamento').val(apto);
+    } else {
+        $('#btn-edit-complemento').text(display);
+        $('#edit-complemento-text').val(finalComp);
+        $('#edit-hidden-bloco').val(bloco);
+        $('#edit-hidden-apartamento').val(apto);
+    }
+    
+    complementoModal.hide();
 }
 
 async function carregarParceiros() {
@@ -208,48 +381,60 @@ async function carregarCarteiraClientes(parceiroId) {
     }
 }
 
-function abrirModalEditar(cliente) {
+async function abrirModalEditar(cliente) {
     document.getElementById('edit-id').value = cliente.id;
     document.getElementById('edit-token').value = cliente.token;
     document.getElementById('edit-login-id-ixc').value = cliente.ixc_login_id || '';
     document.getElementById('edit-mac-atual').value = cliente.onu_mac || '';
-    
-    loginAtualId = cliente.ixc_login_id;
-    nomeAtual = cliente.descricao_produto;
-
-    let tokenVisual = cliente.token;
-    let descSemToken = cliente.descricao_produto || "";
-
-    const matchToken = descSemToken.match(/^([A-Z0-9]{5})-(.*)/);
-    
-    if (matchToken) {
-        tokenVisual = matchToken[1];
-        descSemToken = matchToken[2];
-    } else if (tokenVisual) {
-        descSemToken = descSemToken.replace(new RegExp('^' + tokenVisual + '-?'), '');
-    }
-    
-    document.getElementById('edit-prefixo-token').textContent = tokenVisual + '-';
-    document.getElementById('edit-descricao').value = descSemToken;
-    
     document.getElementById('edit-login').value = cliente.login_pppoe;
     document.getElementById('edit-status').value = cliente.ativo;
     document.getElementById('edit-obs').value = cliente.obs || '';
-    document.getElementById('edit-cep').value = cliente.cep || '';
-    document.getElementById('edit-endereco').value = cliente.endereco || '';
-    document.getElementById('edit-numero').value = cliente.numero || '';
-    document.getElementById('edit-bairro').value = cliente.bairro || '';
-
-    const displayOnu = document.getElementById('display-status-onu');
-    displayOnu.innerHTML = `<div class="d-flex align-items-center text-muted"><div class="spinner-border spinner-border-sm me-2"></div> Carregando...</div>`;
-
-    modalEditar.show();
 
     if (cliente.ixc_login_id) {
-        carregarDetalhesONU(cliente.ixc_login_id);
-    } else {
-        displayOnu.innerHTML = `<div class="alert alert-secondary py-2 small mb-0">Sem Login IXC.</div>`;
+        const displayOnu = document.getElementById('display-status-onu');
+        displayOnu.innerHTML = `<div class="d-flex align-items-center text-muted"><div class="spinner-border spinner-border-sm me-2"></div> Carregando dados IXC...</div>`;
+        
+        try {
+            const response = await fetch(`/api/v5/rede_neutra/onu-detalhes/${cliente.ixc_login_id}`);
+            const dados = await response.json();
+            
+            document.getElementById('edit-cep').value = dados.cep || cliente.cep || '';
+            document.getElementById('edit-endereco').value = dados.endereco || cliente.endereco || '';
+            document.getElementById('edit-numero').value = dados.numero || cliente.numero || '';
+            document.getElementById('edit-bairro').value = dados.bairro || cliente.bairro || '';
+            document.getElementById('edit-cidade').value = getCidadeNome(dados.cidade) || '';
+            document.getElementById('edit-referencia').value = dados.referencia || '';
+            document.getElementById('edit-complemento-text').value = dados.complemento || '';
+            
+            if (dados.id_condominio && dados.id_condominio !== "0") {
+                document.getElementById('edit-condominio').value = ''; 
+                document.getElementById('edit-condominio').placeholder = 'Condomínio já vinculado (ID ' + dados.id_condominio + '). Busque para alterar.';
+                
+                document.getElementById('edit-hidden-condominio-id').value = dados.id_condominio;
+                document.getElementById('edit-sem-condominio').checked = false;
+                
+                fetch(`api/v1/block/${dados.id_condominio}`)
+                    .then(response => response.ok ? response.json() : [])
+                    .then(blocks => { 
+                        currentBlocks = blocks;
+                        $('#btn-edit-complemento').prop('disabled', false);
+                    });
+
+            } else {
+                document.getElementById('edit-sem-condominio').checked = true;
+                document.getElementById('edit-condominio').value = '';
+                $('#btn-edit-complemento').prop('disabled', true);
+                currentBlocks = [];
+            }
+
+            atualizarInterfaceONU(dados, cliente.ixc_login_id);
+
+        } catch (e) {
+            console.error(e);
+        }
     }
+
+    modalEditar.show();
 }
 
 async function carregarDetalhesONU(loginId) {
@@ -266,72 +451,7 @@ async function carregarDetalhesONU(loginId) {
         const response = await fetch(`/api/v5/rede_neutra/onu-detalhes/${loginId}`);
         const dados = await response.json();
 
-        let html = '';
-        
-        if (dados.mac && dados.mac.length > 5) {
-            html += `<div class="mb-2 text-center"><span class="badge bg-success w-100 py-2 fs-6"><i class="bi bi-check-circle me-2"></i>AUTORIZADA</span></div>`;
-        } else {
-            html += `<div class="mb-2 text-center"><span class="badge bg-warning text-dark w-100 py-2 fs-6"><i class="bi bi-exclamation-triangle me-2"></i>PENDENTE</span></div>`;
-        }
-
-        const onlineBadge = dados.online === 'S' 
-            ? `<span class="badge bg-success rounded-pill">Online</span>` 
-            : `<span class="badge bg-danger rounded-pill">Offline</span>`;
-
-        let corSinalRx = 'text-muted';
-        const rx = parseFloat(dados.sinal_rx);
-        if(!isNaN(rx)) {
-            if(rx >= -25 && rx <= -15) corSinalRx = 'text-success fw-bold';
-            else if(rx < -27) corSinalRx = 'text-danger fw-bold';
-            else corSinalRx = 'text-warning fw-bold';
-        }
-
-        const refreshBtn = `<button type="button" class="btn btn-sm btn-link text-decoration-none p-0 ms-auto" id="btn-refresh-onu" title="Atualizar informações"><i class="bi bi-arrow-clockwise fs-5"></i></button>`;
-
-        html += `
-        <div class="card mb-3 border-light bg-light">
-            <div class="card-header bg-transparent border-bottom d-flex justify-content-between align-items-center py-1">
-                <span class="small fw-bold text-muted">Diagnóstico</span>
-                ${refreshBtn}
-            </div>
-            <div class="card-body p-2">
-                <div class="d-flex justify-content-between align-items-center mb-1 border-bottom pb-1">
-                    <strong>Status:</strong> ${onlineBadge}
-                </div>
-                <div class="d-flex justify-content-between align-items-center mb-1 border-bottom pb-1">
-                    <span>Sinal RX:</span> <span class="${corSinalRx}">${dados.sinal_rx} dBm</span>
-                </div>
-                <div class="d-flex justify-content-between align-items-center">
-                    <span>Sinal TX:</span> <span>${dados.sinal_tx} dBm</span>
-                </div>
-                <div class="text-end mt-1"><small class="text-muted" style="font-size: 0.7em">Leitura: ${dados.data_sinal}</small></div>
-            </div>
-        </div>`;
-
-        html += `
-        <h6 class="text-uppercase text-muted fw-bold mb-2 small">Informações Técnicas</h6>
-        <div class="table-responsive">
-            <table class="table table-sm table-borderless small mb-0">
-                <tbody>
-                    <tr><td class="text-muted">MAC:</td> <td class="font-monospace text-end select-all">${dados.mac || '-'}</td></tr>
-                    <tr><td class="text-muted">Transmissor:</td> <td class="text-end fw-bold text-primary text-truncate" style="max-width: 140px;" title="${dados.id_transmissor}">${dados.id_transmissor}</td></tr>
-                    <tr><td class="text-muted">Modelo:</td> <td class="text-end">${dados.onu_tipo}</td></tr>
-                    <tr><td class="text-muted">User VLAN:</td> <td class="text-end fw-bold text-primary">${dados.user_vlan}</td></tr>
-                    <tr><td class="text-muted">PON ID:</td> <td class="text-end">${dados.ponid}</td></tr>
-                    <tr><td class="text-muted">ONU Nº:</td> <td class="text-end">${dados.onu_numero}</td></tr>
-                    <tr><td class="text-muted">Temp/Volt:</td> <td class="text-end">${dados.temperatura} °C / ${dados.voltagem} V</td></tr>
-                    <tr><td class="text-muted">Caixa FTTH:</td> <td class="text-end">${dados.id_caixa_ftth} (Porta ${dados.porta_ftth})</td></tr>
-                </tbody>
-            </table>
-        </div>`;
-
-        displayOnu.innerHTML = html;
-
-        document.getElementById('btn-refresh-onu').addEventListener('click', function(e) {
-            e.preventDefault();
-            carregarDetalhesONU(loginId);
-        });
-
+        atualizarInterfaceONU(dados, loginId);
         document.getElementById('edit-mac-atual').value = dados.mac || '';
 
     } catch (e) {
@@ -441,52 +561,51 @@ function atualizarInterfaceONU(dados, loginId) {
 async function salvarEdicaoCliente() {
     const btn = document.getElementById('btn-salvar-edicao');
     const originalText = btn.innerHTML;
-    
-    const id = document.getElementById('edit-id').value;
-    const token = document.getElementById('edit-token').value;
-    const descSemToken = document.getElementById('edit-descricao').value.trim();
-    const login = document.getElementById('edit-login').value.trim();
-    const status = document.getElementById('edit-status').value;
-    const obs = document.getElementById('edit-obs').value;
-    const cep = document.getElementById('edit-cep').value;
-    const endereco = document.getElementById('edit-endereco').value;
-    const numero = document.getElementById('edit-numero').value;
-    const bairro = document.getElementById('edit-bairro').value;
-
-    if (!descSemToken || !login) {
-        alert("Descrição e Login são obrigatórios.");
-        return;
-    }
-
-    const descricaoCompleta = `${token}-${descSemToken}`;
-
     btn.disabled = true;
     btn.innerHTML = 'Salvando...';
+
+    const id = document.getElementById('edit-id').value;
+    const token = document.getElementById('edit-token').value; 
+    const descSemToken = document.getElementById('edit-descricao').value.trim();
+    const descricaoCompleta = token ? `${token}-${descSemToken}` : descSemToken;
+    
+    let complementoFinal = document.getElementById('edit-complemento-text').value;
+
+    const payload = {
+        descricao_produto: descricaoCompleta,
+        login_pppoe: document.getElementById('edit-login').value.trim(),
+        status_ativo: document.getElementById('edit-status').value,
+        obs: document.getElementById('edit-obs').value,
+        cep: document.getElementById('edit-cep').value,
+        endereco: document.getElementById('edit-endereco').value,
+        numero: document.getElementById('edit-numero').value,
+        bairro: document.getElementById('edit-bairro').value,
+        id_condominio: document.getElementById('edit-hidden-condominio-id').value,
+        complemento: complementoFinal,
+        referencia: document.getElementById('edit-referencia').value,
+        bloco: document.getElementById('edit-hidden-bloco').value,
+        apartamento: document.getElementById('edit-hidden-apartamento').value,
+        
+        cidade: document.getElementById('edit-hidden-cidade-id').value,
+        uf: document.getElementById('edit-uf').value
+    };
 
     try {
         const response = await fetch(`/api/v5/rede_neutra/cliente/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                descricao_produto: descricaoCompleta,
-                login_pppoe: login,
-                status_ativo: status,
-                obs: obs,
-                cep: cep,
-                endereco: endereco,
-                numero: numero,
-                bairro: bairro
-            })
+            body: JSON.stringify(payload)
         });
 
         const res = await response.json();
         if (!response.ok) throw new Error(res.error || 'Erro ao atualizar');
 
+        alert("Alterações salvas com sucesso!");
         modalEditar.hide();
         carregarCarteiraClientes(parceiroIdSelecionado);
 
     } catch (error) {
-        alert('Erro: ' + error.message);
+        alert('Erro ao editar: ' + error.message);
     } finally {
         btn.disabled = false;
         btn.innerHTML = originalText;
@@ -503,24 +622,38 @@ async function salvarNovoCliente(autorizarOnu = false) {
     const btnId = autorizarOnu ? 'btn-salvar-com-onu' : 'btn-salvar-sem-onu';
     const btn = document.getElementById(btnId);
     const originalText = btn.innerHTML;
-    
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processando...';
     document.getElementById('btn-salvar-sem-onu').disabled = true;
     document.getElementById('btn-salvar-com-onu').disabled = true;
-    
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processando...';
 
     const selectPlano = document.getElementById('rn-plano');
     const planoOption = selectPlano.options[selectPlano.selectedIndex];
+    
+    const semCondominio = $('#chk-sem-condominio').is(':checked');
+    const nomeCondominio = $('#input-condominio-venda').val();
+
+    let complementoFinal = $('#rn-complemento').val();
+    if(semCondominio) complementoFinal = nomeCondominio;
 
     const payload = {
         parceiro_id: document.getElementById('select-parceiro').value,
         cod_cliente_parceiro: document.getElementById('rn-cod-cliente-parceiro').value.trim(),
         caixa_atendimento: document.getElementById('rn-caixa-atendimento').value.trim(),
         porta: document.getElementById('rn-porta').value.trim(),
+        
         cep: document.getElementById('rn-cep').value,
         endereco: document.getElementById('rn-endereco').value,
         numero: document.getElementById('rn-numero').value,
         bairro: document.getElementById('rn-bairro').value,
+        cidade: document.getElementById('hidden-cidade-id').value,
+        uf: document.getElementById('rn-uf').value,
+        referencia: document.getElementById('rn-referencia').value,
+        
+        id_condominio: semCondominio ? '' : document.getElementById('hidden-condominio-id').value,
+        bloco: document.getElementById('hidden-bloco').value,
+        apartamento: document.getElementById('hidden-apartamento').value,
+        complemento: complementoFinal,
+
         plano_id: selectPlano.value,
         plano_nome: planoOption.dataset.nome,
         plano_nome_original: planoOption.dataset.originalName,
@@ -535,7 +668,6 @@ async function salvarNovoCliente(autorizarOnu = false) {
         });
 
         const result = await response.json();
-        
         if (!response.ok) throw new Error(result.error || 'Erro ao salvar');
 
         modalCadastro.hide();
@@ -544,7 +676,7 @@ async function salvarNovoCliente(autorizarOnu = false) {
         if (autorizarOnu && result.ixc_login_id) {
             abrirModalONU(result.ixc_login_id, result.login, "Novo Contrato", "");
         } else {
-            alert(`Cliente Cadastrado com Sucesso!\nLogin: ${result.login}`);
+            alert(`Cliente Cadastrado!\nLogin: ${result.login}`);
         }
 
     } catch (error) {
@@ -712,8 +844,8 @@ function resetFormCadastro() {
     form.reset();
     form.classList.remove('was-validated');
     
-    document.getElementById('rn-endereco').readOnly = true;
-    document.getElementById('rn-bairro').readOnly = true;
+    document.getElementById('rn-endereco').readOnly = false;
+    document.getElementById('rn-bairro').readOnly = false;
     
     document.getElementById('rn-cod-cliente-parceiro').readOnly = false;
     document.getElementById('rn-cod-cliente-parceiro').disabled = false;
@@ -734,9 +866,12 @@ async function buscarEnderecoPorCEP(prefixoId = 'rn') {
     const elEndereco = document.getElementById(`${prefixoId}-endereco`);
     const elBairro = document.getElementById(`${prefixoId}-bairro`);
     const elNumero = document.getElementById(`${prefixoId}-numero`);
+    const elCidade = document.getElementById(`${prefixoId}-cidade`);
+    const elUF = document.getElementById(`${prefixoId}-uf`);
 
     elEndereco.value = "Buscando...";
     elBairro.value = "Buscando...";
+    
     elEndereco.readOnly = true;
     elBairro.readOnly = true;
 
@@ -745,17 +880,17 @@ async function buscarEnderecoPorCEP(prefixoId = 'rn') {
         if (response.ok) {
             const data = await response.json();
             if (data.rua && data.bairro) {
-                preencherCamposEndereco(prefixoId, data.rua, data.bairro);
+                preencherCamposEndereco(prefixoId, data.rua, data.bairro, data.cidade, data.uf, data.cidadeId);
                 return;
             }
         }
-    } catch (e) { console.warn("API Interna falhou, tentando externa..."); }
+    } catch (e) { console.warn("API Interna falhou, tentando ViaCEP..."); }
 
     try {
         const responseVia = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
         const dataVia = await responseVia.json();
         if (!dataVia.erro) {
-            preencherCamposEndereco(prefixoId, dataVia.logradouro, dataVia.bairro);
+            preencherCamposEndereco(prefixoId, dataVia.logradouro, dataVia.bairro, dataVia.localidade, dataVia.uf);
             return;
         }
     } catch (e) { console.warn("ViaCEP falhou."); }
@@ -764,25 +899,46 @@ async function buscarEnderecoPorCEP(prefixoId = 'rn') {
     elBairro.value = "";
     elEndereco.readOnly = false;
     elBairro.readOnly = false;
+    if(elCidade) {
+        elCidade.readOnly = false;
+        elCidade.value = '';
+    }
+    if(elUF) {
+        elUF.readOnly = false;
+        elUF.value = '';
+    }
     elEndereco.focus();
     alert("CEP não encontrado. Por favor, preencha o endereço manualmente.");
 }
 
-function preencherCamposEndereco(prefixoId, rua, bairro) {
+function preencherCamposEndereco(prefixoId, rua, bairro, cidade = null, uf = null, cidadeId = null) {
     const elEndereco = document.getElementById(`${prefixoId}-endereco`);
     const elBairro = document.getElementById(`${prefixoId}-bairro`);
     const elNumero = document.getElementById(`${prefixoId}-numero`);
+    const elCidade = document.getElementById(`${prefixoId}-cidade`);
+    const elUF = document.getElementById(`${prefixoId}-uf`);
+    const elCidadeId = document.getElementById(`${prefixoId}-hidden-cidade-id`);
 
     elEndereco.value = rua || '';
     elBairro.value = bairro || '';
+    if(elCidade) elCidade.value = cidade || '';
+    if(elUF) elUF.value = uf || 'ES';
+    if(elCidadeId && cidadeId) elCidadeId.value = cidadeId;
 
     elEndereco.readOnly = (rua && rua.trim() !== '');
     elBairro.readOnly = (bairro && bairro.trim() !== '');
+    if(elCidade) elCidade.readOnly = (cidade && cidade.trim() !== '');
+    if(elUF) elUF.readOnly = (uf && uf.trim() !== '');
 
     if (elNumero) {
         elNumero.readOnly = false;
         elNumero.focus();
     }
+}
+
+function getCidadeNome(id) {
+    const map = { "3173": "Vitória", "3172": "Vila Velha", "3169": "Viana", "3165": "Serra", "3159": "Santa Teresa", "3112": "Cariacica", "3124": "Guarapari" };
+    return map[id] || 'Cidade Desconhecida';
 }
 
 function initializeThemeAndUserInfo() {

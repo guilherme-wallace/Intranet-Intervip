@@ -463,11 +463,11 @@ router.get('/clientes/:parceiroId', function (req, res) { return __awaiter(void 
     });
 }); });
 router.post('/cliente', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var _a, parceiro_id, cod_cliente_parceiro, caixa_atendimento, porta, cep, endereco, numero, bairro, plano_id, plano_nome, plano_nome_original, plano_valor, ixcProdResp, ixcLoginResp, novoIdLocal, parceiros, parceiro, valorFinal, token, sufixoCliente, identificadorUnico, infoTecnica, obsString, idPlanoVelocidade, planResp, e_5, insertResult, produtoPayload, loginPayload, error_6;
+    var _a, parceiro_id, cod_cliente_parceiro, caixa_atendimento, porta, cep, endereco, numero, bairro, cidade, uf, id_condominio, bloco, apartamento, complemento, referencia, plano_id, plano_nome, plano_nome_original, plano_valor, ixcProdResp, ixcLoginResp, novoIdLocal, parceiros, parceiro, valorFinal, token, sufixoCliente, identificadorUnico, infoTecnica, obsLocal, dataHoje, obsIXC, idPlanoVelocidade, planResp, e_5, complementoFinal, insertResult, produtoPayload, loginPayload, error_6;
     return __generator(this, function (_b) {
         switch (_b.label) {
             case 0:
-                _a = req.body, parceiro_id = _a.parceiro_id, cod_cliente_parceiro = _a.cod_cliente_parceiro, caixa_atendimento = _a.caixa_atendimento, porta = _a.porta, cep = _a.cep, endereco = _a.endereco, numero = _a.numero, bairro = _a.bairro, plano_id = _a.plano_id, plano_nome = _a.plano_nome, plano_nome_original = _a.plano_nome_original, plano_valor = _a.plano_valor;
+                _a = req.body, parceiro_id = _a.parceiro_id, cod_cliente_parceiro = _a.cod_cliente_parceiro, caixa_atendimento = _a.caixa_atendimento, porta = _a.porta, cep = _a.cep, endereco = _a.endereco, numero = _a.numero, bairro = _a.bairro, cidade = _a.cidade, uf = _a.uf, id_condominio = _a.id_condominio, bloco = _a.bloco, apartamento = _a.apartamento, complemento = _a.complemento, referencia = _a.referencia, plano_id = _a.plano_id, plano_nome = _a.plano_nome, plano_nome_original = _a.plano_nome_original, plano_valor = _a.plano_valor;
                 console.log("=== INÍCIO CADASTRO REDE NEUTRA ===");
                 if (!parceiro_id || !cep) {
                     return [2 /*return*/, res.status(400).json({ error: "Dados obrigatórios faltando." })];
@@ -497,37 +497,34 @@ router.post('/cliente', function (req, res) { return __awaiter(void 0, void 0, v
                     infoTecnica.push("CTO: ".concat(caixa_atendimento));
                 if (porta)
                     infoTecnica.push("Porta: ".concat(porta));
-                obsString = "Token: ".concat(token, " | ").concat(infoTecnica.join(' | '));
+                obsLocal = "Token: ".concat(token, " | ").concat(infoTecnica.join(' | '));
+                dataHoje = new Date().toLocaleDateString('pt-BR');
+                obsIXC = "Data de Ativa\u00E7\u00E3o: ".concat(dataHoje);
                 idPlanoVelocidade = "0";
                 if (!plano_nome_original) return [3 /*break*/, 7];
-                console.log("Buscando Plano de Velocidade (Radgrupo): ".concat(plano_nome_original, "..."));
+                console.log("Buscando Plano: ".concat(plano_nome_original, "..."));
                 _b.label = 4;
             case 4:
                 _b.trys.push([4, 6, , 7]);
                 return [4 /*yield*/, makeIxcRequest('POST', '/radgrupos', {
-                        qtype: 'radgrupos.grupo',
-                        query: plano_nome_original,
-                        oper: '=',
-                        rp: '1'
+                        qtype: 'radgrupos.grupo', query: plano_nome_original, oper: '=', rp: '1'
                     })];
             case 5:
                 planResp = _b.sent();
                 if (planResp.registros && planResp.registros.length > 0) {
                     idPlanoVelocidade = planResp.registros[0].id;
-                    console.log("Plano encontrado! ID: ".concat(idPlanoVelocidade));
-                }
-                else {
-                    console.warn("AVISO: Plano '".concat(plano_nome_original, "' n\u00E3o encontrado em radgrupos. O cadastro pode falhar."));
                 }
                 return [3 /*break*/, 7];
             case 6:
                 e_5 = _b.sent();
-                console.error("Erro ao buscar plano de velocidade:", e_5.message);
+                console.error("Erro plano:", e_5.message);
                 return [3 /*break*/, 7];
-            case 7: return [4 /*yield*/, executeDb("INSERT INTO rn_clientes \n            (parceiro_id, token, descricao_produto, login_pppoe, valor, plano_nome, ativo, obs, onu_mac, cep, endereco, numero, bairro, caixa_atendimento, porta, created_at)\n            VALUES (?, ?, ?, ?, ?, ?, 1, ?, NULL, ?, ?, ?, ?, ?, ?, NOW())", [
-                    parceiro.id, token, identificadorUnico, identificadorUnico, valorFinal, plano_nome,
-                    obsString, cep, endereco, numero, bairro, caixa_atendimento, porta
-                ])];
+            case 7:
+                complementoFinal = [complemento, bloco ? "Bloco ".concat(bloco) : '', apartamento ? "Apto ".concat(apartamento) : ''].filter(Boolean).join(' - ');
+                return [4 /*yield*/, executeDb("INSERT INTO rn_clientes \n            (parceiro_id, token, descricao_produto, login_pppoe, valor, plano_nome, ativo, obs, onu_mac, cep, endereco, numero, bairro, caixa_atendimento, porta, created_at)\n            VALUES (?, ?, ?, ?, ?, ?, 1, ?, NULL, ?, ?, ?, ?, ?, ?, NOW())", [
+                        parceiro.id, token, identificadorUnico, identificadorUnico, valorFinal, plano_nome,
+                        obsLocal, cep, endereco, numero, bairro, caixa_atendimento, porta
+                    ])];
             case 8:
                 insertResult = _b.sent();
                 novoIdLocal = insertResult.insertId;
@@ -538,7 +535,7 @@ router.post('/cliente', function (req, res) { return __awaiter(void 0, void 0, v
                     "qtde": "1",
                     "valor_unit": valorFinal,
                     "descricao": identificadorUnico,
-                    "obs": obsString,
+                    "obs": obsIXC,
                     "id_plano": idPlanoVelocidade,
                     "fixar_ip": "0"
                 };
@@ -546,17 +543,25 @@ router.post('/cliente', function (req, res) { return __awaiter(void 0, void 0, v
                 return [4 /*yield*/, makeIxcRequest('POST', '/vd_contratos_produtos', produtoPayload)];
             case 9:
                 ixcProdResp = _b.sent();
-                if (ixcProdResp.type === 'error') {
+                if (ixcProdResp.type === 'error')
                     throw new Error("Erro IXC (Produto): ".concat(ixcProdResp.message));
-                }
                 loginPayload = {
                     "id_contrato": parceiro.ixc_contrato_id,
                     "id_cliente": parceiro.ixc_cliente_id,
                     "login": identificadorUnico,
-                    "senha": "ivp@".concat(token),
+                    "senha": "ivp@".concat(parceiro.ixc_cliente_id),
                     "ativo": "S",
-                    "obs": obsString,
-                    "cep": cep, "endereco": endereco, "numero": numero, "bairro": bairro,
+                    "obs": obsIXC,
+                    "cep": cep,
+                    "endereco": endereco,
+                    "numero": numero,
+                    "bairro": bairro,
+                    "cidade": cidade,
+                    "complemento": complemento,
+                    "referencia": referencia,
+                    "bloco": bloco,
+                    "apartamento": apartamento,
+                    "id_condominio": id_condominio || "0",
                     "endereco_padrao_cliente": "N",
                     "autenticacao": "L",
                     "tipo_conexao_mapa": "58",
@@ -575,9 +580,8 @@ router.post('/cliente', function (req, res) { return __awaiter(void 0, void 0, v
                 return [4 /*yield*/, makeIxcRequest('POST', '/radusuarios', loginPayload)];
             case 10:
                 ixcLoginResp = _b.sent();
-                if (ixcLoginResp.type === 'error') {
+                if (ixcLoginResp.type === 'error')
                     throw new Error("Erro IXC (Login): ".concat(ixcLoginResp.message));
-                }
                 return [4 /*yield*/, executeDb("UPDATE rn_clientes SET ixc_produto_id = ?, ixc_login_id = ? WHERE id = ?", [ixcProdResp.id, ixcLoginResp.id, novoIdLocal])];
             case 11:
                 _b.sent();
@@ -599,12 +603,13 @@ router.post('/cliente', function (req, res) { return __awaiter(void 0, void 0, v
     });
 }); });
 router.put('/cliente/:id', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var id, _a, descricao_produto, login_pppoe, status_ativo, obs, cep, endereco, numero, bairro, clientes, cli, error_7;
+    var id, _a, descricao_produto, login_pppoe, status_ativo, obs, cep, endereco, numero, bairro, cidade, uf, id_condominio, bloco, apartamento, complemento, referencia, clientes, cli, loginPayload, error_7;
     return __generator(this, function (_b) {
         switch (_b.label) {
             case 0:
                 id = req.params.id;
-                _a = req.body, descricao_produto = _a.descricao_produto, login_pppoe = _a.login_pppoe, status_ativo = _a.status_ativo, obs = _a.obs, cep = _a.cep, endereco = _a.endereco, numero = _a.numero, bairro = _a.bairro;
+                _a = req.body, descricao_produto = _a.descricao_produto, login_pppoe = _a.login_pppoe, status_ativo = _a.status_ativo, obs = _a.obs, cep = _a.cep, endereco = _a.endereco, numero = _a.numero, bairro = _a.bairro, cidade = _a.cidade, uf = _a.uf, id_condominio = _a.id_condominio, bloco = _a.bloco, apartamento = _a.apartamento, complemento = _a.complemento, referencia = _a.referencia;
+                console.log("[Edit] Atualizando Cliente ID ".concat(id, "..."));
                 if (!id)
                     return [2 /*return*/, res.status(400).json({ error: "ID não informado" })];
                 _b.label = 1;
@@ -628,14 +633,24 @@ router.put('/cliente/:id', function (req, res) { return __awaiter(void 0, void 0
                 _b.label = 5;
             case 5:
                 if (!cli.ixc_login_id) return [3 /*break*/, 7];
-                return [4 /*yield*/, makeIxcRequest('PUT', "/radusuarios/".concat(cli.ixc_login_id), {
-                        "login": login_pppoe,
-                        "ativo": status_ativo == 1 ? "S" : "N",
-                        "cep": cep,
-                        "endereco": endereco,
-                        "numero": numero,
-                        "bairro": bairro
-                    })];
+                loginPayload = {
+                    "login": login_pppoe,
+                    "ativo": status_ativo == 1 ? "S" : "N",
+                    "cep": cep,
+                    "endereco": endereco,
+                    "numero": numero,
+                    "bairro": bairro,
+                    "cidade": cidade,
+                    "uf": uf,
+                    "id_condominio": id_condominio || "0",
+                    "bloco": bloco,
+                    "apartamento": apartamento,
+                    "complemento": complemento,
+                    "referencia": referencia,
+                    "autenticacao": "L"
+                };
+                console.log("[Edit] Payload Login IXC:", JSON.stringify(loginPayload));
+                return [4 /*yield*/, makeIxcRequest('PUT', "/radusuarios/".concat(cli.ixc_login_id), loginPayload)];
             case 6:
                 _b.sent();
                 _b.label = 7;
@@ -666,7 +681,7 @@ router.get('/onu-detalhes/:id_login', function (req, res) { return __awaiter(voi
             case 2:
                 loginResp = _a.sent();
                 if (!loginResp.registros || loginResp.registros.length === 0) {
-                    return [2 /*return*/, res.json({ online: 'N', sinal_rx: null, sinal_tx: null, mac: null })];
+                    return [2 /*return*/, res.json({ online: 'N', sinal_rx: null })];
                 }
                 loginData = loginResp.registros[0];
                 return [4 /*yield*/, makeIxcRequest('POST', '/radpop_radio_cliente_fibra', {
@@ -675,7 +690,20 @@ router.get('/onu-detalhes/:id_login', function (req, res) { return __awaiter(voi
             case 3:
                 fibraResp = _a.sent();
                 dadosTecnicos = {
-                    online: 'N', mac: loginData.onu_mac, sinal_rx: '-', sinal_tx: '-', data_sinal: '-',
+                    online: 'N',
+                    mac: loginData.onu_mac,
+                    cep: loginData.cep,
+                    endereco: loginData.endereco,
+                    numero: loginData.numero,
+                    bairro: loginData.bairro,
+                    cidade: loginData.cidade,
+                    uf: '',
+                    complemento: loginData.complemento,
+                    referencia: loginData.referencia,
+                    id_condominio: loginData.id_condominio,
+                    bloco: loginData.bloco,
+                    apartamento: loginData.apartamento,
+                    sinal_rx: '-', sinal_tx: '-', data_sinal: '-',
                     nome: '-', id_transmissor: '-', id_caixa_ftth: '-', porta_ftth: '-', onu_tipo: '-',
                     ponid: '-', onu_numero: '-', temperatura: '-', voltagem: '-', user_vlan: '-', id_fibra: null
                 };
@@ -706,14 +734,11 @@ router.get('/onu-detalhes/:id_login', function (req, res) { return __awaiter(voi
                 _a.label = 4;
             case 4:
                 _a.trys.push([4, 6, , 7]);
-                return [4 /*yield*/, makeIxcRequest('POST', '/radpop', {
-                        qtype: "radpop.id", query: fibra.id_transmissor, oper: "=", rp: "1"
-                    })];
+                return [4 /*yield*/, makeIxcRequest('POST', '/radpop', { qtype: "radpop.id", query: fibra.id_transmissor, oper: "=", rp: "1" })];
             case 5:
                 popResp = _a.sent();
-                if (popResp.registros && popResp.registros.length > 0) {
+                if (popResp.registros && popResp.registros.length > 0)
                     dadosTecnicos.id_transmissor = popResp.registros[0].pop;
-                }
                 return [3 /*break*/, 7];
             case 6:
                 e_6 = _a.sent();
