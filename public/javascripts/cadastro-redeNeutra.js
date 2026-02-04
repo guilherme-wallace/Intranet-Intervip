@@ -2,12 +2,14 @@
 
 let modalCadastro = null;
 let modalONU = null;
+let modalListaONUs = null; 
 let modalEditar = null;
 let complementoModal = null;
 let modalSuporte = null;
 let parceiroIdSelecionado = null;
 let loginAtualId = null;
 let nomeAtual = null;
+let listaTransmissoresCache = [];
 let currentBlocks = [];
 let selectedBlock = null;
 let contextComplemento = 'rn';
@@ -15,6 +17,7 @@ let contextComplemento = 'rn';
 document.addEventListener('DOMContentLoaded', function() {
     modalCadastro = new bootstrap.Modal(document.getElementById('modalCadastroCliente'));
     modalONU = new bootstrap.Modal(document.getElementById('modalGerenciarONU'));
+    modalListaONUs = new bootstrap.Modal(document.getElementById('modalListaONUs'));
     modalEditar = new bootstrap.Modal(document.getElementById('modalEditarCliente'));
     
     const complementoModalEl = document.getElementById('complementoModal');
@@ -99,6 +102,54 @@ function setupListeners() {
     $('#btn-confirmar-complemento').on('click', () => confirmComplemento(null));
 
     document.getElementById('btn-salvar-edicao').addEventListener('click', salvarEdicaoCliente);
+
+    document.getElementById('btn-abrir-gerenciar-onu').addEventListener('click', function() {
+        const loginId = document.getElementById('edit-login-id-ixc').value;
+        const mac = document.getElementById('edit-mac-atual').value;
+        const nomeDesc = document.getElementById('edit-descricao').value;
+        
+        if (loginId) {
+            abrirModalONU(loginId, nomeDesc, "Edição", mac);
+        } else {
+            alert("Este cliente não possui um Login IXC vinculado para gerenciar a ONU.");
+        }
+    });
+
+    
+    document.getElementById('btn-abrir-lista-onus').addEventListener('click', abrirListaONUs);
+    document.getElementById('btn-autorizar-onu').addEventListener('click', autorizarONU);
+    document.getElementById('btn-desautorizar-onu').addEventListener('click', desautorizarONU);
+
+    const selectOnu = document.getElementById('select-onu-pendente');
+    if (selectOnu) {
+        selectOnu.addEventListener('change', function() {
+            const opt = this.options[this.selectedIndex];
+            const detailsDiv = document.getElementById('detalhes-onu-selecionada');
+            
+            if (opt.value) {
+                document.getElementById('det-mac').textContent = opt.dataset.mac || '-';
+                document.getElementById('det-modelo').textContent = opt.dataset.modelo || '-';
+                document.getElementById('det-olt').textContent = opt.dataset.olt || '-';
+                detailsDiv.style.display = 'block';
+            } else {
+                detailsDiv.style.display = 'none';
+            }
+        });
+    }
+
+    const btnRefreshList = document.getElementById('btn-refresh-lista-onus');
+    if (btnRefreshList) {
+        btnRefreshList.addEventListener('click', carregarListasONU);
+    }
+}
+
+function showLoading(texto) {
+    document.getElementById('loading-text').textContent = texto;
+    document.getElementById('loading-overlay').style.display = 'flex';
+}
+
+function hideLoading() {
+    document.getElementById('loading-overlay').style.display = 'none';
 }
 
 function setupCondoSearch() {
@@ -222,19 +273,39 @@ function selectBlockInModal(block) {
     const details = document.getElementById('complemento-details');
     details.style.display = 'block';
     
+    details.innerHTML = ''; 
+
     if (block.type === 'Casa' || block.floors === null) {
-        details.innerHTML = `<h6>Informe o Complemento</h6><input type="text" class="form-control" id="casa-complemento-input" placeholder="Ex: Casa 05">`;
+        details.innerHTML = `
+            <h6>Informe o Complemento</h6>
+            <input type="text" class="form-control" id="casa-complemento-input" placeholder="Ex: Casa 05">
+        `;
         document.getElementById('btn-confirmar-complemento').style.display = 'block';
     } else {
-        let html = `<h6>Selecione a Unidade</h6><div class="d-flex flex-wrap gap-2">`;
+        const title = document.createElement('h6');
+        title.textContent = 'Selecione a Unidade';
+        details.appendChild(title);
+
+        const container = document.createElement('div');
+        container.className = 'd-flex flex-wrap gap-2';
+        
         for (let j = 0; j <= (block.floors - block.initialFloor); j++) {
             for (let k = 1; k <= block.units; k++) {
-                const apt = `${parseInt(block.initialFloor) + j}${k.toString().padStart(2, '0')}`;
-                html += `<button class="btn btn-outline-primary btn-sm" onclick="confirmComplemento('Apto ${apt}')">${apt}</button>`;
+                const floor = parseInt(block.initialFloor) + j;
+                const apt = `${floor}${k.toString().padStart(2, '0')}`;
+                
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn btn-outline-primary btn-sm';
+                btn.textContent = apt;
+                btn.addEventListener('click', function() {
+                    confirmComplemento(`Apto ${apt}`);
+                });
+                
+                container.appendChild(btn);
             }
         }
-        html += `</div>`;
-        details.innerHTML = html;
+        details.appendChild(container);
         document.getElementById('btn-confirmar-complemento').style.display = 'none';
     }
 }
@@ -324,15 +395,7 @@ async function carregarCarteiraClientes(parceiroId) {
         statsTotal.textContent = carteira.length;
         
         carteira.forEach(item => {
-            let statusBadge = '';
-            
-            if (!item.ixc_login_id) {
-                statusBadge = `<span class="badge bg-secondary">Sem Login</span>`;
-            } else if (item.onu_mac && item.onu_mac.length > 5) {
-                statusBadge = `<span class="badge bg-success" title="MAC: ${item.onu_mac}"><i class="bi bi-check-circle"></i> Online</span>`;
-            } else {
-                statusBadge = `<span class="badge bg-warning text-dark"><i class="bi bi-exclamation-triangle"></i> Aguardando ONU</span>`;
-            }
+            const tr = document.createElement('tr');
 
             let descricaoVisual = item.descricao_produto || '---';
             if (item.token) {
@@ -342,12 +405,25 @@ async function carregarCarteiraClientes(parceiroId) {
             }
 
             const valor = item.valor ? parseFloat(item.valor).toFixed(2) : '0.00';
-            
             const dataCriacao = item.created_at ? new Date(item.created_at).toLocaleDateString('pt-BR') : '-';
-
-            const tr = document.createElement('tr');
-            
             const dadosJson = JSON.stringify(item).replace(/"/g, '&quot;');
+
+            let authBadge = '';
+            let onlineBadge = '';
+
+            if (item.is_autorizado) {
+                authBadge = `<span class="badge bg-success me-1" title="ONU Vinculada"><i class="bi bi-check-circle"></i> Autorizada</span>`;
+            } else {
+                authBadge = `<span class="badge bg-warning text-dark me-1"><i class="bi bi-exclamation-circle"></i> Pendente</span>`;
+            }
+
+            if (!item.ixc_login_id) {
+                onlineBadge = `<span class="badge bg-secondary">Sem Login</span>`;
+            } else if (item.is_online) {
+                onlineBadge = `<span class="badge bg-success">Online</span>`;
+            } else {
+                onlineBadge = `<span class="badge bg-danger">Offline</span>`;
+            }
 
             tr.innerHTML = `
                 <td>
@@ -356,7 +432,7 @@ async function carregarCarteiraClientes(parceiroId) {
                 </td>
                 <td>${dataCriacao}</td>
                 <td>R$ ${valor}</td>
-                <td>${statusBadge}</td>
+                <td>${authBadge} ${onlineBadge}</td>
                 <td class="text-end">
                     <button class="btn btn-sm btn-outline-secondary me-1 btn-editar-cliente" 
                         data-cliente="${dadosJson}">
@@ -386,6 +462,24 @@ async function abrirModalEditar(cliente) {
     document.getElementById('edit-token').value = cliente.token;
     document.getElementById('edit-login-id-ixc').value = cliente.ixc_login_id || '';
     document.getElementById('edit-mac-atual').value = cliente.onu_mac || '';
+    
+    let token = cliente.token || '';
+    let descricaoCompleta = cliente.descricao_produto || '';
+    let descSemToken = descricaoCompleta;
+
+    if (token && descricaoCompleta.startsWith(token + '-')) {
+        descSemToken = descricaoCompleta.substring(token.length + 1); 
+    } else if (token && descricaoCompleta.startsWith(token)) {
+        descSemToken = descricaoCompleta.substring(token.length);
+    }
+
+    if (!descSemToken && descricaoCompleta.length > token.length) {
+        descSemToken = descricaoCompleta;
+    }
+
+    document.getElementById('edit-prefixo-token').textContent = token + '-';
+    document.getElementById('edit-descricao').value = descSemToken;
+
     document.getElementById('edit-login').value = cliente.login_pppoe;
     document.getElementById('edit-status').value = cliente.ativo;
     document.getElementById('edit-obs').value = cliente.obs || '';
@@ -402,35 +496,35 @@ async function abrirModalEditar(cliente) {
             document.getElementById('edit-endereco').value = dados.endereco || cliente.endereco || '';
             document.getElementById('edit-numero').value = dados.numero || cliente.numero || '';
             document.getElementById('edit-bairro').value = dados.bairro || cliente.bairro || '';
-            document.getElementById('edit-cidade').value = getCidadeNome(dados.cidade) || '';
+            
+            document.getElementById('edit-hidden-cidade-id').value = dados.cidade || '';
+            document.getElementById('edit-cidade').value = getCidadeNome(dados.cidade) || dados.cidade || ''; 
+            
             document.getElementById('edit-referencia').value = dados.referencia || '';
             document.getElementById('edit-complemento-text').value = dados.complemento || '';
             
             if (dados.id_condominio && dados.id_condominio !== "0") {
                 document.getElementById('edit-condominio').value = ''; 
-                document.getElementById('edit-condominio').placeholder = 'Condomínio já vinculado (ID ' + dados.id_condominio + '). Busque para alterar.';
-                
+                document.getElementById('edit-condominio').placeholder = `Condomínio ID ${dados.id_condominio} vinculado.`;
                 document.getElementById('edit-hidden-condominio-id').value = dados.id_condominio;
                 document.getElementById('edit-sem-condominio').checked = false;
                 
                 fetch(`api/v1/block/${dados.id_condominio}`)
-                    .then(response => response.ok ? response.json() : [])
+                    .then(r => r.json())
                     .then(blocks => { 
                         currentBlocks = blocks;
                         $('#btn-edit-complemento').prop('disabled', false);
                     });
-
             } else {
                 document.getElementById('edit-sem-condominio').checked = true;
-                document.getElementById('edit-condominio').value = '';
                 $('#btn-edit-complemento').prop('disabled', true);
-                currentBlocks = [];
             }
 
             atualizarInterfaceONU(dados, cliente.ixc_login_id);
 
         } catch (e) {
             console.error(e);
+            displayOnu.innerHTML = `<div class="alert alert-warning small p-1">Erro ao carregar IXC. Edição local permitida.</div>`;
         }
     }
 
@@ -567,7 +661,11 @@ async function salvarEdicaoCliente() {
     const id = document.getElementById('edit-id').value;
     const token = document.getElementById('edit-token').value; 
     const descSemToken = document.getElementById('edit-descricao').value.trim();
-    const descricaoCompleta = token ? `${token}-${descSemToken}` : descSemToken;
+    
+    let descricaoCompleta = descSemToken;
+    if (token) {
+        descricaoCompleta = `${token}-${descSemToken}`;
+    }
     
     let complementoFinal = document.getElementById('edit-complemento-text').value;
 
@@ -576,19 +674,22 @@ async function salvarEdicaoCliente() {
         login_pppoe: document.getElementById('edit-login').value.trim(),
         status_ativo: document.getElementById('edit-status').value,
         obs: document.getElementById('edit-obs').value,
+        
         cep: document.getElementById('edit-cep').value,
         endereco: document.getElementById('edit-endereco').value,
         numero: document.getElementById('edit-numero').value,
         bairro: document.getElementById('edit-bairro').value,
+        
         id_condominio: document.getElementById('edit-hidden-condominio-id').value,
         complemento: complementoFinal,
         referencia: document.getElementById('edit-referencia').value,
         bloco: document.getElementById('edit-hidden-bloco').value,
         apartamento: document.getElementById('edit-hidden-apartamento').value,
-        
         cidade: document.getElementById('edit-hidden-cidade-id').value,
         uf: document.getElementById('edit-uf').value
     };
+
+    console.log("Payload Edição:", payload);
 
     try {
         const response = await fetch(`/api/v5/rede_neutra/cliente/${id}`, {
@@ -602,7 +703,7 @@ async function salvarEdicaoCliente() {
 
         alert("Alterações salvas com sucesso!");
         modalEditar.hide();
-        carregarCarteiraClientes(parceiroIdSelecionado);
+        if(parceiroIdSelecionado) carregarCarteiraClientes(parceiroIdSelecionado);
 
     } catch (error) {
         alert('Erro ao editar: ' + error.message);
@@ -688,81 +789,289 @@ async function salvarNovoCliente(autorizarOnu = false) {
     }
 }
 
-function abrirModalONU(idLoginIxc, nome, infoExtra, macAtual) {
-    if (!idLoginIxc) {
-        alert("Erro: Produto sem ID de login vinculado.");
-        return;
-    }
-
+async function abrirModalONU(idLoginIxc, nome, infoExtra, macAtual) {
     loginAtualId = idLoginIxc;
-    nomeAtual = nome;
-
+    
     document.getElementById('onu-cliente-nome').textContent = nome;
     document.getElementById('onu-contrato-id').textContent = infoExtra;
     
-    const inputMac = document.getElementById('onu-mac');
-    const statusDiv = document.getElementById('onu-status-display');
-    const btnAutorizar = document.getElementById('btn-autorizar-onu');
-    const btnDesautorizar = document.getElementById('btn-desautorizar-onu');
-
-    inputMac.value = macAtual || '';
+    document.getElementById('display-onu-selecionada').value = "";
+    document.getElementById('display-transmissor').value = "";
+    document.getElementById('hidden-hash-onu').value = "";
+    document.getElementById('hidden-mac-onu').value = "";
+    document.getElementById('hidden-id-transmissor').value = "";
     
-    if (macAtual && macAtual.length > 5) {
-        statusDiv.className = 'p-2 border rounded bg-success text-white fw-bold';
-        statusDiv.innerHTML = `<i class="bi bi-check-circle-fill"></i> AUTORIZADA`;
-        inputMac.disabled = true;
-        btnAutorizar.style.display = 'none';
-        btnDesautorizar.style.display = 'block';
-    } else {
-        statusDiv.className = 'p-2 border rounded bg-warning text-dark fw-bold';
-        statusDiv.innerHTML = 'PENDENTE';
-        inputMac.disabled = false;
-        btnAutorizar.style.display = 'block';
-        btnDesautorizar.style.display = 'none';
+    const statusAuth = document.getElementById('onu-status-auth');
+    const statusConn = document.getElementById('onu-status-conn');
+    const areaAutorizacao = document.getElementById('area-autorizacao');
+    const areaDesvinculo = document.getElementById('area-desvinculacao');
+
+    statusAuth.className = 'p-2 border rounded text-center fw-bold bg-light';
+    statusAuth.textContent = 'Verificando...';
+    
+    await carregarDadosBasicosONU(); 
+
+    try {
+        const response = await fetch(`/api/v5/rede_neutra/onu-detalhes/${idLoginIxc}`);
+        const dados = await response.json();
+        
+        const temMac = (dados.mac && dados.mac.length > 5);
+        
+        if (temMac) {
+            statusAuth.classList.add('text-success', 'border-success', 'bg-success-subtle');
+            statusAuth.innerHTML = '<i class="bi bi-check-circle-fill"></i> AUTORIZADA';
+            document.getElementById('display-mac-atual').textContent = dados.mac;
+            
+            areaDesvinculo.style.display = 'block';
+            areaAutorizacao.style.display = 'none';
+        } else {
+            statusAuth.classList.add('text-warning', 'border-warning', 'bg-warning-subtle');
+            statusAuth.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> PENDENTE';
+            
+            areaDesvinculo.style.display = 'none';
+            areaAutorizacao.style.display = 'block';
+        }
+
+        if (dados.online === 'S') {
+            statusConn.className = 'p-2 border rounded text-center fw-bold bg-success text-white';
+            statusConn.textContent = 'ONLINE';
+        } else {
+            statusConn.className = 'p-2 border rounded text-center fw-bold bg-light text-danger';
+            statusConn.textContent = 'OFFLINE';
+        }
+
+    } catch (e) {
+        console.error(e);
     }
 
     modalONU.show();
 }
 
+async function carregarListasONU() {
+    const selOnu = document.getElementById('select-onu-pendente');
+    const selTransmissor = document.getElementById('onu-transmissor');
+    const selPerfil = document.getElementById('onu-perfil');
+
+    selOnu.innerHTML = '<option value="" selected disabled>Carregando lista do IXC...</option>';
+    
+    try {
+        const [resOnus, resTrans, resPerfil] = await Promise.all([
+            fetch('/api/v5/rede_neutra/onus-pendentes'),
+            fetch('/api/v5/rede_neutra/transmissores'),
+            fetch('/api/v5/rede_neutra/perfis-fibra')
+        ]);
+
+        const onus = await resOnus.json();
+        const transmissores = await resTrans.json();
+        const perfis = await resPerfil.json();
+
+        selOnu.innerHTML = '<option value="" selected disabled>Selecione uma ONU...</option>';
+        if (onus.length === 0) {
+            selOnu.add(new Option("Nenhuma ONU pendente encontrada", ""));
+        } else {
+            onus.forEach(o => {
+                const text = `MAC: ${o.mac} | Modelo: ${o.modelo || '?'} | ${o.olt_info || ''}`;
+                const option = new Option(text, o.id_hash);
+                option.dataset.mac = o.mac;
+                option.dataset.modelo = o.modelo;
+                option.dataset.olt = o.olt_info;
+                selOnu.add(option);
+            });
+        }
+
+        selTransmissor.innerHTML = '<option value="" selected disabled>Selecione...</option>';
+        transmissores.forEach(t => selTransmissor.add(new Option(t.nome, t.id)));
+
+        selPerfil.innerHTML = '<option value="" selected disabled>Selecione...</option>';
+        perfis.forEach(p => selPerfil.add(new Option(p.nome, p.id)));
+
+    } catch (e) {
+        console.error(e);
+        selOnu.innerHTML = '<option value="">Erro ao carregar</option>';
+    }
+}
+
+async function carregarDadosModalONU() {
+    const selTransmissor = document.getElementById('onu-transmissor');
+    const selPerfil = document.getElementById('onu-perfil');
+
+    if (selTransmissor.options.length > 1 && selPerfil.options.length > 1) return;
+
+    try {
+        const [resTrans, resPerfil] = await Promise.all([
+            fetch('/api/v5/rede_neutra/transmissores'),
+            fetch('/api/v5/rede_neutra/perfis-fibra')
+        ]);
+
+        const transmissores = await resTrans.json();
+        const perfis = await resPerfil.json();
+
+        selTransmissor.innerHTML = '<option value="" selected disabled>Selecione...</option>';
+        transmissores.forEach(t => {
+            selTransmissor.add(new Option(t.nome, t.id));
+        });
+
+        selPerfil.innerHTML = '<option value="" selected disabled>Selecione...</option>';
+        perfis.forEach(p => {
+            selPerfil.add(new Option(p.nome, p.id));
+        });
+
+    } catch (e) {
+        console.error("Erro ao carregar dados do modal ONU:", e);
+        selTransmissor.innerHTML = '<option value="">Erro ao carregar</option>';
+    }
+}
+
+async function carregarDadosBasicosONU() {
+    const selPerfil = document.getElementById('onu-perfil');
+    
+    if (listaTransmissoresCache.length === 0) {
+        try {
+            const resTrans = await fetch('/api/v5/rede_neutra/transmissores');
+            listaTransmissoresCache = await resTrans.json();
+        } catch (e) { console.error("Erro transmissores:", e); }
+    }
+
+    if (selPerfil.options.length <= 1) {
+        try {
+            const resPerfil = await fetch('/api/v5/rede_neutra/perfis-fibra');
+            const perfis = await resPerfil.json();
+            selPerfil.innerHTML = '<option value="" selected disabled>Selecione...</option>';
+            perfis.forEach(p => selPerfil.add(new Option(p.nome, p.id)));
+        } catch (e) { console.error("Erro perfis:", e); }
+    }
+}
+
+async function abrirListaONUs() {
+    modalListaONUs.show();
+    const tbody = document.getElementById('lista-onus-body');
+    const loading = document.getElementById('loading-onus');
+    
+    tbody.innerHTML = '';
+    loading.style.display = 'block';
+
+    try {
+        const response = await fetch('/api/v5/rede_neutra/onus-pendentes');
+        const lista = await response.json();
+        
+        loading.style.display = 'none';
+
+        if (lista.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Nenhuma ONU pendente encontrada na OLT.</td></tr>';
+            return;
+        }
+
+        lista.forEach(onu => {
+            const tr = document.createElement('tr');
+            const mac = onu.mac;
+            const oltName = onu.olt_name || '-';
+            const model = onu.model || '-';
+            const info = `Slot: ${onu.slot} / Pon: ${onu.pon}`;
+            const idHash = onu.id_hash;
+
+            tr.innerHTML = `
+                <td class="font-monospace fw-bold text-primary">${mac}</td>
+                <td>${oltName}</td>
+                <td>${model}</td>
+                <td>${info}</td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-primary btn-selecionar-onu">
+                        Selecionar
+                    </button>
+                </td>
+            `;
+            
+            tr.querySelector('.btn-selecionar-onu').addEventListener('click', () => {
+                selecionarOnuDaLista(mac, oltName, idHash, model);
+            });
+
+            tbody.appendChild(tr);
+        });
+
+    } catch (e) {
+        console.error(e);
+        loading.style.display = 'none';
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Erro ao carregar lista.</td></tr>';
+    }
+}
+
+function selecionarOnuDaLista(mac, oltName, idHash, model) {
+    document.getElementById('display-onu-selecionada').value = `${mac} (${model})`;
+    document.getElementById('hidden-hash-onu').value = idHash;
+    document.getElementById('hidden-mac-onu').value = mac;
+
+    const transmissorEncontrado = listaTransmissoresCache.find(t => t.nome === oltName);
+    
+    if (transmissorEncontrado) {
+        document.getElementById('display-transmissor').value = transmissorEncontrado.nome;
+        document.getElementById('hidden-id-transmissor').value = transmissorEncontrado.id;
+        document.getElementById('display-transmissor').classList.add('is-valid');
+    } else {
+        document.getElementById('display-transmissor').value = `Não encontrado: ${oltName}`;
+        document.getElementById('hidden-id-transmissor').value = "";
+        document.getElementById('display-transmissor').classList.add('is-invalid');
+        alert(`Atenção: O transmissor "${oltName}" vindo da ONU não foi encontrado na lista de transmissores cadastrados no IXC. Verifique o cadastro.`);
+    }
+
+    modalListaONUs.hide();
+}
+
 async function autorizarONU() {
-    const mac = document.getElementById('onu-mac').value.trim();
-    if (mac.length < 6) {
-        alert('Informe um Serial ou MAC válido.');
+    const idHash = document.getElementById('hidden-hash-onu').value;
+    const mac = document.getElementById('hidden-mac-onu').value;
+    const idTransmissor = document.getElementById('hidden-id-transmissor').value;
+    const idPerfil = document.getElementById('onu-perfil').value;
+
+    if (!idHash || !mac) {
+        alert('Por favor, busque e selecione uma ONU da lista.');
+        return;
+    }
+    if (!idTransmissor) {
+        alert('Erro: Transmissor não identificado. Verifique a seleção da ONU.');
+        return;
+    }
+    if (!idPerfil) {
+        alert('Por favor, selecione o Perfil de Fibra.');
         return;
     }
 
     const btn = document.getElementById('btn-autorizar-onu');
-    const originalText = btn.innerHTML;
     btn.disabled = true;
-    btn.innerHTML = 'Processando...';
+    
+    showLoading("Autorizando ONU e Gravando na OLT... Isso pode levar alguns segundos.");
 
     try {
         const response = await fetch('/api/v5/rede_neutra/autorizar-onu', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ixc_login_id: loginAtualId, mac: mac })
+            body: JSON.stringify({ 
+                ixc_login_id: loginAtualId, 
+                mac: mac,
+                id_hash_onu: idHash,
+                id_transmissor: idTransmissor,
+                id_perfil: idPerfil
+            })
         });
         
         const res = await response.json();
+        hideLoading();
+
         if (!response.ok) throw new Error(res.error || 'Erro ao autorizar');
 
-        alert('ONU Autorizada com sucesso!');
+        alert(res.message || 'ONU Autorizada com sucesso!');
         
-        document.getElementById('edit-mac-atual').value = mac;
-        carregarDetalhesONU(loginAtualId); 
-        const displayOnu = document.getElementById('display-status-onu');
-        if(displayOnu) {
-             displayOnu.innerHTML = `<span class="badge bg-success p-2 w-100"><i class="bi bi-check-circle me-1"></i> Autorizada</span><div class="small text-center mt-1 font-monospace">${mac}</div>`;
+        modalONU.hide();
+        if(parceiroIdSelecionado) carregarCarteiraClientes(parceiroIdSelecionado);
+        
+        if (modalEditar._isShown) {
+            document.getElementById('edit-mac-atual').value = mac;
         }
 
-        modalONU.hide();
-        carregarCarteiraClientes(parceiroIdSelecionado);
-
     } catch (error) {
+        hideLoading();
         alert('Erro: ' + error.message);
     } finally {
         btn.disabled = false;
-        btn.innerHTML = originalText;
     }
 }
 

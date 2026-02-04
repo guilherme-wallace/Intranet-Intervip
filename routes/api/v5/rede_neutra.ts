@@ -26,8 +26,13 @@ const makeIxcRequest = async (method: Method, endpoint: string, data: any = null
         method = 'POST'; 
     }
     try {
-        //console.log(`[IXC Req] ${endpoint}`, data ? JSON.stringify(data) : '');
+        // LOG REQUEST
+        //console.log(`[IXC Req] ${method} ${endpoint}`, data ? JSON.stringify(data) : '');
+        
         const response = await axios({ method, url, headers, data });
+        
+        // LOG RESPONSE
+        //console.log(`[IXC Res] ${endpoint}:`, JSON.stringify(response.data)); 
         return response.data;
     } catch (error) {
         console.error(`[IXC Err] ${endpoint}:`, error.response?.data || error.message);
@@ -265,43 +270,35 @@ router.get('/parceiros', async (req, res) => {
 router.get('/clientes/:parceiroId', async (req, res) => {
     const { parceiroId } = req.params;
     try {
-        const parceiroRows = await executeDb('SELECT ixc_contrato_id FROM rn_parceiros WHERE id = ?', [parceiroId]);
-        
-        if (parceiroRows.length > 0) {
-            const ixcContratoId = parceiroRows[0].ixc_contrato_id;
-            await sincronizarClientesLegados(Number(parceiroId), ixcContratoId);
-        }
-
         const clientesLocais = await executeDb(
             `SELECT * FROM rn_clientes WHERE parceiro_id = ? ORDER BY id DESC`, 
             [parceiroId]
         );
 
-        if (clientesLocais.length === 0) {
-            return res.json([]);
-        }
+        if (clientesLocais.length === 0) return res.json([]);
 
         const clientesDetalhados = await Promise.all(clientesLocais.map(async (cli: any) => {
-            let onlineStatus = 'N';
+            let isOnline = false;
+            let isAutorizado = false;
             
             if (cli.ixc_login_id) {
                 try {
                     const ixcLogin = await makeIxcRequest('POST', '/radusuarios', {
-                        qtype: 'radusuarios.id',
-                        query: cli.ixc_login_id,
-                        oper: '=',
-                        rp: '1'
+                        qtype: 'radusuarios.id', query: cli.ixc_login_id, oper: '=', rp: '1'
                     });
 
                     if (ixcLogin.registros && ixcLogin.registros.length > 0) {
-                        onlineStatus = ixcLogin.registros[0].online;
+                        const reg = ixcLogin.registros[0];
+                        isAutorizado = (reg.onu_mac && reg.onu_mac.length > 10);
+                        isOnline = (reg.online === 'S' || reg.online === 'SS'); 
                     }
                 } catch (e) { }
             }
 
             return {
                 ...cli,
-                online: onlineStatus
+                is_autorizado: isAutorizado,
+                is_online: isOnline
             };
         }));
 
@@ -462,7 +459,7 @@ router.put('/cliente/:id', async (req, res) => {
         cidade, uf, id_condominio, bloco, apartamento, complemento, referencia
     } = req.body;
 
-    console.log(`[Edit] Atualizando Cliente ID ${id}...`);
+    console.log(`[EDIT DEBUG] Iniciando atualização do Cliente Local ID: ${id}`);
 
     if (!id) return res.status(400).json({ error: "ID não informado" });
 
@@ -474,46 +471,89 @@ router.put('/cliente/:id', async (req, res) => {
             WHERE id = ?`,
             [descricao_produto, login_pppoe, status_ativo, obs, cep, endereco, numero, bairro, id]
         );
+        console.log(`[EDIT DEBUG] Banco local atualizado.`);
 
         const clientes = await executeDb(`SELECT ixc_produto_id, ixc_login_id FROM rn_clientes WHERE id = ?`, [id]);
         
-        if (clientes.length > 0) {
-            const cli = clientes[0];
-            
-            if (cli.ixc_produto_id) {
-                await makeIxcRequest('PUT', `/vd_contratos_produtos/${cli.ixc_produto_id}`, {
-                    "descricao": descricao_produto,
-                    "obs": obs
-                });
-            }
+        if (clientes.length === 0) {
+            return res.status(404).json({ error: "Cliente não encontrado." });
+        }
 
-            if (cli.ixc_login_id) {
-                const loginPayload = {
-                    "login": login_pppoe,
-                    "ativo": status_ativo == 1 ? "S" : "N",
-                    "cep": cep,
-                    "endereco": endereco,
-                    "numero": numero,
-                    "bairro": bairro,
-                    "cidade": cidade,
-                    "uf": uf,
-                    "id_condominio": id_condominio || "0",
-                    "bloco": bloco,
-                    "apartamento": apartamento,
-                    "complemento": complemento,
-                    "referencia": referencia,
-                    "autenticacao": "L"
-                };
-                
-                console.log(`[Edit] Payload Login IXC:`, JSON.stringify(loginPayload));
-                await makeIxcRequest('PUT', `/radusuarios/${cli.ixc_login_id}`, loginPayload);
+        const cli = clientes[0];
+
+        if (cli.ixc_produto_id) {
+            try {
+                const currentProd = await makeIxcRequest('POST', '/vd_contratos_produtos', {
+                    qtype: 'vd_contratos_produtos.id',
+                    query: cli.ixc_produto_id,
+                    oper: '=',
+                    rp: '1'
+                });
+
+                if (currentProd.registros && currentProd.registros.length > 0) {
+                    const prodIxc = currentProd.registros[0];
+                    
+                    const payloadProd = {
+                        ...prodIxc,
+                        descricao: descricao_produto,
+                        obs: obs
+                    };
+
+                    console.log(`[EDIT DEBUG] Enviando PUT Produto ${cli.ixc_produto_id}...`);
+                    const respPutProd = await makeIxcRequest('PUT', `/vd_contratos_produtos/${cli.ixc_produto_id}`, payloadProd);
+                    
+                    if(respPutProd.type === 'error') console.error("Erro IXC Prod:", respPutProd.message);
+                }
+            } catch (err) {
+                console.error(`[EDIT ERROR] Falha produto:`, err.message);
             }
         }
 
-        res.json({ success: true, message: "Cliente atualizado nas duas bases." });
+        if (cli.ixc_login_id) {
+            try {
+                const currentLogin = await makeIxcRequest('POST', '/radusuarios', {
+                    qtype: 'radusuarios.id',
+                    query: cli.ixc_login_id,
+                    oper: '=',
+                    rp: '1'
+                });
+
+                if (currentLogin.registros && currentLogin.registros.length > 0) {
+                    const loginIxc = currentLogin.registros[0];
+
+                    const payloadLogin = {
+                        ...loginIxc,
+                        
+                        login: login_pppoe,
+                        ativo: status_ativo == 1 ? "S" : "N",
+                        obs: obs,
+                        cep: cep,
+                        endereco: endereco,
+                        numero: numero,
+                        bairro: bairro,
+                        cidade: cidade || loginIxc.cidade,
+                        uf: uf || loginIxc.uf,
+                        id_condominio: id_condominio || "0",
+                        bloco: bloco,
+                        apartamento: apartamento,
+                        complemento: complemento,
+                        referencia: referencia
+                    };
+
+                    console.log(`[EDIT DEBUG] Enviando PUT Login ${cli.ixc_login_id}...`);
+                    const respPutLogin = await makeIxcRequest('PUT', `/radusuarios/${cli.ixc_login_id}`, payloadLogin);
+                    
+                    if(respPutLogin.type === 'error') console.error("Erro IXC Login:", respPutLogin.message);
+                }
+            } catch (err) {
+                console.error(`[EDIT ERROR] Falha login:`, err.message);
+            }
+        }
+
+        res.json({ success: true, message: "Cliente atualizado." });
 
     } catch (error) {
-        console.error("Erro ao editar cliente:", error);
+        console.error("[EDIT FATAL ERROR]:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -645,27 +685,243 @@ router.post('/refresh-onu', async (req, res) => {
     }
 });
 
+router.get('/transmissores', async (req, res) => {
+    try {
+        const response = await makeIxcRequest('POST', '/radpop_radio', {
+            "qtype": "radpop_radio.id", "query": "", "oper": "=", "page": "1", "rp": "2000", "sortname": "radpop_radio.id", "sortorder": "desc"
+        });
+        const lista = (response.registros || []).map((t: any) => ({
+            id: t.id,
+            nome: t.descricao || t.modelo || `Transmissor ${t.id}`,
+            pop_id: t.id_pop
+        }));
+        res.json(lista);
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+router.get('/perfis-fibra', async (req, res) => {
+    try {
+        const response = await makeIxcRequest('POST', '/radpop_radio_cliente_fibra_perfil', {
+            "qtype": "radpop_radio_cliente_fibra_perfil.id", "query": "1", "oper": ">=", "page": "1", "rp": "2000", "sortname": "radpop_radio_cliente_fibra_perfil.id", "sortorder": "desc"
+        });
+        const lista = (response.registros || []).map((p: any) => ({ id: p.id, nome: p.nome }));
+        res.json(lista);
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+router.get('/onus-pendentes', async (req, res) => {
+    try {
+        const payload = {
+            "qtype": "fh_onu_nao_autorizadas.id",
+            "query": "1",
+            "oper": ">=",
+            "page": "1",
+            "rp": "2000",
+            "sortname": "fh_onu_nao_autorizadas.id",
+            "sortorder": "desc"
+        };
+        
+        const response = await makeIxcRequest('POST', '/fh_onu_nao_autorizadas', payload);
+        
+        const lista = (response.rows || []).map((row: any) => {
+            const cells = row.cell;
+            return {
+                id_hash: row.id,
+                olt_name: cells[0],
+                frame: cells[1],
+                slot: cells[2],
+                pon: cells[3],
+                model: cells[4],
+                mac: cells[5]
+            };
+        });
+
+        res.json(lista);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 router.post('/autorizar-onu', async (req, res) => {
-    const { ixc_login_id, mac } = req.body;
-    if (!ixc_login_id || !mac) return res.status(400).json({ error: "Dados incompletos" });
+    const { ixc_login_id, mac, id_transmissor, id_perfil, id_hash_onu } = req.body;
+
+    //console.log(`[AUTORIZAR ONU] MAC: ${mac} | Login: ${ixc_login_id}`);
+
+    if (!ixc_login_id || !mac || !id_transmissor || !id_perfil) {
+        return res.status(400).json({ error: "Dados incompletos. Selecione a ONU na lista." });
+    }
 
     try {
-        const macLimpo = mac.toUpperCase().replace(/[^A-Z0-9]/g, '');
-        await makeIxcRequest('PUT', `/radusuarios/${ixc_login_id}`, { "onu_mac": macLimpo });
-        await executeDb(`UPDATE rn_clientes SET onu_mac = ? WHERE ixc_login_id = ?`, [macLimpo, ixc_login_id]);
-        res.json({ success: true, message: "ONU Autorizada" });
+        const macBusca = mac.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        let hashParaAutorizar = id_hash_onu;
+        let slotOnu = "0";
+        let ponOnu = "0";
+        let frameOnu = "0";
+
+        //console.log("1. Buscando dados físicos da ONU (Frame/Slot/Pon)...");
+        if (!hashParaAutorizar) {
+            const respNaoAutorizadas = await makeIxcRequest('POST', '/fh_onu_nao_autorizadas', {
+                "qtype": "fh_onu_nao_autorizadas.id", "query": "1", "oper": ">=", "page": "1", "rp": "2000"
+            });
+            const onu = (respNaoAutorizadas.rows || []).find((row: any) => 
+                row.cell && row.cell.some((c: string) => c && c.toString().toUpperCase().includes(macBusca))
+            );
+            
+            if (onu) {
+                hashParaAutorizar = onu.id;
+                frameOnu = onu.cell[1] || "0";
+                slotOnu = onu.cell[2] || "0";
+                ponOnu = onu.cell[3] || "0";
+            } else {
+                throw new Error(`ONU MAC ${macBusca} não encontrada na lista de pendentes.`);
+            }
+        } else {
+            const respNaoAutorizadas = await makeIxcRequest('POST', '/fh_onu_nao_autorizadas', {
+                "qtype": "fh_onu_nao_autorizadas.id", "query": "1", "oper": ">=", "page": "1", "rp": "2000"
+            });
+            const onu = (respNaoAutorizadas.rows || []).find((row: any) => row.id === hashParaAutorizar);
+            if (onu) {
+                frameOnu = onu.cell[1] || "0";
+                slotOnu = onu.cell[2] || "0";
+                ponOnu = onu.cell[3] || "0";
+            }
+        }
+        //console.log(`> Dados Físicos: Frame ${frameOnu} | Slot ${slotOnu} | Pon ${ponOnu}`);
+
+        //console.log(`2. Buscando Script do Perfil ID ${id_perfil}...`);
+        const perfilResp = await makeIxcRequest('POST', '/radpop_radio_cliente_fibra_perfil', {
+            "qtype": "radpop_radio_cliente_fibra_perfil.id", "query": id_perfil, "oper": "=", "rp": "1"
+        });
+        
+        let scriptPerfil = "";
+        let vlanPppoe = "200";
+        
+        if (perfilResp.registros && perfilResp.registros.length > 0) {
+            const perfil = perfilResp.registros[0];
+            scriptPerfil = perfil.comando || "";
+            
+            const matchVlan = perfil.nome.match(/VLAN\s?(\d+)/i);
+            if (matchVlan && matchVlan[1]) {
+                vlanPppoe = matchVlan[1];
+            }
+            //console.log(`> Script obtido. VLAN detectada: ${vlanPppoe}`);
+        } else {
+            console.warn("AVISO: Perfil não encontrado ou sem comando.");
+        }
+
+        //console.log("3. Buscando nome do login...");
+        const loginData = await makeIxcRequest('POST', '/radusuarios', {
+            qtype: 'radusuarios.id', query: ixc_login_id, oper: '=', rp: '1'
+        });
+        
+        let nomeParaFibra = "ONU-" + macBusca;
+        if(loginData.registros && loginData.registros.length > 0) {
+            nomeParaFibra = loginData.registros[0].login || nomeParaFibra;
+        }
+
+        //console.log("4. Executando Autorização (Botão IXC)...");
+        const respAutorizar = await makeIxcRequest('POST', '/fh_onu_nao_autorizadas_22396', { "get_id": hashParaAutorizar });
+        
+        if (respAutorizar.type === 'error') {
+            throw new Error(`Erro IXC (Autorizar): ${respAutorizar.message}`);
+        }
+
+        const idClienteFibra = respAutorizar.id;
+        if (!idClienteFibra) throw new Error("ID Cliente Fibra não retornado pelo IXC.");
+        //console.log(`> ID Fibra Gerado: ${idClienteFibra}`);
+
+        //console.log(`5. Preenchendo cadastro da fibra...`);
+        
+        const payloadVinculo = {
+            "id_login": ixc_login_id,
+            "id_transmissor": id_transmissor,
+            "id_perfil": id_perfil,
+            "mac": macBusca,
+            "nome": nomeParaFibra,
+            
+            "gabinete": frameOnu,
+            "slotno": slotOnu,
+            "ponno": ponOnu,
+            "ponid": `${frameOnu}/${slotOnu}/${ponOnu}`,
+            
+            "vlan_pppoe": vlanPppoe,
+            "comandos": scriptPerfil,
+            "onu_compartilhada": "N",
+            "radpop_estrutura": "N",
+            
+            "tipo_autenticacao": "MAC",
+            "porta_ftth": "0",
+            "id_caixa_ftth": "0"
+        };
+        
+        //console.log("Payload PUT:", JSON.stringify(payloadVinculo));
+        
+        const respVinculo = await makeIxcRequest('PUT', `/radpop_radio_cliente_fibra/${idClienteFibra}`, payloadVinculo);
+        
+        if (respVinculo.type === 'error') {
+             console.error("Erro no vinculo (PUT):", respVinculo.message);
+        }
+
+        //console.log("6. Enviando comando para OLT (Gravar Dispositivo)...");
+        const respGravar = await makeIxcRequest('POST', '/botao_gravar_dispositivo_22408', { "id": idClienteFibra });
+        //console.log("Resp Gravar:", JSON.stringify(respGravar));
+
+        await makeIxcRequest('PUT', `/radusuarios/${ixc_login_id}`, { "onu_mac": macBusca });
+        await executeDb(`UPDATE rn_clientes SET onu_mac = ? WHERE ixc_login_id = ?`, [macBusca, ixc_login_id]);
+
+        res.json({ success: true, message: "ONU Autorizada e Comandos Enviados!" });
+
     } catch (error) {
+        console.error("[AUTORIZAR ERROR]:", error);
         res.status(500).json({ error: error.message });
     }
 });
 
 router.post('/desautorizar-onu', async (req, res) => {
     const { ixc_login_id } = req.body;
+    
+    console.log(`[DESAUTORIZAR ONU] Iniciando remoção para Login ID: ${ixc_login_id}`);
+
+    if (!ixc_login_id) return res.status(400).json({ error: "Login ID não informado." });
+
     try {
+        console.log("1. Buscando registro de fibra vinculado...");
+        const fibraResp = await makeIxcRequest('POST', '/radpop_radio_cliente_fibra', {
+            "qtype": "radpop_radio_cliente_fibra.id_login",
+            "query": ixc_login_id,
+            "oper": "=",
+            "rp": "1"
+        });
+
+        if (fibraResp.registros && fibraResp.registros.length > 0) {
+            const idClienteFibra = fibraResp.registros[0].id;
+            console.log(`> Registro encontrado. ID Fibra: ${idClienteFibra}`);
+
+            console.log("2. Executando comando de exclusão na OLT...");
+            try {
+                await makeIxcRequest('POST', '/botao_excluir_dispositivo_22434', { 
+                    "id": idClienteFibra 
+                });
+            } catch (e) {
+                console.warn("Aviso: O comando de exclusão na OLT falhou ou não retornou sucesso padrão.", e.message);
+            }
+
+            console.log("3. Deletando registro de fibra...");
+            await makeIxcRequest('DELETE', `/radpop_radio_cliente_fibra/${idClienteFibra}`);
+            
+        } else {
+            console.log("> Nenhum registro de fibra ativo encontrado. Apenas limpando vínculos.");
+        }
+
+        console.log("4. Limpando MAC no login...");
         await makeIxcRequest('PUT', `/radusuarios/${ixc_login_id}`, { "onu_mac": "" });
+
         await executeDb(`UPDATE rn_clientes SET onu_mac = NULL WHERE ixc_login_id = ?`, [ixc_login_id]);
-        res.json({ success: true, message: "ONU Removida" });
+
+        res.json({ success: true, message: "ONU Desautorizada e Removida com sucesso!" });
+
     } catch (error) {
+        console.error("[DESAUTORIZAR ERROR]:", error);
         res.status(500).json({ error: error.message });
     }
 });
