@@ -56,6 +56,15 @@ body.dark-mode .modal-soc-style .modal-content {
     border: 1px solid #333;
 }
 
+body.dark-mode .bg-light {
+    background-color: #2b2b2b !important;
+    color: #e0e0e0 !important;
+}
+
+body.dark-mode .text-dark {
+    color: #e0e0e0 !important;
+}
+
 body.dark-mode .modal-soc-style .modal-header {
     background-color: #0d1b2a;
     border-bottom: 1px solid #333;

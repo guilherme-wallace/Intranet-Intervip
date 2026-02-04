@@ -269,30 +269,94 @@ router.get('/parceiros', async (req, res) => {
 
 router.get('/clientes/:parceiroId', async (req, res) => {
     const { parceiroId } = req.params;
+    console.log(`[Sync] Buscando e sincronizando clientes para Parceiro ID Local: ${parceiroId}`);
+
     try {
+        const parceiros = await executeDb(`SELECT * FROM rn_parceiros WHERE id = ?`, [parceiroId]);
+        if (parceiros.length === 0) return res.json([]);
+        
+        const parceiro = parceiros[0];
+        const ixcContratoId = parceiro.ixc_contrato_id;
+
+        if (ixcContratoId) {
+            const produtosResp = await makeIxcRequest('POST', '/vd_contratos_produtos', {
+                "qtype": "vd_contratos_produtos.id_contrato", "query": ixcContratoId, "oper": "=", "page": "1", "rp": "2000", "sortname": "vd_contratos_produtos.id", "sortorder": "desc"
+            });
+            const produtosIxc = produtosResp.registros || [];
+
+            let loginsIxc = [];
+            try {
+                const loginsResp = await makeIxcRequest('POST', '/radusuarios', {
+                    "qtype": "radusuarios.id_contrato", "query": ixcContratoId, "oper": "=", "page": "1", "rp": "2000"
+                });
+                loginsIxc = loginsResp.registros || [];
+            } catch (e) { console.warn("Erro sync login:", e.message); }
+
+            for (const prod of produtosIxc) {
+                const descricao = prod.descricao || "";
+                const tokenMatch = descricao.match(/^([A-Z0-9]{5})(-|$)/);
+                let token = tokenMatch ? tokenMatch[1] : null;
+
+                const loginMatch = loginsIxc.find(l => l.login === descricao || descricao.startsWith(l.login));
+                
+                const ixcLoginId = loginMatch ? loginMatch.id : null;
+                const loginPppoe = loginMatch ? loginMatch.login : descricao;
+                const onuMac = loginMatch ? loginMatch.onu_mac : null;
+                const obs = prod.obs || "";
+                
+                let dataCriacao = new Date();
+                const dataMatch = obs.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+                if (dataMatch) {
+                    const dataStr = `${dataMatch[3]}-${dataMatch[2]}-${dataMatch[1]}`;
+                    const d = new Date(dataStr);
+                    if (!isNaN(d.getTime())) dataCriacao = d;
+                }
+
+                const existe = await executeDb('SELECT id, token FROM rn_clientes WHERE ixc_produto_id = ?', [prod.id]);
+
+                if (existe.length > 0) {
+                    await executeDb(
+                        `UPDATE rn_clientes SET 
+                            ixc_login_id = ?, login_pppoe = ?, valor = ?, descricao_produto = ?, 
+                            onu_mac = ?, obs = ?
+                        WHERE id = ?`,
+                        [ixcLoginId, loginPppoe, prod.valor_unit, descricao, onuMac, obs, existe[0].id]
+                    );
+                } else {
+                    if (!token) token = await gerarTokenUnico();
+
+                    await executeDb(
+                        `INSERT INTO rn_clientes 
+                        (parceiro_id, ixc_produto_id, ixc_login_id, token, descricao_produto, login_pppoe, valor, plano_nome, ativo, obs, onu_mac, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
+                        [
+                            parceiroId, prod.id, ixcLoginId, token, descricao, loginPppoe, 
+                            prod.valor_unit, 'Sincronizado IXC', obs, onuMac, dataCriacao
+                        ]
+                    );
+                }
+            }
+        }
+
         const clientesLocais = await executeDb(
-            `SELECT * FROM rn_clientes WHERE parceiro_id = ? ORDER BY id DESC`, 
+            `SELECT * FROM rn_clientes WHERE parceiro_id = ? ORDER BY created_at DESC`, 
             [parceiroId]
         );
 
-        if (clientesLocais.length === 0) return res.json([]);
-
         const clientesDetalhados = await Promise.all(clientesLocais.map(async (cli: any) => {
             let isOnline = false;
-            let isAutorizado = false;
-            
+            let isAutorizado = (cli.onu_mac && cli.onu_mac.length > 10);
+
             if (cli.ixc_login_id) {
                 try {
-                    const ixcLogin = await makeIxcRequest('POST', '/radusuarios', {
-                        qtype: 'radusuarios.id', query: cli.ixc_login_id, oper: '=', rp: '1'
+                    const fibraResp = await makeIxcRequest('POST', '/radpop_radio_cliente_fibra', {
+                        qtype: 'id_login', query: cli.ixc_login_id, oper: '=', rp: '1'
                     });
-
-                    if (ixcLogin.registros && ixcLogin.registros.length > 0) {
-                        const reg = ixcLogin.registros[0];
-                        isAutorizado = (reg.onu_mac && reg.onu_mac.length > 10);
-                        isOnline = (reg.online === 'S' || reg.online === 'SS'); 
+                    if (fibraResp.registros && fibraResp.registros.length > 0) {
+                        const rx = parseFloat(fibraResp.registros[0].sinal_rx);
+                        if (!isNaN(rx) && rx < -1) isOnline = true;
                     }
-                } catch (e) { }
+                } catch (e) {}
             }
 
             return {
@@ -305,7 +369,7 @@ router.get('/clientes/:parceiroId', async (req, res) => {
         res.json(clientesDetalhados);
 
     } catch (error) {
-        console.error("Erro listar clientes:", error);
+        console.error("Erro sync/listar clientes:", error);
         res.status(500).json({ error: error.message });
     }
 });

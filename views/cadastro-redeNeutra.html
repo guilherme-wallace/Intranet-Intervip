@@ -321,20 +321,16 @@
                             <div class="col-lg-8 border-end pe-lg-4">
                                 <h6 class="text-uppercase text-muted fw-bold mb-3 small">Dados do Cliente e Login</h6>
                                 <div class="row g-3">
-                                    <div class="col-md-12">
-                                        <label class="form-label">Descrição (Identificação)</label>
+                                    <div class="col-md-8">
+                                        <label class="form-label">Descrição / Login (Identificação)</label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-light text-muted" id="edit-prefixo-token">TOKEN-</span>
+                                            <span class="input-group-text bg-light text-muted fw-bold" id="edit-prefixo-token">TOKEN-</span>
                                             <input type="text" class="form-control fw-bold" id="edit-descricao" required>
                                         </div>
+                                        <div class="form-text">Esta alteração será aplicada na descrição do produto e no login PPPoE.</div>
                                     </div>
 
-                                    <div class="col-md-6">
-                                        <label class="form-label">Login PPPoE</label>
-                                        <input type="text" class="form-control font-monospace" id="edit-login" required>
-                                    </div>
-
-                                    <div class="col-md-6">
+                                    <div class="col-md-4">
                                         <label class="form-label">Status</label>
                                         <select class="form-select fw-bold" id="edit-status">
                                             <option value="1" class="text-success">Ativo</option>
@@ -345,7 +341,7 @@
                                     <div class="col-12 mt-4">
                                         <h6 class="text-uppercase text-muted fw-bold mb-3 small">Endereço de Instalação</h6>
                                     </div>
-
+                                    
                                     <div class="col-md-12">
                                         <label class="form-label">Condomínio / Localidade</label>
                                         <div class="input-group">
@@ -458,11 +454,11 @@
                     <div class="row mb-4">
                         <div class="col-md-6">
                             <label class="form-label text-muted small fw-bold">STATUS DA AUTORIZAÇÃO</label>
-                            <div id="onu-status-auth" class="p-2 border rounded text-center fw-bold bg-light">Verificando...</div>
+                            <div id="onu-status-auth" class="p-2 border rounded text-center fw-bold">Verificando...</div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label text-muted small fw-bold">STATUS DA CONEXÃO</label>
-                            <div id="onu-status-conn" class="p-2 border rounded text-center fw-bold bg-light">Verificando...</div>
+                            <div id="onu-status-conn" class="p-2 border rounded text-center fw-bold">Verificando...</div>
                         </div>
                     </div>
 
@@ -474,7 +470,7 @@
                         <div class="mb-3">
                             <label class="form-label fw-bold">1. Selecionar ONU Pendente</label>
                             <div class="d-flex gap-2">
-                                <input type="text" class="form-control bg-light" id="display-onu-selecionada" placeholder="Nenhuma ONU selecionada" readonly>
+                                <input type="text" class="form-control" id="display-onu-selecionada" placeholder="Nenhuma ONU selecionada" readonly>
                                 <button class="btn btn-primary" id="btn-abrir-lista-onus">
                                     <i class="bi bi-search me-1"></i> Buscar
                                 </button>
@@ -486,7 +482,7 @@
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">2. Transmissor (OLT)</label>
-                                <input type="text" class="form-control bg-light" id="display-transmissor" readonly placeholder="Automático...">
+                                <input type="text" class="form-control" id="display-transmissor" readonly placeholder="Automático...">
                                 <input type="hidden" id="hidden-id-transmissor">
                             </div>
                             <div class="col-md-6">

@@ -399,63 +399,150 @@ router.get('/parceiros', function (req, res) { return __awaiter(void 0, void 0, 
     });
 }); });
 router.get('/clientes/:parceiroId', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var parceiroId, clientesLocais, clientesDetalhados, error_5;
+    var parceiroId, parceiros, parceiro, ixcContratoId, produtosResp, produtosIxc, loginsIxc, loginsResp, e_4, _loop_2, _i, produtosIxc_2, prod, clientesLocais, clientesDetalhados, error_5;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
                 parceiroId = req.params.parceiroId;
+                console.log("[Sync] Buscando e sincronizando clientes para Parceiro ID Local: ".concat(parceiroId));
                 _a.label = 1;
             case 1:
-                _a.trys.push([1, 4, , 5]);
-                return [4 /*yield*/, executeDb("SELECT * FROM rn_clientes WHERE parceiro_id = ? ORDER BY id DESC", [parceiroId])];
+                _a.trys.push([1, 14, , 15]);
+                return [4 /*yield*/, executeDb("SELECT * FROM rn_parceiros WHERE id = ?", [parceiroId])];
             case 2:
-                clientesLocais = _a.sent();
-                if (clientesLocais.length === 0)
+                parceiros = _a.sent();
+                if (parceiros.length === 0)
                     return [2 /*return*/, res.json([])];
+                parceiro = parceiros[0];
+                ixcContratoId = parceiro.ixc_contrato_id;
+                if (!ixcContratoId) return [3 /*break*/, 11];
+                return [4 /*yield*/, makeIxcRequest('POST', '/vd_contratos_produtos', {
+                        "qtype": "vd_contratos_produtos.id_contrato", "query": ixcContratoId, "oper": "=", "page": "1", "rp": "2000", "sortname": "vd_contratos_produtos.id", "sortorder": "desc"
+                    })];
+            case 3:
+                produtosResp = _a.sent();
+                produtosIxc = produtosResp.registros || [];
+                loginsIxc = [];
+                _a.label = 4;
+            case 4:
+                _a.trys.push([4, 6, , 7]);
+                return [4 /*yield*/, makeIxcRequest('POST', '/radusuarios', {
+                        "qtype": "radusuarios.id_contrato", "query": ixcContratoId, "oper": "=", "page": "1", "rp": "2000"
+                    })];
+            case 5:
+                loginsResp = _a.sent();
+                loginsIxc = loginsResp.registros || [];
+                return [3 /*break*/, 7];
+            case 6:
+                e_4 = _a.sent();
+                console.warn("Erro sync login:", e_4.message);
+                return [3 /*break*/, 7];
+            case 7:
+                _loop_2 = function (prod) {
+                    var descricao, tokenMatch, token, loginMatch, ixcLoginId, loginPppoe, onuMac, obs, dataCriacao, dataMatch, dataStr, d, existe;
+                    return __generator(this, function (_b) {
+                        switch (_b.label) {
+                            case 0:
+                                descricao = prod.descricao || "";
+                                tokenMatch = descricao.match(/^([A-Z0-9]{5})(-|$)/);
+                                token = tokenMatch ? tokenMatch[1] : null;
+                                loginMatch = loginsIxc.find(function (l) { return l.login === descricao || descricao.startsWith(l.login); });
+                                ixcLoginId = loginMatch ? loginMatch.id : null;
+                                loginPppoe = loginMatch ? loginMatch.login : descricao;
+                                onuMac = loginMatch ? loginMatch.onu_mac : null;
+                                obs = prod.obs || "";
+                                dataCriacao = new Date();
+                                dataMatch = obs.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+                                if (dataMatch) {
+                                    dataStr = "".concat(dataMatch[3], "-").concat(dataMatch[2], "-").concat(dataMatch[1]);
+                                    d = new Date(dataStr);
+                                    if (!isNaN(d.getTime()))
+                                        dataCriacao = d;
+                                }
+                                return [4 /*yield*/, executeDb('SELECT id, token FROM rn_clientes WHERE ixc_produto_id = ?', [prod.id])];
+                            case 1:
+                                existe = _b.sent();
+                                if (!(existe.length > 0)) return [3 /*break*/, 3];
+                                return [4 /*yield*/, executeDb("UPDATE rn_clientes SET \n                            ixc_login_id = ?, login_pppoe = ?, valor = ?, descricao_produto = ?, \n                            onu_mac = ?, obs = ?\n                        WHERE id = ?", [ixcLoginId, loginPppoe, prod.valor_unit, descricao, onuMac, obs, existe[0].id])];
+                            case 2:
+                                _b.sent();
+                                return [3 /*break*/, 7];
+                            case 3:
+                                if (!!token) return [3 /*break*/, 5];
+                                return [4 /*yield*/, gerarTokenUnico()];
+                            case 4:
+                                token = _b.sent();
+                                _b.label = 5;
+                            case 5: return [4 /*yield*/, executeDb("INSERT INTO rn_clientes \n                        (parceiro_id, ixc_produto_id, ixc_login_id, token, descricao_produto, login_pppoe, valor, plano_nome, ativo, obs, onu_mac, created_at)\n                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)", [
+                                    parceiroId, prod.id, ixcLoginId, token, descricao, loginPppoe,
+                                    prod.valor_unit, 'Sincronizado IXC', obs, onuMac, dataCriacao
+                                ])];
+                            case 6:
+                                _b.sent();
+                                _b.label = 7;
+                            case 7: return [2 /*return*/];
+                        }
+                    });
+                };
+                _i = 0, produtosIxc_2 = produtosIxc;
+                _a.label = 8;
+            case 8:
+                if (!(_i < produtosIxc_2.length)) return [3 /*break*/, 11];
+                prod = produtosIxc_2[_i];
+                return [5 /*yield**/, _loop_2(prod)];
+            case 9:
+                _a.sent();
+                _a.label = 10;
+            case 10:
+                _i++;
+                return [3 /*break*/, 8];
+            case 11: return [4 /*yield*/, executeDb("SELECT * FROM rn_clientes WHERE parceiro_id = ? ORDER BY created_at DESC", [parceiroId])];
+            case 12:
+                clientesLocais = _a.sent();
                 return [4 /*yield*/, Promise.all(clientesLocais.map(function (cli) { return __awaiter(void 0, void 0, void 0, function () {
-                        var isOnline, isAutorizado, ixcLogin, reg, e_4;
+                        var isOnline, isAutorizado, fibraResp, rx, e_5;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0:
                                     isOnline = false;
-                                    isAutorizado = false;
+                                    isAutorizado = (cli.onu_mac && cli.onu_mac.length > 10);
                                     if (!cli.ixc_login_id) return [3 /*break*/, 4];
                                     _a.label = 1;
                                 case 1:
                                     _a.trys.push([1, 3, , 4]);
-                                    return [4 /*yield*/, makeIxcRequest('POST', '/radusuarios', {
-                                            qtype: 'radusuarios.id', query: cli.ixc_login_id, oper: '=', rp: '1'
+                                    return [4 /*yield*/, makeIxcRequest('POST', '/radpop_radio_cliente_fibra', {
+                                            qtype: 'id_login', query: cli.ixc_login_id, oper: '=', rp: '1'
                                         })];
                                 case 2:
-                                    ixcLogin = _a.sent();
-                                    if (ixcLogin.registros && ixcLogin.registros.length > 0) {
-                                        reg = ixcLogin.registros[0];
-                                        isAutorizado = (reg.onu_mac && reg.onu_mac.length > 10);
-                                        isOnline = (reg.online === 'S' || reg.online === 'SS');
+                                    fibraResp = _a.sent();
+                                    if (fibraResp.registros && fibraResp.registros.length > 0) {
+                                        rx = parseFloat(fibraResp.registros[0].sinal_rx);
+                                        if (!isNaN(rx) && rx < -1)
+                                            isOnline = true;
                                     }
                                     return [3 /*break*/, 4];
                                 case 3:
-                                    e_4 = _a.sent();
+                                    e_5 = _a.sent();
                                     return [3 /*break*/, 4];
                                 case 4: return [2 /*return*/, __assign(__assign({}, cli), { is_autorizado: isAutorizado, is_online: isOnline })];
                             }
                         });
                     }); }))];
-            case 3:
+            case 13:
                 clientesDetalhados = _a.sent();
                 res.json(clientesDetalhados);
-                return [3 /*break*/, 5];
-            case 4:
+                return [3 /*break*/, 15];
+            case 14:
                 error_5 = _a.sent();
-                console.error("Erro listar clientes:", error_5);
+                console.error("Erro sync/listar clientes:", error_5);
                 res.status(500).json({ error: error_5.message });
-                return [3 /*break*/, 5];
-            case 5: return [2 /*return*/];
+                return [3 /*break*/, 15];
+            case 15: return [2 /*return*/];
         }
     });
 }); });
 router.post('/cliente', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var _a, parceiro_id, cod_cliente_parceiro, caixa_atendimento, porta, cep, endereco, numero, bairro, cidade, uf, id_condominio, bloco, apartamento, complemento, referencia, plano_id, plano_nome, plano_nome_original, plano_valor, ixcProdResp, ixcLoginResp, novoIdLocal, parceiros, parceiro, valorFinal, token, sufixoCliente, identificadorUnico, infoTecnica, obsLocal, dataHoje, obsIXC, idPlanoVelocidade, planResp, e_5, complementoFinal, insertResult, produtoPayload, loginPayload, error_6;
+    var _a, parceiro_id, cod_cliente_parceiro, caixa_atendimento, porta, cep, endereco, numero, bairro, cidade, uf, id_condominio, bloco, apartamento, complemento, referencia, plano_id, plano_nome, plano_nome_original, plano_valor, ixcProdResp, ixcLoginResp, novoIdLocal, parceiros, parceiro, valorFinal, token, sufixoCliente, identificadorUnico, infoTecnica, obsLocal, dataHoje, obsIXC, idPlanoVelocidade, planResp, e_6, complementoFinal, insertResult, produtoPayload, loginPayload, error_6;
     return __generator(this, function (_b) {
         switch (_b.label) {
             case 0:
@@ -508,8 +595,8 @@ router.post('/cliente', function (req, res) { return __awaiter(void 0, void 0, v
                 }
                 return [3 /*break*/, 7];
             case 6:
-                e_5 = _b.sent();
-                console.error("Erro plano:", e_5.message);
+                e_6 = _b.sent();
+                console.error("Erro plano:", e_6.message);
                 return [3 /*break*/, 7];
             case 7:
                 complementoFinal = [complemento, bloco ? "Bloco ".concat(bloco) : '', apartamento ? "Apto ".concat(apartamento) : ''].filter(Boolean).join(' - ');
@@ -686,7 +773,7 @@ router.put('/cliente/:id', function (req, res) { return __awaiter(void 0, void 0
     });
 }); });
 router.get('/onu-detalhes/:id_login', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var id_login, loginResp, loginData, fibraResp, dadosTecnicos, fibra, rxNum, matchVlan, popResp, e_6, error_8;
+    var id_login, loginResp, loginData, fibraResp, dadosTecnicos, fibra, rxNum, matchVlan, popResp, e_7, error_8;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
@@ -760,7 +847,7 @@ router.get('/onu-detalhes/:id_login', function (req, res) { return __awaiter(voi
                     dadosTecnicos.id_transmissor = popResp.registros[0].pop;
                 return [3 /*break*/, 7];
             case 6:
-                e_6 = _a.sent();
+                e_7 = _a.sent();
                 return [3 /*break*/, 7];
             case 7:
                 res.json(dadosTecnicos);
@@ -1047,7 +1134,7 @@ router.post('/autorizar-onu', function (req, res) { return __awaiter(void 0, voi
     });
 }); });
 router.post('/desautorizar-onu', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var ixc_login_id, fibraResp, idClienteFibra, e_7, error_14;
+    var ixc_login_id, fibraResp, idClienteFibra, e_8, error_14;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
@@ -1081,8 +1168,8 @@ router.post('/desautorizar-onu', function (req, res) { return __awaiter(void 0, 
                 _a.sent();
                 return [3 /*break*/, 6];
             case 5:
-                e_7 = _a.sent();
-                console.warn("Aviso: O comando de exclusão na OLT falhou ou não retornou sucesso padrão.", e_7.message);
+                e_8 = _a.sent();
+                console.warn("Aviso: O comando de exclusão na OLT falhou ou não retornou sucesso padrão.", e_8.message);
                 return [3 /*break*/, 6];
             case 6:
                 console.log("3. Deletando registro de fibra...");

@@ -412,17 +412,17 @@ async function carregarCarteiraClientes(parceiroId) {
             let onlineBadge = '';
 
             if (item.is_autorizado) {
-                authBadge = `<span class="badge bg-success me-1" title="ONU Vinculada"><i class="bi bi-check-circle"></i> Autorizada</span>`;
+                authBadge = `<span class="badge bg-primary me-1" title="ONU Vinculada"><i class="bi bi-check-circle"></i> Autorizada</span>`;
             } else {
-                authBadge = `<span class="badge bg-warning text-dark me-1"><i class="bi bi-exclamation-circle"></i> Pendente</span>`;
+                authBadge = `<span class="badge bg-warning text-dark me-1"><i class="bi bi-exclamation-triangle"></i> Pendente</span>`;
             }
 
             if (!item.ixc_login_id) {
                 onlineBadge = `<span class="badge bg-secondary">Sem Login</span>`;
             } else if (item.is_online) {
-                onlineBadge = `<span class="badge bg-success">Online</span>`;
+                onlineBadge = `<span class="badge bg-success"><i class="bi bi-wifi"></i> Online</span>`;
             } else {
-                onlineBadge = `<span class="badge bg-danger">Offline</span>`;
+                onlineBadge = `<span class="badge bg-danger"><i class="bi bi-wifi-off"></i> Offline</span>`;
             }
 
             tr.innerHTML = `
@@ -472,17 +472,19 @@ async function abrirModalEditar(cliente) {
     } else if (token && descricaoCompleta.startsWith(token)) {
         descSemToken = descricaoCompleta.substring(token.length);
     }
-
+    
     if (!descSemToken && descricaoCompleta.length > token.length) {
         descSemToken = descricaoCompleta;
     }
 
     document.getElementById('edit-prefixo-token').textContent = token + '-';
     document.getElementById('edit-descricao').value = descSemToken;
-
-    document.getElementById('edit-login').value = cliente.login_pppoe;
+    
     document.getElementById('edit-status').value = cliente.ativo;
     document.getElementById('edit-obs').value = cliente.obs || '';
+
+    document.getElementById('edit-condominio').value = "";
+    document.getElementById('edit-condominio').placeholder = "Buscar condomínio...";
 
     if (cliente.ixc_login_id) {
         const displayOnu = document.getElementById('display-status-onu');
@@ -504,19 +506,38 @@ async function abrirModalEditar(cliente) {
             document.getElementById('edit-complemento-text').value = dados.complemento || '';
             
             if (dados.id_condominio && dados.id_condominio !== "0") {
-                document.getElementById('edit-condominio').value = ''; 
-                document.getElementById('edit-condominio').placeholder = `Condomínio ID ${dados.id_condominio} vinculado.`;
                 document.getElementById('edit-hidden-condominio-id').value = dados.id_condominio;
                 document.getElementById('edit-sem-condominio').checked = false;
+                document.getElementById('edit-condominio').value = "Carregando condomínio...";
                 
-                fetch(`api/v1/block/${dados.id_condominio}`)
-                    .then(r => r.json())
-                    .then(blocks => { 
-                        currentBlocks = blocks;
+                try {
+                    const resCondo = await fetch(`api/v1/condominio/${dados.id_condominio}`);
+                    if (resCondo.ok) {
+                        const condo = await resCondo.json();
+                        const nomeCondominio = condo.condominio || condo.nome || condo.descricao || condo.razao;
+                        
+                        if (nomeCondominio) {
+                            document.getElementById('edit-condominio').value = nomeCondominio;
+                        } else {
+                            document.getElementById('edit-condominio').value = `Condomínio ID ${dados.id_condominio}`;
+                        }
+                    } else {
+                        document.getElementById('edit-condominio').value = `Condomínio ID ${dados.id_condominio}`;
+                    }
+                    
+                    const resBlocks = await fetch(`api/v1/block/${dados.id_condominio}`);
+                    if (resBlocks.ok) {
+                        currentBlocks = await resBlocks.json();
                         $('#btn-edit-complemento').prop('disabled', false);
-                    });
+                    }
+                } catch(e) {
+                    console.error("Erro ao buscar nome do condomínio:", e);
+                    document.getElementById('edit-condominio').value = `Condomínio ID ${dados.id_condominio} (Erro)`;
+                }
+
             } else {
                 document.getElementById('edit-sem-condominio').checked = true;
+                document.getElementById('edit-condominio').value = "";
                 $('#btn-edit-complemento').prop('disabled', true);
             }
 
@@ -662,16 +683,17 @@ async function salvarEdicaoCliente() {
     const token = document.getElementById('edit-token').value; 
     const descSemToken = document.getElementById('edit-descricao').value.trim();
     
-    let descricaoCompleta = descSemToken;
+    let identificadorCompleto = descSemToken;
     if (token) {
-        descricaoCompleta = `${token}-${descSemToken}`;
+        identificadorCompleto = `${token}-${descSemToken}`;
     }
     
     let complementoFinal = document.getElementById('edit-complemento-text').value;
 
     const payload = {
-        descricao_produto: descricaoCompleta,
-        login_pppoe: document.getElementById('edit-login').value.trim(),
+        descricao_produto: identificadorCompleto,
+        login_pppoe: identificadorCompleto,
+        
         status_ativo: document.getElementById('edit-status').value,
         obs: document.getElementById('edit-obs').value,
         
@@ -689,7 +711,7 @@ async function salvarEdicaoCliente() {
         uf: document.getElementById('edit-uf').value
     };
 
-    console.log("Payload Edição:", payload);
+    console.log("Payload Edição Unificada:", payload);
 
     try {
         const response = await fetch(`/api/v5/rede_neutra/cliente/${id}`, {
@@ -1081,7 +1103,8 @@ async function desautorizarONU() {
     const btn = document.getElementById('btn-desautorizar-onu');
     const originalText = btn.innerHTML;
     btn.disabled = true;
-    btn.innerHTML = 'Processando...';
+    
+    showLoading("Removendo configuração da ONU na OLT... Isso pode levar alguns segundos.");
 
     try {
         const response = await fetch('/api/v5/rede_neutra/desautorizar-onu', {
@@ -1091,21 +1114,28 @@ async function desautorizarONU() {
         });
 
         const res = await response.json();
+        
+        hideLoading();
+
         if (!response.ok) throw new Error(res.error || 'Erro ao desvincular');
 
         alert('ONU removida com sucesso.');
         
         document.getElementById('edit-mac-atual').value = "";
+        
         carregarDetalhesONU(loginAtualId);
+        
         const displayOnu = document.getElementById('display-status-onu');
         if(displayOnu) {
              displayOnu.innerHTML = `<span class="badge bg-warning text-dark p-2 w-100"><i class="bi bi-exclamation-triangle me-1"></i> Pendente</span>`;
         }
 
         modalONU.hide();
-        carregarCarteiraClientes(parceiroIdSelecionado);
+        
+        if(parceiroIdSelecionado) carregarCarteiraClientes(parceiroIdSelecionado);
 
     } catch (error) {
+        hideLoading();
         alert('Erro: ' + error.message);
     } finally {
         btn.disabled = false;
