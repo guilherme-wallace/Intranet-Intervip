@@ -37,6 +37,16 @@
     --footer-bg: #0d1b2a;
 }
 
+.row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+section.d-none {
+    display: none !important;
+}
+
 /* dark-mode main */
 main.dark-mode {
     background-color: var(--body-bg);

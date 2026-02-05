@@ -426,7 +426,7 @@
 				  alert('Será necessário refazer o login!');
 				  window.location = "/";
 				} else if (group !== 'NOC') {
-				  document.getElementById('modalAlerta').style.display = 'flex';
+					window.location.href = "/main";
 				}
 			  })
 			  .catch(error => {

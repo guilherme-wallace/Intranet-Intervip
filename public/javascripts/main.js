@@ -41,28 +41,45 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // User Info
+
+    fetch('/api/permissoes-usuario')
+        .then(response => response.json())
+        .then(data => {
+            const permitidos = data.idsPermitidos;
+            permitidos.forEach(id => {
+                const elemento = document.getElementById(id);
+                if (elemento) {
+                    elemento.classList.remove('d-none');
+                }
+            });
+            document.querySelectorAll('section').forEach(section => {
+            const cardsVisiveis = section.querySelectorAll('.col-md-4:not(.d-none)');
+            
+            if (cardsVisiveis.length === 0) {
+                section.classList.add('d-none');
+            } else {
+                section.classList.remove('d-none');
+            }
+        });
+        })
+        .catch(err => console.error('Erro ao carregar permissões:', err));
+
     fetch('/api/username')
         .then(response => response.json())
         .then(data => {
             const username = data.username || 'Visitante';
             const group = data.group || 'Sem grupo';
-            
-            document.querySelectorAll('.user-info span').forEach(el => {
-                if (el.textContent.includes('{username}')) {
-                    el.textContent = username;
-                }
-                if (el.textContent.includes('{group}')) {
-                    el.textContent = group;
-                }
-            });
-            
+
             if (username === 'Visitante') {
                 alert('Será necessário refazer o login!');
                 window.location = "/";
+                return;
             }
-        })
-        .catch(error => {
-            console.error('Erro ao obter o nome do usuário e grupo:', error);
+
+            document.querySelectorAll('.user-info span').forEach(el => {
+                if (el.parentElement.innerHTML.includes('Acessando como:')) el.textContent = username;
+                if (el.parentElement.innerHTML.includes('Setor:')) el.textContent = group;
+            });
         });
     
         // Observações
