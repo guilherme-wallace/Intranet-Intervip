@@ -10,6 +10,8 @@ import express = require('express');
 import bodyParser = require('body-parser');
 import ActiveDirectory = require('activedirectory2');
 import * as session from 'express-session';
+import * as bcrypt from 'bcrypt';
+import { UsuariosDB } from './src/controllers/usuariosConfig';
 
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -178,54 +180,195 @@ const config = {
 };
 const ad = new ActiveDirectory(config);
 
+// ======================= PERMISSÕES ======================
+const PERMISSOES_SISTEMA = {
+    'card-Avisos': ['NOC', 'Diretoria'],
+    
+    'card-viabilidade-intervip': ['NOC', 'Diretoria'],
+    'card-clientes-online': ['NOC', 'Diretoria'],
+    'card-lead-Venda': ['NOC', 'Diretoria'],
+    'card-cadastro-de-vendas': ['NOC', 'Diretoria'],
+    'card-equipamentos': ['NOC', 'Diretoria'],
+    'card-teste-de-lentidao': ['NOC', 'Diretoria'],
+    'card-problemas-com-VPN': ['NOC', 'Diretoria'],
+    'card-problemas-sites-e-APP': ['NOC', 'Diretoria'],
 
-APP.post('/login', (req, res) => {
+    'card-pedidos-linha-telefonica': ['NOC', 'Diretoria'],
+    'card-pedidos-linha-telefonica-URA': ['NOC', 'Diretoria'],
+    'card-problemas-linha-telefonica': ['NOC', 'Diretoria'],
+
+    'card-e-mails': ['NOC', 'Diretoria'],
+    'card-migra-onu': ['NOC', 'Diretoria'],
+    'card-cadastro-de-blocos': ['NOC', 'Diretoria'],
+    'card-soc-report': ['NOC', 'Diretoria'],
+
+    'card-cadastro-bandaLarga': ['NOC', 'Diretoria'],
+    'card-cadastro-corporativo': ['NOC', 'Diretoria'],
+    'card-cadastro-rede-neutra': ['NOC', 'Diretoria'],
+};
+
+APP.get('/api/permissoes-usuario', (req, res) => {
+    const userGroup = req.session.group || 'Sem grupo';
+    
+    const acessosPermitidos = Object.keys(PERMISSOES_SISTEMA).filter(id => {
+        return PERMISSOES_SISTEMA[id].includes(userGroup) || userGroup === 'Diretoria';
+    });
+
+    res.json({ idsPermitidos: acessosPermitidos });
+});
+
+function verificarAcessoPagina(pagina: string) {
+    return (req: any, res: any, next: any) => {
+        const userGroup = req.session.group || 'Sem grupo';
+        const permissao = PERMISSOES_SISTEMA[`card-${pagina}`]; 
+
+        if (userGroup === 'Diretoria' || (permissao && permissao.includes(userGroup))) {
+            return next();
+        }
+        res.redirect('/main');
+    };
+}
+
+APP.get('/viabilidade-intervip', verificarAcessoPagina('viabilidade-intervip'), (req, res) => {
+    res.sendFile(Path.join(__dirname, 'views', 'viabilidade-intervip.html'));
+});
+
+APP.get('/clientes-online', verificarAcessoPagina('clientes-online'), (req, res) => {
+    res.sendFile(Path.join(__dirname, 'views', 'clientes-online.html'));
+});
+
+APP.get('/lead-Venda', verificarAcessoPagina('lead-Venda'), (req, res) => {
+    res.sendFile(Path.join(__dirname, 'views', 'lead-Venda.html'));
+});
+
+APP.get('/cadastro-de-vendas', verificarAcessoPagina('cadastro-de-vendas'), (req, res) => {
+    res.sendFile(Path.join(__dirname, 'views', 'cadastro-de-vendas.html'));
+});
+
+APP.get('/equipamentos', verificarAcessoPagina('equipamentos'), (req, res) => {
+    res.sendFile(Path.join(__dirname, 'views', 'equipamentos.html'));
+});
+
+APP.get('/teste-de-lentidao', verificarAcessoPagina('teste-de-lentidao'), (req, res) => {
+    res.sendFile(Path.join(__dirname, 'views', 'teste-de-lentidao.html'));
+});
+
+APP.get('/problemas-com-VPN', verificarAcessoPagina('problemas-com-VPN'), (req, res) => {
+    res.sendFile(Path.join(__dirname, 'views', 'problemas-com-VPN.html'));
+});
+
+APP.get('/problemas-sites-e-APP', verificarAcessoPagina('problemas-sites-e-APP'), (req, res) => {
+    res.sendFile(Path.join(__dirname, 'views', 'problemas-sites-e-APP.html'));
+});
+
+APP.get('/pedidos-linha-telefonica', verificarAcessoPagina('pedidos-linha-telefonica'), (req, res) => {
+    res.sendFile(Path.join(__dirname, 'views', 'pedidos-linha-telefonica.html'));
+});
+
+APP.get('/pedidos-linha-telefonica-URA', verificarAcessoPagina('pedidos-linha-telefonica-URA'), (req, res) => {
+    res.sendFile(Path.join(__dirname, 'views', 'pedidos-linha-telefonica-URA.html'));
+});
+
+APP.get('/problemas-linha-telefonica', verificarAcessoPagina('problemas-linha-telefonica'), (req, res) => {
+    res.sendFile(Path.join(__dirname, 'views', 'problemas-linha-telefonica.html'));
+});
+
+APP.get('/e-mails', verificarAcessoPagina('e-mails'), (req, res) => {
+    res.sendFile(Path.join(__dirname, 'views', 'e-mails.html'));
+});
+
+APP.get('/migra-onu', verificarAcessoPagina('migra-onu'), (req, res) => {
+    res.sendFile(Path.join(__dirname, 'views', 'migra-onu.html'));
+});
+
+APP.get('/cadastro-de-blocos', verificarAcessoPagina('cadastro-de-blocos'), (req, res) => {
+    res.sendFile(Path.join(__dirname, 'views', 'cadastro-de-blocos.html'));
+});
+
+APP.get('/soc-report', verificarAcessoPagina('soc-report'), (req, res) => {
+    res.sendFile(Path.join(__dirname, 'views', 'soc-report.html'));
+});
+
+APP.get('/cadastro-bandaLarga', verificarAcessoPagina('cadastro-bandaLarga'), (req, res) => {
+    res.sendFile(Path.join(__dirname, 'views', 'cadastro-bandaLarga.html'));
+});
+
+APP.get('/cadastro-corporativo', verificarAcessoPagina('cadastro-corporativo'), (req, res) => {
+    res.sendFile(Path.join(__dirname, 'views', 'cadastro-corporativo.html'));
+});
+
+APP.get('/cadastro-redeNeutra', verificarAcessoPagina('cadastro-rede-neutra'), (req, res) => {
+    res.sendFile(Path.join(__dirname, 'views', 'cadastro-redeNeutra.html'));
+});
+
+// ======================= USERLOGIN ======================
+
+APP.post('/login', async (req, res) => {
     const { username, password } = req.body;
     const userPrincipalName = `${username}@ivp.net.br`;
 
-    ad.authenticate(userPrincipalName, password, (err, auth) => {
-        if (err) {
-            return res.json({ success: false, message: 'Erro de autenticação' });
-        }
+    ad.authenticate(userPrincipalName, password, async (err, auth) => {
         if (auth) {
-            ad.findUser(userPrincipalName, (err, user) => {
-                if (err || !user) {
-                    return res.json({ success: false, message: 'Erro ao obter detalhes do usuário' });
-                }
-                let textUserGroup = user.distinguishedName;
-                let userGroupRegex = new RegExp('OU=([^,]+)');
-                let userGroupMatch = userGroupRegex.exec(textUserGroup);
-                let group = 'Sem grupo';
-                if (userGroupMatch && userGroupMatch[1]) {
-                    group = userGroupMatch[1] === 'Helpdesk' ? 'CRI' : userGroupMatch[1];
-                }
+            ad.findUser(userPrincipalName, async (err, user) => {
+                if (err || !user) return res.json({ success: false, message: 'Erro ao obter detalhes do AD' });
 
-                req.session.username = username;
-                req.session.group = group;
+                let group = 'Comum'; 
+                const textUserGroup = user.distinguishedName;
+                const userGroupRegex = new RegExp('OU=([^,]+)');
+                const userGroupMatch = userGroupRegex.exec(textUserGroup);
+                
+                group = userGroupMatch && userGroupMatch[1] === 'Helpdesk' 
+                    ? 'CRI' 
+                    : (userGroupMatch ? userGroupMatch[1] : 'Sem grupo');
 
-                let redirectUrl = '/main';
-                if (group === 'RedeNeutra') {
-                    redirectUrl = '/viabilidade-intervip';
+                try {
+                    await UsuariosDB.sincronizarUsuarioAD(user.displayName || username, username, password, group);
+                } catch (dbErr) {
+                    console.error("Erro na sincronização:", dbErr);
                 }
 
-                const payload = { username: username, group: group };
-                const token = jwt.sign(
-                    payload,
-                    process.env.JWT_SECRET,
-                    { expiresIn: '8h' }
-                );
-
-                res.json({ 
-                    success: true, 
-                    redirectUrl: redirectUrl,
-                    token: token
-                });
-            });           
+                return gerarSessaoEToken(req, res, username, group);
+            });
         } else {
-            res.json({ success: false, message: 'Credenciais inválidas' });
+            try {
+                const usuarioLocal = await UsuariosDB.buscarPorUsuario(username);
+                
+                if (usuarioLocal) {
+                    const senhaValida = await bcrypt.compare(password, usuarioLocal.senha);
+                    
+                    if (senhaValida) {
+                        return gerarSessaoEToken(req, res, usuarioLocal.usuario, usuarioLocal.grupo);
+                    }
+                }
+                
+                return res.json({ success: false, message: 'Usuário ou senha inválidos' });
+            } catch (dbErr) {
+                return res.json({ success: false, message: 'Erro no banco local' });
+            }
         }
     });
 });
+
+function gerarSessaoEToken(req: any, res: any, username: string, group: string) {
+    req.session.username = username;
+    req.session.group = group;
+
+    const gruposParceiros = [
+        'villaggionet', 'ultracom', 'seliga', 'nv7', 
+        'netplanety', 'infinity', 'inova.telecom', 'conectmais', 'conectja'
+    ];
+
+    let redirectUrl = gruposParceiros.includes(group) ? '/viabilidade-intervip' : '/main';
+
+    const payload = { username, group };
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '8h' });
+
+    return res.json({ 
+        success: true, 
+        redirectUrl: redirectUrl,
+        token: token
+    });
+}
 
 APP.get('/logout', (req, res) => {
     req.session.destroy((err) => {
@@ -285,7 +428,7 @@ APP.use('/clientes-online', protectRoutes, ROUTES);
 APP.use('/teste-de-lentidao', protectRoutes, ROUTES);
 APP.use('/problemas-com-VPN', protectRoutes, ROUTES);
 APP.use('/cadastro-de-blocos', protectRoutes, ROUTES);
-APP.use('/consulta-de-planos', protectRoutes, ROUTES);
+//APP.use('/consulta-de-planos', protectRoutes, ROUTES);
 APP.use('/viabilidade-intervip', protectRoutes, ROUTES);
 APP.use('/cadastro-de-vendas', protectRoutes, ROUTES);
 APP.use('/cadastro-bandaLarga', protectRoutes, ROUTES);

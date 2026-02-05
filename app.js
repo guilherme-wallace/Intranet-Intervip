@@ -1,4 +1,40 @@
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __generator = (this && this.__generator) || function (thisArg, body) {
+    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g;
+    return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
+    function verb(n) { return function (v) { return step([n, v]); }; }
+    function step(op) {
+        if (f) throw new TypeError("Generator is already executing.");
+        while (g && (g = 0, op[0] && (_ = 0)), _) try {
+            if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
+            if (y = 0, t) op = [op[0] & 2, t.value];
+            switch (op[0]) {
+                case 0: case 1: t = op; break;
+                case 4: _.label++; return { value: op[1], done: false };
+                case 5: _.label++; y = op[1]; op = [0]; continue;
+                case 7: op = _.ops.pop(); _.trys.pop(); continue;
+                default:
+                    if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
+                    if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
+                    if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
+                    if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
+                    if (t[2]) _.ops.pop();
+                    _.trys.pop(); continue;
+            }
+            op = body.call(thisArg, _);
+        } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
+        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
+    }
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 var dotenv = require("dotenv");
 dotenv.config();
@@ -9,6 +45,8 @@ var fs = require("fs");
 var bodyParser = require("body-parser");
 var ActiveDirectory = require("activedirectory2");
 var session = require("express-session");
+var bcrypt = require("bcrypt");
+var usuariosConfig_1 = require("./src/controllers/usuariosConfig");
 var helmet_1 = require("helmet");
 var express_rate_limit_1 = require("express-rate-limit");
 var index_1 = require("./routes/index");
@@ -134,45 +172,181 @@ var config = {
     password: loginConfig_1.config_login.password
 };
 var ad = new ActiveDirectory(config);
-APP.post('/login', function (req, res) {
-    var _a = req.body, username = _a.username, password = _a.password;
-    var userPrincipalName = "".concat(username, "@ivp.net.br");
-    ad.authenticate(userPrincipalName, password, function (err, auth) {
-        if (err) {
-            return res.json({ success: false, message: 'Erro de autenticação' });
-        }
-        if (auth) {
-            ad.findUser(userPrincipalName, function (err, user) {
-                if (err || !user) {
-                    return res.json({ success: false, message: 'Erro ao obter detalhes do usuário' });
-                }
-                var textUserGroup = user.distinguishedName;
-                var userGroupRegex = new RegExp('OU=([^,]+)');
-                var userGroupMatch = userGroupRegex.exec(textUserGroup);
-                var group = 'Sem grupo';
-                if (userGroupMatch && userGroupMatch[1]) {
-                    group = userGroupMatch[1] === 'Helpdesk' ? 'CRI' : userGroupMatch[1];
-                }
-                req.session.username = username;
-                req.session.group = group;
-                var redirectUrl = '/main';
-                if (group === 'RedeNeutra') {
-                    redirectUrl = '/viabilidade-intervip';
-                }
-                var payload = { username: username, group: group };
-                var token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '8h' });
-                res.json({
-                    success: true,
-                    redirectUrl: redirectUrl,
-                    token: token
-                });
-            });
-        }
-        else {
-            res.json({ success: false, message: 'Credenciais inválidas' });
-        }
+// ======================= PERMISSÕES ======================
+var PERMISSOES_SISTEMA = {
+    'card-Avisos': ['NOC', 'Diretoria'],
+    'card-viabilidade-intervip': ['NOC', 'Diretoria'],
+    'card-clientes-online': ['NOC', 'Diretoria'],
+    'card-lead-Venda': ['NOC', 'Diretoria'],
+    'card-cadastro-de-vendas': ['NOC', 'Diretoria'],
+    'card-equipamentos': ['NOC', 'Diretoria'],
+    'card-teste-de-lentidao': ['NOC', 'Diretoria'],
+    'card-problemas-com-VPN': ['NOC', 'Diretoria'],
+    'card-problemas-sites-e-APP': ['NOC', 'Diretoria'],
+    'card-pedidos-linha-telefonica': ['NOC', 'Diretoria'],
+    'card-pedidos-linha-telefonica-URA': ['NOC', 'Diretoria'],
+    'card-problemas-linha-telefonica': ['NOC', 'Diretoria'],
+    'card-e-mails': ['NOC', 'Diretoria'],
+    'card-migra-onu': ['NOC', 'Diretoria'],
+    'card-cadastro-de-blocos': ['NOC', 'Diretoria'],
+    'card-soc-report': ['NOC', 'Diretoria'],
+    'card-cadastro-bandaLarga': ['NOC', 'Diretoria'],
+    'card-cadastro-corporativo': ['NOC', 'Diretoria'],
+    'card-cadastro-rede-neutra': ['NOC', 'Diretoria'],
+};
+APP.get('/api/permissoes-usuario', function (req, res) {
+    var userGroup = req.session.group || 'Sem grupo';
+    var acessosPermitidos = Object.keys(PERMISSOES_SISTEMA).filter(function (id) {
+        return PERMISSOES_SISTEMA[id].includes(userGroup) || userGroup === 'Diretoria';
     });
+    res.json({ idsPermitidos: acessosPermitidos });
 });
+function verificarAcessoPagina(pagina) {
+    return function (req, res, next) {
+        var userGroup = req.session.group || 'Sem grupo';
+        var permissao = PERMISSOES_SISTEMA["card-".concat(pagina)];
+        if (userGroup === 'Diretoria' || (permissao && permissao.includes(userGroup))) {
+            return next();
+        }
+        res.redirect('/main');
+    };
+}
+APP.get('/viabilidade-intervip', verificarAcessoPagina('viabilidade-intervip'), function (req, res) {
+    res.sendFile(Path.join(__dirname, 'views', 'viabilidade-intervip.html'));
+});
+APP.get('/clientes-online', verificarAcessoPagina('clientes-online'), function (req, res) {
+    res.sendFile(Path.join(__dirname, 'views', 'clientes-online.html'));
+});
+APP.get('/lead-Venda', verificarAcessoPagina('lead-Venda'), function (req, res) {
+    res.sendFile(Path.join(__dirname, 'views', 'lead-Venda.html'));
+});
+APP.get('/cadastro-de-vendas', verificarAcessoPagina('cadastro-de-vendas'), function (req, res) {
+    res.sendFile(Path.join(__dirname, 'views', 'cadastro-de-vendas.html'));
+});
+APP.get('/equipamentos', verificarAcessoPagina('equipamentos'), function (req, res) {
+    res.sendFile(Path.join(__dirname, 'views', 'equipamentos.html'));
+});
+APP.get('/teste-de-lentidao', verificarAcessoPagina('teste-de-lentidao'), function (req, res) {
+    res.sendFile(Path.join(__dirname, 'views', 'teste-de-lentidao.html'));
+});
+APP.get('/problemas-com-VPN', verificarAcessoPagina('problemas-com-VPN'), function (req, res) {
+    res.sendFile(Path.join(__dirname, 'views', 'problemas-com-VPN.html'));
+});
+APP.get('/problemas-sites-e-APP', verificarAcessoPagina('problemas-sites-e-APP'), function (req, res) {
+    res.sendFile(Path.join(__dirname, 'views', 'problemas-sites-e-APP.html'));
+});
+APP.get('/pedidos-linha-telefonica', verificarAcessoPagina('pedidos-linha-telefonica'), function (req, res) {
+    res.sendFile(Path.join(__dirname, 'views', 'pedidos-linha-telefonica.html'));
+});
+APP.get('/pedidos-linha-telefonica-URA', verificarAcessoPagina('pedidos-linha-telefonica-URA'), function (req, res) {
+    res.sendFile(Path.join(__dirname, 'views', 'pedidos-linha-telefonica-URA.html'));
+});
+APP.get('/problemas-linha-telefonica', verificarAcessoPagina('problemas-linha-telefonica'), function (req, res) {
+    res.sendFile(Path.join(__dirname, 'views', 'problemas-linha-telefonica.html'));
+});
+APP.get('/e-mails', verificarAcessoPagina('e-mails'), function (req, res) {
+    res.sendFile(Path.join(__dirname, 'views', 'e-mails.html'));
+});
+APP.get('/migra-onu', verificarAcessoPagina('migra-onu'), function (req, res) {
+    res.sendFile(Path.join(__dirname, 'views', 'migra-onu.html'));
+});
+APP.get('/cadastro-de-blocos', verificarAcessoPagina('cadastro-de-blocos'), function (req, res) {
+    res.sendFile(Path.join(__dirname, 'views', 'cadastro-de-blocos.html'));
+});
+APP.get('/soc-report', verificarAcessoPagina('soc-report'), function (req, res) {
+    res.sendFile(Path.join(__dirname, 'views', 'soc-report.html'));
+});
+APP.get('/cadastro-bandaLarga', verificarAcessoPagina('cadastro-bandaLarga'), function (req, res) {
+    res.sendFile(Path.join(__dirname, 'views', 'cadastro-bandaLarga.html'));
+});
+APP.get('/cadastro-corporativo', verificarAcessoPagina('cadastro-corporativo'), function (req, res) {
+    res.sendFile(Path.join(__dirname, 'views', 'cadastro-corporativo.html'));
+});
+APP.get('/cadastro-redeNeutra', verificarAcessoPagina('cadastro-rede-neutra'), function (req, res) {
+    res.sendFile(Path.join(__dirname, 'views', 'cadastro-redeNeutra.html'));
+});
+// ======================= USERLOGIN ======================
+APP.post('/login', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var _a, username, password, userPrincipalName;
+    return __generator(this, function (_b) {
+        _a = req.body, username = _a.username, password = _a.password;
+        userPrincipalName = "".concat(username, "@ivp.net.br");
+        ad.authenticate(userPrincipalName, password, function (err, auth) { return __awaiter(void 0, void 0, void 0, function () {
+            var usuarioLocal, senhaValida, dbErr_1;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        if (!auth) return [3 /*break*/, 1];
+                        ad.findUser(userPrincipalName, function (err, user) { return __awaiter(void 0, void 0, void 0, function () {
+                            var group, textUserGroup, userGroupRegex, userGroupMatch, dbErr_2;
+                            return __generator(this, function (_a) {
+                                switch (_a.label) {
+                                    case 0:
+                                        if (err || !user)
+                                            return [2 /*return*/, res.json({ success: false, message: 'Erro ao obter detalhes do AD' })];
+                                        group = 'Comum';
+                                        textUserGroup = user.distinguishedName;
+                                        userGroupRegex = new RegExp('OU=([^,]+)');
+                                        userGroupMatch = userGroupRegex.exec(textUserGroup);
+                                        group = userGroupMatch && userGroupMatch[1] === 'Helpdesk'
+                                            ? 'CRI'
+                                            : (userGroupMatch ? userGroupMatch[1] : 'Sem grupo');
+                                        _a.label = 1;
+                                    case 1:
+                                        _a.trys.push([1, 3, , 4]);
+                                        return [4 /*yield*/, usuariosConfig_1.UsuariosDB.sincronizarUsuarioAD(user.displayName || username, username, password, group)];
+                                    case 2:
+                                        _a.sent();
+                                        return [3 /*break*/, 4];
+                                    case 3:
+                                        dbErr_2 = _a.sent();
+                                        console.error("Erro na sincronização:", dbErr_2);
+                                        return [3 /*break*/, 4];
+                                    case 4: return [2 /*return*/, gerarSessaoEToken(req, res, username, group)];
+                                }
+                            });
+                        }); });
+                        return [3 /*break*/, 6];
+                    case 1:
+                        _a.trys.push([1, 5, , 6]);
+                        return [4 /*yield*/, usuariosConfig_1.UsuariosDB.buscarPorUsuario(username)];
+                    case 2:
+                        usuarioLocal = _a.sent();
+                        if (!usuarioLocal) return [3 /*break*/, 4];
+                        return [4 /*yield*/, bcrypt.compare(password, usuarioLocal.senha)];
+                    case 3:
+                        senhaValida = _a.sent();
+                        if (senhaValida) {
+                            return [2 /*return*/, gerarSessaoEToken(req, res, usuarioLocal.usuario, usuarioLocal.grupo)];
+                        }
+                        _a.label = 4;
+                    case 4: return [2 /*return*/, res.json({ success: false, message: 'Usuário ou senha inválidos' })];
+                    case 5:
+                        dbErr_1 = _a.sent();
+                        return [2 /*return*/, res.json({ success: false, message: 'Erro no banco local' })];
+                    case 6: return [2 /*return*/];
+                }
+            });
+        }); });
+        return [2 /*return*/];
+    });
+}); });
+function gerarSessaoEToken(req, res, username, group) {
+    req.session.username = username;
+    req.session.group = group;
+    var gruposParceiros = [
+        'villaggionet', 'ultracom', 'seliga', 'nv7',
+        'netplanety', 'infinity', 'inova.telecom', 'conectmais', 'conectja'
+    ];
+    var redirectUrl = gruposParceiros.includes(group) ? '/viabilidade-intervip' : '/main';
+    var payload = { username: username, group: group };
+    var token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '8h' });
+    return res.json({
+        success: true,
+        redirectUrl: redirectUrl,
+        token: token
+    });
+}
 APP.get('/logout', function (req, res) {
     req.session.destroy(function (err) {
         if (err) {
@@ -226,7 +400,7 @@ APP.use('/clientes-online', protectRoutes, index_1.default);
 APP.use('/teste-de-lentidao', protectRoutes, index_1.default);
 APP.use('/problemas-com-VPN', protectRoutes, index_1.default);
 APP.use('/cadastro-de-blocos', protectRoutes, index_1.default);
-APP.use('/consulta-de-planos', protectRoutes, index_1.default);
+//APP.use('/consulta-de-planos', protectRoutes, ROUTES);
 APP.use('/viabilidade-intervip', protectRoutes, index_1.default);
 APP.use('/cadastro-de-vendas', protectRoutes, index_1.default);
 APP.use('/cadastro-bandaLarga', protectRoutes, index_1.default);
