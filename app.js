@@ -157,9 +157,9 @@ var protectRoutes = function (req, res, next) {
     if (!group) {
         return res.redirect('/');
     }
-    if (group === 'RedeNeutra' && requestedUrl !== '/viabilidade-intervip') {
-        return res.redirect('/viabilidade-intervip');
-    }
+    //if (group === 'RedeNeutra' && requestedUrl !== '/viabilidade-intervip') {
+    //return res.redirect('/viabilidade-intervip');
+    //}
     next();
 };
 // =======================================================
@@ -174,25 +174,25 @@ var config = {
 var ad = new ActiveDirectory(config);
 // ======================= PERMISSÕES ======================
 var PERMISSOES_SISTEMA = {
-    'card-Avisos': ['NOC', 'Diretoria'],
-    'card-viabilidade-intervip': ['NOC', 'Diretoria'],
-    'card-clientes-online': ['NOC', 'Diretoria'],
-    'card-lead-Venda': ['NOC', 'Diretoria'],
-    'card-cadastro-de-vendas': ['NOC', 'Diretoria'],
-    'card-equipamentos': ['NOC', 'Diretoria'],
-    'card-teste-de-lentidao': ['NOC', 'Diretoria'],
-    'card-problemas-com-VPN': ['NOC', 'Diretoria'],
-    'card-problemas-sites-e-APP': ['NOC', 'Diretoria'],
-    'card-pedidos-linha-telefonica': ['NOC', 'Diretoria'],
-    'card-pedidos-linha-telefonica-URA': ['NOC', 'Diretoria'],
-    'card-problemas-linha-telefonica': ['NOC', 'Diretoria'],
+    'card-Avisos': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
+    'card-viabilidade-intervip': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico', 'villaggionet', 'ultracom', 'seliga', 'nv7', 'netplanety', 'infinity', 'inova.telecom', 'conectmais', 'conectja', 'RedeNeutra'],
+    'card-clientes-online': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
+    'card-lead-Venda': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
+    'card-cadastro-de-vendas': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
+    'card-equipamentos': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
+    'card-teste-de-lentidao': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
+    'card-problemas-com-VPN': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
+    'card-problemas-sites-e-APP': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
+    'card-pedidos-linha-telefonica': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
+    'card-pedidos-linha-telefonica-URA': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
+    'card-problemas-linha-telefonica': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
     'card-e-mails': ['NOC', 'Diretoria'],
     'card-migra-onu': ['NOC', 'Diretoria'],
     'card-cadastro-de-blocos': ['NOC', 'Diretoria'],
     'card-soc-report': ['NOC', 'Diretoria'],
-    'card-cadastro-bandaLarga': ['NOC', 'Diretoria'],
-    'card-cadastro-corporativo': ['NOC', 'Diretoria'],
-    'card-cadastro-rede-neutra': ['NOC', 'Diretoria'],
+    'card-cadastro-bandaLarga': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
+    'card-cadastro-corporativo': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
+    'card-cadastro-redeNeutra': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico', 'villaggionet', 'ultracom', 'seliga', 'nv7', 'netplanety', 'infinity', 'inova.telecom', 'conectmais', 'conectja', 'RedeNeutra'],
 };
 APP.get('/api/permissoes-usuario', function (req, res) {
     var userGroup = req.session.group || 'Sem grupo';
@@ -262,7 +262,7 @@ APP.get('/cadastro-bandaLarga', verificarAcessoPagina('cadastro-bandaLarga'), fu
 APP.get('/cadastro-corporativo', verificarAcessoPagina('cadastro-corporativo'), function (req, res) {
     res.sendFile(Path.join(__dirname, 'views', 'cadastro-corporativo.html'));
 });
-APP.get('/cadastro-redeNeutra', verificarAcessoPagina('cadastro-rede-neutra'), function (req, res) {
+APP.get('/cadastro-redeNeutra', verificarAcessoPagina('cadastro-redeNeutra'), function (req, res) {
     res.sendFile(Path.join(__dirname, 'views', 'cadastro-redeNeutra.html'));
 });
 // ======================= USERLOGIN ======================
@@ -336,14 +336,14 @@ function gerarSessaoEToken(req, res, username, group) {
     req.session.group = group;
     var gruposParceiros = [
         'villaggionet', 'ultracom', 'seliga', 'nv7',
-        'netplanety', 'infinity', 'inova.telecom', 'conectmais', 'conectja'
+        'netplanety', 'infinity', 'inova.telecom', 'conectmais', 'conectja', 'RedeNeutra'
     ];
-    var redirectUrl = gruposParceiros.includes(group) ? '/viabilidade-intervip' : '/main';
+    //let redirectUrl = gruposParceiros.includes(group) ? '/viabilidade-intervip' : '/main';
     var payload = { username: username, group: group };
     var token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '8h' });
     return res.json({
         success: true,
-        redirectUrl: redirectUrl,
+        //redirectUrl: redirectUrl,
         token: token
     });
 }
@@ -402,7 +402,7 @@ APP.use('/problemas-com-VPN', protectRoutes, index_1.default);
 APP.use('/cadastro-de-blocos', protectRoutes, index_1.default);
 //APP.use('/consulta-de-planos', protectRoutes, ROUTES);
 APP.use('/viabilidade-intervip', protectRoutes, index_1.default);
-APP.use('/cadastro-de-vendas', protectRoutes, index_1.default);
+//APP.use('/cadastro-de-vendas', protectRoutes, ROUTES);
 APP.use('/cadastro-bandaLarga', protectRoutes, index_1.default);
 APP.use('/cadastro-corporativo', protectRoutes, index_1.default);
 APP.use('/cadastro-redeNeutra', protectRoutes, index_1.default);
