@@ -1,5 +1,35 @@
 /* stylesheets/cadastro-redeNeutra.css */
 
+.btn-purple {
+    background-color: #6f42c1;
+    color: white;
+    border-color: #6f42c1;
+}
+.btn-purple:hover {
+    background-color: #59359a;
+    color: white;
+}
+.badge-purple {
+    background-color: #6f42c1 !important;
+    color: white;
+}
+tr.row-cancelled td {
+    background-color: #f3f0fa !important;
+    color: #6c757d;
+    text-decoration: line-through;
+}
+tr.row-cancelled td .badge {
+    text-decoration: none !important;
+}
+
+th.sortable { cursor: pointer; user-select: none; }
+th.sortable:hover { background-color: #f8f9fa; }
+
+.btn-purple { background-color: #6f42c1; color: white; border-color: #6f42c1; }
+.btn-purple:hover { background-color: #59359a; color: white; }
+.badge-purple { background-color: #6f42c1 !important; color: white; }
+tr.row-cancelled td { background-color: #f3f0fa !important; color: #6c757d; }
+
 .modal-soc-style .modal-content {
     border-radius: 12px;
     border: none;

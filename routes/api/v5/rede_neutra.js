@@ -398,46 +398,67 @@ router.get('/parceiros', function (req, res) { return __awaiter(void 0, void 0, 
         }
     });
 }); });
+var MAPA_PARCEIROS = {
+    'villaggionet': { nome: 'RODRIGO GONCALVES DENICOLO', perfil: 'RN - VILLAGGIONET' },
+    'ultracom': { nome: 'ULTRACOM TELECOMUNICACOES LTDA', perfil: 'RN - ULTRACOM' },
+    'seliga': { nome: 'SELIGA TELECOMUNICACOES DO BRASIL EIRELI', perfil: 'RN - Seliga' },
+    'nv7': { nome: 'NV7 TELECOM LTDA', perfil: 'RN - NV7' },
+    'netplanety': { nome: 'NETPLANETY INFOTELECOM LTDA ME', perfil: 'RN - Net Planety' },
+    'infinity': { nome: 'MARCOS VIEIRA KRUGER', perfil: 'RN - MARCOS KRUGER - PF' },
+    'inova.telecom': { nome: 'MAICON DE FRANCA CHAVES', perfil: 'RN - MAICON DE FRANCA' },
+    'conectmais': { nome: 'CONECTMAIS COMUNICACOES LTDA', perfil: 'RN - CONECTMAIS' },
+    'conectja': { nome: 'CONECTJA TELECOMUNICACOES LTDA', perfil: 'RN - Conectja' }
+};
 router.get('/clientes/:parceiroId', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var parceiroId, parceiros, parceiro, ixcContratoId, produtosResp, produtosIxc, loginsIxc, loginsResp, e_4, _loop_2, _i, produtosIxc_2, prod, clientesLocais, clientesDetalhados, error_5;
+    var parceiroId, sessionGroup, nomeParceiroMapeado, parceiroLocal, parceiros, parceiro, ixcContratoId, produtosResp, produtosIxc, loginsIxc, loginsResp, e_4, _loop_2, _i, produtosIxc_2, prod, clientesLocais, clientesDetalhados, error_5;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
                 parceiroId = req.params.parceiroId;
-                console.log("[Sync] Buscando e sincronizando clientes para Parceiro ID Local: ".concat(parceiroId));
-                _a.label = 1;
+                sessionGroup = req.session.group;
+                if (!MAPA_PARCEIROS[sessionGroup]) return [3 /*break*/, 2];
+                nomeParceiroMapeado = MAPA_PARCEIROS[sessionGroup].nome;
+                return [4 /*yield*/, executeDb("SELECT id FROM rn_parceiros WHERE nome LIKE ?", ["%".concat(nomeParceiroMapeado, "%")])];
             case 1:
-                _a.trys.push([1, 14, , 15]);
-                return [4 /*yield*/, executeDb("SELECT * FROM rn_parceiros WHERE id = ?", [parceiroId])];
+                parceiroLocal = _a.sent();
+                if (parceiroLocal.length > 0 && parceiroLocal[0].id != parceiroId) {
+                    return [2 /*return*/, res.status(403).json({
+                            error: "Acesso Negado: Você só pode visualizar sua própria carteira de clientes."
+                        })];
+                }
+                _a.label = 2;
             case 2:
+                _a.trys.push([2, 15, , 16]);
+                return [4 /*yield*/, executeDb("SELECT * FROM rn_parceiros WHERE id = ?", [parceiroId])];
+            case 3:
                 parceiros = _a.sent();
                 if (parceiros.length === 0)
                     return [2 /*return*/, res.json([])];
                 parceiro = parceiros[0];
                 ixcContratoId = parceiro.ixc_contrato_id;
-                if (!ixcContratoId) return [3 /*break*/, 11];
+                if (!ixcContratoId) return [3 /*break*/, 12];
                 return [4 /*yield*/, makeIxcRequest('POST', '/vd_contratos_produtos', {
                         "qtype": "vd_contratos_produtos.id_contrato", "query": ixcContratoId, "oper": "=", "page": "1", "rp": "2000", "sortname": "vd_contratos_produtos.id", "sortorder": "desc"
                     })];
-            case 3:
+            case 4:
                 produtosResp = _a.sent();
                 produtosIxc = produtosResp.registros || [];
                 loginsIxc = [];
-                _a.label = 4;
-            case 4:
-                _a.trys.push([4, 6, , 7]);
+                _a.label = 5;
+            case 5:
+                _a.trys.push([5, 7, , 8]);
                 return [4 /*yield*/, makeIxcRequest('POST', '/radusuarios', {
                         "qtype": "radusuarios.id_contrato", "query": ixcContratoId, "oper": "=", "page": "1", "rp": "2000"
                     })];
-            case 5:
+            case 6:
                 loginsResp = _a.sent();
                 loginsIxc = loginsResp.registros || [];
-                return [3 /*break*/, 7];
-            case 6:
+                return [3 /*break*/, 8];
+            case 7:
                 e_4 = _a.sent();
                 console.warn("Erro sync login:", e_4.message);
-                return [3 /*break*/, 7];
-            case 7:
+                return [3 /*break*/, 8];
+            case 8:
                 _loop_2 = function (prod) {
                     var descricao, tokenMatch, token, loginMatch, ixcLoginId, loginPppoe, onuMac, obs, dataCriacao, dataMatch, dataStr, d, existe;
                     return __generator(this, function (_b) {
@@ -485,19 +506,19 @@ router.get('/clientes/:parceiroId', function (req, res) { return __awaiter(void 
                     });
                 };
                 _i = 0, produtosIxc_2 = produtosIxc;
-                _a.label = 8;
-            case 8:
-                if (!(_i < produtosIxc_2.length)) return [3 /*break*/, 11];
+                _a.label = 9;
+            case 9:
+                if (!(_i < produtosIxc_2.length)) return [3 /*break*/, 12];
                 prod = produtosIxc_2[_i];
                 return [5 /*yield**/, _loop_2(prod)];
-            case 9:
-                _a.sent();
-                _a.label = 10;
             case 10:
+                _a.sent();
+                _a.label = 11;
+            case 11:
                 _i++;
-                return [3 /*break*/, 8];
-            case 11: return [4 /*yield*/, executeDb("SELECT * FROM rn_clientes WHERE parceiro_id = ? ORDER BY created_at DESC", [parceiroId])];
-            case 12:
+                return [3 /*break*/, 9];
+            case 12: return [4 /*yield*/, executeDb("SELECT * FROM rn_clientes WHERE parceiro_id = ? ORDER BY created_at DESC", [parceiroId])];
+            case 13:
                 clientesLocais = _a.sent();
                 return [4 /*yield*/, Promise.all(clientesLocais.map(function (cli) { return __awaiter(void 0, void 0, void 0, function () {
                         var isOnline, isAutorizado, fibraResp, rx, e_5;
@@ -528,16 +549,16 @@ router.get('/clientes/:parceiroId', function (req, res) { return __awaiter(void 
                             }
                         });
                     }); }))];
-            case 13:
+            case 14:
                 clientesDetalhados = _a.sent();
                 res.json(clientesDetalhados);
-                return [3 /*break*/, 15];
-            case 14:
+                return [3 /*break*/, 16];
+            case 15:
                 error_5 = _a.sent();
                 console.error("Erro sync/listar clientes:", error_5);
                 res.status(500).json({ error: error_5.message });
-                return [3 /*break*/, 15];
-            case 15: return [2 /*return*/];
+                return [3 /*break*/, 16];
+            case 16: return [2 /*return*/];
         }
     });
 }); });
@@ -1196,6 +1217,140 @@ router.post('/desautorizar-onu', function (req, res) { return __awaiter(void 0, 
                 res.status(500).json({ error: error_14.message });
                 return [3 /*break*/, 13];
             case 13: return [2 /*return*/];
+        }
+    });
+}); });
+router.post('/cancelar-cliente', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var id, clientes, cli, ixcLoginId, ixcProdutoId, dataCancelamento, prefixoDescricao, prefixoLogin, nomeLimpo, novoNomeProduto, novoLoginPppoe, fibraResp, idFibra, e_9, errOnu_1, prodAtualResp, obsAtual, prodData, novaObs, payloadProd, putProdResp, errProd_1, loginAtualResp, loginData, payloadLogin, putLoginResp, errLogin_1, error_15;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                id = req.body.id;
+                //console.log(`[CANCELAR] Iniciando cancelamento para Cliente Local ID: ${id}`);
+                if (!id)
+                    return [2 /*return*/, res.status(400).json({ error: "ID do cliente não informado." })];
+                _a.label = 1;
+            case 1:
+                _a.trys.push([1, 24, , 25]);
+                return [4 /*yield*/, executeDb("SELECT * FROM rn_clientes WHERE id = ?", [id])];
+            case 2:
+                clientes = _a.sent();
+                if (clientes.length === 0)
+                    return [2 /*return*/, res.status(404).json({ error: "Cliente não encontrado." })];
+                cli = clientes[0];
+                ixcLoginId = cli.ixc_login_id;
+                ixcProdutoId = cli.ixc_produto_id;
+                if (cli.descricao_produto && (cli.descricao_produto.startsWith("(C)") || cli.descricao_produto.startsWith("C-"))) {
+                    return [2 /*return*/, res.status(400).json({ error: "Este cliente já parece estar cancelado." })];
+                }
+                dataCancelamento = new Date().toLocaleDateString('pt-BR');
+                prefixoDescricao = "(C) ";
+                prefixoLogin = "C-";
+                nomeLimpo = cli.descricao_produto
+                    .replace(/^\(C\)\s*/, '')
+                    .replace(/^C-/, '')
+                    .trim();
+                novoNomeProduto = "".concat(prefixoDescricao).concat(nomeLimpo);
+                novoLoginPppoe = "".concat(prefixoLogin).concat(nomeLimpo).replace(/\s+/g, '');
+                if (!ixcLoginId) return [3 /*break*/, 12];
+                _a.label = 3;
+            case 3:
+                _a.trys.push([3, 11, , 12]);
+                return [4 /*yield*/, makeIxcRequest('POST', '/radpop_radio_cliente_fibra', {
+                        "qtype": "radpop_radio_cliente_fibra.id_login", "query": ixcLoginId, "oper": "=", "rp": "1"
+                    })];
+            case 4:
+                fibraResp = _a.sent();
+                if (!(fibraResp.registros && fibraResp.registros.length > 0)) return [3 /*break*/, 10];
+                idFibra = fibraResp.registros[0].id;
+                _a.label = 5;
+            case 5:
+                _a.trys.push([5, 7, , 8]);
+                return [4 /*yield*/, makeIxcRequest('POST', '/botao_excluir_dispositivo_22434', { "id": idFibra })];
+            case 6:
+                _a.sent();
+                return [3 /*break*/, 8];
+            case 7:
+                e_9 = _a.sent();
+                console.warn("Aviso: Falha no comando OLT.", e_9.message);
+                return [3 /*break*/, 8];
+            case 8: return [4 /*yield*/, makeIxcRequest('DELETE', "/radpop_radio_cliente_fibra/".concat(idFibra))];
+            case 9:
+                _a.sent();
+                _a.label = 10;
+            case 10: return [3 /*break*/, 12];
+            case 11:
+                errOnu_1 = _a.sent();
+                console.error("ERRO NO PASSO DA ONU (Ignorado):", errOnu_1.message);
+                return [3 /*break*/, 12];
+            case 12:
+                if (!ixcProdutoId) return [3 /*break*/, 17];
+                _a.label = 13;
+            case 13:
+                _a.trys.push([13, 16, , 17]);
+                return [4 /*yield*/, makeIxcRequest('POST', '/vd_contratos_produtos', {
+                        "qtype": "vd_contratos_produtos.id", "query": ixcProdutoId, "oper": "=", "rp": "1"
+                    })];
+            case 14:
+                prodAtualResp = _a.sent();
+                obsAtual = "";
+                prodData = {};
+                if (prodAtualResp.registros && prodAtualResp.registros.length > 0) {
+                    prodData = prodAtualResp.registros[0];
+                    obsAtual = prodData.obs || "";
+                }
+                novaObs = "".concat(obsAtual, " | Data de cancelamento ").concat(dataCancelamento);
+                payloadProd = __assign(__assign({}, prodData), { "descricao": novoNomeProduto, "valor_unit": "0.00", "obs": novaObs });
+                return [4 /*yield*/, makeIxcRequest('PUT', "/vd_contratos_produtos/".concat(ixcProdutoId), payloadProd)];
+            case 15:
+                putProdResp = _a.sent();
+                if (putProdResp.type === 'error')
+                    throw new Error("Erro Prod: ".concat(putProdResp.message));
+                return [3 /*break*/, 17];
+            case 16:
+                errProd_1 = _a.sent();
+                console.error("Erro Crítico Produto:", errProd_1.message);
+                throw errProd_1;
+            case 17:
+                if (!ixcLoginId) return [3 /*break*/, 22];
+                _a.label = 18;
+            case 18:
+                _a.trys.push([18, 21, , 22]);
+                return [4 /*yield*/, makeIxcRequest('POST', '/radusuarios', {
+                        "qtype": "radusuarios.id", "query": ixcLoginId, "oper": "=", "rp": "1"
+                    })];
+            case 19:
+                loginAtualResp = _a.sent();
+                loginData = {};
+                if (loginAtualResp.registros && loginAtualResp.registros.length > 0) {
+                    loginData = loginAtualResp.registros[0];
+                }
+                payloadLogin = __assign(__assign({}, loginData), { "login": novoLoginPppoe, "ativo": "N", "onu_mac": "" });
+                return [4 /*yield*/, makeIxcRequest('PUT', "/radusuarios/".concat(ixcLoginId), payloadLogin)];
+            case 20:
+                putLoginResp = _a.sent();
+                console.log("[IXC Log] Resp Login:", JSON.stringify(putLoginResp));
+                if (putLoginResp.type === 'error')
+                    throw new Error(putLoginResp.message);
+                return [3 /*break*/, 22];
+            case 21:
+                errLogin_1 = _a.sent();
+                console.error("Erro ao cancelar login:", errLogin_1.message);
+                return [3 /*break*/, 22];
+            case 22: 
+            //console.log("4. Atualizando Banco Local...");
+            return [4 /*yield*/, executeDb("UPDATE rn_clientes SET \n                descricao_produto = ?, \n                login_pppoe = ?, \n                valor = 0, \n                ativo = 0, \n                onu_mac = NULL,\n                obs = CONCAT(IFNULL(obs, ''), ' | Data de cancelamento ".concat(dataCancelamento, "')\n            WHERE id = ?"), [novoNomeProduto, novoLoginPppoe, id])];
+            case 23:
+                //console.log("4. Atualizando Banco Local...");
+                _a.sent();
+                res.json({ success: true, message: "Cliente cancelado com sucesso!" });
+                return [3 /*break*/, 25];
+            case 24:
+                error_15 = _a.sent();
+                console.error("[CANCELAR ERROR]:", error_15);
+                res.status(500).json({ error: error_15.message });
+                return [3 /*break*/, 25];
+            case 25: return [2 /*return*/];
         }
     });
 }); });

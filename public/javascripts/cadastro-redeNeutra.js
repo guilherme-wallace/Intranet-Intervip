@@ -1,11 +1,22 @@
 /* javascripts/cadastro-redeNeutra.js */
 
+const MAPA_PARCEIROS = {
+    'villaggionet': { nome: 'RODRIGO GONCALVES DENICOLO', perfil: 'RN - VILLAGGIONET' },
+    'ultracom': { nome: 'ULTRACOM TELECOMUNICACOES LTDA', perfil: 'RN - ULTRACOM' },
+    'seliga': { nome: 'SELIGA TELECOMUNICACOES DO BRASIL EIRELI', perfil: 'RN - Seliga' },
+    'nv7': { nome: 'NV7 TELECOM LTDA', perfil: 'RN - NV7' },
+    'netplanety': { nome: 'NETPLANETY INFOTELECOM LTDA ME', perfil: 'RN - Net Planety' },
+    'infinity': { nome: 'MARCOS VIEIRA KRUGER', perfil: 'RN - MARCOS KRUGER - PF' },
+    'inova.telecom': { nome: 'MAICON DE FRANCA CHAVES', perfil: 'RN - MAICON DE FRANCA' },
+    'conectmais': { nome: 'CONECTMAIS COMUNICACOES LTDA', perfil: 'RN - CONECTMAIS' },
+    'conectja': { nome: 'CONECTJA TELECOMUNICACOES LTDA', perfil: 'RN - Conectja' }
+};
+
 let modalCadastro = null;
 let modalONU = null;
 let modalListaONUs = null; 
 let modalEditar = null;
 let complementoModal = null;
-let modalSuporte = null;
 let parceiroIdSelecionado = null;
 let loginAtualId = null;
 let nomeAtual = null;
@@ -13,6 +24,11 @@ let listaTransmissoresCache = [];
 let currentBlocks = [];
 let selectedBlock = null;
 let contextComplemento = 'rn';
+let todosClientesCache = [];
+let listaOnusCache = [];
+let paginaAtual = 1;
+const itensPorPagina = 15;
+let currentSort = { column: 'created_at', direction: 'desc' };
 
 document.addEventListener('DOMContentLoaded', function() {
     modalCadastro = new bootstrap.Modal(document.getElementById('modalCadastroCliente'));
@@ -22,6 +38,20 @@ document.addEventListener('DOMContentLoaded', function() {
     
     const complementoModalEl = document.getElementById('complementoModal');
     if(complementoModalEl) complementoModal = new bootstrap.Modal(complementoModalEl);
+
+    document.querySelectorAll('[data-bs-dismiss="modal"]').forEach(btn => {
+        btn.addEventListener('click', (event) => {
+            event.preventDefault();
+            const modalEl = btn.closest('.modal');
+            if (modalEl) {
+                let modalInstance = bootstrap.Modal.getInstance(modalEl);
+                if (!modalInstance) {
+                    modalInstance = new bootstrap.Modal(modalEl);
+                }
+                modalInstance.hide();
+            }
+        });
+    });
 
     $('#rn-cep').inputmask('99999-999');
     $('#edit-cep').inputmask('99999-999');
@@ -39,14 +69,22 @@ document.addEventListener('DOMContentLoaded', function() {
         openComplementoModal();
     });
 
+    // LISTENER PARA ATUALIZAR TABELA AO FECHAR O MODAL DE EDIÇÃO
+    // Como agora o fechamento é forçado via .hide(), este evento será disparado corretamente.
+    document.getElementById('modalEditarCliente').addEventListener('hidden.bs.modal', function () {
+        if(parceiroIdSelecionado) carregarCarteiraClientes(parceiroIdSelecionado);
+    });
+
     setupListeners();
     setupCondoSearch();
     setupCondoSearchEdit(); 
     carregarParceiros();
     carregarPlanosRedeNeutra();
     initializeThemeAndUserInfo();
+    configurarTabelaCliente();
 });
 
+// ... (Restante do arquivo permanece inalterado) ...
 function setupListeners() {
     document.getElementById('select-parceiro').addEventListener('change', function(e) {
         parceiroIdSelecionado = e.target.value;
@@ -86,15 +124,12 @@ function setupListeners() {
     $('#edit-cep').on('blur', () => buscarEnderecoPorCEP('edit'));
     
     $('#chk-sem-condominio').on('change', function() {
-        const checked = $(this).is(':checked');
-        const inputCondo = $('#input-condominio-venda');
-        
-        if (checked) {
-            inputCondo.val('').attr('placeholder', 'Digite o nome do Bairro / Condomínio');
+        if ($(this).is(':checked')) {
+            $('#input-condominio-venda').val('').attr('placeholder', 'Digite o nome do Bairro / Condomínio');
             $('#hidden-condominio-id').val('');
             currentBlocks = [];
         } else {
-            inputCondo.attr('placeholder', 'Digite o nome para buscar...');
+            $('#input-condominio-venda').attr('placeholder', 'Digite o nome para buscar...');
         }
     });
 
@@ -102,6 +137,7 @@ function setupListeners() {
     $('#btn-confirmar-complemento').on('click', () => confirmComplemento(null));
 
     document.getElementById('btn-salvar-edicao').addEventListener('click', salvarEdicaoCliente);
+    document.getElementById('btn-cancelar-cliente').addEventListener('click', cancelarCliente);
 
     document.getElementById('btn-abrir-gerenciar-onu').addEventListener('click', function() {
         const loginId = document.getElementById('edit-login-id-ixc').value;
@@ -114,11 +150,19 @@ function setupListeners() {
             alert("Este cliente não possui um Login IXC vinculado para gerenciar a ONU.");
         }
     });
-
     
     document.getElementById('btn-abrir-lista-onus').addEventListener('click', abrirListaONUs);
     document.getElementById('btn-autorizar-onu').addEventListener('click', autorizarONU);
     document.getElementById('btn-desautorizar-onu').addEventListener('click', desautorizarONU);
+
+    document.getElementById('input-busca-onu-lista').addEventListener('keyup', function() {
+        const termo = this.value.toLowerCase();
+        const filtradas = listaOnusCache.filter(onu => 
+            (onu.mac && onu.mac.toLowerCase().includes(termo)) ||
+            (onu.model && onu.model.toLowerCase().includes(termo))
+        );
+        renderizarLinhasONU(filtradas);
+    });
 
     const selectOnu = document.getElementById('select-onu-pendente');
     if (selectOnu) {
@@ -141,6 +185,212 @@ function setupListeners() {
     if (btnRefreshList) {
         btnRefreshList.addEventListener('click', carregarListasONU);
     }
+}
+
+function configurarTabelaCliente() {
+    document.querySelectorAll('th.sortable').forEach(th => {
+        th.addEventListener('click', () => {
+            const column = th.getAttribute('data-sort');
+            if (currentSort.column === column) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.column = column;
+                currentSort.direction = 'asc';
+            }
+            atualizarIconesOrdenacao();
+            renderizarTabela();
+        });
+    });
+
+    document.getElementById('input-busca-cliente').addEventListener('keyup', () => { paginaAtual = 1; renderizarTabela(); });
+    document.getElementById('chk-mostrar-cancelados').addEventListener('change', () => { paginaAtual = 1; renderizarTabela(); });
+}
+
+function atualizarIconesOrdenacao() {
+    document.querySelectorAll('th.sortable i').forEach(icon => {
+        icon.className = 'bi bi-arrow-down-up small ms-1 text-muted';
+    });
+    const activeTh = document.querySelector(`th[data-sort="${currentSort.column}"]`);
+    if (activeTh) {
+        const icon = activeTh.querySelector('i');
+        icon.className = currentSort.direction === 'asc' ? 'bi bi-sort-up ms-1 text-primary' : 'bi bi-sort-down ms-1 text-primary';
+    }
+}
+
+async function carregarCarteiraClientes(parceiroId) {
+    const painel = document.getElementById('painel-clientes');
+    const loading = document.getElementById('loading-clientes');
+    const tableContainer = document.querySelector('.table-responsive');
+    const empty = document.getElementById('empty-clientes');
+
+    painel.style.display = 'block';
+    loading.style.display = 'block';
+    tableContainer.style.display = 'none';
+    empty.style.display = 'none';
+    
+    try {
+        const response = await fetch(`/api/v5/rede_neutra/clientes/${parceiroId}`);
+        
+        todosClientesCache = await response.json(); 
+        
+        loading.style.display = 'none';
+        
+        if (!todosClientesCache || todosClientesCache.length === 0) {
+            empty.style.display = 'block';
+        } else {
+            tableContainer.style.display = 'block';
+            paginaAtual = 1;
+            renderizarTabela(); 
+        }
+    } catch (error) {
+        console.error(error);
+        loading.style.display = 'none';
+        alert('Erro ao carregar carteira de clientes.');
+    }
+}
+
+function renderizarTabela() {
+    const tbody = document.getElementById('tabela-clientes-body');
+    const termo = document.getElementById('input-busca-cliente').value.toLowerCase();
+    const mostrarCancelados = document.getElementById('chk-mostrar-cancelados').checked;
+    
+    let filtrados = todosClientesCache.filter(item => {
+        const isCancelado = item.descricao_produto && item.descricao_produto.includes('(C)');
+        if (!mostrarCancelados && isCancelado) return false;
+
+        const textoBusca = `${item.descricao_produto} ${item.login_pppoe} ${item.token} ${item.endereco} ${item.bairro}`.toLowerCase();
+        return textoBusca.includes(termo);
+    });
+
+    filtrados.sort((a, b) => {
+        let valA = a[currentSort.column];
+        let valB = b[currentSort.column];
+
+        if (currentSort.column === 'valor') {
+            valA = parseFloat(valA);
+            valB = parseFloat(valB);
+        } else if (currentSort.column === 'created_at') {
+            valA = new Date(valA);
+            valB = new Date(valB);
+        } else {
+            valA = (valA || '').toString().toLowerCase();
+            valB = (valB || '').toString().toLowerCase();
+        }
+
+        if (valA < valB) return currentSort.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return currentSort.direction === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    const totalRegistros = filtrados.length;
+    const totalPaginas = Math.ceil(totalRegistros / itensPorPagina);
+    if (paginaAtual > totalPaginas && totalPaginas > 0) paginaAtual = totalPaginas;
+    
+    const inicio = (paginaAtual - 1) * itensPorPagina;
+    const fim = inicio + itensPorPagina;
+    const dadosPagina = filtrados.slice(inicio, fim);
+
+    tbody.innerHTML = '';
+    
+    document.getElementById('stats-total-clientes').textContent = totalRegistros;
+    document.getElementById('contador-registros').textContent = `Exibindo ${totalRegistros > 0 ? inicio + 1 : 0} a ${Math.min(fim, totalRegistros)} de ${totalRegistros} registros`;
+
+    dadosPagina.forEach(item => {
+        const tr = document.createElement('tr');
+        
+        let descricaoVisual = item.descricao_produto || '---';
+        const isCancelado = descricaoVisual.includes('(C)');
+        
+        if (item.token) {
+            descricaoVisual = descricaoVisual.replace(new RegExp('^\\(C\\)\\s*'), '').replace(new RegExp('^' + item.token + '-?'), '');
+        } else {
+            descricaoVisual = descricaoVisual.replace(new RegExp('^\\(C\\)\\s*'), '').replace(/^[A-Z0-9]{5}-/, '');
+        }
+
+        const valor = item.valor ? parseFloat(item.valor).toFixed(2) : '0.00';
+        const dataCriacao = item.created_at ? new Date(item.created_at).toLocaleDateString('pt-BR') : '-';
+        const dadosJson = JSON.stringify(item).replace(/"/g, '&quot;');
+
+        let authBadge = '';
+        let onlineBadge = '';
+
+        if (isCancelado) {
+            authBadge = `<span class="badge badge-purple me-1"><i class="bi bi-x-circle"></i> Cancelado</span>`;
+            onlineBadge = `<span class="badge bg-secondary">Inativo</span>`;
+            tr.classList.add('row-cancelled');
+        } else {
+            if (item.is_autorizado) {
+                authBadge = `<span class="badge bg-primary me-1" title="ONU Vinculada"><i class="bi bi-router"></i> Autorizada</span>`;
+            } else {
+                authBadge = `<span class="badge bg-warning text-dark me-1"><i class="bi bi-exclamation-triangle"></i> Pendente</span>`;
+            }
+
+            if (!item.ixc_login_id) {
+                onlineBadge = `<span class="badge bg-secondary">Sem Login</span>`;
+            } else if (item.is_online) {
+                onlineBadge = `<span class="badge bg-success"><i class="bi bi-wifi"></i> Online</span>`;
+            } else {
+                onlineBadge = `<span class="badge bg-danger"><i class="bi bi-wifi-off"></i> Offline</span>`;
+            }
+        }
+
+        tr.innerHTML = `
+            <td>
+                <div class="fw-bold text-primary">${descricaoVisual}</div>
+                <small class="text-muted">${item.login_pppoe || ''}</small>
+            </td>
+            <td>${dataCriacao}</td>
+            <td>R$ ${valor}</td>
+            <td>${authBadge} ${onlineBadge}</td>
+            <td class="text-end">
+                <button class="btn btn-sm btn-outline-secondary me-1 btn-editar-cliente" data-cliente="${dadosJson}">
+                    <i class="bi bi-pencil-square"></i> Editar
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    document.querySelectorAll('.btn-editar-cliente').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const dados = JSON.parse(this.dataset.cliente);
+            abrirModalEditar(dados);
+        });
+    });
+
+    renderizarControlesPaginacao(totalPaginas);
+}
+
+function renderizarControlesPaginacao(totalPaginas) {
+    const container = document.getElementById('paginacao-container');
+    container.innerHTML = '';
+    
+    if (totalPaginas <= 1) return;
+
+    const criarBotao = (texto, page, disabled, active) => {
+        const li = document.createElement('li');
+        li.className = `page-item ${disabled ? 'disabled' : ''} ${active ? 'active' : ''}`;
+        li.innerHTML = `<a class="page-link" href="#">${texto}</a>`;
+        if (!disabled) {
+            li.addEventListener('click', (e) => {
+                e.preventDefault();
+                paginaAtual = page;
+                renderizarTabela();
+            });
+        }
+        container.appendChild(li);
+    };
+
+    criarBotao('Anterior', paginaAtual - 1, paginaAtual === 1);
+    
+    let startPage = Math.max(1, paginaAtual - 2);
+    let endPage = Math.min(totalPaginas, paginaAtual + 2);
+    
+    for (let i = startPage; i <= endPage; i++) {
+        criarBotao(i, i, false, i === paginaAtual);
+    }
+    
+    criarBotao('Próximo', paginaAtual + 1, paginaAtual === totalPaginas);
 }
 
 function showLoading(texto) {
@@ -365,103 +615,30 @@ async function carregarParceiros() {
     }
 }
 
-async function carregarCarteiraClientes(parceiroId) {
-    const painel = document.getElementById('painel-clientes');
-    const loading = document.getElementById('loading-clientes');
-    const tbody = document.getElementById('tabela-clientes-body');
-    const empty = document.getElementById('empty-clientes');
-    const tableContainer = document.querySelector('.table-responsive');
-    const statsTotal = document.getElementById('stats-total-clientes');
-
-    painel.style.display = 'block';
-    loading.style.display = 'block';
-    tableContainer.style.display = 'none';
-    empty.style.display = 'none';
-    tbody.innerHTML = '';
-    statsTotal.textContent = '0';
-
-    try {
-        const response = await fetch(`/api/v5/rede_neutra/clientes/${parceiroId}`);
-        const carteira = await response.json();
-
-        loading.style.display = 'none';
-
-        if (!carteira || carteira.length === 0) {
-            empty.style.display = 'block';
-            return;
-        }
-
-        tableContainer.style.display = 'block';
-        statsTotal.textContent = carteira.length;
-        
-        carteira.forEach(item => {
-            const tr = document.createElement('tr');
-
-            let descricaoVisual = item.descricao_produto || '---';
-            if (item.token) {
-                descricaoVisual = descricaoVisual.replace(new RegExp('^' + item.token + '-?'), '');
-            } else {
-                descricaoVisual = descricaoVisual.replace(/^[A-Z0-9]{5}-/, '');
-            }
-
-            const valor = item.valor ? parseFloat(item.valor).toFixed(2) : '0.00';
-            const dataCriacao = item.created_at ? new Date(item.created_at).toLocaleDateString('pt-BR') : '-';
-            const dadosJson = JSON.stringify(item).replace(/"/g, '&quot;');
-
-            let authBadge = '';
-            let onlineBadge = '';
-
-            if (item.is_autorizado) {
-                authBadge = `<span class="badge bg-primary me-1" title="ONU Vinculada"><i class="bi bi-check-circle"></i> Autorizada</span>`;
-            } else {
-                authBadge = `<span class="badge bg-warning text-dark me-1"><i class="bi bi-exclamation-triangle"></i> Pendente</span>`;
-            }
-
-            if (!item.ixc_login_id) {
-                onlineBadge = `<span class="badge bg-secondary">Sem Login</span>`;
-            } else if (item.is_online) {
-                onlineBadge = `<span class="badge bg-success"><i class="bi bi-wifi"></i> Online</span>`;
-            } else {
-                onlineBadge = `<span class="badge bg-danger"><i class="bi bi-wifi-off"></i> Offline</span>`;
-            }
-
-            tr.innerHTML = `
-                <td>
-                    <div class="fw-bold text-primary">${descricaoVisual}</div>
-                    <small class="text-muted">${item.login_pppoe || ''}</small>
-                </td>
-                <td>${dataCriacao}</td>
-                <td>R$ ${valor}</td>
-                <td>${authBadge} ${onlineBadge}</td>
-                <td class="text-end">
-                    <button class="btn btn-sm btn-outline-secondary me-1 btn-editar-cliente" 
-                        data-cliente="${dadosJson}">
-                        <i class="bi bi-pencil-square"></i> Editar
-                    </button>
-                </td>
-            `;
-            tbody.appendChild(tr);
-        });
-
-        document.querySelectorAll('.btn-editar-cliente').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const dados = JSON.parse(this.dataset.cliente);
-                abrirModalEditar(dados);
-            });
-        });
-
-    } catch (error) {
-        console.error(error);
-        loading.style.display = 'none';
-        alert('Erro ao carregar carteira de clientes.');
-    }
-}
-
 async function abrirModalEditar(cliente) {
     document.getElementById('edit-id').value = cliente.id;
     document.getElementById('edit-token').value = cliente.token;
     document.getElementById('edit-login-id-ixc').value = cliente.ixc_login_id || '';
     document.getElementById('edit-mac-atual').value = cliente.onu_mac || '';
+
+    const isCancelado = (cliente.descricao_produto && cliente.descricao_produto.includes('(C)'));
+    
+    const btnCancelar = document.getElementById('btn-cancelar-cliente');
+    const badgeAviso = document.getElementById('badge-cancelado-aviso');
+    const btnSalvar = document.getElementById('btn-salvar-edicao');
+
+    if (isCancelado) {
+        btnCancelar.style.display = 'none';
+        badgeAviso.style.display = 'block';
+        btnSalvar.disabled = true;
+        
+        const displayOnu = document.getElementById('display-status-onu');
+        displayOnu.innerHTML = `<span class="badge badge-purple w-100 py-2"><i class="bi bi-x-octagon"></i> CLIENTE CANCELADO</span>`;
+    } else {
+        btnCancelar.style.display = 'block';
+        badgeAviso.style.display = 'none';
+        btnSalvar.disabled = false;
+    }
     
     let token = cliente.token || '';
     let descricaoCompleta = cliente.descricao_produto || '';
@@ -550,6 +727,43 @@ async function abrirModalEditar(cliente) {
     }
 
     modalEditar.show();
+}
+
+async function cancelarCliente() {
+    if (!confirm("ATENÇÃO: Você está prestes a CANCELAR este cliente.\n\nDeseja continuar?")) {
+        return;
+    }
+
+    const id = document.getElementById('edit-id').value;
+    const btn = document.getElementById('btn-cancelar-cliente');
+    const originalText = btn.innerHTML;
+    
+    btn.disabled = true;
+    showLoading("Processando cancelamento no IXC e OLT... Aguarde.");
+
+    try {
+        const response = await fetch('/api/v5/rede_neutra/cancelar-cliente', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: id })
+        });
+
+        const res = await response.json();
+        hideLoading();
+
+        if (!response.ok) throw new Error(res.error || 'Erro ao cancelar');
+
+        alert("Cliente cancelado com sucesso!");
+        modalEditar.hide();
+        if(parceiroIdSelecionado) carregarCarteiraClientes(parceiroIdSelecionado);
+
+    } catch (error) {
+        hideLoading();
+        alert('Erro ao cancelar: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
 }
 
 async function carregarDetalhesONU(loginId) {
@@ -954,14 +1168,24 @@ async function carregarDadosBasicosONU() {
         } catch (e) { console.error("Erro transmissores:", e); }
     }
 
-    if (selPerfil.options.length <= 1) {
-        try {
-            const resPerfil = await fetch('/api/v5/rede_neutra/perfis-fibra');
-            const perfis = await resPerfil.json();
-            selPerfil.innerHTML = '<option value="" selected disabled>Selecione...</option>';
-            perfis.forEach(p => selPerfil.add(new Option(p.nome, p.id)));
-        } catch (e) { console.error("Erro perfis:", e); }
-    }
+    try {
+        const resPerfil = await fetch('/api/v5/rede_neutra/perfis-fibra');
+        const perfis = await resPerfil.json();
+        selPerfil.innerHTML = '<option value="" selected disabled>Selecione...</option>';
+        perfis.forEach(p => selPerfil.add(new Option(p.nome, p.id)));
+
+        const userGroup = document.querySelector('.user-info span.fw-medium:last-child').textContent;
+        const config = MAPA_PARCEIROS[userGroup];
+        
+        if (config) {
+            const perfilOpcao = Array.from(selPerfil.options).find(opt => 
+                opt.text.includes(config.perfil)
+            );
+            if (perfilOpcao) {
+                selPerfil.value = perfilOpcao.value;
+            }
+        }
+    } catch (e) { console.error("Erro perfis:", e); }
 }
 
 async function abrirListaONUs() {
@@ -969,46 +1193,16 @@ async function abrirListaONUs() {
     const tbody = document.getElementById('lista-onus-body');
     const loading = document.getElementById('loading-onus');
     
+    document.getElementById('input-busca-onu-lista').value = "";
     tbody.innerHTML = '';
     loading.style.display = 'block';
 
     try {
         const response = await fetch('/api/v5/rede_neutra/onus-pendentes');
-        const lista = await response.json();
+        listaOnusCache = await response.json();
         
         loading.style.display = 'none';
-
-        if (lista.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Nenhuma ONU pendente encontrada na OLT.</td></tr>';
-            return;
-        }
-
-        lista.forEach(onu => {
-            const tr = document.createElement('tr');
-            const mac = onu.mac;
-            const oltName = onu.olt_name || '-';
-            const model = onu.model || '-';
-            const info = `Slot: ${onu.slot} / Pon: ${onu.pon}`;
-            const idHash = onu.id_hash;
-
-            tr.innerHTML = `
-                <td class="font-monospace fw-bold text-primary">${mac}</td>
-                <td>${oltName}</td>
-                <td>${model}</td>
-                <td>${info}</td>
-                <td class="text-end">
-                    <button class="btn btn-sm btn-primary btn-selecionar-onu">
-                        Selecionar
-                    </button>
-                </td>
-            `;
-            
-            tr.querySelector('.btn-selecionar-onu').addEventListener('click', () => {
-                selecionarOnuDaLista(mac, oltName, idHash, model);
-            });
-
-            tbody.appendChild(tr);
-        });
+        renderizarLinhasONU(listaOnusCache);
 
     } catch (e) {
         console.error(e);
@@ -1044,23 +1238,13 @@ async function autorizarONU() {
     const idTransmissor = document.getElementById('hidden-id-transmissor').value;
     const idPerfil = document.getElementById('onu-perfil').value;
 
-    if (!idHash || !mac) {
-        alert('Por favor, busque e selecione uma ONU da lista.');
-        return;
-    }
-    if (!idTransmissor) {
-        alert('Erro: Transmissor não identificado. Verifique a seleção da ONU.');
-        return;
-    }
-    if (!idPerfil) {
-        alert('Por favor, selecione o Perfil de Fibra.');
-        return;
-    }
+    if (!idHash || !mac) { alert('Por favor, busque e selecione uma ONU da lista.'); return; }
+    if (!idTransmissor) { alert('Erro: Transmissor não identificado.'); return; }
+    if (!idPerfil) { alert('Por favor, selecione o Perfil de Fibra.'); return; }
 
     const btn = document.getElementById('btn-autorizar-onu');
     btn.disabled = true;
-    
-    showLoading("Autorizando ONU e Gravando na OLT... Isso pode levar alguns segundos.");
+    showLoading("Autorizando ONU e Gravando na OLT...");
 
     try {
         const response = await fetch('/api/v5/rede_neutra/autorizar-onu', {
@@ -1076,16 +1260,33 @@ async function autorizarONU() {
         });
         
         const res = await response.json();
-        hideLoading();
-
+        
         if (!response.ok) throw new Error(res.error || 'Erro ao autorizar');
 
-        alert(res.message || 'ONU Autorizada com sucesso!');
+        document.getElementById('loading-text').textContent = "Verificando sinal óptico...";
         
-        modalONU.hide();
-        if(parceiroIdSelecionado) carregarCarteiraClientes(parceiroIdSelecionado);
+        document.getElementById('display-mac-atual').textContent = mac;
         
-        if (modalEditar._isShown) {
+        try {
+            const refreshRes = await fetch('/api/v5/rede_neutra/refresh-onu', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ id_login: loginAtualId })
+            });
+            await refreshRes.json();
+        } catch(e) { console.warn("Falha no refresh automático"); }
+
+        await carregarDetalhesONU(loginAtualId);
+
+        const areaAuth = document.getElementById('area-autorizacao');
+        const areaDesv = document.getElementById('area-desvinculacao');
+        if(areaAuth) areaAuth.style.display = 'none';
+        if(areaDesv) areaDesv.style.display = 'block';
+
+        hideLoading();
+        alert(res.message || 'ONU Autorizada com sucesso! Sinal verificado.');
+        
+        if(modalEditar._isShown) {
             document.getElementById('edit-mac-atual').value = mac;
         }
 
@@ -1141,6 +1342,43 @@ async function desautorizarONU() {
         btn.disabled = false;
         btn.innerHTML = originalText;
     }
+}
+
+function renderizarLinhasONU(lista) {
+    const tbody = document.getElementById('lista-onus-body');
+    tbody.innerHTML = '';
+
+    if (lista.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Nenhuma ONU encontrada.</td></tr>';
+        return;
+    }
+
+    lista.forEach(onu => {
+        const tr = document.createElement('tr');
+        const mac = onu.mac;
+        const oltName = onu.olt_name || '-';
+        const model = onu.model || '-';
+        const info = `Slot: ${onu.slot} / Pon: ${onu.pon}`;
+        const idHash = onu.id_hash;
+
+        tr.innerHTML = `
+            <td class="font-monospace fw-bold text-primary">${mac}</td>
+            <td>${oltName}</td>
+            <td>${model}</td>
+            <td>${info}</td>
+            <td class="text-end">
+                <button class="btn btn-sm btn-primary btn-selecionar-onu">
+                    Selecionar
+                </button>
+            </td>
+        `;
+        
+        tr.querySelector('.btn-selecionar-onu').addEventListener('click', () => {
+            selecionarOnuDaLista(mac, oltName, idHash, model);
+        });
+
+        tbody.appendChild(tr);
+    });
 }
 
 async function carregarPlanosRedeNeutra() {
@@ -1314,15 +1552,73 @@ function initializeThemeAndUserInfo() {
                 setTimeout(() => { window.location = "/"; }, 300);
                 return;
             }
-            document.querySelectorAll('.user-info span').forEach(el => {
-                if (el.textContent.includes('{username}')) {
-                    el.textContent = username;
-                }
-                if (el.textContent.includes('{group}')) {
-                    el.textContent = group;
-                }
-            });
+        document.querySelectorAll('.user-info span').forEach(el => {
+            if (el.textContent.includes('{username}')) el.textContent = username;
+            if (el.textContent.includes('{group}')) el.textContent = group;
+        });
+
+        aplicarRestricoesParceiro(group);
+
         }).catch(error => {
             console.error('Erro ao obter o nome do usuário e grupo:', error);
         });
+}
+
+async function aplicarRestricoesParceiro(setorUsuario) {
+    const configParceiro = MAPA_PARCEIROS[setorUsuario];
+    
+    if (!configParceiro) return;
+
+    console.log(`[Acesso Parceiro] Aplicando restrições para: ${setorUsuario}`);
+
+    let tentativa = 0;
+    const interval = setInterval(() => {
+        const selectParceiro = document.getElementById('select-parceiro');
+        const selectPerfil = document.getElementById('select-perfil');
+
+        const optionsParceiro = Array.from(selectParceiro.options);
+        const optionParceiroEncontrada = optionsParceiro.find(opt => 
+            opt.text.toUpperCase().includes(configParceiro.nome.toUpperCase())
+        );
+
+        if (optionParceiroEncontrada) {
+            selectParceiro.value = optionParceiroEncontrada.value;
+            selectParceiro.disabled = true;
+        }
+
+        if (selectPerfil && selectPerfil.options.length > 1) {
+            const optionsPerfil = Array.from(selectPerfil.options);
+            const perfilAlvo = configParceiro.perfil.toUpperCase();
+
+            const optionPerfilEncontrada = optionsPerfil.find(opt => 
+                opt.text.toUpperCase().trim() === perfilAlvo
+            );
+
+            if (optionPerfilEncontrada) {
+                selectPerfil.value = optionPerfilEncontrada.value;
+                
+                optionsPerfil.forEach(opt => {
+                    if (opt.value !== optionPerfilEncontrada.value && opt.value !== "") {
+                        opt.remove(); 
+                    }
+                });
+
+                selectPerfil.disabled = true;
+                
+                clearInterval(interval);
+                console.log(`Perfil ${perfilAlvo} aplicado e travado.`);
+            }
+        }
+
+        if (tentativa++ > 50) clearInterval(interval);
+    }, 100);
+}
+
+function showLoading(texto) {
+    document.getElementById('loading-text').textContent = texto;
+    document.getElementById('loading-overlay').style.display = 'flex';
+}
+
+function hideLoading() {
+    document.getElementById('loading-overlay').style.display = 'none';
 }

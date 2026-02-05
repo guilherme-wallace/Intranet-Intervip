@@ -267,9 +267,36 @@ router.get('/parceiros', async (req, res) => {
     }
 });
 
+const MAPA_PARCEIROS: Record<string, { nome: string, perfil: string }> = {
+    'villaggionet': { nome: 'RODRIGO GONCALVES DENICOLO', perfil: 'RN - VILLAGGIONET' },
+    'ultracom': { nome: 'ULTRACOM TELECOMUNICACOES LTDA', perfil: 'RN - ULTRACOM' },
+    'seliga': { nome: 'SELIGA TELECOMUNICACOES DO BRASIL EIRELI', perfil: 'RN - Seliga' },
+    'nv7': { nome: 'NV7 TELECOM LTDA', perfil: 'RN - NV7' },
+    'netplanety': { nome: 'NETPLANETY INFOTELECOM LTDA ME', perfil: 'RN - Net Planety' },
+    'infinity': { nome: 'MARCOS VIEIRA KRUGER', perfil: 'RN - MARCOS KRUGER - PF' },
+    'inova.telecom': { nome: 'MAICON DE FRANCA CHAVES', perfil: 'RN - MAICON DE FRANCA' },
+    'conectmais': { nome: 'CONECTMAIS COMUNICACOES LTDA', perfil: 'RN - CONECTMAIS' },
+    'conectja': { nome: 'CONECTJA TELECOMUNICACOES LTDA', perfil: 'RN - Conectja' }
+};
+
 router.get('/clientes/:parceiroId', async (req, res) => {
     const { parceiroId } = req.params;
-    console.log(`[Sync] Buscando e sincronizando clientes para Parceiro ID Local: ${parceiroId}`);
+    const sessionGroup = (req.session as any).group;
+
+    if (MAPA_PARCEIROS[sessionGroup]) {
+        const nomeParceiroMapeado = MAPA_PARCEIROS[sessionGroup].nome;
+        
+        const parceiroLocal = await executeDb(
+            `SELECT id FROM rn_parceiros WHERE nome LIKE ?`, 
+            [`%${nomeParceiroMapeado}%`]
+        );
+
+        if (parceiroLocal.length > 0 && parceiroLocal[0].id != parceiroId) {
+            return res.status(403).json({ 
+                error: "Acesso Negado: Você só pode visualizar sua própria carteira de clientes." 
+            });
+        }
+    }
 
     try {
         const parceiros = await executeDb(`SELECT * FROM rn_parceiros WHERE id = ?`, [parceiroId]);
@@ -986,6 +1013,148 @@ router.post('/desautorizar-onu', async (req, res) => {
 
     } catch (error) {
         console.error("[DESAUTORIZAR ERROR]:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/cancelar-cliente', async (req, res) => {
+    const { id } = req.body;
+
+    //console.log(`[CANCELAR] Iniciando cancelamento para Cliente Local ID: ${id}`);
+
+    if (!id) return res.status(400).json({ error: "ID do cliente não informado." });
+
+    try {
+        const clientes = await executeDb(`SELECT * FROM rn_clientes WHERE id = ?`, [id]);
+        if (clientes.length === 0) return res.status(404).json({ error: "Cliente não encontrado." });
+        
+        const cli = clientes[0];
+        const ixcLoginId = cli.ixc_login_id;
+        const ixcProdutoId = cli.ixc_produto_id;
+
+        if (cli.descricao_produto && (cli.descricao_produto.startsWith("(C)") || cli.descricao_produto.startsWith("C-"))) {
+            return res.status(400).json({ error: "Este cliente já parece estar cancelado." });
+        }
+
+        const dataCancelamento = new Date().toLocaleDateString('pt-BR');
+        
+        const prefixoDescricao = "(C) ";
+        const prefixoLogin = "C-"; 
+
+        const nomeLimpo = cli.descricao_produto
+            .replace(/^\(C\)\s*/, '')
+            .replace(/^C-/, '')
+            .trim();
+            
+        const novoNomeProduto = `${prefixoDescricao}${nomeLimpo}`; 
+        
+        const novoLoginPppoe = `${prefixoLogin}${nomeLimpo}`.replace(/\s+/g, ''); 
+
+        if (ixcLoginId) {
+            //console.log(`1. Verificando ONU para Login ID ${ixcLoginId}...`);
+            try {
+                const fibraResp = await makeIxcRequest('POST', '/radpop_radio_cliente_fibra', {
+                    "qtype": "radpop_radio_cliente_fibra.id_login", "query": ixcLoginId, "oper": "=", "rp": "1"
+                });
+
+                if (fibraResp.registros && fibraResp.registros.length > 0) {
+                    const idFibra = fibraResp.registros[0].id;
+                    //console.log(`> ONU encontrada (ID: ${idFibra}). Desautorizando...`);
+
+                    try { 
+                        await makeIxcRequest('POST', '/botao_excluir_dispositivo_22434', { "id": idFibra }); 
+                    } catch (e) { 
+                        console.warn("Aviso: Falha no comando OLT.", e.message); 
+                    }
+
+                    await makeIxcRequest('DELETE', `/radpop_radio_cliente_fibra/${idFibra}`);
+                }
+            } catch (errOnu) {
+                console.error("ERRO NO PASSO DA ONU (Ignorado):", errOnu.message);
+            }
+        }
+
+        if (ixcProdutoId) {
+            //console.log(`2. Cancelando Produto ID ${ixcProdutoId}...`);
+            try {
+                const prodAtualResp = await makeIxcRequest('POST', '/vd_contratos_produtos', {
+                    "qtype": "vd_contratos_produtos.id", "query": ixcProdutoId, "oper": "=", "rp": "1"
+                });
+                
+                let obsAtual = "";
+                let prodData: any = {};
+
+                if (prodAtualResp.registros && prodAtualResp.registros.length > 0) {
+                    prodData = prodAtualResp.registros[0];
+                    obsAtual = prodData.obs || "";
+                }
+
+                const novaObs = `${obsAtual} | Data de cancelamento ${dataCancelamento}`;
+
+                const payloadProd = {
+                    ...prodData,
+                    "descricao": novoNomeProduto,
+                    "valor_unit": "0.00",
+                    "obs": novaObs
+                };
+                
+                const putProdResp = await makeIxcRequest('PUT', `/vd_contratos_produtos/${ixcProdutoId}`, payloadProd);
+                if(putProdResp.type === 'error') throw new Error(`Erro Prod: ${putProdResp.message}`);
+
+            } catch (errProd) {
+                console.error("Erro Crítico Produto:", errProd.message);
+                throw errProd;
+            }
+        }
+
+        if (ixcLoginId) {
+            //console.log(`3. Cancelando Login ID ${ixcLoginId}...`);
+            try {
+                const loginAtualResp = await makeIxcRequest('POST', '/radusuarios', {
+                    "qtype": "radusuarios.id", "query": ixcLoginId, "oper": "=", "rp": "1"
+                });
+                
+                let loginData: any = {};
+                
+                if (loginAtualResp.registros && loginAtualResp.registros.length > 0) {
+                    loginData = loginAtualResp.registros[0];
+                }
+
+                const payloadLogin = {
+                    ...loginData,
+                    "login": novoLoginPppoe,
+                    "ativo": "N",
+                    "onu_mac": ""
+                };
+
+                //console.log("[IXC Log] Payload Login:", JSON.stringify(payloadLogin));
+                const putLoginResp = await makeIxcRequest('PUT', `/radusuarios/${ixcLoginId}`, payloadLogin);
+                console.log("[IXC Log] Resp Login:", JSON.stringify(putLoginResp));
+                
+                if(putLoginResp.type === 'error') throw new Error(putLoginResp.message);
+                
+            } catch (errLogin) {
+                console.error("Erro ao cancelar login:", errLogin.message);
+            }
+        }
+
+        //console.log("4. Atualizando Banco Local...");
+        await executeDb(
+            `UPDATE rn_clientes SET 
+                descricao_produto = ?, 
+                login_pppoe = ?, 
+                valor = 0, 
+                ativo = 0, 
+                onu_mac = NULL,
+                obs = CONCAT(IFNULL(obs, ''), ' | Data de cancelamento ${dataCancelamento}')
+            WHERE id = ?`,
+            [novoNomeProduto, novoLoginPppoe, id]
+        );
+
+        res.json({ success: true, message: "Cliente cancelado com sucesso!" });
+
+    } catch (error) {
+        console.error("[CANCELAR ERROR]:", error);
         res.status(500).json({ error: error.message });
     }
 });
