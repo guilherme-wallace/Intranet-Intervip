@@ -165,6 +165,10 @@ const protectRoutes = (req: any, res: any, next: any) => {
         //return res.redirect('/viabilidade-intervip');
     //}
 
+    if (group === 'RedeNeutra' && requestedUrl !== '/viabilidade-intervip') {
+        return res.redirect('/viabilidade-intervip');
+    }
+
     next();
 };
 
@@ -358,6 +362,7 @@ function gerarSessaoEToken(req: any, res: any, username: string, group: string) 
         'netplanety', 'infinity', 'inova.telecom', 'conectmais', 'conectja', 'RedeNeutra'
     ];
 
+    let redirectUrl = gruposParceiros.includes(group) ? '/viabilidade-intervip' : '/main';
     //let redirectUrl = gruposParceiros.includes(group) ? '/viabilidade-intervip' : '/main';
 
     const payload = { username, group };
@@ -365,6 +370,7 @@ function gerarSessaoEToken(req: any, res: any, username: string, group: string) 
 
     return res.json({ 
         success: true, 
+        redirectUrl: redirectUrl,
         //redirectUrl: redirectUrl,
         token: token
     });

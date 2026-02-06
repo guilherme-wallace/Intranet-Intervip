@@ -160,6 +160,9 @@ var protectRoutes = function (req, res, next) {
     //if (group === 'RedeNeutra' && requestedUrl !== '/viabilidade-intervip') {
     //return res.redirect('/viabilidade-intervip');
     //}
+    if (group === 'RedeNeutra' && requestedUrl !== '/viabilidade-intervip') {
+        return res.redirect('/viabilidade-intervip');
+    }
     next();
 };
 // =======================================================
@@ -192,7 +195,7 @@ var PERMISSOES_SISTEMA = {
     'card-soc-report': ['NOC', 'Diretoria'],
     'card-cadastro-bandaLarga': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
     'card-cadastro-corporativo': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
-    'card-cadastro-redeNeutra': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico', 'villaggionet', 'ultracom', 'seliga', 'nv7', 'netplanety', 'infinity', 'inova.telecom', 'conectmais', 'conectja', 'RedeNeutra'],
+    'card-cadastro-redeNeutra': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
 };
 APP.get('/api/permissoes-usuario', function (req, res) {
     var userGroup = req.session.group || 'Sem grupo';
@@ -338,11 +341,13 @@ function gerarSessaoEToken(req, res, username, group) {
         'villaggionet', 'ultracom', 'seliga', 'nv7',
         'netplanety', 'infinity', 'inova.telecom', 'conectmais', 'conectja', 'RedeNeutra'
     ];
+    var redirectUrl = gruposParceiros.includes(group) ? '/viabilidade-intervip' : '/main';
     //let redirectUrl = gruposParceiros.includes(group) ? '/viabilidade-intervip' : '/main';
     var payload = { username: username, group: group };
     var token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '8h' });
     return res.json({
         success: true,
+        redirectUrl: redirectUrl,
         //redirectUrl: redirectUrl,
         token: token
     });

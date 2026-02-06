@@ -97,32 +97,27 @@ document.addEventListener('DOMContentLoaded', function() {
         const salvarLocalButton = document.getElementById('salvarLocalEmFalha');
         const msgSalvoLocal = document.getElementById('msgSalvoLocal');
         const msgErroLocal = document.getElementById('msgErroLocal');
-
-        // Função para alternar entre o modo de edição e visualização do Markdown
+-
         function toggleMarkdownView(textareaId, previewId, button) {
             const textarea = document.getElementById(textareaId);
             const preview = document.getElementById(previewId);
             
             if (textarea.style.display === 'none') {
-                // Mostra o textarea e esconde o preview
                 textarea.style.display = 'block';
                 preview.style.display = 'none';
                 button.innerHTML = '<i class="bi bi-eye"></i> Visualizar';
                 textarea.focus();
             } else {
-                // Mostra o preview e esconde o textarea
                 textarea.style.display = 'none';
                 preview.style.display = 'block';
                 preview.innerHTML = marked.parse(textarea.value);
                 button.innerHTML = '<i class="bi bi-pencil"></i> Editar';
                 
-                // Aplica highlight.js para códigos
                 document.querySelectorAll('pre code').forEach((block) => {
                     hljs.highlightElement(block);
                 });
             }
         }
-        // Função para renderizar o preview do Markdown
         function renderMarkdownPreview(textareaId, previewId, buttonId) {
             const textarea = document.getElementById(textareaId);
             const preview = document.getElementById(previewId);
@@ -130,25 +125,19 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (!textarea || !preview || !button) return;
             
-            // Configura o evento de clique no botão
             button.addEventListener('click', function() {
                 toggleMarkdownView(textareaId, previewId, button);
             });
             
-            // Renderiza o Markdown inicial
             preview.innerHTML = marked.parse(textarea.value);
         }
 
-        // Carrega os dados iniciais
         function carregarDados() {
-            // Carrega Observações
             fetch('/api/observacoes')
                 .then(response => response.json())
                 .then(data => {
                     observacoesField.value = data.observacoes || '';
-                    // Configura o preview inicial
                     renderMarkdownPreview('observacoes', 'observacoes-preview', 'toggleObservacoes');
-                    // Inicia mostrando o preview
                     document.getElementById('observacoes').style.display = 'none';
                     document.getElementById('observacoes-preview').style.display = 'block';
                     document.getElementById('toggleObservacoes').innerHTML = '<i class="bi bi-pencil"></i> Editar';
@@ -157,7 +146,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     console.error('Erro ao carregar observações:', error);
                 });
             
-            // Carrega Escala sobre Aviso
             fetch('/api/escalaSobreAviso')
                 .then(response => response.json())
                 .then(data => {
@@ -171,7 +159,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     console.error('Erro ao carregar escala sobre aviso:', error);
                 });
             
-            // Carrega Locais em Falha
             fetch('/api/localEmFalha')
                 .then(response => response.json())
                 .then(data => {
@@ -187,7 +174,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         function salvarObservacoes() {
-            // Garante formatação Markdown básica se não tiver
             let observacoes = observacoesField.value;
             if (!observacoes.startsWith('# ')) {
                 observacoes = '' + observacoes;
@@ -202,7 +188,6 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(response => {
                 if (response.ok) {
-                    // Atualiza o preview após salvar
                     document.getElementById('observacoes-preview').innerHTML = marked.parse(observacoes);
                     msgSalvo.style.display = 'block';
                     msgErro.style.display = 'none';
