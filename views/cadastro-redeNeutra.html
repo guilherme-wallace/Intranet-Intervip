@@ -39,8 +39,8 @@
     <main class="ivp-main">
         <div class="container py-4">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <button type="button" class="btn btn-sm btn-warning rounded-pill px-3 fw-bold" id="btn-abrir-modal-suporte">
-                    <i class="bi bi-headset me-1"></i> Abrir chamado com o suporte
+                <button type="button" class="btn btn-warning btn-sm ms-2" id="btn-abrir-modal-suporte">
+                    <i class="bi bi-chat-dots me-1"></i> Abrir chamado com o suporte
                 </button>
             </div>
 
@@ -583,6 +583,27 @@
             <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
             <h5 class="fw-bold text-dark" id="loading-text">Processando...</h5>
             <small class="text-muted">Aguarde, comunicando com a OLT...</small>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalSuporte" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Mensagem para o Suporte (NOC)</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Descreva o problema:</label>
+                        <textarea id="msgSuporteManual" class="form-control" rows="4" placeholder="Ex: Não estou conseguindo autorizar a ONU devido ao erro..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" id="btnEnviarSuporteManual" class="btn btn-primary">Enviar Mensagem</button>
+                </div>
+            </div>
         </div>
     </div>
 

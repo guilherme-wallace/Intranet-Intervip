@@ -204,7 +204,7 @@ const PERMISSOES_SISTEMA = {
 
     'card-cadastro-bandaLarga': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
     'card-cadastro-corporativo': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
-    'card-cadastro-redeNeutra': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico', 'villaggionet', 'ultracom', 'seliga', 'nv7', 'netplanety', 'infinity', 'inova.telecom', 'conectmais', 'conectja', 'RedeNeutra'],
+    'card-cadastro-redeNeutra': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
 };
 
 APP.get('/api/permissoes-usuario', (req, res) => {

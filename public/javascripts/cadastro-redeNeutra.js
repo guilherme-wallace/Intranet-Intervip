@@ -35,6 +35,9 @@ document.addEventListener('DOMContentLoaded', function() {
     modalONU = new bootstrap.Modal(document.getElementById('modalGerenciarONU'));
     modalListaONUs = new bootstrap.Modal(document.getElementById('modalListaONUs'));
     modalEditar = new bootstrap.Modal(document.getElementById('modalEditarCliente'));
+
+    const suporteModalEl = document.getElementById('modalSuporte');
+    if (suporteModalEl) modalSuporte = new bootstrap.Modal(suporteModalEl);
     
     const complementoModalEl = document.getElementById('complementoModal');
     if(complementoModalEl) complementoModal = new bootstrap.Modal(complementoModalEl);
@@ -69,8 +72,6 @@ document.addEventListener('DOMContentLoaded', function() {
         openComplementoModal();
     });
 
-    // LISTENER PARA ATUALIZAR TABELA AO FECHAR O MODAL DE EDIÇÃO
-    // Como agora o fechamento é forçado via .hide(), este evento será disparado corretamente.
     document.getElementById('modalEditarCliente').addEventListener('hidden.bs.modal', function () {
         if(parceiroIdSelecionado) carregarCarteiraClientes(parceiroIdSelecionado);
     });
@@ -84,7 +85,6 @@ document.addEventListener('DOMContentLoaded', function() {
     configurarTabelaCliente();
 });
 
-// ... (Restante do arquivo permanece inalterado) ...
 function setupListeners() {
     document.getElementById('select-parceiro').addEventListener('change', function(e) {
         parceiroIdSelecionado = e.target.value;
@@ -151,6 +151,45 @@ function setupListeners() {
         }
     });
     
+    const btnAbrirSuporte = document.getElementById('btn-abrir-modal-suporte');
+    if (btnAbrirSuporte) {
+        btnAbrirSuporte.addEventListener('click', function() {
+            if (modalSuporte) {
+                document.getElementById('msgSuporteManual').value = '';
+                modalSuporte.show();
+            } else {
+                alert("Erro ao inicializar modal de suporte. Recarregue a página.");
+            }
+        });
+    }
+    
+    const btnEnviarSuporte = document.getElementById('btnEnviarSuporteManual');
+    if (btnEnviarSuporte) {
+        btnEnviarSuporte.addEventListener('click', async function() {
+            const msg = document.getElementById('msgSuporteManual').value.trim();
+            if (!msg) {
+                alert("Por favor, descreva o problema.");
+                return;
+            }
+
+            const btn = this;
+            const textoOriginal = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = 'Enviando...';
+
+            await abrirChamadoSuporte(msg, 'Solicitação Manual do Usuário');
+
+            btn.disabled = false;
+            btn.innerHTML = textoOriginal;
+
+            if (modalSuporte) {
+                modalSuporte.hide();
+            }
+            
+            alert("Sua solicitação foi enviada ao NOC!");
+        });
+    }
+
     document.getElementById('btn-abrir-lista-onus').addEventListener('click', abrirListaONUs);
     document.getElementById('btn-autorizar-onu').addEventListener('click', autorizarONU);
     document.getElementById('btn-desautorizar-onu').addEventListener('click', desautorizarONU);
@@ -1574,19 +1613,22 @@ async function aplicarRestricoesParceiro(setorUsuario) {
     let tentativa = 0;
     const interval = setInterval(() => {
         const selectParceiro = document.getElementById('select-parceiro');
-        const selectPerfil = document.getElementById('select-perfil');
+        const selectPerfil = document.getElementById('onu-perfil'); 
 
-        const optionsParceiro = Array.from(selectParceiro.options);
-        const optionParceiroEncontrada = optionsParceiro.find(opt => 
-            opt.text.toUpperCase().includes(configParceiro.nome.toUpperCase())
-        );
+        if (selectParceiro && !selectParceiro.disabled) {
+            const optionsParceiro = Array.from(selectParceiro.options);
+            const optionParceiroEncontrada = optionsParceiro.find(opt => 
+                opt.text.toUpperCase().includes(configParceiro.nome.toUpperCase())
+            );
 
-        if (optionParceiroEncontrada) {
-            selectParceiro.value = optionParceiroEncontrada.value;
-            selectParceiro.disabled = true;
+            if (optionParceiroEncontrada) {
+                selectParceiro.value = optionParceiroEncontrada.value;
+                selectParceiro.disabled = true;
+                selectParceiro.dispatchEvent(new Event('change'));
+            }
         }
 
-        if (selectPerfil && selectPerfil.options.length > 1) {
+        if (selectPerfil && selectPerfil.options.length > 1 && !selectPerfil.disabled) {
             const optionsPerfil = Array.from(selectPerfil.options);
             const perfilAlvo = configParceiro.perfil.toUpperCase();
 
@@ -1604,19 +1646,41 @@ async function aplicarRestricoesParceiro(setorUsuario) {
                 });
 
                 selectPerfil.disabled = true;
-                
-                clearInterval(interval);
                 console.log(`Perfil ${perfilAlvo} aplicado e travado.`);
+                
+                if (selectParceiro.disabled) clearInterval(interval);
             }
         }
 
-        if (tentativa++ > 50) clearInterval(interval);
+        if (tentativa++ > 100) clearInterval(interval);
     }, 100);
 }
 
 function showLoading(texto) {
     document.getElementById('loading-text').textContent = texto;
     document.getElementById('loading-overlay').style.display = 'flex';
+}
+
+async function abrirChamadoSuporte(mensagem, tipo = 'Erro Automático') {
+    const usuarioLogado = $('.user-info span.fw-medium').eq(0).text() || 'Usuário';
+    const setorLogado = $('.user-info span.fw-medium').eq(1).text() || 'Desconhecido';
+    
+    console.log(`[Suporte] Abrindo chamado por ${usuarioLogado} (${setorLogado}) - Tipo: ${tipo}`);
+    
+    try {
+        await fetch('/api/v5/ixc/abrir-chamado-suporte', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                titulo: `[RN - ${setorLogado}] ${tipo}`, 
+                mensagem: `Solicitante: ${usuarioLogado}\nSetor: ${setorLogado}\n\nDescrição:\n${mensagem}`,
+                setor: 'NOC'
+            })
+        });
+        console.log("Chamado enviado ao NOC.");
+    } catch (e) {
+        console.error("ERRO CRÍTICO: Não foi possível abrir o chamado de suporte.", e);
+    }
 }
 
 function hideLoading() {
