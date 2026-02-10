@@ -22,6 +22,8 @@ tr.row-cancelled td .badge {
     text-decoration: none !important;
 }
 
+.text-align-center { text-align: center; }
+
 th.sortable { cursor: pointer; user-select: none; }
 th.sortable:hover { background-color: #f8f9fa; }
 

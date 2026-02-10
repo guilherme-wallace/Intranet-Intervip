@@ -47,11 +47,18 @@ document.addEventListener('DOMContentLoaded', function() {
             event.preventDefault();
             const modalEl = btn.closest('.modal');
             if (modalEl) {
-                let modalInstance = bootstrap.Modal.getInstance(modalEl);
-                if (!modalInstance) {
-                    modalInstance = new bootstrap.Modal(modalEl);
+                if (modalEl.id === 'modalCadastroCliente' && modalCadastro) modalCadastro.hide();
+                else if (modalEl.id === 'modalGerenciarONU' && modalONU) modalONU.hide();
+                else if (modalEl.id === 'modalListaONUs' && modalListaONUs) modalListaONUs.hide();
+                else if (modalEl.id === 'modalEditarCliente' && modalEditar) modalEditar.hide();
+                else if (modalEl.id === 'modalSuporte' && modalSuporte) modalSuporte.hide();
+                else if (modalEl.id === 'complementoModal' && complementoModal) complementoModal.hide();
+                else {
+                    try {
+                        const instance = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+                        instance.hide();
+                    } catch(e) { console.error("Erro ao fechar modal:", e); }
                 }
-                modalInstance.hide();
             }
         });
     });
@@ -145,7 +152,7 @@ function setupListeners() {
         const nomeDesc = document.getElementById('edit-descricao').value;
         
         if (loginId) {
-            abrirModalONU(loginId, nomeDesc, "Edição", mac);
+            abrirModalONU(loginId, nomeDesc, mac);
         } else {
             alert("Este cliente não possui um Login IXC vinculado para gerenciar a ONU.");
         }
@@ -346,6 +353,11 @@ function renderizarTabela() {
             descricaoVisual = descricaoVisual.replace(new RegExp('^\\(C\\)\\s*'), '').replace(/^[A-Z0-9]{5}-/, '');
         }
 
+        let enderecoVisual = item.endereco || '';
+        if (item.numero) enderecoVisual += `, ${item.numero}`;
+        let extraInfo = item.bairro || '';
+        if(item.complemento) extraInfo += ` - ${item.complemento}`;
+
         const valor = item.valor ? parseFloat(item.valor).toFixed(2) : '0.00';
         const dataCriacao = item.created_at ? new Date(item.created_at).toLocaleDateString('pt-BR') : '-';
         const dadosJson = JSON.stringify(item).replace(/"/g, '&quot;');
@@ -373,18 +385,40 @@ function renderizarTabela() {
             }
         }
 
+        let sinalDisplay = '<small class="text-muted">-</small>';
+        if (item.sinal_rx && item.sinal_rx !== '-') {
+            const rx = parseFloat(item.sinal_rx);
+            let corRx = 'text-dark';
+            if (rx > -15) corRx = 'text-success fw-bold';
+            else if (rx > -25) corRx = 'text-primary';
+            else corRx = 'text-danger fw-bold';
+            
+            sinalDisplay = `<div style="font-size: 0.85rem;">
+                <span class="${corRx}">RX: ${item.sinal_rx}</span><br>
+                <span class="text-muted">TX: ${item.sinal_tx}</span>
+            </div>`;
+        }
+
         tr.innerHTML = `
             <td>
                 <div class="fw-bold text-primary">${descricaoVisual}</div>
-                <small class="text-muted">${item.login_pppoe || ''}</small>
+                <div class="small text-muted text-truncate" style="max-width: 250px;">
+                    <i class="bi bi-geo-alt-fill me-1"></i>${enderecoVisual}<br>
+                    <span class="text-secondary" style="font-size: 0.75em;">${extraInfo}</span>
+                </div>
             </td>
-            <td>${dataCriacao}</td>
-            <td>R$ ${valor}</td>
-            <td>${authBadge} ${onlineBadge}</td>
-            <td class="text-end">
+            <td class="text-align-center">${dataCriacao}</td>
+            <td class="text-align-center">R$ ${valor}</td>
+            <td class="text-align-center">
+                <div class="d-flex flex-column gap-1">
+                    ${authBadge}
+                    ${onlineBadge}
+                </div>
+            </td>
+            <td class="text-align-center">${sinalDisplay}</td>
+            <td class="text-end text-align-center">
                 <button class="btn btn-sm btn-outline-secondary me-1 btn-editar-cliente" data-cliente="${dadosJson}">
-                    <i class="bi bi-pencil-square"></i> Editar
-                </button>
+                    <i class="bi bi-eye-fill"></i> Ver </button>
             </td>
         `;
         tbody.appendChild(tr);
@@ -842,6 +876,27 @@ function atualizarInterfaceONU(dados, loginId) {
         ? `<span class="badge bg-success rounded-pill">Online</span>` 
         : `<span class="badge bg-danger rounded-pill">Offline</span>`;
 
+
+    let infoQuedaHtml = '';
+    if (dados.online !== 'S' && dados.causa_ultima_queda && dados.causa_ultima_queda !== '-' && dados.causa_ultima_queda !== '') {
+        const mapCausas = {
+            'Dying-gasp': 'Falha Elétrica',
+            'LOFi': 'Sinal degradado/instável',
+            'LOSi/LOBi': 'Perda do sinal óptico',
+            'LOS': 'Sinal degradado/instável',
+            'reset': 'Onu Reiniciada',
+        };
+        const causaOriginal = dados.causa_ultima_queda;
+        const causaTraduzida = mapCausas[causaOriginal] || 'Motivo desconhecido';
+        
+        infoQuedaHtml = `
+            <div class="alert alert-danger p-2 mt-2 mb-0" style="font-size: 0.85rem;">
+                <strong><i class="bi bi-lightning-slash-fill me-1"></i>Causa da queda:</strong><br>
+                ${causaTraduzida} <span class="text-muted small">(${causaOriginal})</span>
+            </div>
+        `;
+    }
+    
     let corSinalRx = 'text-muted';
     const rx = parseFloat(dados.sinal_rx);
     if(!isNaN(rx)) {

@@ -331,6 +331,11 @@ router.get('/clientes/:parceiroId', async (req, res) => {
                 const onuMac = loginMatch ? loginMatch.onu_mac : null;
                 const obs = prod.obs || "";
                 
+                const endereco = loginMatch ? loginMatch.endereco : null;
+                const numero = loginMatch ? loginMatch.numero : null;
+                const bairro = loginMatch ? loginMatch.bairro : null;
+                const cep = loginMatch ? loginMatch.cep : null;
+                
                 let dataCriacao = new Date();
                 const dataMatch = obs.match(/(\d{2})\/(\d{2})\/(\d{4})/);
                 if (dataMatch) {
@@ -345,26 +350,33 @@ router.get('/clientes/:parceiroId', async (req, res) => {
                     await executeDb(
                         `UPDATE rn_clientes SET 
                             ixc_login_id = ?, login_pppoe = ?, valor = ?, descricao_produto = ?, 
-                            onu_mac = ?, obs = ?
+                            onu_mac = ?, obs = ?,
+                            endereco = ?, numero = ?, bairro = ?, cep = ?
                         WHERE id = ?`,
-                        [ixcLoginId, loginPppoe, prod.valor_unit, descricao, onuMac, obs, existe[0].id]
+                        [
+                            ixcLoginId, loginPppoe, prod.valor_unit, descricao, onuMac, obs, 
+                            endereco, numero, bairro, cep,
+                            existe[0].id
+                        ]
                     );
                 } else {
                     if (!token) token = await gerarTokenUnico();
 
                     await executeDb(
                         `INSERT INTO rn_clientes 
-                        (parceiro_id, ixc_produto_id, ixc_login_id, token, descricao_produto, login_pppoe, valor, plano_nome, ativo, obs, onu_mac, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
+                        (parceiro_id, ixc_produto_id, ixc_login_id, token, descricao_produto, login_pppoe, valor, plano_nome, ativo, obs, onu_mac, created_at,
+                         endereco, numero, bairro, cep)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)`,
                         [
                             parceiroId, prod.id, ixcLoginId, token, descricao, loginPppoe, 
-                            prod.valor_unit, 'Sincronizado IXC', obs, onuMac, dataCriacao
+                            prod.valor_unit, 'Sincronizado IXC', obs, onuMac, dataCriacao,
+                            endereco, numero, bairro, cep
                         ]
                     );
                 }
             }
         }
-
+        
         const clientesLocais = await executeDb(
             `SELECT * FROM rn_clientes WHERE parceiro_id = ? ORDER BY created_at DESC`, 
             [parceiroId]
@@ -373,6 +385,8 @@ router.get('/clientes/:parceiroId', async (req, res) => {
         const clientesDetalhados = await Promise.all(clientesLocais.map(async (cli: any) => {
             let isOnline = false;
             let isAutorizado = (cli.onu_mac && cli.onu_mac.length > 10);
+            let sinalRx = '-';
+            let sinalTx = '-';
 
             if (cli.ixc_login_id) {
                 try {
@@ -380,7 +394,11 @@ router.get('/clientes/:parceiroId', async (req, res) => {
                         qtype: 'id_login', query: cli.ixc_login_id, oper: '=', rp: '1'
                     });
                     if (fibraResp.registros && fibraResp.registros.length > 0) {
-                        const rx = parseFloat(fibraResp.registros[0].sinal_rx);
+                        const reg = fibraResp.registros[0];
+                        sinalRx = reg.sinal_rx || '-';
+                        sinalTx = reg.sinal_tx || '-';
+                        
+                        const rx = parseFloat(sinalRx);
                         if (!isNaN(rx) && rx < -1) isOnline = true;
                     }
                 } catch (e) {}
@@ -389,7 +407,9 @@ router.get('/clientes/:parceiroId', async (req, res) => {
             return {
                 ...cli,
                 is_autorizado: isAutorizado,
-                is_online: isOnline
+                is_online: isOnline,
+                sinal_rx: sinalRx,
+                sinal_tx: sinalTx 
             };
         }));
 
@@ -685,7 +705,7 @@ router.get('/onu-detalhes/:id_login', async (req, res) => {
 
             sinal_rx: '-', sinal_tx: '-', data_sinal: '-',
             nome: '-', id_transmissor: '-', id_caixa_ftth: '-', porta_ftth: '-', onu_tipo: '-',
-            ponid: '-', onu_numero: '-', temperatura: '-', voltagem: '-', user_vlan: '-', id_fibra: null
+            ponid: '-', onu_numero: '-', temperatura: '-', voltagem: '-', user_vlan: '-', id_fibra: null, causa_ultima_queda: '-'
         };
 
         if (fibraResp.registros && fibraResp.registros.length > 0) {
@@ -703,6 +723,7 @@ router.get('/onu-detalhes/:id_login', async (req, res) => {
             dadosTecnicos.onu_numero = fibra.onu_numero || '-';
             dadosTecnicos.temperatura = fibra.temperatura || '-';
             dadosTecnicos.voltagem = fibra.voltagem || '-';
+            dadosTecnicos.causa_ultima_queda = fibra.causa_ultima_queda || '-';
 
             const rxNum = parseFloat(dadosTecnicos.sinal_rx);
             if (!isNaN(rxNum) && rxNum !== 0) dadosTecnicos.online = 'S';

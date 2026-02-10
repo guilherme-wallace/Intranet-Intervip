@@ -460,7 +460,7 @@ router.get('/clientes/:parceiroId', function (req, res) { return __awaiter(void 
                 return [3 /*break*/, 8];
             case 8:
                 _loop_2 = function (prod) {
-                    var descricao, tokenMatch, token, loginMatch, ixcLoginId, loginPppoe, onuMac, obs, dataCriacao, dataMatch, dataStr, d, existe;
+                    var descricao, tokenMatch, token, loginMatch, ixcLoginId, loginPppoe, onuMac, obs, endereco, numero, bairro, cep, dataCriacao, dataMatch, dataStr, d, existe;
                     return __generator(this, function (_b) {
                         switch (_b.label) {
                             case 0:
@@ -472,6 +472,10 @@ router.get('/clientes/:parceiroId', function (req, res) { return __awaiter(void 
                                 loginPppoe = loginMatch ? loginMatch.login : descricao;
                                 onuMac = loginMatch ? loginMatch.onu_mac : null;
                                 obs = prod.obs || "";
+                                endereco = loginMatch ? loginMatch.endereco : null;
+                                numero = loginMatch ? loginMatch.numero : null;
+                                bairro = loginMatch ? loginMatch.bairro : null;
+                                cep = loginMatch ? loginMatch.cep : null;
                                 dataCriacao = new Date();
                                 dataMatch = obs.match(/(\d{2})\/(\d{2})\/(\d{4})/);
                                 if (dataMatch) {
@@ -484,7 +488,11 @@ router.get('/clientes/:parceiroId', function (req, res) { return __awaiter(void 
                             case 1:
                                 existe = _b.sent();
                                 if (!(existe.length > 0)) return [3 /*break*/, 3];
-                                return [4 /*yield*/, executeDb("UPDATE rn_clientes SET \n                            ixc_login_id = ?, login_pppoe = ?, valor = ?, descricao_produto = ?, \n                            onu_mac = ?, obs = ?\n                        WHERE id = ?", [ixcLoginId, loginPppoe, prod.valor_unit, descricao, onuMac, obs, existe[0].id])];
+                                return [4 /*yield*/, executeDb("UPDATE rn_clientes SET \n                            ixc_login_id = ?, login_pppoe = ?, valor = ?, descricao_produto = ?, \n                            onu_mac = ?, obs = ?,\n                            endereco = ?, numero = ?, bairro = ?, cep = ?\n                        WHERE id = ?", [
+                                        ixcLoginId, loginPppoe, prod.valor_unit, descricao, onuMac, obs,
+                                        endereco, numero, bairro, cep,
+                                        existe[0].id
+                                    ])];
                             case 2:
                                 _b.sent();
                                 return [3 /*break*/, 7];
@@ -494,9 +502,10 @@ router.get('/clientes/:parceiroId', function (req, res) { return __awaiter(void 
                             case 4:
                                 token = _b.sent();
                                 _b.label = 5;
-                            case 5: return [4 /*yield*/, executeDb("INSERT INTO rn_clientes \n                        (parceiro_id, ixc_produto_id, ixc_login_id, token, descricao_produto, login_pppoe, valor, plano_nome, ativo, obs, onu_mac, created_at)\n                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)", [
+                            case 5: return [4 /*yield*/, executeDb("INSERT INTO rn_clientes \n                        (parceiro_id, ixc_produto_id, ixc_login_id, token, descricao_produto, login_pppoe, valor, plano_nome, ativo, obs, onu_mac, created_at,\n                         endereco, numero, bairro, cep)\n                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)", [
                                     parceiroId, prod.id, ixcLoginId, token, descricao, loginPppoe,
-                                    prod.valor_unit, 'Sincronizado IXC', obs, onuMac, dataCriacao
+                                    prod.valor_unit, 'Sincronizado IXC', obs, onuMac, dataCriacao,
+                                    endereco, numero, bairro, cep
                                 ])];
                             case 6:
                                 _b.sent();
@@ -521,12 +530,14 @@ router.get('/clientes/:parceiroId', function (req, res) { return __awaiter(void 
             case 13:
                 clientesLocais = _a.sent();
                 return [4 /*yield*/, Promise.all(clientesLocais.map(function (cli) { return __awaiter(void 0, void 0, void 0, function () {
-                        var isOnline, isAutorizado, fibraResp, rx, e_5;
+                        var isOnline, isAutorizado, sinalRx, sinalTx, fibraResp, reg, rx, e_5;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0:
                                     isOnline = false;
                                     isAutorizado = (cli.onu_mac && cli.onu_mac.length > 10);
+                                    sinalRx = '-';
+                                    sinalTx = '-';
                                     if (!cli.ixc_login_id) return [3 /*break*/, 4];
                                     _a.label = 1;
                                 case 1:
@@ -537,7 +548,10 @@ router.get('/clientes/:parceiroId', function (req, res) { return __awaiter(void 
                                 case 2:
                                     fibraResp = _a.sent();
                                     if (fibraResp.registros && fibraResp.registros.length > 0) {
-                                        rx = parseFloat(fibraResp.registros[0].sinal_rx);
+                                        reg = fibraResp.registros[0];
+                                        sinalRx = reg.sinal_rx || '-';
+                                        sinalTx = reg.sinal_tx || '-';
+                                        rx = parseFloat(sinalRx);
                                         if (!isNaN(rx) && rx < -1)
                                             isOnline = true;
                                     }
@@ -545,7 +559,7 @@ router.get('/clientes/:parceiroId', function (req, res) { return __awaiter(void 
                                 case 3:
                                     e_5 = _a.sent();
                                     return [3 /*break*/, 4];
-                                case 4: return [2 /*return*/, __assign(__assign({}, cli), { is_autorizado: isAutorizado, is_online: isOnline })];
+                                case 4: return [2 /*return*/, __assign(__assign({}, cli), { is_autorizado: isAutorizado, is_online: isOnline, sinal_rx: sinalRx, sinal_tx: sinalTx })];
                             }
                         });
                     }); }))];
@@ -832,7 +846,7 @@ router.get('/onu-detalhes/:id_login', function (req, res) { return __awaiter(voi
                     apartamento: loginData.apartamento,
                     sinal_rx: '-', sinal_tx: '-', data_sinal: '-',
                     nome: '-', id_transmissor: '-', id_caixa_ftth: '-', porta_ftth: '-', onu_tipo: '-',
-                    ponid: '-', onu_numero: '-', temperatura: '-', voltagem: '-', user_vlan: '-', id_fibra: null
+                    ponid: '-', onu_numero: '-', temperatura: '-', voltagem: '-', user_vlan: '-', id_fibra: null, causa_ultima_queda: '-'
                 };
                 if (!(fibraResp.registros && fibraResp.registros.length > 0)) return [3 /*break*/, 7];
                 fibra = fibraResp.registros[0];
@@ -849,6 +863,7 @@ router.get('/onu-detalhes/:id_login', function (req, res) { return __awaiter(voi
                 dadosTecnicos.onu_numero = fibra.onu_numero || '-';
                 dadosTecnicos.temperatura = fibra.temperatura || '-';
                 dadosTecnicos.voltagem = fibra.voltagem || '-';
+                dadosTecnicos.causa_ultima_queda = fibra.causa_ultima_queda || '-';
                 rxNum = parseFloat(dadosTecnicos.sinal_rx);
                 if (!isNaN(rxNum) && rxNum !== 0)
                     dadosTecnicos.online = 'S';
