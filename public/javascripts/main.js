@@ -97,7 +97,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const salvarLocalButton = document.getElementById('salvarLocalEmFalha');
         const msgSalvoLocal = document.getElementById('msgSalvoLocal');
         const msgErroLocal = document.getElementById('msgErroLocal');
--
+
         function toggleMarkdownView(textareaId, previewId, button) {
             const textarea = document.getElementById(textareaId);
             const preview = document.getElementById(previewId);
@@ -118,6 +118,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             }
         }
+
         function renderMarkdownPreview(textareaId, previewId, buttonId) {
             const textarea = document.getElementById(textareaId);
             const preview = document.getElementById(previewId);

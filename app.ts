@@ -207,7 +207,7 @@ const PERMISSOES_SISTEMA = {
     'card-soc-report': ['NOC', 'Diretoria'],
 
     'card-cadastro-bandaLarga': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
-    'card-cadastro-corporativo': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
+    'card-cadastro-corporativo': ['NOC', 'Comercial', 'Corporativo', 'Diretoria', 'Financeiro'],
     'card-cadastro-redeNeutra': ['NOC'],
 };
 

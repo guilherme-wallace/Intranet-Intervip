@@ -1072,10 +1072,6 @@ function initializeThemeAndUserInfo() {
                 showModal('Sessão Expirada', 'Será necessário refazer o login!', 'warning');
                 setTimeout(() => { window.location = "/"; }, 300);
                 return;
-            } 
-            else if (group !== 'NOC' && group !== 'Corporativo') {
-                console.log("Acesso negado para o grupo:", group);
-                document.getElementById('modalAlerta').style.display = 'flex';
             }
             document.querySelectorAll('.user-info span').forEach(el => {
                 if (el.textContent.includes('{username}')) {

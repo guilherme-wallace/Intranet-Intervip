@@ -428,12 +428,12 @@ function initializeThemeAndUserInfo() {
                 }
             });
 
-            if (group === 'RedeNeutra') {
+            if (group === 'RedeNeutra' || group === 'villaggionet' || group === 'ultracom' || group === 'seliga' || group === 'nv7' || group === 'netplanety' || group === 'infinity' || group === 'inova.telecom' || group === 'conectmais' || group === 'conectja') {
                 document.body.classList.add('user-group-redeneutra');
             }
             userGroup = data.group || 'Sem grupo';
 
-            if (userGroup === 'RedeNeutra') {
+            if (userGroup === 'RedeNeutra' || userGroup === 'villaggionet' || userGroup === 'ultracom' || userGroup === 'seliga' || userGroup === 'nv7' || userGroup === 'netplanety' || userGroup === 'infinity' || userGroup === 'inova.telecom' || userGroup === 'conectmais' || userGroup === 'conectja') {
                 document.body.classList.add('user-group-redeneutra');
             }
 
