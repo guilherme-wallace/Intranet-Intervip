@@ -6,8 +6,11 @@
 		<meta http-equiv="refresh" content="86400;url=/"> <!-- x horas em segundos -->
 		<title>Migração de ONUs</title>
 		<!-- CSS -->
-		<link href="stylesheets/bootstrap.min.css" rel="stylesheet">
-		<link rel="stylesheet" type="text/css" href="stylesheets/styleOLD.css">
+		<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+		<!--link rel="stylesheet" type="text/css" href="stylesheets/styleOLD.css"-->
+		<link rel="stylesheet" type="text/css" href="stylesheets/migra-onus.css">
+		<link rel="stylesheet" type="text/css" href="stylesheets/cadastro-vendas.css">
 		<!-- JS -->
 		<script src="javascripts/index.js"></script>
 		<script src="javascripts/jquery.js"></script>
@@ -18,74 +21,33 @@
 		<script src="javascripts/bootstrap-autocomplete.min.js"></script>
 	</head>
 	<style>
-		#modalAlerta {
-		  display: none;
-		  position: fixed;
-		  z-index: 999;
-		  left: 0;
-		  top: 0;
-		  width: 100%;
-		  height: 100%;
-		  background-color: rgba(0, 0, 0, 0.8);
-		  justify-content: center;
-		  align-items: center;
-		}
-	
-		#modalContent {
-		  background-color: white;
-		  padding: 20px;
-		  text-align: center;
-		  border-radius: 10px;
-		  max-width: 500px;
-		}
-	
-		#modalContent img {
-		  max-width: 100%;
-		  height: auto;
-		  border-radius: 10px;
-		}
-	
-		#closeModalBtn {
-		  margin-top: 15px;
-		  padding: 10px 20px;
-		  background-color: #dc3545;
-		  color: white;
-		  border: none;
-		  border-radius: 5px;
-		  cursor: pointer;
-		}
-	
-		#closeModalBtn:hover {
-		  background-color: #c82333;
-		}
 	  </style>
 	</head>
 	<body class="migra-onu-body">
-		<header>
+		<header class="header-modern">
 			<div class="container-fluid">
-				<div class="row">
-					<div class="col-sm-2 col-md-3 logo-wrapper" style="align-content: center;">
-						<a href="/main"><img class="logo" src="images/logo.png" alt="Logo Intervip"></a>
+				<div class="d-flex align-items-center">
+					<a href="/main" class="d-flex align-items-center text-decoration-none">
+						<img class="logo me-3" src="images/logo.png" alt="Logo Intervip">
+					</a>
+				</div>
+				<h1 class="header-title fs-4 fw-semibold text-white m-0">Migração de ONUs</h1>
+				<div class="d-flex align-items-center">
+					
+					<div class="user-info text-end me-4">
+						<p class="m-0 small text-white-80">Acessando como: <span class="fw-medium">{username}</span></p>
+						<p class="m-0 small text-white-80">Setor: <span class="fw-medium">{group}</span></p>
 					</div>
-					<div class="col-sm-6 col-md-6" id="cabecalho">
-						<h2>Migração de ONUs</h2>
-					</div>
-					<div class="col-sm-2 col-md-3" style="text-align: end; align-content: center;">
-						<div class="row">
-							<div class="col-md-9" style="align-content: center;">
-								<h6 class="show-username">Acessando como: {username}</h6>
-								<h6 class="show-group">Setor: {group}</h6>
-							</div>
-							<div class="col-md-3 d-flex justify-content-end align-items-center">
-								<button id="theme-toggle" class="btn btn-secondary me-2">Tema</button>
-								<button id="btnLogout" class="btn btn-danger">Sair</button>
-							</div>
-						</div>
-					</div>
+					<button id="theme-toggle" class="btn btn-sm btn-outline-dark rounded-pill px-3">
+						<i class="bi bi-moon-stars"></i>
+					</button>
+					<button id="btnLogout" class="btn btn-sm btn-outline-danger rounded-pill px-3 ms-2">
+						<i class="bi bi-box-arrow-right"></i>
+					</button>
 				</div>
 			</div>
 		</header>
-		<main>
+		<main class="ivp-main">
 			<div class="dark-container container-fluid">
 				<div class="container">
 					<div class="card border border-dark bg-light">
@@ -103,37 +65,19 @@
 											<tbody>
 												<tr class="table-primary">
 													<td scope="row" id="td-olt-antiga">
-														<p><b>Seleciona a OLT de onde as ONUs serão retiradas</b></p>
+														<p><b>Selecione a OLT de onde as ONUs serão retiradas</b></p>
 														<div class="dropdown">
 															<button class="btn btn-primary dropdown-toggle" id="dropOLTAntiga" name="dropOLTAntiga" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="margin-inline-start: 1rem;">Selecione uma opção</button>
-															<div id="dropOLTAntiga" name="dropOLTAntiga" class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-																<a id="dropOLTAntiga-INTERVIP" class="dropdown-item">SEA01-OLT-01-INTERVIP</a>
-																<a id="dropOLTAntiga-VNC" class="dropdown-item">SEA03-OLT-01-VNC</a>
-																<a id="dropOLTAntiga-LAR" class="dropdown-item">SEA04-OLT-01-LAR</a>
-																<a id="dropOLTAntiga-NHZ" class="dropdown-item">SEA05-OLT-01-NHZ</a>
-																<a id="dropOLTAntiga-NEWPORT" class="dropdown-item">VTA01-OLT-01-NEWPORT</a>
-																<a id="dropOLTAntiga-JDCB" class="dropdown-item">VTA02-OLT-01-JDCB</a>
-																<a id="dropOLTAntiga-WLTS" class="dropdown-item">VVA01-OLT-01-WLTS</a>
-																<a id="dropOLTAntiga-ARIB" class="dropdown-item">VVA03-OLT-01-ARIB</a>
-																<a id="dropOLTAntiga-VCGB" class="dropdown-item">CCA01-OLT-01-VCGB</a>
-															</div>
+															<div id="listaOLTAntiga" class="dropdown-menu" aria-labelledby="dropOLTAntiga" style="max-height: 300px; overflow-y: auto;">
+																</div>
 														</div>
 													</td>
 													<td scope="row" id="td-olt-nova">
-														<p><b>Seleciona a OLT para onde as ONUs serão enviada</b></p>
+														<p><b>Selecione a OLT para onde as ONUs serão enviadas</b></p>
 														<div class="dropdown">
 															<button class="btn btn-primary dropdown-toggle" id="dropOLTNova" name="dropOLTNova" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="margin-inline-start: 1rem;">Selecione uma opção</button>
-															<div id="dropOLTNova" name="dropOLTNova" class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-																<a id="dropOLTNova-INTERVIP" class="dropdown-item">SEA01-OLT-01-INTERVIP</a>
-																<a id="dropOLTNova-VNC" class="dropdown-item">SEA03-OLT-01-VNC</a>
-																<a id="dropOLTNova-LAR" class="dropdown-item">SEA04-OLT-01-LAR</a>
-																<a id="dropOLTNova-NHZ" class="dropdown-item">SEA05-OLT-01-NHZ</a>
-																<a id="dropOLTNova-NEWPORT" class="dropdown-item">VTA01-OLT-01-NEWPORT</a>
-																<a id="dropOLTNova-JDCB" class="dropdown-item">VTA02-OLT-01-JDCB</a>
-																<a id="dropOLTNova-WLTS" class="dropdown-item">VVA01-OLT-01-WLTS</a>
-																<a id="dropOLTNova-ARIB" class="dropdown-item">VVA03-OLT-01-ARIB</a>
-																<a id="dropOLTNova-VCGB" class="dropdown-item">CCA01-OLT-01-VCGB</a>
-															</div>
+															<div id="listaOLTNova" class="dropdown-menu" aria-labelledby="dropOLTNova" style="max-height: 300px; overflow-y: auto;">
+																</div>
 														</div>
 													</th>
 												</tr>
@@ -358,61 +302,25 @@
 			<button id="closeModalBtn">Fechar</button>
 		  </div>
 		</div>
-		<footer class="footer navbar-fixed-bottom">
-		  <div class="container-fluid">
-			<div class="row">
-			  <div class="col-md-12 align-items-center" style="font-size: 12px; text-align: center;">
-				<a href="../"><img class="logo" src="images/logo.png"></a>
-				<p>© 2021 Gerencia Intervip | Densenvolvido por <a href="https://github.com/guilherme-wallace" target="_blank">Guilherme Wallace</a>.</p>
-			  </div>
+		
+		<div id="loading-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center; flex-direction: column;">
+			<div class="card p-4 shadow-lg text-center" style="min-width: 300px;">
+				<div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
+				<h5 class="fw-bold text-dark" id="loading-text">Processando...</h5>
+				<small class="text-muted">Aguarde, comunicando com a OLT...</small>
 			</div>
-		  </div>
+		</div>
+
+		<footer class="ivp-footer">
+				<div class="container-fluid py-3">
+				<div class="text-center">
+					<img src="images/logo.png" alt="Logo Intervip" width="100">
+					<p class="ivp-footer-text">
+						© 2025 Gerência Intervip | Desenvolvido por 
+						<a href="https://github.com/guilherme-wallace" target="_blank">Guilherme Wallace</a>
+					</p>
+				</div>
+			</div>
 		</footer>
-		<script>
-		  const currentTheme = localStorage.getItem('theme') || 'light';
-		  const bodyElement = document.body;
-	  
-		  if (currentTheme === 'dark') {
-			bodyElement.classList.add('dark-mode');
-		  }
-	  
-		  document.getElementById('theme-toggle').addEventListener('click', function() {
-			bodyElement.classList.toggle('dark-mode');
-	  
-			if (bodyElement.classList.contains('dark-mode')) {
-			  localStorage.setItem('theme', 'dark');
-			} else {
-			  localStorage.setItem('theme', 'light');
-			}
-		  });
-		  document.addEventListener('DOMContentLoaded', function() {
-			fetch('/api/username')
-			  .then(response => response.json())
-			  .then(data => {
-				const username = data.username || 'Visitante';
-				const group = data.group || 'Sem grupo';
-				document.querySelector('.show-username').textContent = `Acessando como: ${username}`;
-				document.querySelector('.show-group').textContent = `Setor: ${group}`;
-	  
-				if (username === 'Visitante') {
-				  alert('Será necessário refazer o login!');
-				  window.location = "/";
-				}
-			  })
-			  .catch(error => {
-				console.error('Erro ao obter o nome do usuário e grupo:', error);
-			  });
-			const logoutButton = document.getElementById('btnLogout');
-			if (logoutButton) {
-				logoutButton.addEventListener('click', function() {
-					window.location.href = '/logout';
-				});
-			}
-		  });
-		  document.getElementById('closeModalBtn').addEventListener('click', function() {
-			document.getElementById('modalAlerta').style.display = 'none';
-			window.location = "/main";
-		  });
-		</script>
-	  </body>
+	</body>
 </html>

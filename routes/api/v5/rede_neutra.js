@@ -808,7 +808,7 @@ router.put('/cliente/:id', function (req, res) { return __awaiter(void 0, void 0
     });
 }); });
 router.get('/onu-detalhes/:id_login', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var id_login, loginResp, loginData, fibraResp, dadosTecnicos, fibra, rxNum, matchVlan, popResp, e_7, error_8;
+    var id_login, loginResp, loginData, fibraResp, dadosTecnicos, fibra, rxNum, matchVlan, radioResp, e_7, error_8;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
@@ -876,14 +876,21 @@ router.get('/onu-detalhes/:id_login', function (req, res) { return __awaiter(voi
                 _a.label = 4;
             case 4:
                 _a.trys.push([4, 6, , 7]);
-                return [4 /*yield*/, makeIxcRequest('POST', '/radpop', { qtype: "radpop.id", query: fibra.id_transmissor, oper: "=", rp: "1" })];
+                return [4 /*yield*/, makeIxcRequest('POST', '/radpop_radio', {
+                        qtype: "radpop_radio.id",
+                        query: fibra.id_transmissor,
+                        oper: "=",
+                        rp: "1"
+                    })];
             case 5:
-                popResp = _a.sent();
-                if (popResp.registros && popResp.registros.length > 0)
-                    dadosTecnicos.id_transmissor = popResp.registros[0].pop;
+                radioResp = _a.sent();
+                if (radioResp.registros && radioResp.registros.length > 0) {
+                    dadosTecnicos.id_transmissor = radioResp.registros[0].descricao;
+                }
                 return [3 /*break*/, 7];
             case 6:
                 e_7 = _a.sent();
+                console.error("Erro ao buscar nome OLT:", e_7.message);
                 return [3 /*break*/, 7];
             case 7:
                 res.json(dadosTecnicos);

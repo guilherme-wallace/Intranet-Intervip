@@ -1,64 +1,38 @@
+# /public/scriptsPy/migraOnus/main.py
+
 import sys
-from route.dadosConexaoOLTs import *
+from route.dadosConexaoOLTs import user, user_password
 from public.currentPort import *
 from public.jsonONUs import *
 from public.autorizaONU import *
 from public.autofind import *
 from public.ontSummary import *
 
-# Selecione a OLT Antiga
-#use_OLT_Antiga = "OLT-SEA01"
-#pon_ANTIGA = "0/16/5"
 
-# Selecione a OLT Nova
-#use_OLT_Nova = "OLT-SEA01"
-
-# Verifique as configurações das ONUs
-# Deixew como None as configurações que não serão alteradas.
-
-#onu_ID = 0
-#ont_LIN_PROF = None
-#ont_SRV_PROF = None
-#ont_native_vlan = None
-#ont_vlan_service_port = None
-#ont_gem_PORT = None
-#ont_user_vlan = None
-
-# Command-line arguments passed from Node.js
 use_OLT_Antiga = sys.argv[1]
-use_OLT_Nova = sys.argv[2]
-pon_ANTIGA = sys.argv[3]
-onu_ID = int(sys.argv[4])
-ont_LIN_PROF = sys.argv[5] if sys.argv[5] != 'None' else None
-ont_SRV_PROF = sys.argv[6] if sys.argv[6] != 'None' else None
-ont_native_vlan = sys.argv[7] if sys.argv[7] != 'None' else None
-ont_vlan_service_port = sys.argv[8] if sys.argv[8] != 'None' else None
-ont_gem_PORT = sys.argv[9] if sys.argv[9] != 'None' else None
-ont_user_vlan = sys.argv[10] if sys.argv[10] != 'None' else None
+ip_OLT_Antiga = sys.argv[2] 
+use_OLT_Nova = sys.argv[3]
+ip_OLT_Nova = sys.argv[4]
 
-# Mapeamento das OLTs e seus IPs
-olt_IPS = {
-    "SEA01-OLT-01-INTERVIP": ip_SEA01,
-    "SEA03-OLT-01-VNC": ip_SEA03,
-    "SEA04-OLT-01-LAR": ip_SEA04,
-    "SEA05-OLT-01-NHZ": ip_SEA05,
-    "VTA01-OLT-01-NEWPORT": ip_VTA01,
-    "VTA02-OLT-01-JDCB": ip_VTA02,
-    "VVA01-OLT-01-WLTS": ip_VVA01,
-    "VVA03-OLT-01-ARIB": ip_VVA03,
-    "CCA01-OLT-01-VCGB": ip_CCA01,
-}
+pon_ANTIGA = sys.argv[5]
+onu_ID = int(sys.argv[6])
+ont_LIN_PROF = sys.argv[7] if sys.argv[7] != 'None' else None
+ont_SRV_PROF = sys.argv[8] if sys.argv[8] != 'None' else None
+ont_native_vlan = sys.argv[9] if sys.argv[9] != 'None' else None
+ont_vlan_service_port = sys.argv[10] if sys.argv[10] != 'None' else None
+ont_gem_PORT = sys.argv[11] if sys.argv[11] != 'None' else None
+ont_user_vlan = sys.argv[12] if sys.argv[12] != 'None' else None
 
-hostnameOLTAntiga = olt_IPS.get(use_OLT_Antiga)
-hostnameOLTNova = olt_IPS.get(use_OLT_Nova)
+
+hostnameOLTAntiga = ip_OLT_Antiga
+hostnameOLTNova = ip_OLT_Nova
 
 username = user
 password = user_password
 
 caminho = '/opt/intranet/public/scriptsPy/migraOnus/src/'
-#caminho = 'C:\Users\Guilherme Costa\Documents\GitHub\Intranet-Intervip\public\scriptsPy\migraOnus\src'
+#caminho = 'C:\\Users\\gui-wallace-not\\OneDrive\\Documentos\\GitHub\\Intranet-Intervip\\public\\scriptsPy\\migraOnus\\src\\'
 
-# Caminhos dos arquivos
 full_currentPort_path =f'{caminho}full_currentPort.txt'
 filtered_currentPort_path = f'{caminho}filtered_currentPort.txt'
 onus_config_path = f'{caminho}onus_config.json'

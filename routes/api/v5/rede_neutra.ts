@@ -735,9 +735,18 @@ router.get('/onu-detalhes/:id_login', async (req, res) => {
             
             if (fibra.id_transmissor) {
                 try {
-                    const popResp = await makeIxcRequest('POST', '/radpop', { qtype: "radpop.id", query: fibra.id_transmissor, oper: "=", rp: "1" });
-                    if (popResp.registros && popResp.registros.length > 0) dadosTecnicos.id_transmissor = popResp.registros[0].pop;
-                } catch (e) {}
+                    const radioResp = await makeIxcRequest('POST', '/radpop_radio', { 
+                        qtype: "radpop_radio.id", 
+                        query: fibra.id_transmissor, 
+                        oper: "=", 
+                        rp: "1" 
+                    });
+                    if (radioResp.registros && radioResp.registros.length > 0) {
+                        dadosTecnicos.id_transmissor = radioResp.registros[0].descricao;
+                    }
+                } catch (e) {
+                    console.error("Erro ao buscar nome OLT:", e.message);
+                }
             }
         }
 

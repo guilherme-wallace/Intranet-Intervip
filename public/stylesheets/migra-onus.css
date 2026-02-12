@@ -1,0 +1,167 @@
+/* public/stylesheets/migra-onus.css */
+
+:root {
+    --primary-color: #2c5fdf;
+    --primary-hover: #1a4bc8;
+    --primary-light: rgba(44, 95, 223, 0.1);
+    --primary-rgb: 44, 95, 223;
+    --secondary-color: #6c757d;
+    --success-color: #28a745;
+    --danger-color: #dc3545;
+    --warning-color: #ffc107;
+    --info-color: #17a2b8;
+    --light-color: #f8f9fa;
+    --dark-color: #343a40;
+    --body-bg: #f5f7fa;
+    --card-bg: #ffffff;
+    --text-color: #2d3748;
+    --text-muted: #718096;
+    --border-color: #e2e8f0;
+    --header-bg: #1a365d;
+    --footer-bg: #1a365d;
+    --success-color-rgb: 40, 167, 69;
+    --danger-color-rgb: 220, 53, 69;
+    --warning-color-rgb: 255, 193, 7;
+}
+
+.dark-mode {
+    --primary-color: #4d9fec;
+    --primary-hover: #3a8bda;
+    --primary-light: rgba(44, 95, 223, 0.2);
+    --body-bg: #121212;
+    --card-bg: #1e1e1e;
+    --card-bg-dark: #2d2d2d;
+    --card-bg-painel: rgba(95,95,95, 0.3);
+    --text-color: #e0e0e0;
+    --text-muted: #ffffff;
+    --border-color: #333333;
+    --header-bg: #0d1b2a;
+    --footer-bg: #0d1b2a;
+}
+
+/* RESET */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    height: 100%;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    font-family: 'Inter', sans-serif;
+    background-color: var(--body-bg);
+    color: var(--text-color);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.ivp-main { 
+    flex: 1;
+    /*padding: 2rem 0;*/
+}
+
+#modalAlerta {
+    display: none;
+    position: fixed;
+    z-index: 999;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    justify-content: center;
+    align-items: center;
+}
+
+#modalContent {
+    background-color: white;
+    padding: 20px;
+    text-align: center;
+    border-radius: 10px;
+    max-width: 500px;
+}
+
+#modalContent img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 10px;
+}
+
+#closeModalBtn {
+    margin-top: 15px;
+    padding: 10px 20px;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#closeModalBtn:hover {
+    background-color: #c82333;
+}
+
+
+/*Dark Mode */
+.dark-mode .card-body {
+    background-color: rgb(31, 32, 33);
+    border: 1px solid #333;
+    color: #f0f0f0;
+}
+
+.dark-mode tr {
+    background-color: #2e3b46;
+    color: #f0f0f0;
+}
+.dark-mode th {
+    background-color: #2e3b46;
+    color: #f0f0f0;
+}
+
+.dark-mode td {
+    background-color: #2e3b46;
+    color: #f0f0f0;
+}
+
+.dark-mode hr {
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    border: 0;
+    border-top: 1px solid rgb(0, 0, 0);
+}
+
+.dark-mode .modal-content {
+    background-color: #2e3b46;
+    color: #f0f0f0;
+}
+
+/* FOOTER */
+.ivp-footer {
+    background-color: var(--footer-bg);
+    color: white;
+    margin-top: auto;
+}
+.ivp-footer-text {
+    margin: 0;
+    font-size: 0.9rem;
+}
+.ivp-footer a {
+    color: white;
+    text-decoration: none;
+}
+.ivp-footer a:hover {
+    text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+    .header-title { display: none; }
+    .user-info { display: none; }   
+    main.ivp-main { padding: 1rem; }
+    .step-indicator { width: 100%; }
+    .step p { font-size: 0.8rem; }
+}

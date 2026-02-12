@@ -1,87 +1,55 @@
+//public/javascripts/migra-onus.js
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializeThemeAndUserInfo();
+});
+
 $(function() {
     $('#limparDados').on('click', cancelaCadastro);
     
-    $('#dropOLTAntiga a').on('click', function() {
-        switch ($(this).text()) {
-            case 'SEA01-OLT-01-INTERVIP':
-                $('#dropOLTAntiga').text($(this).text());
-                break;
-            case 'SEA03-OLT-01-VNC':
-                $('#dropOLTAntiga').text($(this).text());
-                break;
-            case 'SEA04-OLT-01-LAR':
-                $('#dropOLTAntiga').text($(this).text());
-                break;
-            case 'SEA05-OLT-01-NHZ':
-                $('#dropOLTAntiga').text($(this).text());
-                break;
-            case 'VTA01-OLT-01-NEWPORT':
-                $('#dropOLTAntiga').text($(this).text());
-                break;
-            case 'VTA02-OLT-01-JDCB':
-                $('#dropOLTAntiga').text($(this).text());
-                break;
-            case 'VVA01-OLT-01-WLTS':
-                $('#dropOLTAntiga').text($(this).text());
-                break;
-            case 'VVA03-OLT-01-ARIB':
-                $('#dropOLTAntiga').text($(this).text());
-                break;
-            case 'CCA01-OLT-01-VCGB':
-                $('#dropOLTAntiga').text($(this).text());
-                break;
+    let selectedIpAntiga = "";
+    let selectedIpNova = "";
+
+    $.ajax({
+        url: '/api/olts',
+        method: 'GET',
+        success: function(olts) {
+            const $listaAntiga = $('#listaOLTAntiga');
+            const $listaNova = $('#listaOLTNova');
+            
+            olts.forEach(function(olt) {
+                const item = `<a class="dropdown-item olt-item" data-ip="${olt.ip}" style="cursor: pointer;">${olt.name}</a>`;
+                $listaAntiga.append(item);
+                $listaNova.append(item);
+            });
+        },
+        error: function(err) {
+            console.error("Erro ao carregar OLTs:", err);
+            $('#logconsole').val("Erro ao carregar lista de OLTs do sistema.");
         }
     });
-    $('#dropOLTNova a').on('click', function() {
-        switch ($(this).text()) {
-            case 'SEA01-OLT-01-INTERVIP':
-                $('#dropOLTNova').text($(this).text());
-                break;
-            case 'SEA03-OLT-01-VNC':
-                $('#dropOLTNova').text($(this).text());
-                break;
-            case 'SEA04-OLT-01-LAR':
-                $('#dropOLTNova').text($(this).text());
-                break;
-            case 'SEA05-OLT-01-NHZ':
-                $('#dropOLTNova').text($(this).text());
-                break;
-            case 'VTA01-OLT-01-NEWPORT':
-                $('#dropOLTNova').text($(this).text());
-                break;
-            case 'VTA02-OLT-01-JDCB':
-                $('#dropOLTNova').text($(this).text());
-                break;
-            case 'VVA01-OLT-01-WLTS':
-                $('#dropOLTNova').text($(this).text());
-                break;
-            case 'VVA03-OLT-01-ARIB':
-                $('#dropOLTNova').text($(this).text());
-                break;
-            case 'CCA01-OLT-01-VCGB':
-                $('#dropOLTNova').text($(this).text());
-                break;
-        }
+
+    $(document).on('click', '#listaOLTAntiga .olt-item', function() {
+        const nome = $(this).text();
+        const ip = $(this).data('ip');
+        $('#dropOLTAntiga').text(nome);
+        selectedIpAntiga = ip;
     });
+
+    $(document).on('click', '#listaOLTNova .olt-item', function() {
+        const nome = $(this).text();
+        const ip = $(this).data('ip');
+        $('#dropOLTNova').text(nome);
+        selectedIpNova = ip;
+    });
+
     $( "#formData" ).validate({
         debug: true,
         rules: {
-            dropOLTAntiga: {
-                required: true
-            },
-            dropOLTNova: {
-                required: true
-            },
-            pon_ANTIGA: {
-                required: true
-            },
-            onu_ID: {
-                required: true
-            },
+            pon_ANTIGA: { required: true },
+            onu_ID: { required: true },
         },
         messages: {
-            dropOLTAntiga: 'Preenchimento inválido',
-            dropOLTNova: 'Preenchimento inválido',
             pon_ANTIGA: 'Preenchimento inválido',
             onu_ID: 'Preenchimento inválido'
         }
@@ -98,14 +66,15 @@ $(function() {
         if ((dropOLTAntiga == "Selecione uma opção") || (dropOLTNova == "Selecione uma opção") || (pon_ANTIGA == "") || (onu_ID == "")) {
             $('#logconsole').val("Favor verificar se os campos foram preenchidos corretamente!");
         } else {
-            $('#logconsole').val("Executando o script, por favor, aguarde...");
-            $('#submitButton').attr('disabled', true)
-            $('#limparDados').attr('disabled', true)
+            showLoading("Executando o script, por favor, aguarde..."); 
+            $('#submitButton').attr('disabled', true);
+            $('#limparDados').attr('disabled', true);
 
-    
             let data = {
                 use_OLT_Antiga: dropOLTAntiga,
+                ip_OLT_Antiga: selectedIpAntiga,
                 use_OLT_Nova: dropOLTNova,
+                ip_OLT_Nova: selectedIpNova,
                 pon_ANTIGA: pon_ANTIGA,
                 onu_ID: onu_ID,
                 ont_LIN_PROF: $('#ont_LIN_PROF').val() || null,
@@ -122,14 +91,16 @@ $(function() {
                 contentType: 'application/json',
                 data: JSON.stringify(data),
                 success: function(response) {
+                    hideLoading(); 
                     $('#logconsole').val("Script executado com sucesso!\n" + response);
-                    $('#submitButton').attr('disabled', false)
-                    $('#limparDados').attr('disabled', false)
+                    $('#submitButton').attr('disabled', false);
+                    $('#limparDados').attr('disabled', false);
                 },
                 error: function(xhr, status, error) {
+                    hideLoading(); 
                     $('#logconsole').val("Erro ao executar o script: " + xhr.responseText);
-                    $('#submitButton').attr('disabled', false)
-                    $('#limparDados').attr('disabled', false)
+                    $('#submitButton').attr('disabled', false);
+                    $('#limparDados').attr('disabled', false);
                 }
             });
         }
@@ -204,4 +175,57 @@ $(function() {
 function cancelaCadastro() {
     location.reload()
     localStorage.clear();
+}
+
+function initializeThemeAndUserInfo() {
+    const currentTheme = localStorage.getItem('theme') || 'light';
+    const bodyElement = document.querySelector('body');
+    const themeToggleButton = document.getElementById('theme-toggle');
+    if (currentTheme === 'dark') {
+        bodyElement.classList.add('dark-mode');
+        if (themeToggleButton) themeToggleButton.innerHTML = '<i class="bi bi-brightness-high"></i>';
+    } else {
+        if (themeToggleButton) themeToggleButton.innerHTML = '<i class="bi bi-moon-stars"></i>';
+    }
+    if (themeToggleButton) {
+        themeToggleButton.addEventListener('click', function() {
+            bodyElement.classList.toggle('dark-mode');
+            const newTheme = bodyElement.classList.contains('dark-mode') ? 'dark' : 'light';
+            localStorage.setItem('theme', newTheme);
+            themeToggleButton.innerHTML = newTheme === 'dark' ? '<i class="bi bi-brightness-high"></i>' : '<i class="bi bi-moon-stars"></i>';
+        });
+    }
+    const logoutButton = document.getElementById('btnLogout');
+    if (logoutButton) {
+        logoutButton.addEventListener('click', function() {
+            window.location.href = '/logout';
+        });
+    }
+    fetch('/api/username')
+        .then(response => response.json())
+        .then(data => {
+            const username = data.username || 'Visitante';
+            const group = data.group || 'Sem grupo';
+            if (username === 'Visitante') {
+                showModal('Sessão Expirada', 'Será necessário refazer o login!', 'warning');
+                setTimeout(() => { window.location = "/"; }, 300);
+                return;
+            }
+        document.querySelectorAll('.user-info span').forEach(el => {
+            if (el.textContent.includes('{username}')) el.textContent = username;
+            if (el.textContent.includes('{group}')) el.textContent = group;
+        });
+
+        }).catch(error => {
+            console.error('Erro ao obter o nome do usuário e grupo:', error);
+        });
+}
+
+function showLoading(texto) {
+    document.getElementById('loading-text').textContent = texto;
+    document.getElementById('loading-overlay').style.display = 'flex';
+}
+
+function hideLoading() {
+    document.getElementById('loading-overlay').style.display = 'none';
 }
