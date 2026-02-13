@@ -387,15 +387,20 @@ function renderizarTabela() {
 
         let sinalDisplay = '<small class="text-muted">-</small>';
         if (item.sinal_rx && item.sinal_rx !== '-') {
-            const rx = parseFloat(item.sinal_rx);
-            let corRx = 'text-dark';
-            if (rx > -15) corRx = 'text-success fw-bold';
-            else if (rx > -25) corRx = 'text-primary';
-            else corRx = 'text-danger fw-bold';
+            const getStyleSinal = (val) => {
+                const v = parseFloat(val);
+                if (isNaN(v) || v === 0) return 'style="color: #47434e; font-weight: bold;"';
+                if (v > -26) return 'class="text-success fw-bold"';
+                if (v >= -29) return 'class="text-warning fw-bold"';
+                return 'class="text-danger fw-bold"';
+            };
+
+            const attrRx = getStyleSinal(item.sinal_rx);
+            const attrTx = getStyleSinal(item.sinal_tx);
             
             sinalDisplay = `<div style="font-size: 0.85rem;">
-                <span class="${corRx}">RX: ${item.sinal_rx}</span><br>
-                <span class="text-muted">TX: ${item.sinal_tx}</span>
+                <span ${attrRx}>RX: ${item.sinal_rx}</span><br>
+                <span ${attrTx}>TX: ${item.sinal_tx}</span>
             </div>`;
         }
 
@@ -880,7 +885,7 @@ function atualizarInterfaceONU(dados, loginId) {
     let infoQuedaHtml = '';
     if (dados.online !== 'S' && dados.causa_ultima_queda && dados.causa_ultima_queda !== '-' && dados.causa_ultima_queda !== '') {
         const mapCausas = {
-            'Dying-gasp': 'Falha Elétrica',
+            'dying-gasp': 'Falha Elétrica',
             'LOFi': 'Sinal degradado/instável',
             'LOSi/LOBi': 'Perda do sinal óptico',
             'LOS': 'Sinal degradado/instável',
@@ -897,13 +902,16 @@ function atualizarInterfaceONU(dados, loginId) {
         `;
     }
     
-    let corSinalRx = 'text-muted';
-    const rx = parseFloat(dados.sinal_rx);
-    if(!isNaN(rx)) {
-        if(rx >= -25 && rx <= -15) corSinalRx = 'text-success fw-bold';
-        else if(rx < -27) corSinalRx = 'text-danger fw-bold';
-        else corSinalRx = 'text-warning fw-bold';
-    }
+    const getSinalProps = (val) => {
+        const v = parseFloat(val);
+        if (isNaN(v) || v === 0) return { cls: '', style: 'color: #47434e; font-weight: bold;' }; // Roxo
+        if (v > -26) return { cls: 'text-success fw-bold', style: '' }; // Verde
+        if (v >= -29) return { cls: 'text-warning fw-bold', style: '' }; // Amarelo
+        return { cls: 'text-danger fw-bold', style: '' }; // Vermelho
+    };
+
+    const rxProps = getSinalProps(dados.sinal_rx);
+    const txProps = getSinalProps(dados.sinal_tx);
 
     const refreshBtn = `<button type="button" class="btn btn-sm btn-link text-decoration-none p-0 ms-auto" id="btn-refresh-onu" title="Atualizar em Tempo Real"><i class="bi bi-arrow-clockwise fs-5"></i></button>`;
 
@@ -917,11 +925,12 @@ function atualizarInterfaceONU(dados, loginId) {
             <div class="d-flex justify-content-between align-items-center mb-1 border-bottom pb-1">
                 <strong>Status:</strong> ${onlineBadge}
             </div>
-            <div class="d-flex justify-content-between align-items-center mb-1 border-bottom pb-1">
-                <span>Sinal RX:</span> <span class="${corSinalRx}" id="val-rx">${dados.sinal_rx} dBm</span>
+            ${infoQuedaHtml}
+            <div class="d-flex justify-content-between align-items-center mb-1 border-bottom pb-1 mt-2">
+                <span>Sinal RX:</span> <span class="${rxProps.cls}" style="${rxProps.style}" id="val-rx">${dados.sinal_rx} dBm</span>
             </div>
             <div class="d-flex justify-content-between align-items-center">
-                <span>Sinal TX:</span> <span id="val-tx">${dados.sinal_tx} dBm</span>
+                <span>Sinal TX:</span> <span class="${txProps.cls}" style="${txProps.style}" id="val-tx">${dados.sinal_tx} dBm</span>
             </div>
             <div class="text-end mt-1"><small class="text-muted" style="font-size: 0.7em">Ref: ${dados.data_sinal || 'Agora'}</small></div>
         </div>
