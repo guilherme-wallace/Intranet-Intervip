@@ -914,9 +914,6 @@ function atualizarInterfaceONU(dados, loginId) {
 
     html += `
     <div class="card mb-3 border-light bg-light">
-        <div class="card-header bg-transparent border-bottom d-flex justify-content-between align-items-center py-1">
-            <span class="small fw-bold text-muted">Diagnóstico</span>
-        </div>
         <div class="card-body p-2">
             <div class="d-flex justify-content-between align-items-center mb-1 border-bottom pb-1">
                 <strong>Status:</strong> ${onlineBadge}
@@ -928,7 +925,7 @@ function atualizarInterfaceONU(dados, loginId) {
             <div class="d-flex justify-content-between align-items-center">
                 <span>Sinal TX:</span> <span class="${txProps.cls}" style="${txProps.style}" id="val-tx">${dados.sinal_tx} dBm</span>
             </div>
-            <div class="text-end mt-1"><small class="text-muted" style="font-size: 0.7em">Ref: ${dados.data_sinal || 'Agora'}</small></div>
+            <div class="text-end mt-1"><small class="text-muted" style="font-size: 0.9em">Ref: ${dados.data_sinal || 'Agora'}</small></div>
         </div>
     </div>`;
 
