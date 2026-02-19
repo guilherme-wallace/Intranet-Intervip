@@ -881,7 +881,6 @@ function atualizarInterfaceONU(dados, loginId) {
         ? `<span class="badge bg-success rounded-pill">Online</span>` 
         : `<span class="badge bg-danger rounded-pill">Offline</span>`;
 
-
     let infoQuedaHtml = '';
     if (dados.online !== 'S' && dados.causa_ultima_queda && dados.causa_ultima_queda !== '-' && dados.causa_ultima_queda !== '') {
         const mapCausas = {
@@ -904,22 +903,19 @@ function atualizarInterfaceONU(dados, loginId) {
     
     const getSinalProps = (val) => {
         const v = parseFloat(val);
-        if (isNaN(v) || v === 0) return { cls: '', style: 'color: #47434e; font-weight: bold;' }; // Roxo
-        if (v > -26) return { cls: 'text-success fw-bold', style: '' }; // Verde
-        if (v >= -29) return { cls: 'text-warning fw-bold', style: '' }; // Amarelo
-        return { cls: 'text-danger fw-bold', style: '' }; // Vermelho
+        if (isNaN(v) || v === 0) return { cls: '', style: 'color: #47434e; font-weight: bold;' };
+        if (v > -26) return { cls: 'text-success fw-bold', style: '' };
+        if (v >= -29) return { cls: 'text-warning fw-bold', style: '' };
+        return { cls: 'text-danger fw-bold', style: '' };
     };
 
     const rxProps = getSinalProps(dados.sinal_rx);
     const txProps = getSinalProps(dados.sinal_tx);
 
-    const refreshBtn = `<button type="button" class="btn btn-sm btn-link text-decoration-none p-0 ms-auto" id="btn-refresh-onu" title="Atualizar em Tempo Real"><i class="bi bi-arrow-clockwise fs-5"></i></button>`;
-
     html += `
     <div class="card mb-3 border-light bg-light">
         <div class="card-header bg-transparent border-bottom d-flex justify-content-between align-items-center py-1">
             <span class="small fw-bold text-muted">Diagnóstico</span>
-            ${refreshBtn}
         </div>
         <div class="card-body p-2">
             <div class="d-flex justify-content-between align-items-center mb-1 border-bottom pb-1">
@@ -951,6 +947,12 @@ function atualizarInterfaceONU(dados, loginId) {
             </tbody>
         </table>
     </div>`;
+
+    html += `
+    <button type="button" class="btn btn-outline-primary w-100 mt-3" id="btn-refresh-onu">
+        <i class="bi bi-arrow-clockwise me-2"></i>Atualizar Sinal / ONU
+    </button>
+    `;
 
     displayOnu.innerHTML = html;
 
