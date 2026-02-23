@@ -204,6 +204,7 @@ const PERMISSOES_SISTEMA = {
     'card-e-mails': ['NOC', 'Diretoria'],
     'card-migra-onu': ['NOC', 'Diretoria'],
     'card-cadastro-de-blocos': ['NOC', 'Diretoria'],
+    'card-analise-de-risco': ['NOC', 'Diretoria'],
     'card-soc-report': ['NOC', 'Diretoria'],
 
     'card-cadastro-bandaLarga': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
@@ -291,6 +292,10 @@ APP.get('/cadastro-de-blocos', verificarAcessoPagina('cadastro-de-blocos'), (req
 
 APP.get('/soc-report', verificarAcessoPagina('soc-report'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'soc-report.html'));
+});
+
+APP.get('/analise-de-risco', verificarAcessoPagina('analise-de-risco'), (req, res) => {
+    res.sendFile(Path.join(__dirname, 'views', 'analise-de-risco.html'));
 });
 
 APP.get('/cadastro-bandaLarga', verificarAcessoPagina('cadastro-bandaLarga'), (req, res) => {
@@ -431,6 +436,7 @@ APP.use('/migra-onu', protectRoutes, ROUTES);
 APP.use('/soc-report', protectRoutes, ROUTES);
 APP.use('/equipamentos', protectRoutes, ROUTES);
 APP.use('/clientes-online', protectRoutes, ROUTES);
+APP.use('/analise-de-risco', protectRoutes, ROUTES);
 APP.use('/teste-de-lentidao', protectRoutes, ROUTES);
 APP.use('/problemas-com-VPN', protectRoutes, ROUTES);
 APP.use('/cadastro-de-blocos', protectRoutes, ROUTES);

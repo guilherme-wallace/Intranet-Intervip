@@ -192,6 +192,7 @@ var PERMISSOES_SISTEMA = {
     'card-e-mails': ['NOC', 'Diretoria'],
     'card-migra-onu': ['NOC', 'Diretoria'],
     'card-cadastro-de-blocos': ['NOC', 'Diretoria'],
+    'card-analise-de-risco': ['NOC', 'Diretoria'],
     'card-soc-report': ['NOC', 'Diretoria'],
     'card-cadastro-bandaLarga': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
     'card-cadastro-corporativo': ['NOC', 'Comercial', 'Corporativo', 'Diretoria', 'Financeiro'],
@@ -258,6 +259,9 @@ APP.get('/cadastro-de-blocos', verificarAcessoPagina('cadastro-de-blocos'), func
 });
 APP.get('/soc-report', verificarAcessoPagina('soc-report'), function (req, res) {
     res.sendFile(Path.join(__dirname, 'views', 'soc-report.html'));
+});
+APP.get('/analise-de-risco', verificarAcessoPagina('analise-de-risco'), function (req, res) {
+    res.sendFile(Path.join(__dirname, 'views', 'analise-de-risco.html'));
 });
 APP.get('/cadastro-bandaLarga', verificarAcessoPagina('cadastro-bandaLarga'), function (req, res) {
     res.sendFile(Path.join(__dirname, 'views', 'cadastro-bandaLarga.html'));
@@ -402,6 +406,7 @@ APP.use('/migra-onu', protectRoutes, index_1.default);
 APP.use('/soc-report', protectRoutes, index_1.default);
 APP.use('/equipamentos', protectRoutes, index_1.default);
 APP.use('/clientes-online', protectRoutes, index_1.default);
+APP.use('/analise-de-risco', protectRoutes, index_1.default);
 APP.use('/teste-de-lentidao', protectRoutes, index_1.default);
 APP.use('/problemas-com-VPN', protectRoutes, index_1.default);
 APP.use('/cadastro-de-blocos', protectRoutes, index_1.default);
