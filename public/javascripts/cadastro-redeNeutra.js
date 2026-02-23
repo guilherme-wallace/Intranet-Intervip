@@ -29,6 +29,8 @@ let listaOnusCache = [];
 let paginaAtual = 1;
 const itensPorPagina = 15;
 let currentSort = { column: 'created_at', direction: 'desc' };
+let planosCache = []; 
+let userGroupGlobal = '';
 
 document.addEventListener('DOMContentLoaded', function() {
     modalCadastro = new bootstrap.Modal(document.getElementById('modalCadastroCliente'));
@@ -110,12 +112,38 @@ function setupListeners() {
         }
 
         const selectPlanos = document.getElementById('rn-plano');
-        selectPlanos.querySelectorAll('option').forEach(opt => {
-            if (opt.value === "") return;
-            const preco = (valorFixo > 0) ? valorFixo : parseFloat(opt.dataset.precoOriginal);
-            opt.textContent = `${opt.dataset.nome} (R$ ${preco.toFixed(2)})`;
-            opt.dataset.valor = preco;
-        });
+        selectPlanos.innerHTML = '<option value="" selected disabled>Selecione o plano...</option>';
+
+        if (valorFixo > 0) {
+            const planoFixo = planosCache.find(p => p.id == "9091");
+            if (planoFixo) {
+                selectPlanos.innerHTML = '';
+                const opt = document.createElement('option');
+                opt.value = planoFixo.id;
+                opt.textContent = `${planoFixo.nome_exibicao} (R$ ${valorFixo.toFixed(2)})`;
+                opt.dataset.precoOriginal = planoFixo.preco;
+                opt.dataset.nome = planoFixo.nome_exibicao;
+                opt.dataset.originalName = planoFixo.nome_original;
+                opt.dataset.valor = valorFixo;
+                opt.setAttribute('selected', 'selected');
+                selectPlanos.appendChild(opt);
+                selectPlanos.style.pointerEvents = 'none';
+                selectPlanos.classList.add('bg-light');
+            }
+        } else {
+            planosCache.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = `${p.nome_exibicao} (R$ ${parseFloat(p.preco).toFixed(2)})`;
+                opt.dataset.precoOriginal = p.preco;
+                opt.dataset.nome = p.nome_exibicao;
+                opt.dataset.originalName = p.nome_original;
+                opt.dataset.valor = p.preco;
+                selectPlanos.appendChild(opt);
+            });
+            selectPlanos.style.pointerEvents = 'auto';
+            selectPlanos.classList.remove('bg-light');
+        }
 
         if (parceiroIdSelecionado) {
             btnNovo.disabled = false;
@@ -706,6 +734,8 @@ async function carregarParceiros() {
             select.appendChild(option);
         });
 
+        travarParceiroNoLoad();
+
     } catch (error) {
         console.error(error);
         select.innerHTML = '<option value="">Erro ao carregar parceiros</option>';
@@ -1289,24 +1319,18 @@ async function carregarDadosBasicosONU() {
         } catch (e) { console.error("Erro transmissores:", e); }
     }
 
-    try {
-        const resPerfil = await fetch('/api/v5/rede_neutra/perfis-fibra');
-        const perfis = await resPerfil.json();
-        selPerfil.innerHTML = '<option value="" selected disabled>Selecione...</option>';
-        perfis.forEach(p => selPerfil.add(new Option(p.nome, p.id)));
-
-        const userGroup = document.querySelector('.user-info span.fw-medium:last-child').textContent;
-        const config = MAPA_PARCEIROS[userGroup];
-        
-        if (config) {
-            const perfilOpcao = Array.from(selPerfil.options).find(opt => 
-                opt.text.includes(config.perfil)
-            );
-            if (perfilOpcao) {
-                selPerfil.value = perfilOpcao.value;
-            }
-        }
-    } catch (e) { console.error("Erro perfis:", e); }
+    if (selPerfil.options.length <= 1) {
+        try {
+            const resPerfil = await fetch('/api/v5/rede_neutra/perfis-fibra');
+            const perfis = await resPerfil.json();
+            selPerfil.innerHTML = '<option value="" selected disabled>Selecione...</option>';
+            perfis.forEach(p => selPerfil.add(new Option(p.nome, p.id)));
+            
+            travarPerfilParaParceiro();
+        } catch (e) { console.error("Erro perfis:", e); }
+    } else {
+        travarPerfilParaParceiro();
+    }
 }
 
 async function abrirListaONUs() {
@@ -1508,29 +1532,8 @@ async function carregarPlanosRedeNeutra() {
 
     try {
         const response = await fetch('/api/v5/rede_neutra/produtos');
-        const planos = await response.json();
-
-        select.innerHTML = '<option value="" selected disabled>Selecione o plano...</option>';
-        
-        if (planos.length === 0) {
-            select.add(new Option("Nenhum plano Rede Neutra encontrado no IXC.", ""));
-            return;
-        }
-
-        planos.forEach(p => {
-            const option = document.createElement('option');
-            option.value = p.id;
-            
-            option.dataset.precoOriginal = p.preco; 
-            option.dataset.nome = p.nome_exibicao;
-            option.dataset.originalName = p.nome_original;
-            
-            option.dataset.valor = p.preco; 
-            
-            option.textContent = `${p.nome_exibicao} (R$ ${parseFloat(p.preco).toFixed(2)})`;
-            select.appendChild(option);
-        });
-
+        planosCache = await response.json();
+        select.innerHTML = '<option value="" selected disabled>Aguardando parceiro...</option>';
     } catch (error) {
         console.error(error);
         select.innerHTML = '<option value="">Erro ao carregar planos</option>';
@@ -1668,6 +1671,7 @@ function initializeThemeAndUserInfo() {
         .then(data => {
             const username = data.username || 'Visitante';
             const group = data.group || 'Sem grupo';
+            userGroupGlobal = group;
             if (username === 'Visitante') {
                 showModal('Sessão Expirada', 'Será necessário refazer o login!', 'warning');
                 setTimeout(() => { window.location = "/"; }, 300);
@@ -1678,64 +1682,62 @@ function initializeThemeAndUserInfo() {
             if (el.textContent.includes('{group}')) el.textContent = group;
         });
 
-        aplicarRestricoesParceiro(group);
+        travarParceiroNoLoad();
 
         }).catch(error => {
             console.error('Erro ao obter o nome do usuário e grupo:', error);
         });
 }
 
-async function aplicarRestricoesParceiro(setorUsuario) {
-    const configParceiro = MAPA_PARCEIROS[setorUsuario];
-    
+function travarParceiroNoLoad() {
+    if (!userGroupGlobal) return;
+    const configParceiro = MAPA_PARCEIROS[userGroupGlobal];
     if (!configParceiro) return;
 
-    console.log(`[Acesso Parceiro] Aplicando restrições para: ${setorUsuario}`);
+    const selectParceiro = document.getElementById('select-parceiro');
+    if (!selectParceiro || selectParceiro.options.length <= 1) return;
 
-    let tentativa = 0;
-    const interval = setInterval(() => {
-        const selectParceiro = document.getElementById('select-parceiro');
-        const selectPerfil = document.getElementById('onu-perfil'); 
+    const optionsParceiro = Array.from(selectParceiro.options);
+    const optionParceiroEncontrada = optionsParceiro.find(opt => 
+        opt.text.toUpperCase().includes(configParceiro.nome.toUpperCase())
+    );
 
-        if (selectParceiro && !selectParceiro.disabled) {
-            const optionsParceiro = Array.from(selectParceiro.options);
-            const optionParceiroEncontrada = optionsParceiro.find(opt => 
-                opt.text.toUpperCase().includes(configParceiro.nome.toUpperCase())
-            );
+    if (optionParceiroEncontrada && selectParceiro.value !== optionParceiroEncontrada.value) {
+        selectParceiro.value = optionParceiroEncontrada.value;
+        selectParceiro.style.pointerEvents = 'none';
+        selectParceiro.classList.add('bg-light');
+        selectParceiro.dispatchEvent(new Event('change'));
+    } else if (optionParceiroEncontrada) {
+        selectParceiro.style.pointerEvents = 'none';
+        selectParceiro.classList.add('bg-light');
+    }
+}
 
-            if (optionParceiroEncontrada) {
-                selectParceiro.value = optionParceiroEncontrada.value;
-                selectParceiro.disabled = true;
-                selectParceiro.dispatchEvent(new Event('change'));
+function travarPerfilParaParceiro() {
+    if (!userGroupGlobal) return;
+    const configParceiro = MAPA_PARCEIROS[userGroupGlobal];
+    if (!configParceiro) return;
+
+    const selectPerfil = document.getElementById('onu-perfil');
+    if (!selectPerfil) return;
+
+    const perfilAlvo = configParceiro.perfil.toUpperCase();
+    const optionsPerfil = Array.from(selectPerfil.options);
+
+    const optionPerfilEncontrada = optionsPerfil.find(opt => 
+        opt.text.toUpperCase().trim() === perfilAlvo
+    );
+
+    if (optionPerfilEncontrada) {
+        selectPerfil.value = optionPerfilEncontrada.value;
+        optionsPerfil.forEach(opt => {
+            if (opt.value !== optionPerfilEncontrada.value && opt.value !== "") {
+                opt.remove();
             }
-        }
-
-        if (selectPerfil && selectPerfil.options.length > 1 && !selectPerfil.disabled) {
-            const optionsPerfil = Array.from(selectPerfil.options);
-            const perfilAlvo = configParceiro.perfil.toUpperCase();
-
-            const optionPerfilEncontrada = optionsPerfil.find(opt => 
-                opt.text.toUpperCase().trim() === perfilAlvo
-            );
-
-            if (optionPerfilEncontrada) {
-                selectPerfil.value = optionPerfilEncontrada.value;
-                
-                optionsPerfil.forEach(opt => {
-                    if (opt.value !== optionPerfilEncontrada.value && opt.value !== "") {
-                        opt.remove(); 
-                    }
-                });
-
-                selectPerfil.disabled = true;
-                console.log(`Perfil ${perfilAlvo} aplicado e travado.`);
-                
-                if (selectParceiro.disabled) clearInterval(interval);
-            }
-        }
-
-        if (tentativa++ > 100) clearInterval(interval);
-    }, 100);
+        });
+        selectPerfil.style.pointerEvents = 'none';
+        selectPerfil.classList.add('bg-light');
+    }
 }
 
 function showLoading(texto) {
