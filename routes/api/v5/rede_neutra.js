@@ -460,7 +460,7 @@ router.get('/clientes/:parceiroId', function (req, res) { return __awaiter(void 
                 return [3 /*break*/, 8];
             case 8:
                 _loop_2 = function (prod) {
-                    var descricao, tokenMatch, token, loginMatch, ixcLoginId, loginPppoe, onuMac, obs, endereco, numero, bairro, cep, dataCriacao, dataMatch, dataStr, d, existe;
+                    var descricao, tokenMatch, token, loginMatch, ixcLoginId, rawLoginPppoe, loginPppoe, onuMac, obs, endereco, numero, bairro, cep, dataCriacao, dataMatch, dataStr, d, existe;
                     return __generator(this, function (_b) {
                         switch (_b.label) {
                             case 0:
@@ -469,7 +469,8 @@ router.get('/clientes/:parceiroId', function (req, res) { return __awaiter(void 
                                 token = tokenMatch ? tokenMatch[1] : null;
                                 loginMatch = loginsIxc.find(function (l) { return l.login === descricao || descricao.startsWith(l.login); });
                                 ixcLoginId = loginMatch ? loginMatch.id : null;
-                                loginPppoe = loginMatch ? loginMatch.login : descricao;
+                                rawLoginPppoe = loginMatch ? loginMatch.login : descricao;
+                                loginPppoe = rawLoginPppoe.substring(0, 50);
                                 onuMac = loginMatch ? loginMatch.onu_mac : null;
                                 obs = prod.obs || "";
                                 endereco = loginMatch ? loginMatch.endereco : null;
