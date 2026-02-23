@@ -99,7 +99,15 @@ function setupListeners() {
         const option = e.target.options[e.target.selectedIndex];
         
         const valorFixo = parseFloat(option.dataset.valorFixo);
-        document.getElementById('stats-valor-fixo').textContent = (valorFixo > 0) ? `R$ ${valorFixo.toFixed(2)}` : 'N/A';
+        const spanValorFixo = document.getElementById('stats-valor-fixo');
+        
+        if (valorFixo > 0) {
+            spanValorFixo.textContent = `R$ ${valorFixo.toFixed(2)}`;
+            spanValorFixo.parentElement.style.display = 'block';
+        } else {
+            spanValorFixo.textContent = 'N/A';
+            spanValorFixo.parentElement.style.display = 'none';
+        }
 
         const selectPlanos = document.getElementById('rn-plano');
         selectPlanos.querySelectorAll('option').forEach(opt => {
@@ -276,12 +284,21 @@ async function carregarCarteiraClientes(parceiroId) {
     
     try {
         const response = await fetch(`/api/v5/rede_neutra/clientes/${parceiroId}`);
-        
-        todosClientesCache = await response.json(); 
+        const data = await response.json(); 
         
         loading.style.display = 'none';
         
-        if (!todosClientesCache || todosClientesCache.length === 0) {
+        if (!response.ok) {
+            throw new Error(data.error || 'Erro interno no servidor ao sincronizar clientes.');
+        }
+
+        if (!Array.isArray(data)) {
+            throw new Error('Formato de dados inválido retornado pelo servidor.');
+        }
+
+        todosClientesCache = data;
+        
+        if (todosClientesCache.length === 0) {
             empty.style.display = 'block';
         } else {
             tableContainer.style.display = 'block';
@@ -291,7 +308,9 @@ async function carregarCarteiraClientes(parceiroId) {
     } catch (error) {
         console.error(error);
         loading.style.display = 'none';
-        alert('Erro ao carregar carteira de clientes.');
+        todosClientesCache = []; 
+        renderizarTabela();
+        alert('Erro ao carregar carteira de clientes:\n' + error.message);
     }
 }
 

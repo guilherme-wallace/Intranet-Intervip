@@ -327,7 +327,8 @@ router.get('/clientes/:parceiroId', async (req, res) => {
                 const loginMatch = loginsIxc.find(l => l.login === descricao || descricao.startsWith(l.login));
                 
                 const ixcLoginId = loginMatch ? loginMatch.id : null;
-                const loginPppoe = loginMatch ? loginMatch.login : descricao;
+                let rawLoginPppoe = loginMatch ? loginMatch.login : descricao;
+                const loginPppoe = rawLoginPppoe.substring(0, 50);
                 const onuMac = loginMatch ? loginMatch.onu_mac : null;
                 const obs = prod.obs || "";
                 
