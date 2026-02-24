@@ -320,15 +320,17 @@ router.get('/clientes/:parceiroId', async (req, res) => {
             } catch (e) { console.warn("Erro sync login:", e.message); }
 
             for (const prod of produtosIxc) {
-                const descricao = prod.descricao || "";
+                let descricao = prod.descricao || "";
                 const tokenMatch = descricao.match(/^([A-Z0-9]{5})(-|$)/);
                 let token = tokenMatch ? tokenMatch[1] : null;
 
                 const loginMatch = loginsIxc.find(l => l.login === descricao || descricao.startsWith(l.login));
                 
                 const ixcLoginId = loginMatch ? loginMatch.id : null;
+                
                 let rawLoginPppoe = loginMatch ? loginMatch.login : descricao;
-                const loginPppoe = rawLoginPppoe.substring(0, 50);
+                let loginPppoe = rawLoginPppoe.substring(0, 50); 
+                
                 const onuMac = loginMatch ? loginMatch.onu_mac : null;
                 const obs = prod.obs || "";
                 
@@ -361,7 +363,17 @@ router.get('/clientes/:parceiroId', async (req, res) => {
                         ]
                     );
                 } else {
-                    if (!token) token = await gerarTokenUnico();
+                    if (token) {
+                        const tokenEmUso = await executeDb('SELECT id FROM rn_clientes WHERE token = ?', [token]);
+                        if (tokenEmUso.length > 0) {
+                            const novoToken = await gerarTokenUnico();
+                            descricao = descricao.replace(token, novoToken);
+                            loginPppoe = loginPppoe.replace(token, novoToken).substring(0, 50);
+                            token = novoToken;
+                        }
+                    } else {
+                        token = await gerarTokenUnico();
+                    }
 
                     await executeDb(
                         `INSERT INTO rn_clientes 
@@ -377,7 +389,6 @@ router.get('/clientes/:parceiroId', async (req, res) => {
                 }
             }
         }
-        
         const clientesLocais = await executeDb(
             `SELECT * FROM rn_clientes WHERE parceiro_id = ? ORDER BY created_at DESC`, 
             [parceiroId]

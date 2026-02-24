@@ -460,7 +460,7 @@ router.get('/clientes/:parceiroId', function (req, res) { return __awaiter(void 
                 return [3 /*break*/, 8];
             case 8:
                 _loop_2 = function (prod) {
-                    var descricao, tokenMatch, token, loginMatch, ixcLoginId, rawLoginPppoe, loginPppoe, onuMac, obs, endereco, numero, bairro, cep, dataCriacao, dataMatch, dataStr, d, existe;
+                    var descricao, tokenMatch, token, loginMatch, ixcLoginId, rawLoginPppoe, loginPppoe, onuMac, obs, endereco, numero, bairro, cep, dataCriacao, dataMatch, dataStr, d, existe, tokenEmUso, novoToken;
                     return __generator(this, function (_b) {
                         switch (_b.label) {
                             case 0:
@@ -496,22 +496,34 @@ router.get('/clientes/:parceiroId', function (req, res) { return __awaiter(void 
                                     ])];
                             case 2:
                                 _b.sent();
-                                return [3 /*break*/, 7];
+                                return [3 /*break*/, 11];
                             case 3:
-                                if (!!token) return [3 /*break*/, 5];
-                                return [4 /*yield*/, gerarTokenUnico()];
+                                if (!token) return [3 /*break*/, 7];
+                                return [4 /*yield*/, executeDb('SELECT id FROM rn_clientes WHERE token = ?', [token])];
                             case 4:
+                                tokenEmUso = _b.sent();
+                                if (!(tokenEmUso.length > 0)) return [3 /*break*/, 6];
+                                return [4 /*yield*/, gerarTokenUnico()];
+                            case 5:
+                                novoToken = _b.sent();
+                                descricao = descricao.replace(token, novoToken);
+                                loginPppoe = loginPppoe.replace(token, novoToken).substring(0, 50);
+                                token = novoToken;
+                                _b.label = 6;
+                            case 6: return [3 /*break*/, 9];
+                            case 7: return [4 /*yield*/, gerarTokenUnico()];
+                            case 8:
                                 token = _b.sent();
-                                _b.label = 5;
-                            case 5: return [4 /*yield*/, executeDb("INSERT INTO rn_clientes \n                        (parceiro_id, ixc_produto_id, ixc_login_id, token, descricao_produto, login_pppoe, valor, plano_nome, ativo, obs, onu_mac, created_at,\n                         endereco, numero, bairro, cep)\n                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)", [
+                                _b.label = 9;
+                            case 9: return [4 /*yield*/, executeDb("INSERT INTO rn_clientes \n                        (parceiro_id, ixc_produto_id, ixc_login_id, token, descricao_produto, login_pppoe, valor, plano_nome, ativo, obs, onu_mac, created_at,\n                         endereco, numero, bairro, cep)\n                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)", [
                                     parceiroId, prod.id, ixcLoginId, token, descricao, loginPppoe,
                                     prod.valor_unit, 'Sincronizado IXC', obs, onuMac, dataCriacao,
                                     endereco, numero, bairro, cep
                                 ])];
-                            case 6:
+                            case 10:
                                 _b.sent();
-                                _b.label = 7;
-                            case 7: return [2 /*return*/];
+                                _b.label = 11;
+                            case 11: return [2 /*return*/];
                         }
                     });
                 };
