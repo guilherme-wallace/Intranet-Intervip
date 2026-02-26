@@ -186,68 +186,55 @@
                                 </div>
                             </div>
 
-                            <div class="apr-section">
+                            <div class="apr-section d-none" id="secao-epis">
                                 <h6 class="section-title"><i class="bi bi-shield-shaded"></i> Proteções Necessárias (EPIs)</h6>
+                                <div class="alert alert-warning small py-2 mb-3">
+                                    <i class="bi bi-exclamation-triangle-fill me-2"></i><strong>Atenção:</strong> Confirme o uso de todos os equipamentos de proteção que são obrigatórios para a demanda escolhida.
+                                </div>
                                 <div class="table-responsive rounded border overflow-hidden">
-                                    <table class="table table-sm table-hover text-center align-middle mb-0 apr-table">
+                                    <table class="table table-sm table-hover align-middle mb-0 apr-table">
                                         <thead class="table-light">
                                             <tr>
                                                 <th class="text-start px-3 py-2">Equipamento de Proteção</th>
-                                                <th class="py-2" title="Trabalho em Altura"><span class="badge bg-primary rounded-circle">1</span></th>
-                                                <th class="py-2" title="Redes Energizadas"><span class="badge bg-danger rounded-circle">2</span></th>
-                                                <th class="py-2" title="Ambientes Confinados"><span class="badge bg-warning text-dark rounded-circle">3</span></th>
-                                                <th class="py-2" title="Permissão do Cliente"><span class="badge bg-info text-dark rounded-circle">4</span></th>
+                                                <th class="text-center py-2" style="width: 150px;">Status</th>
+                                                <th class="text-center py-2" style="width: 150px;">Confirmar Uso</th>
                                             </tr>
                                         </thead>
-                                        <tbody class="border-top-0">
-                                            <tr>
+                                        <tbody class="border-top-0" id="tbody-epis">
+                                            <tr id="row-epi-cabeca">
                                                 <td class="text-start px-3 fw-medium small text-muted">Cabeça (Capacete, jugular, etc)</td>
-                                                <td><input class="form-check-input custom-chk" type="checkbox"></td>
-                                                <td><input class="form-check-input custom-chk" type="checkbox"></td>
-                                                <td><input class="form-check-input custom-chk" type="checkbox"></td>
-                                                <td><input class="form-check-input custom-chk" type="checkbox"></td>
+                                                <td class="text-center" id="status-epi-cabeca"></td>
+                                                <td class="text-center"><input class="form-check-input custom-chk" type="checkbox" id="chk-epi-cabeca"></td>
                                             </tr>
-                                            <tr>
+                                            <tr id="row-epi-msup">
                                                 <td class="text-start px-3 fw-medium small text-muted">Membros Superiores (Mangotes, etc)</td>
-                                                <td><input class="form-check-input custom-chk" type="checkbox"></td>
-                                                <td><input class="form-check-input custom-chk" type="checkbox"></td>
-                                                <td><input class="form-check-input custom-chk" type="checkbox"></td>
-                                                <td><input class="form-check-input custom-chk" type="checkbox"></td>
+                                                <td class="text-center" id="status-epi-msup"></td>
+                                                <td class="text-center"><input class="form-check-input custom-chk" type="checkbox" id="chk-epi-msup"></td>
                                             </tr>
-                                            <tr>
+                                            <tr id="row-epi-face">
                                                 <td class="text-start px-3 fw-medium small text-muted">Face / Olhos (Óculos, viseiras)</td>
-                                                <td><input class="form-check-input custom-chk" type="checkbox"></td>
-                                                <td><input class="form-check-input custom-chk" type="checkbox"></td>
-                                                <td><input class="form-check-input custom-chk" type="checkbox"></td>
-                                                <td><input class="form-check-input custom-chk" type="checkbox"></td>
+                                                <td class="text-center" id="status-epi-face"></td>
+                                                <td class="text-center"><input class="form-check-input custom-chk" type="checkbox" id="chk-epi-face"></td>
                                             </tr>
-                                            <tr>
+                                            <tr id="row-epi-resp">
                                                 <td class="text-start px-3 fw-medium small text-muted">Aparelho Respiratório</td>
-                                                <td><input class="form-check-input custom-chk" type="checkbox"></td>
-                                                <td><input class="form-check-input custom-chk" type="checkbox"></td>
-                                                <td class="bg-light-subtle"></td>
-                                                <td class="bg-light-subtle"></td>
+                                                <td class="text-center" id="status-epi-resp"></td>
+                                                <td class="text-center"><input class="form-check-input custom-chk" type="checkbox" id="chk-epi-resp"></td>
                                             </tr>
-                                            <tr>
+                                            <tr id="row-epi-tronco">
                                                 <td class="text-start px-3 fw-medium small text-muted">Tronco (Cinto de segurança, etc)</td>
-                                                <td><input class="form-check-input custom-chk" type="checkbox"></td>
-                                                <td><input class="form-check-input custom-chk" type="checkbox"></td>
-                                                <td><input class="form-check-input custom-chk" type="checkbox"></td>
-                                                <td><input class="form-check-input custom-chk" type="checkbox"></td>
+                                                <td class="text-center" id="status-epi-tronco"></td>
+                                                <td class="text-center"><input class="form-check-input custom-chk" type="checkbox" id="chk-epi-tronco"></td>
                                             </tr>
-                                            <tr>
+                                            <tr id="row-epi-maos">
                                                 <td class="text-start px-3 fw-medium small text-muted">Mãos (Luvas isolantes, raspa)</td>
-                                                <td><input class="form-check-input custom-chk" type="checkbox"></td>
-                                                <td><input class="form-check-input custom-chk" type="checkbox"></td>
-                                                <td><input class="form-check-input custom-chk" type="checkbox"></td>
-                                                <td><input class="form-check-input custom-chk" type="checkbox"></td>
+                                                <td class="text-center" id="status-epi-maos"></td>
+                                                <td class="text-center"><input class="form-check-input custom-chk" type="checkbox" id="chk-epi-maos"></td>
                                             </tr>
-                                            <tr>
+                                            <tr id="row-epi-pes">
                                                 <td class="text-start px-3 fw-medium small text-muted">Pés (Botinas de segurança)</td>
-                                                <td><input class="form-check-input custom-chk" type="checkbox"></td>
-                                                <td><input class="form-check-input custom-chk" type="checkbox"></td>
-                                                <td><input class="form-check-input custom-chk" type="checkbox"></td>
-                                                <td><input class="form-check-input custom-chk" type="checkbox"></td>
+                                                <td class="text-center" id="status-epi-pes"></td>
+                                                <td class="text-center"><input class="form-check-input custom-chk" type="checkbox" id="chk-epi-pes"></td>
                                             </tr>
                                         </tbody>
                                     </table>

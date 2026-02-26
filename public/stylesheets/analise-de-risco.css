@@ -151,11 +151,29 @@ body {
     border-color: #444;
     color: #fff;
 }
+
+.dark-mode ::placeholder {
+  color: #999;
+  opacity: 1;
+}
+
+.dark-mode .table>:not(caption)>*>* {
+    border-color: #333;
+    background-color: #222;
+    color: #fff;
+}
+
+.dark-mode .text-muted {
+    color: #e0e0e0 !important;
+    opacity: 1;
+}
+
 .dark-mode .form-control:read-only {
     background-color: #222 !important;
     color: #999 !important;
     border-color: #333 !important;
 }
+
 
 .dark-mode .table { color: #e0e0e0; border-color: #333; }
 .dark-mode .table-light { background-color: #222; color: #fff; border-color: #444; }
