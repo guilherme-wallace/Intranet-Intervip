@@ -45,16 +45,22 @@ function setupCondoSearch() {
                     .then(res => res.json())
                     .then(data => {
                         let filteredData = data;
-                        //console.log('Dados de condomínio recebidos:', data);
-                        if (userGroup === 'RedeNeutra') {
+                        
+                        const isPartner = document.body.classList.contains('user-group-redeneutra');
+                        
+                        if (isPartner) {
                             filteredData = data.filter(item => 
-                                !item.text || !item.text.includes('RDNT')
+                                !item.text || !item.text.includes('(RDNT-')
                             );
                         }
-                        //console.log('Dados de condomínio filtrados para RedeNeutra:', filteredData);
+
+                        filteredData = filteredData.map(item => ({
+                            ...item,
+                            text: formatCondoName(item.text)
+                        }));
+
                         callback(filteredData);
                     });
-                    //console.log('Buscando condomínios com query:', query);
             }
         }
     });
@@ -70,7 +76,9 @@ function setupCondoSearch() {
             fetch(`api/v1/condominio/${item.value}`).then(res => res.json()),
             fetch(`api/v1/block/${item.value}`).then(res => res.ok ? res.json() : [])
         ]).then(([condo, blocks]) => {
-            $('#input-condo').val(condo.condominio);
+            
+            $('#input-condo').val(formatCondoName(condo.condominio));
+            
             $("#dados-condo-cep").text(condo.cep || '-');
             $("#dados-condo-endereco").text(condo.endereco || '-');
             $("#dados-condo-numero").text(condo.numero || '-');
@@ -78,8 +86,9 @@ function setupCondoSearch() {
             $("#dados-condo-bairro").text(condo.bairro || '-');
 
             const principalTechnology = determinePrincipalTechnology(blocks);
+            const isPartner = document.body.classList.contains('user-group-redeneutra');
 
-            if (userGroup === 'RedeNeutra') {
+            if (isPartner) {
                 if (principalTechnology === 'FTTH') {
                     $('#estrutura-principal').text(principalTechnology);
                     displayBlockDetails(blocks);
@@ -311,7 +320,7 @@ function displayGeogridResults(caixas) {
     );
 
     let caixasFiltradas;
-    if (userGroup === 'RedeNeutra') {
+    if (document.body.classList.contains('user-group-redeneutra')) {
         caixasFiltradas = baseFilter.filter(caixa => 
             !caixa.sigla.toLowerCase().includes('radio')
         );
@@ -378,6 +387,28 @@ function displayGeogridResults(caixas) {
 function getCidadeNome(cidadeId) {
     const cidades = {"3173": "Vitória", "3172": "Vila Velha", "3169": "Viana", "3165": "Serra", "3159": "Santa Teresa", "3112": "Cariacica"};
     return cidades[cidadeId] || 'Não identificada';
+}
+
+function formatCondoName(name) {
+    if (!name) return name;
+    
+    const prefixMap = {
+        'SEA': 'Serra',
+        'VTA': 'Vitória',
+        'VVA': 'Vila Velha',
+        'CCA': 'Cariacica',
+        'GRI': 'Guarapari'
+    };
+
+    const match = name.match(/^(SEA|VTA|VVA|CCA|GRI)\s+(.*)/i);
+    
+    if (match) {
+        const prefix = match[1].toUpperCase();
+        const restOfName = match[2];
+        return `${prefixMap[prefix]} - Bairro ${restOfName}`;
+    }
+    
+    return name;
 }
 
 function initializeThemeAndUserInfo() {
