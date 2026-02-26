@@ -854,7 +854,7 @@ function setupCondoSearchVenda() {
                 return fetch(`api/v1/block/${item.value}`);
             })
             .then(response => response.ok ? response.json() : [])
-            .then(blocks => { 
+            .then(blocks => {
                 currentBlocks = blocks.sort((a, b) => {
                     const nameA = a.name || '';
                     const nameB = b.name || '';
@@ -1150,9 +1150,11 @@ let mapCidadesReverse = {};
 let mapUfs = {};
 let mapUfsReverse = {};
 let mapUfNomeParaSigla = {};
+let mapCidadeParaUf = {};
 
 async function carregarLocalidades() {
     try {
+        // Carrega UFs
         const resUfs = await fetch('/api/v5/ixc/ufs');
         if (resUfs.ok) {
             const ufs = await resUfs.json();
@@ -1160,19 +1162,21 @@ async function carregarLocalidades() {
                 mapUfs[u.id] = u.sigla;
                 if (u.sigla) mapUfsReverse[u.sigla.toUpperCase()] = u.id;
                 if (u.nome) {
-                    const nomeNorm = u.nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+                    const nomeNorm = String(u.nome).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
                     mapUfNomeParaSigla[nomeNorm] = u.sigla;
                 }
             });
         }
 
+        // Carrega Cidades
         const resCidades = await fetch('/api/v5/ixc/cidades');
         if (resCidades.ok) {
             const cidades = await resCidades.json();
             cidades.forEach(c => {
                 mapCidades[c.id] = c.nome;
+                if (c.uf) mapCidadeParaUf[c.id] = c.uf; // NOVO: Salva o ID da UF daquela cidade
                 if (c.nome) {
-                    const normalizedName = c.nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+                    const normalizedName = String(c.nome).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
                     mapCidadesReverse[normalizedName] = c.id;
                 }
             });
@@ -1207,6 +1211,11 @@ function corrigirUfParaSigla(valor) {
     if (!valor) return '';
     const normalized = String(valor).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
     return mapUfNomeParaSigla[normalized] || valor; 
+}
+
+function getUfFromCidadeId(cidadeId) {
+    const ufId = mapCidadeParaUf[cidadeId];
+    return getUfSigla(ufId) || '';
 }
 
 function validarCPF(cpf) {

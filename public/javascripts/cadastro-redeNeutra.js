@@ -561,7 +561,25 @@ function setupCondoSearch() {
         events: {
             search: function(query, callback) {
                 fetch(`api/v4/condominio?query=${query}`)
-                    .then(response => response.json()).then(data => callback(data))
+                    .then(response => response.json())
+                    .then(data => {
+                        let filteredData = data;
+                        
+                        const isPartner = !!MAPA_PARCEIROS[userGroupGlobal];
+                        
+                        if (isPartner) {
+                            filteredData = filteredData.filter(item => 
+                                !item.text || !item.text.includes('(RDNT-')
+                            );
+                        }
+
+                        filteredData = filteredData.map(item => ({
+                            ...item,
+                            text: formatCondoName(item.text)
+                        }));
+
+                        callback(filteredData);
+                    })
                     .catch(err => console.error("Erro busca condomínios:", err));
             }
         }
@@ -574,6 +592,8 @@ function setupCondoSearch() {
         fetch(`api/v1/condominio/${item.value}`)
             .then(response => response.json())
             .then(condo => {
+                $('#input-condominio-venda').val(formatCondoName(condo.condominio || item.text));
+
                 $("#rn-cep").val(condo.cep || '');
                 $('#rn-numero').val(condo.numero || ''); 
                 $("#rn-endereco").val(condo.endereco || '');
@@ -599,7 +619,25 @@ function setupCondoSearchEdit() {
         events: {
             search: function(query, callback) {
                 fetch(`api/v4/condominio?query=${query}`)
-                    .then(response => response.json()).then(data => callback(data));
+                    .then(response => response.json())
+                    .then(data => {
+                        let filteredData = data;
+                        
+                        const isPartner = !!MAPA_PARCEIROS[userGroupGlobal];
+                        
+                        if (isPartner) {
+                            filteredData = filteredData.filter(item => 
+                                !item.text || !item.text.includes('(RDNT-')
+                            );
+                        }
+
+                        filteredData = filteredData.map(item => ({
+                            ...item,
+                            text: formatCondoName(item.text)
+                        }));
+
+                        callback(filteredData);
+                    });
             }
         }
     });
@@ -611,6 +649,8 @@ function setupCondoSearchEdit() {
         fetch(`api/v1/condominio/${item.value}`)
             .then(response => response.json())
             .then(condo => {
+                $('#edit-condominio').val(formatCondoName(condo.condominio || item.text));
+
                 $("#edit-cep").val(condo.cep || '');
                 $('#edit-numero').val(condo.numero || ''); 
                 $("#edit-endereco").val(condo.endereco || '');
@@ -1086,6 +1126,11 @@ async function salvarEdicaoCliente() {
         const idCidadeFormatado = getCidadeIdPorNome(document.getElementById('edit-cidade').value) || document.getElementById('edit-hidden-cidade-id').value;
         const idUfFormatado = getUfIdPorSigla(document.getElementById('edit-uf').value) || document.getElementById('edit-uf').value;
 
+        let numeroEditFormatado = document.getElementById('edit-numero').value.trim();
+        if (numeroEditFormatado === '0') {
+            numeroEditFormatado = 'SN';
+        }
+
         const payload = {
             descricao_produto: identificadorCompleto,
             login_pppoe: identificadorCompleto,
@@ -1095,7 +1140,7 @@ async function salvarEdicaoCliente() {
             
             cep: document.getElementById('edit-cep').value,
             endereco: document.getElementById('edit-endereco').value,
-            numero: document.getElementById('edit-numero').value,
+            numero: numeroEditFormatado,
             bairro: document.getElementById('edit-bairro').value,
             
             id_condominio: document.getElementById('edit-hidden-condominio-id').value,
@@ -1160,6 +1205,11 @@ async function salvarNovoCliente(autorizarOnu = false) {
         const idCidadeFormatado = getCidadeIdPorNome(document.getElementById('rn-cidade').value) || document.getElementById('hidden-cidade-id').value;
         const idUfFormatado = getUfIdPorSigla(document.getElementById('rn-uf').value) || document.getElementById('rn-uf').value;
 
+        let numeroFormatado = document.getElementById('rn-numero').value.trim();
+        if (numeroFormatado === '0') {
+            numeroFormatado = 'SN';
+        }
+
         const payload = {
             parceiro_id: document.getElementById('select-parceiro').value,
             cod_cliente_parceiro: document.getElementById('rn-cod-cliente-parceiro').value.trim(),
@@ -1168,7 +1218,7 @@ async function salvarNovoCliente(autorizarOnu = false) {
             
             cep: document.getElementById('rn-cep').value,
             endereco: document.getElementById('rn-endereco').value,
-            numero: document.getElementById('rn-numero').value,
+            numero: numeroFormatado,
             bairro: document.getElementById('rn-bairro').value,
             cidade: idCidadeFormatado,
             uf: idUfFormatado,
@@ -1743,6 +1793,28 @@ function corrigirUfParaSigla(valor) {
     if (!valor) return '';
     const normalized = valor.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
     return mapUfNomeParaSigla[normalized] || valor; 
+}
+
+function formatCondoName(name) {
+    if (!name) return name;
+    
+    const prefixMap = {
+        'SEA': 'Serra',
+        'VTA': 'Vitória',
+        'VVA': 'Vila Velha',
+        'CCA': 'Cariacica',
+        'GRI': 'Guarapari'
+    };
+
+    const match = name.match(/^(SEA|VTA|VVA|CCA|GRI)\s+(.*)/i);
+    
+    if (match) {
+        const prefix = match[1].toUpperCase();
+        const restOfName = match[2];
+        return `${prefixMap[prefix]} - Bairro ${restOfName}`;
+    }
+    
+    return name;
 }
 
 function initializeThemeAndUserInfo() {
