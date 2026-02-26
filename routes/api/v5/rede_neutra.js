@@ -596,8 +596,8 @@ router.post('/cliente', function (req, res) { return __awaiter(void 0, void 0, v
             case 0:
                 _a = req.body, parceiro_id = _a.parceiro_id, cod_cliente_parceiro = _a.cod_cliente_parceiro, caixa_atendimento = _a.caixa_atendimento, porta = _a.porta, cep = _a.cep, endereco = _a.endereco, numero = _a.numero, bairro = _a.bairro, cidade = _a.cidade, uf = _a.uf, id_condominio = _a.id_condominio, bloco = _a.bloco, apartamento = _a.apartamento, complemento = _a.complemento, referencia = _a.referencia, plano_id = _a.plano_id, plano_nome = _a.plano_nome, plano_nome_original = _a.plano_nome_original, plano_valor = _a.plano_valor;
                 console.log("=== INÍCIO CADASTRO REDE NEUTRA ===");
-                if (!parceiro_id || !cep) {
-                    return [2 /*return*/, res.status(400).json({ error: "Dados obrigatórios faltando." })];
+                if (!parceiro_id || !cep || !cod_cliente_parceiro || !numero) {
+                    return [2 /*return*/, res.status(400).json({ error: "Dados obrigatórios faltando (Cod. Cliente, CEP ou Número)." })];
                 }
                 ixcProdResp = null;
                 ixcLoginResp = null;

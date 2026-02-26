@@ -210,9 +210,10 @@
                                 </div>
                                 <div class="row g-3">
                                     <div class="col-md-6">
-                                        <label class="form-label">Cod. Cliente</label>
-                                        <input type="text" class="form-control" id="rn-cod-cliente-parceiro">
-                                    </div>
+                                            <label class="form-label">Cod. Cliente <span class="text-danger">*</span></label>
+                                            <input type="text" class="form-control" id="rn-cod-cliente-parceiro" required placeholder="Apenas números">
+                                            <div class="invalid-feedback">Obrigatório.</div>
+                                        </div>
                                     <div class="col-md-6">
                                         <label class="form-label">Caixa (CTO)</label>
                                         <input type="text" class="form-control" id="rn-caixa-atendimento">
@@ -248,8 +249,12 @@
                                         <input type="text" class="form-control bg-light" id="rn-endereco" readonly required>
                                     </div>
                                     <div class="col-md-4">
-                                        <label class="form-label">Número</label>
-                                        <input type="text" class="form-control" id="rn-numero" required>
+                                        <label class="form-label">Número <span class="text-danger">*</span></label>
+                                        <div class="input-group has-validation">
+                                            <input type="text" class="form-control" id="rn-numero" required>
+                                            <button class="btn btn-outline-secondary" type="button" id="btn-rn-sem-numero" title="Sem Número">S/N</button>
+                                            <div class="invalid-feedback">Obrigatório.</div>
+                                        </div>
                                     </div>
                                     <div class="col-md-8">
                                         <label class="form-label">Bairro</label>

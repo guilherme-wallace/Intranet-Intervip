@@ -70,6 +70,25 @@ document.addEventListener('DOMContentLoaded', function() {
     $('#onu-mac').on('input', function() {
         this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
     });
+    $('#rn-cod-cliente-parceiro').on('input', function() {
+        this.value = this.value.replace(/[^0-9]/g, '');
+    });
+    $('#rn-numero').on('input', function() {
+        if (this.value !== 'SN') {
+            this.value = this.value.replace(/[^0-9]/g, '');
+        }
+    });
+
+    $('#btn-rn-sem-numero').on('click', function() {
+        const input = $('#rn-numero');
+        if (input.val() === 'SN') {
+            input.val('').prop('readonly', false).focus();
+            $(this).removeClass('btn-secondary text-white').addClass('btn-outline-secondary');
+        } else {
+            input.val('SN').prop('readonly', true).removeClass('is-invalid').addClass('is-valid');
+            $(this).removeClass('btn-outline-secondary').addClass('btn-secondary text-white');
+        }
+    });
 
     document.getElementById('btn-edit-complemento').addEventListener('click', function() {
         contextComplemento = 'edit';
@@ -92,6 +111,14 @@ document.addEventListener('DOMContentLoaded', function() {
     carregarPlanosRedeNeutra();
     initializeThemeAndUserInfo();
     configurarTabelaCliente();
+    carregarLocalidades();
+
+    $('#rn-uf, #edit-uf').on('change blur input', function() {
+        const valorCorrigido = corrigirUfParaSigla(this.value);
+        if (this.value !== valorCorrigido) {
+            this.value = valorCorrigido;
+        }
+    });
 });
 
 function setupListeners() {
@@ -1044,41 +1071,43 @@ async function salvarEdicaoCliente() {
     btn.disabled = true;
     btn.innerHTML = 'Salvando...';
 
-    const id = document.getElementById('edit-id').value;
-    const token = document.getElementById('edit-token').value; 
-    const descSemToken = document.getElementById('edit-descricao').value.trim();
-    
-    let identificadorCompleto = descSemToken;
-    if (token) {
-        identificadorCompleto = `${token}-${descSemToken}`;
-    }
-    
-    let complementoFinal = document.getElementById('edit-complemento-text').value;
-
-    const payload = {
-        descricao_produto: identificadorCompleto,
-        login_pppoe: identificadorCompleto,
-        
-        status_ativo: document.getElementById('edit-status').value,
-        obs: document.getElementById('edit-obs').value,
-        
-        cep: document.getElementById('edit-cep').value,
-        endereco: document.getElementById('edit-endereco').value,
-        numero: document.getElementById('edit-numero').value,
-        bairro: document.getElementById('edit-bairro').value,
-        
-        id_condominio: document.getElementById('edit-hidden-condominio-id').value,
-        complemento: complementoFinal,
-        referencia: document.getElementById('edit-referencia').value,
-        bloco: document.getElementById('edit-hidden-bloco').value,
-        apartamento: document.getElementById('edit-hidden-apartamento').value,
-        cidade: document.getElementById('edit-hidden-cidade-id').value,
-        uf: document.getElementById('edit-uf').value
-    };
-
-    console.log("Payload Edição Unificada:", payload);
-
     try {
+        const id = document.getElementById('edit-id').value;
+        const token = document.getElementById('edit-token').value; 
+        const descSemToken = document.getElementById('edit-descricao').value.trim();
+        
+        let identificadorCompleto = descSemToken;
+        if (token) {
+            identificadorCompleto = `${token}-${descSemToken}`;
+        }
+        
+        let complementoFinal = document.getElementById('edit-complemento-text').value;
+
+        const idCidadeFormatado = getCidadeIdPorNome(document.getElementById('edit-cidade').value) || document.getElementById('edit-hidden-cidade-id').value;
+        const idUfFormatado = getUfIdPorSigla(document.getElementById('edit-uf').value) || document.getElementById('edit-uf').value;
+
+        const payload = {
+            descricao_produto: identificadorCompleto,
+            login_pppoe: identificadorCompleto,
+            
+            status_ativo: document.getElementById('edit-status').value,
+            obs: document.getElementById('edit-obs').value,
+            
+            cep: document.getElementById('edit-cep').value,
+            endereco: document.getElementById('edit-endereco').value,
+            numero: document.getElementById('edit-numero').value,
+            bairro: document.getElementById('edit-bairro').value,
+            
+            id_condominio: document.getElementById('edit-hidden-condominio-id').value,
+            complemento: complementoFinal,
+            referencia: document.getElementById('edit-referencia').value,
+            bloco: document.getElementById('edit-hidden-bloco').value,
+            apartamento: document.getElementById('edit-hidden-apartamento').value,
+            
+            cidade: idCidadeFormatado,
+            uf: idUfFormatado
+        };
+
         const response = await fetch(`/api/v5/rede_neutra/cliente/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -1093,6 +1122,7 @@ async function salvarEdicaoCliente() {
         if(parceiroIdSelecionado) carregarCarteiraClientes(parceiroIdSelecionado);
 
     } catch (error) {
+        console.error("Erro na edição:", error);
         alert('Erro ao editar: ' + error.message);
     } finally {
         btn.disabled = false;
@@ -1114,41 +1144,47 @@ async function salvarNovoCliente(autorizarOnu = false) {
     document.getElementById('btn-salvar-sem-onu').disabled = true;
     document.getElementById('btn-salvar-com-onu').disabled = true;
 
-    const selectPlano = document.getElementById('rn-plano');
-    const planoOption = selectPlano.options[selectPlano.selectedIndex];
-    
-    const semCondominio = $('#chk-sem-condominio').is(':checked');
-    const nomeCondominio = $('#input-condominio-venda').val();
-
-    let complementoFinal = $('#rn-complemento').val();
-    if(semCondominio) complementoFinal = nomeCondominio;
-
-    const payload = {
-        parceiro_id: document.getElementById('select-parceiro').value,
-        cod_cliente_parceiro: document.getElementById('rn-cod-cliente-parceiro').value.trim(),
-        caixa_atendimento: document.getElementById('rn-caixa-atendimento').value.trim(),
-        porta: document.getElementById('rn-porta').value.trim(),
-        
-        cep: document.getElementById('rn-cep').value,
-        endereco: document.getElementById('rn-endereco').value,
-        numero: document.getElementById('rn-numero').value,
-        bairro: document.getElementById('rn-bairro').value,
-        cidade: document.getElementById('hidden-cidade-id').value,
-        uf: document.getElementById('rn-uf').value,
-        referencia: document.getElementById('rn-referencia').value,
-        
-        id_condominio: semCondominio ? '' : document.getElementById('hidden-condominio-id').value,
-        bloco: document.getElementById('hidden-bloco').value,
-        apartamento: document.getElementById('hidden-apartamento').value,
-        complemento: complementoFinal,
-
-        plano_id: selectPlano.value,
-        plano_nome: planoOption.dataset.nome,
-        plano_nome_original: planoOption.dataset.originalName,
-        plano_valor: planoOption.dataset.valor
-    };
-
     try {
+        const selectPlano = document.getElementById('rn-plano');
+        if (selectPlano.selectedIndex < 0 || !selectPlano.value) {
+            throw new Error("Por favor, aguarde o carregamento e selecione um plano válido.");
+        }
+        const planoOption = selectPlano.options[selectPlano.selectedIndex];
+        
+        const semCondominio = $('#chk-sem-condominio').is(':checked');
+        const nomeCondominio = $('#input-condominio-venda').val();
+
+        let complementoFinal = $('#rn-complemento').val();
+        if(semCondominio) complementoFinal = nomeCondominio;
+
+        const idCidadeFormatado = getCidadeIdPorNome(document.getElementById('rn-cidade').value) || document.getElementById('hidden-cidade-id').value;
+        const idUfFormatado = getUfIdPorSigla(document.getElementById('rn-uf').value) || document.getElementById('rn-uf').value;
+
+        const payload = {
+            parceiro_id: document.getElementById('select-parceiro').value,
+            cod_cliente_parceiro: document.getElementById('rn-cod-cliente-parceiro').value.trim(),
+            caixa_atendimento: document.getElementById('rn-caixa-atendimento').value.trim(),
+            porta: document.getElementById('rn-porta').value.trim(),
+            
+            cep: document.getElementById('rn-cep').value,
+            endereco: document.getElementById('rn-endereco').value,
+            numero: document.getElementById('rn-numero').value,
+            bairro: document.getElementById('rn-bairro').value,
+            cidade: idCidadeFormatado,
+            uf: idUfFormatado,
+            referencia: document.getElementById('rn-referencia').value,
+            
+            id_condominio: semCondominio ? '' : document.getElementById('hidden-condominio-id').value,
+            bloco: document.getElementById('hidden-bloco').value,
+            apartamento: document.getElementById('hidden-apartamento').value,
+            complemento: complementoFinal,
+
+            plano_id: selectPlano.value,
+            plano_nome: planoOption.dataset.nome,
+            plano_nome_original: planoOption.dataset.originalName,
+            plano_valor: planoOption.dataset.valor
+        };
+
         const response = await fetch('/api/v5/rede_neutra/cliente', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1156,7 +1192,7 @@ async function salvarNovoCliente(autorizarOnu = false) {
         });
 
         const result = await response.json();
-        if (!response.ok) throw new Error(result.error || 'Erro ao salvar');
+        if (!response.ok) throw new Error(result.error || 'Erro ao salvar cliente no banco/IXC.');
 
         modalCadastro.hide();
         carregarCarteiraClientes(payload.parceiro_id);
@@ -1168,7 +1204,12 @@ async function salvarNovoCliente(autorizarOnu = false) {
         }
 
     } catch (error) {
+        console.error("Erro no cadastro:", error);
         alert('Erro: ' + error.message);
+        
+        if (!error.message.includes('selecione um plano válido')) {
+            abrirChamadoSuporte(`Erro ao cadastrar novo cliente (Rede Neutra): ${error.message}`, 'Erro Automático - Cadastro');
+        }
     } finally {
         document.getElementById('btn-salvar-sem-onu').disabled = false;
         document.getElementById('btn-salvar-com-onu').disabled = false;
@@ -1556,6 +1597,9 @@ function resetFormCadastro() {
     
     document.getElementById('rn-porta').readOnly = false;
     document.getElementById('rn-porta').disabled = false;
+    
+    $('#rn-numero').prop('readonly', false);
+    $('#btn-rn-sem-numero').removeClass('btn-secondary text-white').addClass('btn-outline-secondary');
 }
 
 async function buscarEnderecoPorCEP(prefixoId = 'rn') {
@@ -1637,9 +1681,68 @@ function preencherCamposEndereco(prefixoId, rua, bairro, cidade = null, uf = nul
     }
 }
 
+let mapCidades = {};
+let mapCidadesReverse = {};
+let mapUfs = {};
+let mapUfsReverse = {};
+let mapUfNomeParaSigla = {};
+
+async function carregarLocalidades() {
+    try {
+        const resUfs = await fetch('/api/v5/ixc/ufs');
+        if (resUfs.ok) {
+            const ufs = await resUfs.json();
+            ufs.forEach(u => {
+                mapUfs[u.id] = u.sigla;
+                if (u.sigla) mapUfsReverse[u.sigla.toUpperCase()] = u.id;
+                if (u.nome) {
+                    const nomeNorm = u.nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+                    mapUfNomeParaSigla[nomeNorm] = u.sigla;
+                }
+            });
+        }
+
+        const resCidades = await fetch('/api/v5/ixc/cidades');
+        if (resCidades.ok) {
+            const cidades = await resCidades.json();
+            cidades.forEach(c => {
+                mapCidades[c.id] = c.nome;
+                if (c.nome) {
+                    const normalizedName = c.nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+                    mapCidadesReverse[normalizedName] = c.id;
+                }
+            });
+        }
+    } catch (error) {
+        console.error("Erro ao carregar listas de localidades:", error);
+    }
+}
+
 function getCidadeNome(id) {
-    const map = { "3173": "Vitória", "3172": "Vila Velha", "3169": "Viana", "3165": "Serra", "3159": "Santa Teresa", "3112": "Cariacica", "3124": "Guarapari" };
-    return map[id] || 'Cidade Desconhecida';
+    return mapCidades[id] || 'Cidade Desconhecida';
+}
+
+function getCidadeIdPorNome(nome) {
+    if (!nome) return null;
+    const normalizedName = nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+    return mapCidadesReverse[normalizedName] || nome; 
+}
+
+function getUfSigla(id) {
+    return mapUfs[id] || '';
+}
+
+function getUfIdPorSigla(valor) {
+    if (!valor) return null;
+    const normalized = valor.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+    const siglaCorrigida = mapUfNomeParaSigla[normalized] || normalized;
+    return mapUfsReverse[siglaCorrigida] || valor; 
+}
+
+function corrigirUfParaSigla(valor) {
+    if (!valor) return '';
+    const normalized = valor.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+    return mapUfNomeParaSigla[normalized] || valor; 
 }
 
 function initializeThemeAndUserInfo() {

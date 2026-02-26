@@ -445,8 +445,8 @@ router.post('/cliente', async (req, res) => {
 
     console.log("=== INÍCIO CADASTRO REDE NEUTRA ===");
 
-    if (!parceiro_id || !cep) {
-        return res.status(400).json({ error: "Dados obrigatórios faltando." });
+if (!parceiro_id || !cep || !cod_cliente_parceiro || !numero) {
+        return res.status(400).json({ error: "Dados obrigatórios faltando (Cod. Cliente, CEP ou Número)." });
     }
 
     let ixcProdResp = null;
