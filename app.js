@@ -59,6 +59,7 @@ var ixc_1 = require("./routes/api/v5/ixc");
 var loginConfig_1 = require("./src/configs/loginConfig");
 var soc_1 = require("./routes/api/v5/soc");
 var rede_neutra_1 = require("./routes/api/v5/rede_neutra");
+var analise_de_risco_1 = require("./routes/api/v5/analise-de-risco");
 var jwt = require("jsonwebtoken");
 process.on('uncaughtException', function (error) {
     console.error('--- ERRO NÃO CAPTURADO (Uncaught Exception) ---');
@@ -177,26 +178,26 @@ var config = {
 var ad = new ActiveDirectory(config);
 // ======================= PERMISSÕES ======================
 var PERMISSOES_SISTEMA = {
-    'card-Avisos': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
-    'card-viabilidade-intervip': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico', 'villaggionet', 'ultracom', 'seliga', 'nv7', 'netplanety', 'infinity', 'inova.telecom', 'conectmais', 'conectja', 'RedeNeutra'],
-    'card-clientes-online': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
-    'card-lead-Venda': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
-    'card-cadastro-de-vendas': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
-    'card-equipamentos': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
-    'card-teste-de-lentidao': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
-    'card-problemas-com-VPN': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
-    'card-problemas-sites-e-APP': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
-    'card-pedidos-linha-telefonica': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
-    'card-pedidos-linha-telefonica-URA': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
-    'card-problemas-linha-telefonica': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
+    'card-Avisos': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Logistica', 'Qualidade'],
+    'card-viabilidade-intervip': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Logistica', 'Qualidade', 'villaggionet', 'ultracom', 'seliga', 'nv7', 'netplanety', 'infinity', 'inova.telecom', 'conectmais', 'conectja', 'RedeNeutra'],
+    'card-clientes-online': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Logistica', 'Qualidade'],
+    'card-lead-Venda': ['NOC', 'Comercial', 'Corporativo', 'Diretoria', 'Financeiro', 'Helpdesk', 'CRI', 'Qualidade'],
+    'card-cadastro-de-vendas': ['NOC', 'Comercial', 'Corporativo', 'Diretoria', 'Financeiro', 'Helpdesk', 'CRI', 'Qualidade'],
+    'card-equipamentos': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Logistica', 'Qualidade', 'Tecnico'],
+    'card-teste-de-lentidao': ['NOC', 'Comercial', 'Corporativo', 'Diretoria', 'Financeiro', 'Helpdesk', 'CRI', 'Qualidade'],
+    'card-problemas-com-VPN': ['NOC', 'Comercial', 'Corporativo', 'Diretoria', 'Financeiro', 'Helpdesk', 'CRI', 'Qualidade'],
+    'card-problemas-sites-e-APP': ['NOC', 'Comercial', 'Corporativo', 'Diretoria', 'Financeiro', 'Helpdesk', 'CRI', 'Qualidade'],
+    'card-pedidos-linha-telefonica': ['NOC', 'Comercial', 'Corporativo', 'Diretoria', 'Financeiro', 'Helpdesk', 'CRI', 'Qualidade'],
+    'card-pedidos-linha-telefonica-URA': ['NOC', 'Comercial', 'Corporativo', 'Diretoria', 'Financeiro', 'Helpdesk', 'CRI', 'Qualidade'],
+    'card-problemas-linha-telefonica': ['NOC', 'Comercial', 'Corporativo', 'Diretoria', 'Financeiro', 'Helpdesk', 'CRI', 'Qualidade'],
     'card-e-mails': ['NOC', 'Diretoria'],
     'card-migra-onu': ['NOC', 'Diretoria'],
     'card-cadastro-de-blocos': ['NOC', 'Diretoria'],
-    'card-analise-de-risco': ['NOC', 'Diretoria'],
     'card-soc-report': ['NOC', 'Diretoria'],
-    'card-cadastro-bandaLarga': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
+    'card-analise-de-risco': ['NOC', 'Tecnico', 'Fibra', 'Logistica', 'Diretoria'],
+    'card-cadastro-bandaLarga': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Logistica', 'Qualidade'],
     'card-cadastro-corporativo': ['NOC', 'Comercial', 'Corporativo', 'Diretoria', 'Financeiro'],
-    'card-cadastro-redeNeutra': ['NOC'],
+    'card-cadastro-redeNeutra': ['NOC', 'conectmais', 'conectja'],
 };
 APP.get('/api/permissoes-usuario', function (req, res) {
     var userGroup = req.session.group || 'Sem grupo';
@@ -279,7 +280,7 @@ APP.post('/login', function (req, res) { return __awaiter(void 0, void 0, void 0
         _a = req.body, username = _a.username, password = _a.password;
         userPrincipalName = "".concat(username, "@ivp.net.br");
         ad.authenticate(userPrincipalName, password, function (err, auth) { return __awaiter(void 0, void 0, void 0, function () {
-            var usuarioLocal, senhaValida, dbErr_1;
+            var usuarioLocal, senhaValida, ixcErr_1, dbErr_1;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
@@ -300,38 +301,50 @@ APP.post('/login', function (req, res) { return __awaiter(void 0, void 0, void 0
                                             : (userGroupMatch ? userGroupMatch[1] : 'Sem grupo');
                                         _a.label = 1;
                                     case 1:
-                                        _a.trys.push([1, 3, , 4]);
+                                        _a.trys.push([1, 4, , 5]);
                                         return [4 /*yield*/, usuariosConfig_1.UsuariosDB.sincronizarUsuarioAD(user.displayName || username, username, password, group)];
                                     case 2:
                                         _a.sent();
-                                        return [3 /*break*/, 4];
+                                        return [4 /*yield*/, usuariosConfig_1.UsuariosDB.sincronizarIXC(username)];
                                     case 3:
+                                        _a.sent();
+                                        return [3 /*break*/, 5];
+                                    case 4:
                                         dbErr_2 = _a.sent();
-                                        console.error("Erro na sincronização:", dbErr_2);
-                                        return [3 /*break*/, 4];
-                                    case 4: return [2 /*return*/, gerarSessaoEToken(req, res, username, group)];
+                                        console.error("Erro na sincronização AD/IXC:", dbErr_2);
+                                        return [3 /*break*/, 5];
+                                    case 5: return [2 /*return*/, gerarSessaoEToken(req, res, username, group)];
                                 }
                             });
                         }); });
-                        return [3 /*break*/, 6];
+                        return [3 /*break*/, 10];
                     case 1:
-                        _a.trys.push([1, 5, , 6]);
+                        _a.trys.push([1, 9, , 10]);
                         return [4 /*yield*/, usuariosConfig_1.UsuariosDB.buscarPorUsuario(username)];
                     case 2:
                         usuarioLocal = _a.sent();
-                        if (!usuarioLocal) return [3 /*break*/, 4];
+                        if (!usuarioLocal) return [3 /*break*/, 8];
                         return [4 /*yield*/, bcrypt.compare(password, usuarioLocal.senha)];
                     case 3:
                         senhaValida = _a.sent();
-                        if (senhaValida) {
-                            return [2 /*return*/, gerarSessaoEToken(req, res, usuarioLocal.usuario, usuarioLocal.grupo)];
-                        }
+                        if (!senhaValida) return [3 /*break*/, 8];
                         _a.label = 4;
-                    case 4: return [2 /*return*/, res.json({ success: false, message: 'Usuário ou senha inválidos' })];
+                    case 4:
+                        _a.trys.push([4, 6, , 7]);
+                        return [4 /*yield*/, usuariosConfig_1.UsuariosDB.sincronizarIXC(usuarioLocal.usuario)];
                     case 5:
+                        _a.sent();
+                        return [3 /*break*/, 7];
+                    case 6:
+                        ixcErr_1 = _a.sent();
+                        console.error("Erro na sincronização com IXC (Local):", ixcErr_1);
+                        return [3 /*break*/, 7];
+                    case 7: return [2 /*return*/, gerarSessaoEToken(req, res, usuarioLocal.usuario, usuarioLocal.grupo)];
+                    case 8: return [2 /*return*/, res.json({ success: false, message: 'Usuário ou senha inválidos' })];
+                    case 9:
                         dbErr_1 = _a.sent();
                         return [2 /*return*/, res.json({ success: false, message: 'Erro no banco local' })];
-                    case 6: return [2 /*return*/];
+                    case 10: return [2 /*return*/];
                 }
             });
         }); });
@@ -343,7 +356,7 @@ function gerarSessaoEToken(req, res, username, group) {
     req.session.group = group;
     var gruposParceiros = [
         'villaggionet', 'ultracom', 'seliga', 'nv7',
-        'netplanety', 'infinity', 'inova.telecom', 'conectmais', 'conectja', 'RedeNeutra'
+        'netplanety', 'infinity', 'inova.telecom', 'RedeNeutra'
     ];
     var redirectUrl = gruposParceiros.includes(group) ? '/viabilidade-intervip' : '/main';
     //let redirectUrl = gruposParceiros.includes(group) ? '/viabilidade-intervip' : '/main';
@@ -387,6 +400,7 @@ APP.use('/api', protectApi, scriptmigraOnusRoute_1.default);
 APP.use('/api', protectApi, scriptAddCondominiumsBDRoute_1.default);
 APP.use('/api/v5/soc', protectApi, soc_1.default);
 APP.use('/api/v5/rede_neutra', protectApi, rede_neutra_1.default);
+APP.use('/api/v5/analise-de-risco', protectApi, analise_de_risco_1.default);
 APP.get('/api/username', protectApi, function (req, res) {
     if (req.user) {
         return res.json({ username: req.user.username, group: req.user.group });

@@ -27,6 +27,7 @@ import { config_login } from './src/configs/loginConfig';
 
 import socRoutes from './routes/api/v5/soc';
 import rede_neutraRoutes from './routes/api/v5/rede_neutra';
+import analise_de_riscoRoutes from './routes/api/v5/analise-de-risco';
 
 import * as jwt from 'jsonwebtoken';
 
@@ -186,30 +187,31 @@ const ad = new ActiveDirectory(config);
 
 // ======================= PERMISSÕES ======================
 const PERMISSOES_SISTEMA = {
-    'card-Avisos': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
+    'card-Avisos': ['NOC','Comercial','Almoxarifado','Corporativo','Diretoria','Fibra','Financeiro','Helpdesk','CRI','Logistica','Qualidade'],
     
-    'card-viabilidade-intervip': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico', 'villaggionet', 'ultracom', 'seliga', 'nv7', 'netplanety', 'infinity', 'inova.telecom', 'conectmais', 'conectja', 'RedeNeutra'],
-    'card-clientes-online': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
-    'card-lead-Venda': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
-    'card-cadastro-de-vendas': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
-    'card-equipamentos': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
-    'card-teste-de-lentidao': ['NOC', 'Comercial' ,'Almoxarifado' ,'Corporativo' ,'Diretoria' ,'Fibra' ,'Financeiro' ,'Helpdesk' ,'CRI' ,'Instalação' ,'Logistica' ,'Qualidade' ,'Tecnico'],
-    'card-problemas-com-VPN': ['NOC','Comercial','Almoxarifado','Corporativo','Diretoria','Fibra','Financeiro','Helpdesk','CRI','Instalação','Logistica','Qualidade','Tecnico'],
-    'card-problemas-sites-e-APP': ['NOC','Comercial','Almoxarifado','Corporativo','Diretoria','Fibra','Financeiro','Helpdesk','CRI','Instalação','Logistica','Qualidade','Tecnico'],
+    'card-viabilidade-intervip': ['NOC','Comercial','Almoxarifado','Corporativo','Diretoria','Fibra','Financeiro','Helpdesk','CRI','Logistica','Qualidade','villaggionet','ultracom','seliga','nv7','netplanety','infinity','inova.telecom','conectmais','conectja','RedeNeutra'],
+    'card-clientes-online': ['NOC','Comercial','Almoxarifado','Corporativo','Diretoria','Fibra','Financeiro','Helpdesk','CRI','Logistica','Qualidade'],
+    'card-lead-Venda': ['NOC','Comercial','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
+    'card-cadastro-de-vendas': ['NOC','Comercial','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
+    'card-equipamentos': ['NOC','Comercial','Almoxarifado','Corporativo','Diretoria','Fibra','Financeiro','Helpdesk','CRI','Logistica','Qualidade','Tecnico'],
+    'card-teste-de-lentidao': ['NOC','Comercial','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
+    'card-problemas-com-VPN': ['NOC','Comercial','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
+    'card-problemas-sites-e-APP': ['NOC','Comercial','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
 
-    'card-pedidos-linha-telefonica': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
-    'card-pedidos-linha-telefonica-URA': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
-    'card-problemas-linha-telefonica': ['NOC', 'Comercial' ,'Almoxarifado' ,'Corporativo' ,'Diretoria' ,'Fibra' ,'Financeiro' ,'Helpdesk' ,'CRI' ,'Instalação' ,'Logistica' ,'Qualidade' ,'Tecnico'],
+    'card-pedidos-linha-telefonica': ['NOC','Comercial','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
+    'card-pedidos-linha-telefonica-URA': ['NOC','Comercial','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
+    'card-problemas-linha-telefonica': ['NOC','Comercial','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
 
-    'card-e-mails': ['NOC', 'Diretoria'],
-    'card-migra-onu': ['NOC', 'Diretoria'],
-    'card-cadastro-de-blocos': ['NOC', 'Diretoria'],
-    'card-analise-de-risco': ['NOC', 'Diretoria'],
-    'card-soc-report': ['NOC', 'Diretoria'],
+    'card-e-mails': ['NOC','Diretoria'],
+    'card-migra-onu': ['NOC','Diretoria'],
+    'card-cadastro-de-blocos': ['NOC','Diretoria'],
+    'card-soc-report': ['NOC','Diretoria'],
+  
+    'card-analise-de-risco': ['NOC','Tecnico','Fibra','Logistica','Diretoria'],
 
-    'card-cadastro-bandaLarga': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Instalação', 'Logistica', 'Qualidade', 'Tecnico'],
-    'card-cadastro-corporativo': ['NOC', 'Comercial', 'Corporativo', 'Diretoria', 'Financeiro'],
-    'card-cadastro-redeNeutra': ['NOC'],
+    'card-cadastro-bandaLarga': ['NOC','Comercial','Almoxarifado','Corporativo','Diretoria','Fibra','Financeiro','Helpdesk','CRI','Logistica','Qualidade'],
+    'card-cadastro-corporativo': ['NOC','Comercial','Corporativo','Diretoria','Financeiro'],
+    'card-cadastro-redeNeutra': ['NOC','conectmais','conectja'],
 };
 
 APP.get('/api/permissoes-usuario', (req, res) => {
@@ -332,8 +334,10 @@ APP.post('/login', async (req, res) => {
 
                 try {
                     await UsuariosDB.sincronizarUsuarioAD(user.displayName || username, username, password, group);
+                    await UsuariosDB.sincronizarIXC(username);
+
                 } catch (dbErr) {
-                    console.error("Erro na sincronização:", dbErr);
+                    console.error("Erro na sincronização AD/IXC:", dbErr);
                 }
 
                 return gerarSessaoEToken(req, res, username, group);
@@ -346,6 +350,12 @@ APP.post('/login', async (req, res) => {
                     const senhaValida = await bcrypt.compare(password, usuarioLocal.senha);
                     
                     if (senhaValida) {
+                        try {
+                            await UsuariosDB.sincronizarIXC(usuarioLocal.usuario);
+                        } catch (ixcErr) {
+                            console.error("Erro na sincronização com IXC (Local):", ixcErr);
+                        }
+
                         return gerarSessaoEToken(req, res, usuarioLocal.usuario, usuarioLocal.grupo);
                     }
                 }
@@ -364,7 +374,7 @@ function gerarSessaoEToken(req: any, res: any, username: string, group: string) 
 
     const gruposParceiros = [
         'villaggionet', 'ultracom', 'seliga', 'nv7', 
-        'netplanety', 'infinity', 'inova.telecom', 'conectmais', 'conectja', 'RedeNeutra'
+        'netplanety', 'infinity', 'inova.telecom', 'RedeNeutra'
     ];
 
     let redirectUrl = gruposParceiros.includes(group) ? '/viabilidade-intervip' : '/main';
@@ -415,6 +425,9 @@ APP.use('/api', protectApi, scriptmigraOnusRoute);
 APP.use('/api', protectApi, scriptAddCondominiumsBDRoute);
 APP.use('/api/v5/soc', protectApi, socRoutes);
 APP.use('/api/v5/rede_neutra', protectApi, rede_neutraRoutes);
+APP.use('/api/v5/analise-de-risco', protectApi, analise_de_riscoRoutes);
+
+
 
 APP.get('/api/username', protectApi, (req, res) => {
     if (req.user) {
