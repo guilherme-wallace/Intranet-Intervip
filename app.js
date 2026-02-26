@@ -197,7 +197,7 @@ var PERMISSOES_SISTEMA = {
     'card-analise-de-risco': ['NOC', 'Tecnico', 'Fibra', 'Logistica', 'Diretoria'],
     'card-cadastro-bandaLarga': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Logistica', 'Qualidade'],
     'card-cadastro-corporativo': ['NOC', 'Comercial', 'Corporativo', 'Diretoria', 'Financeiro'],
-    'card-cadastro-redeNeutra': ['NOC', 'conectmais', 'conectja'],
+    'card-cadastro-redeNeutra': ['NOC', 'conectmais', 'conectja', 'seliga', 'nv7', 'netplanety'],
 };
 APP.get('/api/permissoes-usuario', function (req, res) {
     var userGroup = req.session.group || 'Sem grupo';
