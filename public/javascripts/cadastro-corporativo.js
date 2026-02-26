@@ -27,6 +27,14 @@ document.addEventListener('DOMContentLoaded', function() {
     loadAllActivePlans();
     setupFormValidation();
     setupFieldValidation();
+    carregarLocalidades();
+
+    $('#uf').on('change blur input', function() {
+        const valorCorrigido = corrigirUfParaSigla(this.value);
+        if (this.value !== valorCorrigido) {
+            this.value = valorCorrigido;
+        }
+    });
     
     $('#input-documento').inputmask('99.999.999/9999-99');
     
@@ -623,8 +631,8 @@ function setupFormValidation() {
                 endereco: document.getElementById('endereco').value.trim(),
                 numero: document.getElementById('numero').value.trim(),
                 bairro: document.getElementById('bairro').value.trim(),
-                cidade: document.getElementById('hidden-cidade-id').value,
-                uf: document.getElementById('uf').value,
+                cidade: getCidadeIdPorNome(document.getElementById('cidade').value),
+                uf: getUfIdPorSigla(document.getElementById('uf').value),
                 bloco: document.getElementById('hidden-bloco').value,
                 apartamento: document.getElementById('hidden-apartamento').value,
                 complemento: document.getElementById('complemento').value.trim(),
@@ -961,29 +969,69 @@ function checkFormValidity() {
         validityMessage.style.display = 'block';
     }
 }
-function getCidadeNome(cidadeId) {
-    const cidades = {"3173": "Vitória", "3172": "Vila Velha", "3169": "Viana", "3165": "Serra", "3159": "Santa Teresa", "3112": "Cariacica", "3124": "Guarapari"};
-    return cidades[cidadeId] || '';
-}
-function getCidadeIdPorNome(nomeCidade) {
-    if (!nomeCidade) return '';
-    const nome = nomeCidade.toString().toUpperCase().trim();
-    const mapaCidades = {
-        "VITÓRIA": "3173",
-        "VITORIA": "3173",
-        "VILA VELHA": "3172",
-        "VIANA": "3169",
-        "SERRA": "3165",
-        "SANTA TERESA": "3159",
-        "CARIACICA": "3112",
-        "GUARAPARI": "3124",
-    };
-    return mapaCidades[nome] || ''; 
+
+let mapCidades = {};
+let mapCidadesReverse = {};
+let mapUfs = {};
+let mapUfsReverse = {};
+let mapUfNomeParaSigla = {};
+
+async function carregarLocalidades() {
+    try {
+        const resUfs = await fetch('/api/v5/ixc/ufs');
+        if (resUfs.ok) {
+            const ufs = await resUfs.json();
+            ufs.forEach(u => {
+                mapUfs[u.id] = u.sigla;
+                if (u.sigla) mapUfsReverse[u.sigla.toUpperCase()] = u.id;
+                if (u.nome) {
+                    const nomeNorm = u.nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+                    mapUfNomeParaSigla[nomeNorm] = u.sigla;
+                }
+            });
+        }
+
+        const resCidades = await fetch('/api/v5/ixc/cidades');
+        if (resCidades.ok) {
+            const cidades = await resCidades.json();
+            cidades.forEach(c => {
+                mapCidades[c.id] = c.nome;
+                if (c.nome) {
+                    const normalizedName = c.nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+                    mapCidadesReverse[normalizedName] = c.id;
+                }
+            });
+        }
+    } catch (error) {
+        console.error("Erro ao carregar listas de localidades:", error);
+    }
 }
 
-function getUfFromCidadeId(cidadeId) {
-    if (cidadeId) return 'ES';
-    return '';
+function getCidadeNome(id) {
+    return mapCidades[id] || 'Cidade Desconhecida';
+}
+
+function getCidadeIdPorNome(nome) {
+    if (!nome) return null;
+    const normalizedName = String(nome).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+    return mapCidadesReverse[normalizedName] || nome; 
+}
+
+function getUfSigla(id) {
+    return mapUfs[id] || '';
+}
+
+function getUfIdPorSigla(valor) {
+    if (!valor) return null;
+    const normalized = String(valor).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+    const siglaCorrigida = mapUfNomeParaSigla[normalized] || normalized; 
+    return mapUfsReverse[siglaCorrigida] || valor; 
+}
+
+function corrigirUfParaSigla(valor) {
+    if (!valor) return '';
+    const normalized = String(valor).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+    return mapUfNomeParaSigla[normalized] || valor; 
 }
 
 function validarCPF(cpf) {

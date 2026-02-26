@@ -1272,4 +1272,80 @@ router.post('/abrir-chamado-suporte', function (req, res) { return __awaiter(voi
         }
     });
 }); });
+var cidadesCache = [];
+var ufsCache = [];
+router.get('/cidades', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var payload, response, error_16;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                if (cidadesCache.length > 0)
+                    return [2 /*return*/, res.json(cidadesCache)];
+                _a.label = 1;
+            case 1:
+                _a.trys.push([1, 3, , 4]);
+                payload = {
+                    "qtype": "cidade.id", "query": "1", "oper": ">=", "page": "1", "rp": "6000", "sortname": "cidade.id", "sortorder": "desc"
+                };
+                return [4 /*yield*/, makeIxcRequest('POST', '/cidade', payload, 'listar')];
+            case 2:
+                response = _a.sent();
+                if (response && response.registros) {
+                    cidadesCache = response.registros.map(function (c) { return ({
+                        id: c.id,
+                        nome: c.nome,
+                        uf: c.uf
+                    }); });
+                    res.json(cidadesCache);
+                }
+                else {
+                    res.json([]);
+                }
+                return [3 /*break*/, 4];
+            case 3:
+                error_16 = _a.sent();
+                console.error("Erro ao buscar cidades:", error_16.message);
+                res.status(500).json({ error: "Falha ao buscar cidades" });
+                return [3 /*break*/, 4];
+            case 4: return [2 /*return*/];
+        }
+    });
+}); });
+router.get('/ufs', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var payload, response, error_17;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                if (ufsCache.length > 0)
+                    return [2 /*return*/, res.json(ufsCache)];
+                _a.label = 1;
+            case 1:
+                _a.trys.push([1, 3, , 4]);
+                payload = {
+                    "qtype": "uf.id", "query": "1", "oper": ">=", "page": "1", "rp": "2000", "sortname": "uf.id", "sortorder": "desc"
+                };
+                return [4 /*yield*/, makeIxcRequest('POST', '/uf', payload, 'listar')];
+            case 2:
+                response = _a.sent();
+                if (response && response.registros) {
+                    ufsCache = response.registros.map(function (u) { return ({
+                        id: u.id,
+                        sigla: u.sigla,
+                        nome: u.nome
+                    }); });
+                    res.json(ufsCache);
+                }
+                else {
+                    res.json([]);
+                }
+                return [3 /*break*/, 4];
+            case 3:
+                error_17 = _a.sent();
+                console.error("Erro ao buscar UFs:", error_17.message);
+                res.status(500).json({ error: "Falha ao buscar UFs" });
+                return [3 /*break*/, 4];
+            case 4: return [2 /*return*/];
+        }
+    });
+}); });
 exports.default = router;

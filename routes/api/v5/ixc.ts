@@ -1131,4 +1131,57 @@ router.post('/abrir-chamado-suporte', async (req, res) => {
     }
 });
 
+let cidadesCache: { id: string, nome: string, uf: string }[] = [];
+let ufsCache: { id: string, sigla: string, nome: string }[] = [];
+
+router.get('/cidades', async (req, res) => {
+    if (cidadesCache.length > 0) return res.json(cidadesCache);
+
+    try {
+        const payload = {
+            "qtype": "cidade.id", "query": "1", "oper": ">=", "page": "1", "rp": "6000", "sortname": "cidade.id", "sortorder": "desc"
+        };
+        const response = await makeIxcRequest('POST', '/cidade', payload, 'listar');
+        
+        if (response && response.registros) {
+            cidadesCache = response.registros.map((c: any) => ({
+                id: c.id,
+                nome: c.nome,
+                uf: c.uf
+            }));
+            res.json(cidadesCache);
+        } else {
+            res.json([]);
+        }
+    } catch (error) {
+        console.error("Erro ao buscar cidades:", error.message);
+        res.status(500).json({ error: "Falha ao buscar cidades" });
+    }
+});
+
+router.get('/ufs', async (req, res) => {
+    if (ufsCache.length > 0) return res.json(ufsCache);
+
+    try {
+        const payload = {
+            "qtype": "uf.id", "query": "1", "oper": ">=", "page": "1", "rp": "2000", "sortname": "uf.id", "sortorder": "desc"
+        };
+        const response = await makeIxcRequest('POST', '/uf', payload, 'listar');
+        
+        if (response && response.registros) {
+            ufsCache = response.registros.map((u: any) => ({
+                id: u.id,
+                sigla: u.sigla,
+                nome: u.nome
+            }));
+            res.json(ufsCache);
+        } else {
+            res.json([]);
+        }
+    } catch (error) {
+        console.error("Erro ao buscar UFs:", error.message);
+        res.status(500).json({ error: "Falha ao buscar UFs" });
+    }
+});
+
 export default router;
