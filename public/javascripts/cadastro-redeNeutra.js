@@ -31,6 +31,7 @@ const itensPorPagina = 15;
 let currentSort = { column: 'created_at', direction: 'desc' };
 let planosCache = []; 
 let userGroupGlobal = '';
+let usernameGlobal = '';
 
 document.addEventListener('DOMContentLoaded', function() {
     modalCadastro = new bootstrap.Modal(document.getElementById('modalCadastroCliente'));
@@ -130,12 +131,12 @@ function setupListeners() {
         const valorFixo = parseFloat(option.dataset.valorFixo);
         const spanValorFixo = document.getElementById('stats-valor-fixo');
         
-        if (valorFixo > 0) {
+        if (valorFixo > 0 && usernameGlobal !== 'NOC-netplanety') {
             spanValorFixo.textContent = `R$ ${valorFixo.toFixed(2)}`;
-            spanValorFixo.parentElement.style.display = 'block';
+            spanValorFixo.parentElement.style.display = 'block'; 
         } else {
             spanValorFixo.textContent = 'N/A';
-            spanValorFixo.parentElement.style.display = 'none';
+            spanValorFixo.parentElement.style.display = 'none'; 
         }
 
         const selectPlanos = document.getElementById('rn-plano');
@@ -263,6 +264,101 @@ function setupListeners() {
     document.getElementById('btn-abrir-lista-onus').addEventListener('click', abrirListaONUs);
     document.getElementById('btn-autorizar-onu').addEventListener('click', autorizarONU);
     document.getElementById('btn-desautorizar-onu').addEventListener('click', desautorizarONU);
+
+    document.getElementById('btn-sync-onus-pendentes').addEventListener('click', async function() {
+        const btn = this;
+        const originalHtml = btn.innerHTML;
+        const inputBusca = document.getElementById('input-busca-onu-lista');
+        const tbody = document.getElementById('lista-onus-body');
+        const loading = document.getElementById('loading-onus');
+
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Sincronizando...';
+        btn.disabled = true;
+        inputBusca.value = "";
+        tbody.innerHTML = '';
+        loading.style.display = 'block';
+
+        try {
+            const responseSync = await fetch('/api/v5/rede_neutra/onus-pendentes/sync-olt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            if (!responseSync.ok) {
+                console.warn("Aviso: Houve uma falha ao forçar o sync nas OLTs. Tentando carregar a lista local...");
+            }
+
+            const responseList = await fetch('/api/v5/rede_neutra/onus-pendentes');
+            listaOnusCache = await responseList.json();
+            
+            loading.style.display = 'none';
+            renderizarLinhasONU(listaOnusCache);
+
+        } catch (e) {
+            console.error(e);
+            loading.style.display = 'none';
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Erro ao carregar lista de ONUs.</td></tr>';
+        } finally {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
+    });
+
+    document.getElementById('btn-reiniciar-onu').addEventListener('click', async function() {
+        const idFibra = document.getElementById('hidden-id-fibra-atual').value;
+        if (!idFibra) return alert('ID do Cliente Fibra não encontrado. Atualize a página e tente novamente.');
+        if (!confirm('Deseja realmente enviar o comando para REINICIAR a ONU deste cliente?')) return;
+
+        const btn = this;
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processando...';
+
+        try {
+            const res = await fetch('/api/v5/rede_neutra/onu/reiniciar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_fibra: idFibra })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Falha ao comunicar com o IXC.');
+            alert('Comando de REINÍCIO da ONU enviado com sucesso!');
+        } catch (error) {
+            alert('Erro: ' + error.message);
+            abrirChamadoSuporte(`Erro ao reiniciar ONU (ID Fibra: ${idFibra}): ${error.message}`, 'Erro - Reiniciar ONU');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    });
+
+    document.getElementById('btn-liberar-web').addEventListener('click', async function() {
+        const idFibra = document.getElementById('hidden-id-fibra-atual').value;
+        if (!idFibra) return alert('ID do Cliente Fibra não encontrado. Atualize a página e tente novamente.');
+        if (!confirm('Deseja tentar LIBERAR O ACESSO WEB remoto desta ONU?')) return;
+
+        const btn = this;
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processando...';
+
+        try {
+            const res = await fetch('/api/v5/rede_neutra/onu/liberar-web', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_fibra: idFibra })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Falha ao comunicar com o IXC.');
+            alert('Comando de Liberação WEB enviado com sucesso!');
+        } catch (error) {
+            alert('Erro: ' + error.message);
+            abrirChamadoSuporte(`Erro ao liberar WEB da ONU (ID Fibra: ${idFibra}): ${error.message}`, 'Erro - Liberar WEB');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    });
 
     document.getElementById('input-busca-onu-lista').addEventListener('keyup', function() {
         const termo = this.value.toLowerCase();
@@ -410,12 +506,17 @@ function renderizarTabela() {
     const fim = inicio + itensPorPagina;
     const dadosPagina = filtrados.slice(inicio, fim);
 
+    const thValor = document.getElementById('th-valor');
+    if (thValor) {
+        thValor.style.display = usernameGlobal === 'NOC-netplanety' ? 'none' : '';
+    }
+
     tbody.innerHTML = '';
     
     document.getElementById('stats-total-clientes').textContent = totalRegistros;
     document.getElementById('contador-registros').textContent = `Exibindo ${totalRegistros > 0 ? inicio + 1 : 0} a ${Math.min(fim, totalRegistros)} de ${totalRegistros} registros`;
 
-    dadosPagina.forEach(item => {
+dadosPagina.forEach(item => {
         const tr = document.createElement('tr');
         
         let descricaoVisual = item.descricao_produto || '---';
@@ -463,10 +564,10 @@ function renderizarTabela() {
         if (item.sinal_rx && item.sinal_rx !== '-') {
             const getStyleSinal = (val) => {
                 const v = parseFloat(val);
-                if (isNaN(v) || v === 0) return 'style="color: #47434e; font-weight: bold;"';
-                if (v > -26) return 'class="text-success fw-bold"';
-                if (v >= -29) return 'class="text-warning fw-bold"';
-                return 'class="text-danger fw-bold"';
+                if (isNaN(v) || v === 0) return 'style="color: #6f42c1; font-weight: bold;"'; 
+                if (v > -26) return 'class="text-success fw-bold"'; 
+                if (v >= -29) return 'class="text-warning fw-bold"'; 
+                return 'class="text-danger fw-bold"'; 
             };
 
             const attrRx = getStyleSinal(item.sinal_rx);
@@ -478,6 +579,23 @@ function renderizarTabela() {
             </div>`;
         }
 
+        let actionBtnHtml = `
+            <button class="btn btn-sm btn-outline-secondary me-1 btn-editar-cliente" data-cliente="${dadosJson}">
+                <i class="bi bi-eye-fill"></i> Ver
+            </button>
+        `;
+
+        if (descricaoVisual.includes('ITX-PTP')) {
+            authBadge = `<span class="badge" style="background-color: #add8e6; color: #000;"><i class="bi bi-info-circle me-1"></i>Informativo</span>`;
+            onlineBadge = '';
+            sinalDisplay = `<small class="text-muted">-</small>`;
+            actionBtnHtml = ``;
+        }
+
+        const valorHtml = usernameGlobal === 'NOC-netplanety' 
+            ? '' 
+            : `<td class="text-align-center">R$ ${valor}</td>`;
+
         tr.innerHTML = `
             <td>
                 <div class="fw-bold text-primary">${descricaoVisual}</div>
@@ -487,7 +605,9 @@ function renderizarTabela() {
                 </div>
             </td>
             <td class="text-align-center">${dataCriacao}</td>
-            <td class="text-align-center">R$ ${valor}</td>
+            
+            ${valorHtml}
+            
             <td class="text-align-center">
                 <div class="d-flex flex-column gap-1">
                     ${authBadge}
@@ -496,8 +616,7 @@ function renderizarTabela() {
             </td>
             <td class="text-align-center">${sinalDisplay}</td>
             <td class="text-end text-align-center">
-                <button class="btn btn-sm btn-outline-secondary me-1 btn-editar-cliente" data-cliente="${dadosJson}">
-                    <i class="bi bi-eye-fill"></i> Ver </button>
+                ${actionBtnHtml}
             </td>
         `;
         tbody.appendChild(tr);
@@ -984,6 +1103,7 @@ async function carregarDetalhesONU(loginId) {
 }
 
 function atualizarInterfaceONU(dados, loginId) {
+    document.getElementById('hidden-id-fibra-atual').value = dados.id_fibra || '';
     const displayOnu = document.getElementById('display-status-onu');
     let html = '';
     
@@ -1847,6 +1967,7 @@ function initializeThemeAndUserInfo() {
             const username = data.username || 'Visitante';
             const group = data.group || 'Sem grupo';
             userGroupGlobal = group;
+            usernameGlobal = username;
             if (username === 'Visitante') {
                 showModal('Sessão Expirada', 'Será necessário refazer o login!', 'warning');
                 setTimeout(() => { window.location = "/"; }, 300);

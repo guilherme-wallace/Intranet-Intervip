@@ -107,7 +107,7 @@
                                         <tr>
                                             <th class="sortable" data-sort="descricao_produto">Descrição / Endereço <i class="bi bi-arrow-down-up small ms-1 text-muted"></i></th>
                                             <th class="sortable text-align-center" data-sort="created_at">Data Ativação <i class="bi bi-arrow-down-up small ms-1 text-muted"></i></th>
-                                            <th class="sortable text-align-center" data-sort="valor">Valor <i class="bi bi-arrow-down-up small ms-1 text-muted"></i></th>
+                                            <th class="sortable text-align-center" data-sort="valor" id="th-valor">Valor <i class="bi bi-arrow-down-up small ms-1 text-muted"></i></th>
                                             
                                             <th class="text-align-center">Status</th>
                                             
@@ -534,13 +534,20 @@
                     </div>
 
                     <div id="area-desvinculacao" style="display: none;">
-                        <div class="alert alert-success border-success text-center">
+                        <input type="hidden" id="hidden-id-fibra-atual"> <div class="alert alert-success border-success text-center">
                             <i class="bi bi-check-circle-fill fs-3 d-block mb-2"></i>
                             <h5 class="alert-heading">ONU Vinculada</h5>
                             <p class="mb-0">MAC: <strong class="font-monospace" id="display-mac-atual">---</strong></p>
                         </div>
-                        <div class="d-grid mt-3">
-                            <button type="button" class="btn btn-outline-danger" id="btn-desautorizar-onu">
+                        
+                        <div class="d-grid gap-2 mt-3">
+                            <button type="button" class="btn btn-warning fw-bold" id="btn-reiniciar-onu">
+                                <i class="bi bi-arrow-repeat me-2"></i>Reiniciar ONU
+                            </button>
+                            <button type="button" class="btn btn-info fw-bold" id="btn-liberar-web">
+                                <i class="bi bi-globe me-2"></i>Liberar Acesso WEB
+                            </button>
+                            <button type="button" class="btn btn-outline-danger mt-3" id="btn-desautorizar-onu">
                                 <i class="bi bi-trash me-2"></i>Desvincular ONU
                             </button>
                         </div>
@@ -561,8 +568,11 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-0">
-                    <div class="p-3 bg-light border-bottom sticky-top">
+                    <div class="p-3 bg-light border-bottom sticky-top d-flex gap-2">
                         <input type="text" class="form-control" id="input-busca-onu-lista" placeholder="Filtrar por MAC ou Modelo...">
+                        <button class="btn btn-primary text-nowrap" id="btn-sync-onus-pendentes">
+                            <i class="bi bi-arrow-clockwise me-1"></i> Recarregar ONUs pendentes
+                        </button>
                     </div>
 
                     <div class="table-responsive">

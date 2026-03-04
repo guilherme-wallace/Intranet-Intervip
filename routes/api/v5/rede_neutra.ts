@@ -535,7 +535,6 @@ if (!parceiro_id || !cep || !cod_cliente_parceiro || !numero) {
             "apartamento": apartamento,
             "id_condominio": id_condominio || "0",
             "endereco_padrao_cliente": "N",
-
             "autenticacao": "L", 
             "tipo_conexao_mapa": "58", 
             "id_grupo": idPlanoVelocidade, 
@@ -1197,6 +1196,60 @@ router.post('/cancelar-cliente', async (req, res) => {
 
     } catch (error) {
         console.error("[CANCELAR ERROR]:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/onu/reiniciar', async (req, res) => {
+    const { id_fibra } = req.body;
+    if (!id_fibra) return res.status(400).json({ error: "ID do Cliente Fibra não informado." });
+
+    try {
+        const response = await makeIxcRequest('POST', '/radpop_radio_cliente_fibra_26379', { id: id_fibra });
+        res.json({ success: true, message: "Comando de reinício enviado com sucesso.", data: response });
+    } catch (error) {
+        console.error("Erro ao reiniciar ONU:", error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/onu/liberar-web', async (req, res) => {
+    const { id_fibra } = req.body;
+    if (!id_fibra) return res.status(400).json({ error: "ID do Cliente Fibra não informado." });
+
+    try {
+        const response = await makeIxcRequest('POST', '/radpop_radio_cliente_fibra_28120', { id: id_fibra });
+        res.json({ success: true, message: "Comando de liberação WEB enviado com sucesso.", data: response });
+    } catch (error) {
+        console.error("Erro ao liberar acesso WEB da ONU:", error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/onus-pendentes/sync-olt', async (req, res) => {
+    try {
+        const transResp = await makeIxcRequest('POST', '/radpop_radio', { 
+            qtype: "radpop_radio.id", query: "1", oper: ">=", rp: "200" 
+        });
+
+        const transmissores = transResp.registros || [];
+
+        for (const olt of transmissores) {
+            const gridParam = JSON.stringify([{ "TB": "id_olt", "P": olt.id }]);
+            
+            try {
+                await makeIxcRequest('POST', '/fh_onu_nao_autorizadas', { 
+                    grid_param: gridParam 
+                });
+            } catch (errOlt) {
+                console.warn(`[Sync OLT] Erro ao sincronizar OLT ID ${olt.id}:`, errOlt.message);
+            }
+        }
+
+        res.json({ success: true, message: "Comando de sincronização enviado para todas as OLTs." });
+
+    } catch (error) {
+        console.error("Erro na rota de sync das OLTs:", error.message);
         res.status(500).json({ error: error.message });
     }
 });

@@ -1389,4 +1389,100 @@ router.post('/cancelar-cliente', function (req, res) { return __awaiter(void 0, 
         }
     });
 }); });
+router.post('/onu/reiniciar', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var id_fibra, response, error_16;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                id_fibra = req.body.id_fibra;
+                if (!id_fibra)
+                    return [2 /*return*/, res.status(400).json({ error: "ID do Cliente Fibra não informado." })];
+                _a.label = 1;
+            case 1:
+                _a.trys.push([1, 3, , 4]);
+                return [4 /*yield*/, makeIxcRequest('POST', '/radpop_radio_cliente_fibra_26379', { id: id_fibra })];
+            case 2:
+                response = _a.sent();
+                res.json({ success: true, message: "Comando de reinício enviado com sucesso.", data: response });
+                return [3 /*break*/, 4];
+            case 3:
+                error_16 = _a.sent();
+                console.error("Erro ao reiniciar ONU:", error_16.message);
+                res.status(500).json({ error: error_16.message });
+                return [3 /*break*/, 4];
+            case 4: return [2 /*return*/];
+        }
+    });
+}); });
+router.post('/onu/liberar-web', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var id_fibra, response, error_17;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                id_fibra = req.body.id_fibra;
+                if (!id_fibra)
+                    return [2 /*return*/, res.status(400).json({ error: "ID do Cliente Fibra não informado." })];
+                _a.label = 1;
+            case 1:
+                _a.trys.push([1, 3, , 4]);
+                return [4 /*yield*/, makeIxcRequest('POST', '/radpop_radio_cliente_fibra_28120', { id: id_fibra })];
+            case 2:
+                response = _a.sent();
+                res.json({ success: true, message: "Comando de liberação WEB enviado com sucesso.", data: response });
+                return [3 /*break*/, 4];
+            case 3:
+                error_17 = _a.sent();
+                console.error("Erro ao liberar acesso WEB da ONU:", error_17.message);
+                res.status(500).json({ error: error_17.message });
+                return [3 /*break*/, 4];
+            case 4: return [2 /*return*/];
+        }
+    });
+}); });
+router.post('/onus-pendentes/sync-olt', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var transResp, transmissores, _i, transmissores_1, olt, gridParam, errOlt_1, error_18;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                _a.trys.push([0, 8, , 9]);
+                return [4 /*yield*/, makeIxcRequest('POST', '/radpop_radio', {
+                        qtype: "radpop_radio.id", query: "1", oper: ">=", rp: "200"
+                    })];
+            case 1:
+                transResp = _a.sent();
+                transmissores = transResp.registros || [];
+                _i = 0, transmissores_1 = transmissores;
+                _a.label = 2;
+            case 2:
+                if (!(_i < transmissores_1.length)) return [3 /*break*/, 7];
+                olt = transmissores_1[_i];
+                gridParam = JSON.stringify([{ "TB": "id_olt", "P": olt.id }]);
+                _a.label = 3;
+            case 3:
+                _a.trys.push([3, 5, , 6]);
+                return [4 /*yield*/, makeIxcRequest('POST', '/fh_onu_nao_autorizadas', {
+                        grid_param: gridParam
+                    })];
+            case 4:
+                _a.sent();
+                return [3 /*break*/, 6];
+            case 5:
+                errOlt_1 = _a.sent();
+                console.warn("[Sync OLT] Erro ao sincronizar OLT ID ".concat(olt.id, ":"), errOlt_1.message);
+                return [3 /*break*/, 6];
+            case 6:
+                _i++;
+                return [3 /*break*/, 2];
+            case 7:
+                res.json({ success: true, message: "Comando de sincronização enviado para todas as OLTs." });
+                return [3 /*break*/, 9];
+            case 8:
+                error_18 = _a.sent();
+                console.error("Erro na rota de sync das OLTs:", error_18.message);
+                res.status(500).json({ error: error_18.message });
+                return [3 /*break*/, 9];
+            case 9: return [2 /*return*/];
+        }
+    });
+}); });
 exports.default = router;
