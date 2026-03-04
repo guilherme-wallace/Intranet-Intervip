@@ -373,8 +373,7 @@ function gerarSessaoEToken(req: any, res: any, username: string, group: string) 
     req.session.group = group;
 
     const gruposParceiros = [
-        'villaggionet', 'ultracom', 'seliga', 'nv7', 
-        'netplanety', 'infinity', 'inova.telecom', 'RedeNeutra'
+        'villaggionet', 'ultracom', 'seliga', 'nv7', 'infinity', 'inova.telecom', 'RedeNeutra'
     ];
 
     let redirectUrl = gruposParceiros.includes(group) ? '/viabilidade-intervip' : '/main';
