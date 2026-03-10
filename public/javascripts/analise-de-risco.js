@@ -1,10 +1,12 @@
 let osCarregadas = [];
+let isAvulsa = false;
 
 document.addEventListener('DOMContentLoaded', function() {
     initializeThemeAndUserInfo();
     carregarTecnicosParceiros();
 
     const selectOS = document.getElementById('select-os');
+    const btnIniciarAvulsa = document.getElementById('btn-iniciar-avulsa');
     const formContainer = document.getElementById('apr-form-container'); 
     const formAPR = document.getElementById('form-apr');
     const btnSalvar = document.getElementById('btn-salvar-apr');
@@ -19,16 +21,81 @@ document.addEventListener('DOMContentLoaded', function() {
     const inputContatoPermissao = document.getElementById('apr-contato-permissao');
     const secaoEpis = document.getElementById('secao-epis');
 
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+    }
+
+    function embaralharPerguntas() {
+        const col1 = document.getElementById('col-ativ-1');
+        const col2 = document.getElementById('col-ativ-2');
+        if (col1 && col2) {
+            let ativs = Array.from(document.querySelectorAll('.apr-check-item'));
+            ativs = shuffleArray(ativs);
+            col1.innerHTML = ''; col2.innerHTML = '';
+            ativs.forEach((el, idx) => {
+                if (idx < ativs.length / 2) col1.appendChild(el);
+                else col2.appendChild(el);
+            });
+        }
+
+        const contDemandas = document.getElementById('container-demandas-shuffle');
+        if (contDemandas) {
+            let demandas = Array.from(contDemandas.querySelectorAll('.demanda-item'));
+            demandas = shuffleArray(demandas);
+            demandas.forEach(el => contDemandas.appendChild(el));
+        }
+
+        const tbodyProv = document.getElementById('tbody-providencias');
+        if (tbodyProv) {
+            let provs = Array.from(tbodyProv.querySelectorAll('tr:not(.tr-outros)'));
+            const trOutros = tbodyProv.querySelector('.tr-outros');
+            provs = shuffleArray(provs);
+            provs.forEach(el => tbodyProv.appendChild(el));
+            if (trOutros) tbodyProv.appendChild(trOutros);
+        }
+
+        const contRiscos = document.getElementById('container-riscos');
+        if (contRiscos) {
+            let riscos = Array.from(contRiscos.querySelectorAll('.risco-item'));
+            const riscoOutros = contRiscos.querySelector('.risco-item-outros');
+            riscos = shuffleArray(riscos);
+            riscos.forEach(el => contRiscos.appendChild(el));
+            if (riscoOutros) contRiscos.appendChild(riscoOutros);
+        }
+
+        const tbodyEpis = document.getElementById('tbody-epis');
+        if (tbodyEpis) {
+            let epis = Array.from(tbodyEpis.querySelectorAll('tr'));
+            epis = shuffleArray(epis);
+            epis.forEach(el => tbodyEpis.appendChild(el));
+        }
+    }
+
     selectOS.addEventListener('change', function() {
         if(this.value) {
+            isAvulsa = false;
             formContainer.classList.remove('d-none');
+            embaralharPerguntas();
             
             const osSelecionada = osCarregadas.find(os => os.id === this.value);
             
             if(osSelecionada) {
-                document.getElementById('apr-cliente').value = osSelecionada.tipo === 'E' ? 'Estrutura Própria / Manutenção' : osSelecionada.cliente;
-                document.getElementById('apr-atividade').value = osSelecionada.atividade;
-                document.getElementById('apr-local').value = osSelecionada.local;
+                const elCli = document.getElementById('apr-cliente');
+                const elAtiv = document.getElementById('apr-atividade');
+                const elLoc = document.getElementById('apr-local');
+                
+                elCli.value = osSelecionada.tipo === 'E' ? 'Estrutura Própria / Manutenção' : osSelecionada.cliente;
+                elAtiv.value = osSelecionada.atividade;
+                elLoc.value = osSelecionada.local;
+
+                elCli.readOnly = true; elAtiv.readOnly = true; elLoc.readOnly = true;
+                elCli.classList.replace('bg-white', 'bg-light');
+                elAtiv.classList.replace('bg-white', 'bg-light');
+                elLoc.classList.replace('bg-white', 'bg-light');
             }
         } else {
             formContainer.classList.add('d-none');
@@ -36,6 +103,34 @@ document.addEventListener('DOMContentLoaded', function() {
             atualizarLógicaEPIs();
         }
     });
+
+    if (btnIniciarAvulsa) {
+        btnIniciarAvulsa.addEventListener('click', function() {
+            isAvulsa = true;
+            selectOS.value = '';
+            
+            formAPR.reset();
+            atualizarLógicaEPIs();
+            formContainer.classList.remove('d-none');
+            embaralharPerguntas();
+
+            const elCli = document.getElementById('apr-cliente');
+            const elAtiv = document.getElementById('apr-atividade');
+            const elLoc = document.getElementById('apr-local');
+
+            elCli.readOnly = false; elAtiv.readOnly = false; elLoc.readOnly = false;
+            elCli.value = ''; elAtiv.value = ''; elLoc.value = '';
+            
+            elCli.classList.replace('bg-light', 'bg-white');
+            elAtiv.classList.replace('bg-light', 'bg-white');
+            elLoc.classList.replace('bg-light', 'bg-white');
+            elCli.placeholder = 'Digite o nome do local ou cliente';
+            elAtiv.placeholder = 'Qual a atividade executada?';
+            elLoc.placeholder = 'Endereço completo';
+            
+            elCli.focus();
+        });
+    }
 
     if (btnCancelar) {
         btnCancelar.addEventListener('click', () => window.location.reload());
@@ -63,7 +158,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!isAltura && !isRedes && !isConfinado) {
             secaoEpis.classList.add('d-none');
             ['cabeca', 'msup', 'face', 'resp', 'tronco', 'maos', 'pes'].forEach(id => {
-                document.getElementById(`chk-epi-${id}`).required = false;
+                const el = document.getElementById(`chk-epi-${id}`);
+                if(el) el.required = false;
             });
             return;
         }
@@ -72,13 +168,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const todosEPIs = ['cabeca', 'msup', 'face', 'resp', 'tronco', 'maos', 'pes'];
         let obrigatorios = [];
 
-        if (isAltura || isRedes) {
-            obrigatorios.push('cabeca', 'face', 'tronco', 'maos', 'pes');
-        }
-
-        if (isConfinado) {
-            obrigatorios.push('cabeca', 'face', 'resp', 'maos', 'pes');
-        }
+        if (isAltura || isRedes) obrigatorios.push('cabeca', 'face', 'tronco', 'maos', 'pes');
+        if (isConfinado) obrigatorios.push('cabeca', 'face', 'resp', 'maos', 'pes');
 
         obrigatorios = [...new Set(obrigatorios)];
 
@@ -104,6 +195,16 @@ document.addEventListener('DOMContentLoaded', function() {
     btnSalvar.addEventListener('click', async function(e) {
         e.preventDefault();
 
+        if (isAvulsa) {
+            const cli = document.getElementById('apr-cliente').value.trim();
+            const ativ = document.getElementById('apr-atividade').value.trim();
+            const loc = document.getElementById('apr-local').value.trim();
+            if (!cli || !ativ || !loc) {
+                alert('Atenção: Na APR Avulsa é obrigatório digitar manualmente o Cliente, Atividade e Local.');
+                return;
+            }
+        }
+
         if (!demanda1.checked && !demanda2.checked && !demanda3.checked && !demanda4.checked) {
             alert('Atenção: É obrigatório selecionar pelo menos uma Demanda do Serviço.');
             return;
@@ -119,11 +220,21 @@ document.addEventListener('DOMContentLoaded', function() {
         btnSalvar.classList.add('disabled');
 
         try {
-            const osId = selectOS.value;
-            const osSelecionada = osCarregadas.find(os => os.id === osId);
+            let osParaSalvar = null;
+
+            if (isAvulsa) {
+                osParaSalvar = {
+                    id: 'Avulsa',
+                    cliente: document.getElementById('apr-cliente').value.trim(),
+                    atividade: document.getElementById('apr-atividade').value.trim(),
+                    local: document.getElementById('apr-local').value.trim()
+                };
+            } else {
+                const osId = selectOS.value;
+                osParaSalvar = osCarregadas.find(os => os.id === osId);
+            }
             
             let tecnicoResponsavel = document.querySelector('.user-info span').textContent || 'Desconhecido';
-
             const parceiros = Array.from(document.querySelectorAll('.badge-tecnico')).map(b => b.getAttribute('data-nome'));
 
             const getRadioVal = (name) => document.querySelector(`input[name="${name}"]:checked`)?.value || 'nao';
@@ -163,10 +274,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             const textareas = document.querySelectorAll('textarea');
-            const riscosContainer = document.querySelectorAll('.apr-section')[4];
             
             const payload = {
-                os: osSelecionada,
+                os: osParaSalvar,
                 tecnico_responsavel: tecnicoResponsavel,
                 parceiros: parceiros,
                 cliente_permissao: demanda4.checked ? `${inputNomePermissao.value} (${inputContatoPermissao.value})` : '',
@@ -190,7 +300,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     insetos: document.getElementById('risco_insetos')?.checked || false,
                     transito: document.getElementById('risco_transito')?.checked || false,
                     ergonomico: document.getElementById('risco_ergonomico')?.checked || false,
-                    outros: riscosContainer ? riscosContainer.querySelector('input[type="text"]')?.value || '' : ''
+                    outros: document.getElementById('risco_outros_texto')?.value || ''
                 }
             };
 
@@ -204,8 +314,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (!response.ok) throw new Error(result.error || 'Erro ao salvar APR.');
 
-            alert(`✅ APR gerada com sucesso!\nO.S. atualizada no IXC.\n\nLink do PDF: ${result.link}`);
-            window.location.reload();
+            const btnLinkPdf = document.getElementById('link-pdf-gerado');
+            btnLinkPdf.href = result.link;
+            
+            const modalSucesso = new bootstrap.Modal(document.getElementById('modalSucessoAPR'));
+            modalSucesso.show();
+
+            document.getElementById('modalSucessoAPR').addEventListener('hidden.bs.modal', function () {
+                window.location.reload();
+            });
+
+            btnSalvar.innerHTML = btnOriginalText;
+            btnSalvar.classList.remove('disabled');
 
         } catch (error) {
             console.error(error);
@@ -223,7 +343,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const tecnicoData = selectTecnico.value;
         if(tecnicoData) {
             const tec = JSON.parse(tecnicoData);
-
             const jaAdicionado = document.querySelector(`.badge-tecnico[data-id="${tec.id}"]`);
             if (jaAdicionado) {
                 alert("Este técnico já foi adicionado!");
@@ -244,7 +363,7 @@ document.addEventListener('DOMContentLoaded', function() {
             btnRemove.addEventListener('click', () => badge.remove());
 
             listaTecnicos.appendChild(badge);
-            selectTecnico.value = '';
+            selectTecnico.value = ''; 
         }
     });
 });
@@ -258,7 +377,6 @@ async function carregarMinhasOSPendentes(username) {
         if (!response.ok) throw new Error('Falha ao conectar na API');
         
         osCarregadas = await response.json();
-        
         selectOS.innerHTML = '<option value="" selected>Selecione uma O.S. para iniciar a APR...</option>';
         
         if (osCarregadas.length === 0) {
@@ -267,16 +385,13 @@ async function carregarMinhasOSPendentes(username) {
             osCarregadas.forEach(os => {
                 const option = document.createElement('option');
                 option.value = os.id;
-                
                 const nomeTruncado = os.cliente.length > 30 ? os.cliente.substring(0, 30) + '...' : os.cliente;
-                
                 if (os.tipo === 'E' || os.id_cliente === '0') {
                     const localTruncado = os.local.length > 35 ? os.local.substring(0, 35) + '...' : os.local;
                     option.textContent = `[Estrutura: OS ${os.id}] - ${localTruncado} (${os.atividade})`;
                 } else {
                     option.textContent = `[Cliente: ${os.id_cliente}] - ${nomeTruncado} (${os.atividade})`;
                 }
-                
                 selectOS.appendChild(option);
             });
         }
@@ -295,7 +410,6 @@ async function carregarTecnicosParceiros() {
         if (!response.ok) throw new Error('Erro ao buscar técnicos');
 
         const tecnicos = await response.json();
-        
         selectTecnico.innerHTML = '<option value="">Selecione o colega...</option>';
         
         tecnicos.forEach(tec => {
@@ -349,6 +463,11 @@ function initializeThemeAndUserInfo() {
                 if (el.textContent.includes('{username}')) el.textContent = username;
                 if (el.textContent.includes('{group}')) el.textContent = group;
             });
+
+            if (group === 'TecnicoFibra') {
+                const btnAvulsa = document.getElementById('card-apr-avulsa');
+                if (btnAvulsa) btnAvulsa.classList.remove('d-none');
+            }
 
             carregarMinhasOSPendentes(username);
 

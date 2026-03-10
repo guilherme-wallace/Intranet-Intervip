@@ -316,79 +316,67 @@ router.post('/salvar-apr', async (req, res) => {
 
         //console.log(`\n[DEBUG IXC MSG] Iniciando inserção de trâmite na OS: ${osId}`);
         
-        const osAtualResp = await callIxc('/su_oss_chamado', {
-            qtype: "su_oss_chamado.id", query: osId, oper: "=", page: "1", rp: "1"
-        });
-
-        if (osAtualResp && osAtualResp.registros && osAtualResp.registros.length > 0) {
-            const osAtual = osAtualResp.registros[0];
-            //console.log(`[DEBUG IXC MSG] OS Encontrada. ID Técnico: '${osAtual.id_tecnico}', Status Atual: '${osAtual.status}'`);
+        if (osId !== 'Avulsa') {
+            //console.log(`\n[DEBUG IXC MSG] Iniciando inserção de trâmite na OS: ${osId}`);
             
-            const novaMensagem = `APR PREENCHIDA - ${data.data_preenchimento}\nTécnico: ${data.tecnico_responsavel}\nVisualizar PDF Oficial: ${linkPdfDrive}`;
+            const osAtualResp = await callIxc('/su_oss_chamado', {
+                qtype: "su_oss_chamado.id", query: osId, oper: "=", page: "1", rp: "1"
+            });
 
-            const urlPostMensagem = `${process.env.IXC_API_URL}/webservice/v1/su_oss_chamado_mensagem`;
-            const headersPostMensagem = {
-                'Authorization': `Basic ${process.env.IXC_API_TOKEN}`,
-                'Content-Type': 'application/json',
-                'ixcsoft': 'incluir'
-            };
-
-            const payloadMensagem = {
-                id_chamado: osId,
-                id_tecnico: osAtual.id_tecnico || "",
-                mensagem: novaMensagem,
-                status: osAtual.status || "",
-                id_evento: "0",
-                id_evento_status: "0",
-                tipo_cobranca: "N"
-            };
-
-            //console.log(`[DEBUG IXC MSG] Payload montado para envio:`, JSON.stringify(payloadMensagem));
-
-            try {
-                const respMensagem = await axios.post(urlPostMensagem, payloadMensagem, { headers: headersPostMensagem });
-                //console.log(`[DEBUG IXC MSG] Sucesso! Resposta do IXC:`, JSON.stringify(respMensagem.data));
-            } catch (msgError: any) {
-                //console.error(`[DEBUG IXC MSG] FALHA ao inserir mensagem na OS.`);
-                if (msgError.response) {
-                    //console.error(`[DEBUG IXC MSG] Detalhes do Erro do IXC:`, JSON.stringify(msgError.response.data));
-                } else {
-                    //console.error(`[DEBUG IXC MSG] Erro interno:`, msgError.message);
-                }
-            }
-            if (osAtual.id_ticket && osAtual.id_ticket !== "0" && osAtual.id_ticket !== "") {
-                //console.log(`[DEBUG IXC MSG] Iniciando inserção de trâmite no Atendimento: ${osAtual.id_ticket}`);
+            if (osAtualResp && osAtualResp.registros && osAtualResp.registros.length > 0) {
+                const osAtual = osAtualResp.registros[0];
+                //console.log(`[DEBUG IXC MSG] OS Encontrada. ID Técnico: '${osAtual.id_tecnico}'`);
                 
-                const urlPostAtendimento = `${process.env.IXC_API_URL}/webservice/v1/su_mensagens`;
-                
-                const payloadAtendimento = {
-                    id_cliente: osAtual.id_cliente,
-                    mensagem_ticket: novaMensagem,
-                    mensagem: novaMensagem,
-                    visibilidade_mensagens: "P",
-                    su_status: "P",
-                    id_ticket: osAtual.id_ticket,
-                    existe_pendencia_externa: "E"
+                const novaMensagem = `APR PREENCHIDA - ${data.data_preenchimento}\nTécnico: ${data.tecnico_responsavel}\nVisualizar PDF Oficial: ${linkPdfDrive}`;
+
+                const urlPostMensagem = `${process.env.IXC_API_URL}/webservice/v1/su_oss_chamado_mensagem`;
+                const headersPostMensagem = {
+                    'Authorization': `Basic ${process.env.IXC_API_TOKEN}`,
+                    'Content-Type': 'application/json',
+                    'ixcsoft': 'incluir'
                 };
 
-                //console.log(`[DEBUG IXC MSG] Payload do Atendimento montado:`, JSON.stringify(payloadAtendimento));
+                const payloadMensagem = {
+                    id_chamado: osId,
+                    id_tecnico: osAtual.id_tecnico || "",
+                    mensagem: novaMensagem,
+                    status: osAtual.status || "",
+                    id_evento: "0",
+                    id_evento_status: "0",
+                    tipo_cobranca: "N"
+                };
 
                 try {
-                    const respAtendimento = await axios.post(urlPostAtendimento, payloadAtendimento, { headers: headersPostMensagem });
-                    //console.log(`[DEBUG IXC MSG] Sucesso no Atendimento! Resposta:`, JSON.stringify(respAtendimento.data));
-                } catch (atendError: any) {
-                    //console.error(`[DEBUG IXC MSG] FALHA ao inserir mensagem no Atendimento.`);
-                    if (atendError.response) {
-                        //console.error(`[DEBUG IXC MSG] Detalhes do Erro do IXC (Atendimento):`, JSON.stringify(atendError.response.data));
-                    } else {
-                        //console.error(`[DEBUG IXC MSG] Erro interno (Atendimento):`, atendError.message);
+                    await axios.post(urlPostMensagem, payloadMensagem, { headers: headersPostMensagem });
+                    //console.log(`[DEBUG IXC MSG] Mensagem salva na OS!`);
+                } catch (msgError: any) {
+                    console.error(`[DEBUG IXC MSG] FALHA OS:`, msgError.message);
+                }
+                
+                if (osAtual.id_ticket && osAtual.id_ticket !== "0" && osAtual.id_ticket !== "") {
+                    //console.log(`[DEBUG IXC MSG] Iniciando inserção no Atendimento: ${osAtual.id_ticket}`);
+                    const urlPostAtendimento = `${process.env.IXC_API_URL}/webservice/v1/su_mensagens`;
+                    
+                    const payloadAtendimento = {
+                        id_cliente: osAtual.id_cliente,
+                        mensagem_ticket: novaMensagem,
+                        mensagem: novaMensagem,
+                        visibilidade_mensagens: "P",
+                        su_status: "P",
+                        id_ticket: osAtual.id_ticket,
+                        existe_pendencia_externa: "E"
+                    };
+
+                    try {
+                        await axios.post(urlPostAtendimento, payloadAtendimento, { headers: headersPostMensagem });
+                        //console.log(`[DEBUG IXC MSG] Mensagem salva no Atendimento!`);
+                    } catch (atendError: any) {
+                        console.error(`[DEBUG IXC MSG] FALHA Atendimento:`, atendError.message);
                     }
                 }
-            } else {
-                //console.log(`[DEBUG IXC MSG] A O.S. ${osId} não possui um Atendimento (id_ticket) vinculado. Pulando inserção.`);
             }
         } else {
-            //console.log(`[DEBUG IXC MSG] Aviso: Não foi possível carregar os dados da OS ${osId} para pegar o técnico e o status.`);
+            //console.log(`[DEBUG IXC MSG] APR Avulsa - Nenhuma integração com IXC necessária.`);
         }
 
         res.json({ success: true, link: linkPdfDrive });

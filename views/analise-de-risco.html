@@ -44,14 +44,26 @@
                         <h5 class="fw-bold text-primary mb-3">
                             <i class="bi bi-search me-2"></i>Selecione a Ordem de Serviço
                         </h5>
-                        <p class="small mb-3">Escolha uma O.S. vinculada a você para iniciar o preenchimento da APR.</p>
+                        <p class="text-muted small mb-3">Escolha uma O.S. vinculada a você para iniciar o preenchimento da APR.</p>
                         <div class="row g-3">
                             <div class="col-md-8">
-                                <select id="select-os" class="form-select form-select-lg border-primary shadow-sm fw-medium text-secondary">
+                                <select id="select-os" class="form-select form-select-lg border-primary shadow-sm fw-medium text-secondary text-truncate" style="max-width: 100%;">
                                     <option value="" selected>Clique aqui para listar suas O.S. pendentes...</option>
                                 </select>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <div class="ivp-card mb-4 shadow-sm border-0 d-none" id="card-apr-avulsa">
+                    <div class="card-body p-md-4 rounded d-flex justify-content-between align-items-center flex-wrap">
+                        <div>
+                            <h6 class="fw-bold text-secondary mb-1"><i class="bi bi-file-earmark-break me-2"></i>APR Avulsa (Sem O.S.)</h6>
+                            <p class="text-muted small mb-0">Iniciar uma APR de emergência ou para atividades internas sem vínculo no IXC.</p>
+                        </div>
+                        <button type="button" class="btn btn-outline-secondary mt-2 mt-md-0" id="btn-iniciar-avulsa">
+                            <i class="bi bi-plus-circle me-2"></i>Gerar APR Avulsa
+                        </button>
                     </div>
                 </div>
 
@@ -60,7 +72,7 @@
                         <form id="form-apr">
                             
                             <div class="apr-section">
-                                <h6 class="section-title"><i class="bi bi-info-circle-fill"></i> Dados Gerais da O.S.</h6>
+                                <h6 class="section-title"><i class="bi bi-info-circle-fill"></i> Dados Gerais</h6>
                                 <div class="row g-3">
                                     <div class="col-md-8">
                                         <label class="form-label fw-bold small text-muted">Cliente</label>
@@ -68,19 +80,19 @@
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label fw-bold small text-muted">Atividade</label>
-                                        <input type="text" id="apr-atividade" class="form-control bg-light" readonly>
+                                        <input type="text" id="apr-atividade" class="form-control" readonly>
                                     </div>
                                     <div class="col-12">
                                         <label class="form-label fw-bold small text-muted">Local / Endereço</label>
-                                        <input type="text" id="apr-local" class="form-control bg-light" readonly>
+                                        <input type="text" id="apr-local" class="form-control" readonly>
                                     </div>
                                 </div>
                             </div>
 
                             <div class="apr-section">
                                 <h6 class="section-title"><i class="bi bi-list-check"></i> Atividades que Requerem APR Obrigatoriamente</h6>
-                                <div class="row g-3">
-                                    <div class="col-md-6">
+                                <div class="row g-3" id="container-atividades">
+                                    <div class="col-md-6" id="col-ativ-1">
                                         <div class="apr-check-item">
                                             <span class="small fw-medium">Trabalho em altura</span>
                                             <div>
@@ -110,7 +122,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="col-md-6">
+                                    <div class="col-md-6" id="col-ativ-2">
                                         <div class="apr-check-item">
                                             <span class="small fw-medium">Trabalho com redes elétricas</span>
                                             <div>
@@ -156,29 +168,38 @@
                                     </div>
                                     <div class="col-lg-7">
                                         <h6 class="section-title"><i class="bi bi-tags-fill"></i> Demandas do Serviço</h6>
-                                        <div class="row g-2">
-                                            <div class="col-md-6">
-                                                <div class="form-check mb-2">
-                                                    <input class="form-check-input" type="checkbox" id="demanda_1" value="1">
-                                                    <label class="form-check-label fw-medium small" for="demanda_1"><span class="badge bg-primary me-2">1</span> Altura</label>
+                                        <div class="row g-2" style="margin-left: 2rem;">
+                                            <div class="col-md-6" id="container-demandas-shuffle">
+                                                <div class="demanda-item mb-2">
+                                                    <div class="form-check p-2 rounded">
+                                                        <input class="form-check-input" type="checkbox" id="demanda_1" value="1">
+                                                        <label class="form-check-label fw-medium small" for="demanda_1"><span class="badge bg-primary me-2">1</span> Altura</label>
+                                                    </div>
                                                 </div>
-                                                <div class="form-check mb-2">
-                                                    <input class="form-check-input" type="checkbox" id="demanda_2" value="2">
-                                                    <label class="form-check-label fw-medium small" for="demanda_2"><span class="badge bg-danger me-2">2</span> Redes Energizadas</label>
+                                                <div class="demanda-item mb-2">
+                                                    <div class="form-check p-2 rounded">
+                                                        <input class="form-check-input" type="checkbox" id="demanda_2" value="2">
+                                                        <label class="form-check-label fw-medium small" for="demanda_2"><span class="badge bg-danger me-2">2</span> Redes Energizadas</label>
+                                                    </div>
                                                 </div>
-                                                <div class="form-check mb-2">
-                                                    <input class="form-check-input" type="checkbox" id="demanda_3" value="3">
-                                                    <label class="form-check-label fw-medium small" for="demanda_3"><span class="badge bg-warning text-dark me-2">3</span> Ambientes Confinados</label>
+                                                <div class="demanda-item mb-2">
+                                                    <div class="form-check p-2 rounded">
+                                                        <input class="form-check-input" type="checkbox" id="demanda_3" value="3">
+                                                        <label class="form-check-label fw-medium small" for="demanda_3"><span class="badge bg-warning text-dark me-2">3</span> Ambientes Confinados</label>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <div class="col-md-6 border-start-md">
-                                                <div class="form-check mb-2">
-                                                    <input class="form-check-input" type="checkbox" id="demanda_4" value="4">
-                                                    <label class="form-check-label fw-medium small" for="demanda_4"><span class="badge bg-info text-dark me-2">4</span> Permissão do cliente</label>
-                                                </div>
-                                                <div class="mt-2">
-                                                    <input type="text" class="form-control form-control-sm mb-2" id="apr-nome-permissao" placeholder="Nome de quem permitiu">
-                                                    <input type="text" class="form-control form-control-sm" id="apr-contato-permissao" placeholder="Número / Contato">
+
+                                            <div class="col-md-6">
+                                                <div class="form-check p-2 rounded h-100 d-flex flex-column">
+                                                    <div>
+                                                        <input class="form-check-input" type="checkbox" id="demanda_4" value="4">
+                                                        <label class="form-check-label fw-medium small" for="demanda_4"><span class="badge bg-info text-dark me-2">4</span> Permissão do cliente</label>
+                                                    </div>
+                                                    <div class="mt-auto pt-2 ps-4">
+                                                        <input type="text" class="form-control form-control-sm mb-1" id="apr-nome-permissao" placeholder="Nome permissão">
+                                                        <input type="text" class="form-control form-control-sm" id="apr-contato-permissao" placeholder="Número">
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -189,7 +210,7 @@
                             <div class="apr-section d-none" id="secao-epis">
                                 <h6 class="section-title"><i class="bi bi-shield-shaded"></i> Proteções Necessárias (EPIs)</h6>
                                 <div class="alert alert-warning small py-2 mb-3">
-                                    <i class="bi bi-exclamation-triangle-fill me-2"></i><strong>Atenção:</strong> Confirme o uso de todos os equipamentos de proteção que são obrigatórios para a demanda escolhida.
+                                    <i class="bi bi-exclamation-triangle-fill me-2"></i><strong>Atenção:</strong> Confirme o uso de todos os EPIs obrigatórios para a demanda escolhida.
                                 </div>
                                 <div class="table-responsive rounded border overflow-hidden">
                                     <table class="table table-sm table-hover align-middle mb-0 apr-table">
@@ -263,7 +284,7 @@
                                                 <th style="width: 80px;" class="py-2 text-success">( V )</th>
                                             </tr>
                                         </thead>
-                                        <tbody class="border-top-0">
+                                        <tbody class="border-top-0" id="tbody-providencias">
                                             <tr>
                                                 <td class="text-start px-3 small fw-medium text-muted">Isolar a área</td>
                                                 <td><input class="form-check-input custom-chk" type="checkbox"></td>
@@ -299,9 +320,9 @@
                                                 <td><input class="form-check-input custom-chk" type="checkbox"></td>
                                                 <td><input class="form-check-input custom-chk" type="checkbox"></td>
                                             </tr>
-                                            <tr>
+                                            <tr class="tr-outros">
                                                 <td class="text-start px-3 small fw-medium text-muted d-flex align-items-center gap-2">
-                                                    Outros: <input type="text" class="form-control form-control-sm" style="max-width: 250px;">
+                                                    Outros: <input type="text" class="form-control form-control-sm" style="max-width: 250px;" id="providencia_outros_texto">
                                                 </td>
                                                 <td><input class="form-check-input custom-chk" type="checkbox"></td>
                                                 <td><input class="form-check-input custom-chk" type="checkbox"></td>
@@ -315,16 +336,16 @@
                                 <div class="col-md-6">
                                     <div class="apr-section h-100 mb-0">
                                         <h6 class="section-title"><i class="bi bi-exclamation-triangle"></i> Riscos Identificados</h6>
-                                        <div class="row g-2">
-                                            <div class="col-12">
-                                                <div class="form-check"><input class="form-check-input" type="checkbox" id="risco_queda_alt"><label class="form-check-label small" for="risco_queda_alt">Queda em altura / Mesmo nível</label></div>
-                                                <div class="form-check"><input class="form-check-input" type="checkbox" id="risco_impacto"><label class="form-check-label small" for="risco_impacto">Proteção de impacto</label></div>
-                                                <div class="form-check"><input class="form-check-input" type="checkbox" id="risco_insetos"><label class="form-check-label small" for="risco_insetos">Insetos / Animais peçonhentos / Domésticos</label></div>
-                                                <div class="form-check"><input class="form-check-input" type="checkbox" id="risco_transito"><label class="form-check-label small" for="risco_transito">Trânsito</label></div>
-                                                <div class="form-check"><input class="form-check-input" type="checkbox" id="risco_ergonomico"><label class="form-check-label small" for="risco_ergonomico">Ergonômico</label></div>
+                                        <div class="row g-2" id="container-riscos">
+                                            <div class="col-12 risco-item"><div class="form-check"><input class="form-check-input" type="checkbox" id="risco_queda_alt"><label class="form-check-label small" for="risco_queda_alt">Queda em altura / Mesmo nível</label></div></div>
+                                            <div class="col-12 risco-item"><div class="form-check"><input class="form-check-input" type="checkbox" id="risco_impacto"><label class="form-check-label small" for="risco_impacto">Proteção de impacto</label></div></div>
+                                            <div class="col-12 risco-item"><div class="form-check"><input class="form-check-input" type="checkbox" id="risco_insetos"><label class="form-check-label small" for="risco_insetos">Insetos / Animais peçonhentos / Domésticos</label></div></div>
+                                            <div class="col-12 risco-item"><div class="form-check"><input class="form-check-input" type="checkbox" id="risco_transito"><label class="form-check-label small" for="risco_transito">Trânsito</label></div></div>
+                                            <div class="col-12 risco-item"><div class="form-check"><input class="form-check-input" type="checkbox" id="risco_ergonomico"><label class="form-check-label small" for="risco_ergonomico">Ergonômico</label></div></div>
+                                            <div class="col-12 risco-item-outros">
                                                 <div class="form-check d-flex align-items-center gap-2 mt-2">
                                                     <label class="form-check-label small m-0">Outros:</label>
-                                                    <input type="text" class="form-control form-control-sm">
+                                                    <input type="text" class="form-control form-control-sm" id="risco_outros_texto">
                                                 </div>
                                             </div>
                                         </div>
@@ -334,13 +355,10 @@
                                 <div class="col-md-6">
                                     <div class="apr-section h-100 mb-0">
                                         <h6 class="section-title"><i class="bi bi-people-fill"></i> Equipe Executora</h6>
-                                        <label class="form-label small fw-bold text-muted">Adicionar técnico parceiro na O.S.:</label>
+                                        <label class="form-label small fw-bold text-muted">Adicionar técnico parceiro:</label>
                                         <div class="input-group input-group-sm mb-3">
                                             <select class="form-select" id="select-tecnico">
                                                 <option value="">Selecione o colega...</option>
-                                                <option value="Joao Silva">João Silva</option>
-                                                <option value="Maria Souza">Maria Souza</option>
-                                                <option value="Carlos Eduardo">Carlos Eduardo</option>
                                             </select>
                                             <button class="btn btn-primary" type="button" id="btn-add-tecnico"><i class="bi bi-plus-lg"></i> Add</button>
                                         </div>
@@ -377,6 +395,25 @@
             </div>
         </div>
     </footer>
+
+    <div class="modal fade" id="modalSucessoAPR" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow">
+                <div class="modal-header bg-success text-white border-0">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-check-circle-fill me-2"></i>APR Gerada com Sucesso!</h5>
+                </div>
+                <div class="modal-body text-center py-5">
+                    <p class="mb-4  fs-6" style="color: black;">Análise Preliminar de Risco foi salva no Google Drive e atrelada corretamente no IXC.</p>
+                    <a href="#" id="link-pdf-gerado" target="_blank" class="btn btn-lg btn-outline-success fw-bold d-inline-flex align-items-center">
+                        <i class="bi bi-file-earmark-pdf-fill fs-4 me-2"></i> Visualizar PDF Oficial
+                    </a>
+                </div>
+                <div class="modal-footer bg-light border-0 justify-content-center">
+                    <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Fechar e Iniciar Nova</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
 
     <script src="javascripts/jquery.js"></script>

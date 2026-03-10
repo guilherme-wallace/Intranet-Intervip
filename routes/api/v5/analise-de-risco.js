@@ -197,11 +197,11 @@ router.get('/tecnicos-parceiros', function (req, res) { return __awaiter(void 0,
     });
 }); });
 router.post('/salvar-apr', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var data_1, osId, nomeArquivo, folderId, doc_1, pass, pageWidth_1, pageHeight_1, darkBlue_1, primaryBlue_1, logoPath, zonasPath, drawSectionHeader, drawCheckbox_1, drawFooter, currY_1, ativ, rowY_1, auth, drive, responseDrive, fileId, linkPdfDrive, permError_1, osAtualResp, osAtual, novaMensagem, urlPostMensagem, headersPostMensagem, payloadMensagem, respMensagem, msgError_1, urlPostAtendimento, payloadAtendimento, respAtendimento, atendError_1, error_4;
+    var data_1, osId, nomeArquivo, folderId, doc_1, pass, pageWidth_1, pageHeight_1, darkBlue_1, primaryBlue_1, logoPath, zonasPath, drawSectionHeader, drawCheckbox_1, drawFooter, currY_1, ativ, rowY_1, auth, drive, responseDrive, fileId, linkPdfDrive, permError_1, osAtualResp, osAtual, novaMensagem, urlPostMensagem, headersPostMensagem, payloadMensagem, msgError_1, urlPostAtendimento, payloadAtendimento, atendError_1, error_4;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
-                _a.trys.push([0, 17, , 18]);
+                _a.trys.push([0, 16, , 17]);
                 data_1 = req.body;
                 osId = data_1.os.id;
                 nomeArquivo = "APR_OS_".concat(osId, "_").concat(Date.now(), ".pdf");
@@ -354,12 +354,14 @@ router.post('/salvar-apr', function (req, res) { return __awaiter(void 0, void 0
             case 4:
                 permError_1 = _a.sent();
                 return [3 /*break*/, 5];
-            case 5: return [4 /*yield*/, callIxc('/su_oss_chamado', {
-                    qtype: "su_oss_chamado.id", query: osId, oper: "=", page: "1", rp: "1"
-                })];
+            case 5:
+                if (!(osId !== 'Avulsa')) return [3 /*break*/, 15];
+                return [4 /*yield*/, callIxc('/su_oss_chamado', {
+                        qtype: "su_oss_chamado.id", query: osId, oper: "=", page: "1", rp: "1"
+                    })];
             case 6:
                 osAtualResp = _a.sent();
-                if (!(osAtualResp && osAtualResp.registros && osAtualResp.registros.length > 0)) return [3 /*break*/, 16];
+                if (!(osAtualResp && osAtualResp.registros && osAtualResp.registros.length > 0)) return [3 /*break*/, 14];
                 osAtual = osAtualResp.registros[0];
                 novaMensagem = "APR PREENCHIDA - ".concat(data_1.data_preenchimento, "\nT\u00E9cnico: ").concat(data_1.tecnico_responsavel, "\nVisualizar PDF Oficial: ").concat(linkPdfDrive);
                 urlPostMensagem = "".concat(process.env.IXC_API_URL, "/webservice/v1/su_oss_chamado_mensagem");
@@ -382,20 +384,14 @@ router.post('/salvar-apr', function (req, res) { return __awaiter(void 0, void 0
                 _a.trys.push([7, 9, , 10]);
                 return [4 /*yield*/, axios_1.default.post(urlPostMensagem, payloadMensagem, { headers: headersPostMensagem })];
             case 8:
-                respMensagem = _a.sent();
+                _a.sent();
                 return [3 /*break*/, 10];
             case 9:
                 msgError_1 = _a.sent();
-                //console.error(`[DEBUG IXC MSG] FALHA ao inserir mensagem na OS.`);
-                if (msgError_1.response) {
-                    //console.error(`[DEBUG IXC MSG] Detalhes do Erro do IXC:`, JSON.stringify(msgError.response.data));
-                }
-                else {
-                    //console.error(`[DEBUG IXC MSG] Erro interno:`, msgError.message);
-                }
+                console.error("[DEBUG IXC MSG] FALHA OS:", msgError_1.message);
                 return [3 /*break*/, 10];
             case 10:
-                if (!(osAtual.id_ticket && osAtual.id_ticket !== "0" && osAtual.id_ticket !== "")) return [3 /*break*/, 15];
+                if (!(osAtual.id_ticket && osAtual.id_ticket !== "0" && osAtual.id_ticket !== "")) return [3 /*break*/, 14];
                 urlPostAtendimento = "".concat(process.env.IXC_API_URL, "/webservice/v1/su_mensagens");
                 payloadAtendimento = {
                     id_cliente: osAtual.id_cliente,
@@ -411,29 +407,22 @@ router.post('/salvar-apr', function (req, res) { return __awaiter(void 0, void 0
                 _a.trys.push([11, 13, , 14]);
                 return [4 /*yield*/, axios_1.default.post(urlPostAtendimento, payloadAtendimento, { headers: headersPostMensagem })];
             case 12:
-                respAtendimento = _a.sent();
+                _a.sent();
                 return [3 /*break*/, 14];
             case 13:
                 atendError_1 = _a.sent();
-                //console.error(`[DEBUG IXC MSG] FALHA ao inserir mensagem no Atendimento.`);
-                if (atendError_1.response) {
-                    //console.error(`[DEBUG IXC MSG] Detalhes do Erro do IXC (Atendimento):`, JSON.stringify(atendError.response.data));
-                }
-                else {
-                    //console.error(`[DEBUG IXC MSG] Erro interno (Atendimento):`, atendError.message);
-                }
+                console.error("[DEBUG IXC MSG] FALHA Atendimento:", atendError_1.message);
                 return [3 /*break*/, 14];
             case 14: return [3 /*break*/, 15];
-            case 15: return [3 /*break*/, 16];
-            case 16:
+            case 15:
                 res.json({ success: true, link: linkPdfDrive });
-                return [3 /*break*/, 18];
-            case 17:
+                return [3 /*break*/, 17];
+            case 16:
                 error_4 = _a.sent();
                 console.error("Erro rota /salvar-apr:", error_4);
                 res.status(500).json({ error: error_4.message });
-                return [3 /*break*/, 18];
-            case 18: return [2 /*return*/];
+                return [3 /*break*/, 17];
+            case 17: return [2 /*return*/];
         }
     });
 }); });
