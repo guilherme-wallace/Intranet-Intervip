@@ -212,6 +212,7 @@ const PERMISSOES_SISTEMA = {
     'card-cadastro-bandaLarga': ['NOC','Comercial','Almoxarifado','Corporativo','Diretoria','Fibra','Financeiro','Helpdesk','CRI','Logistica','Qualidade'],
     'card-cadastro-corporativo': ['NOC','Comercial','Corporativo','Diretoria','Financeiro'],
     'card-cadastro-redeNeutra': ['NOC','conectmais','conectja','seliga','nv7','netplanety'],
+    'card-demo-redeNeutra': ['NOC'],
 };
 
 APP.get('/api/permissoes-usuario', (req, res) => {
@@ -312,6 +313,10 @@ APP.get('/cadastro-redeNeutra', verificarAcessoPagina('cadastro-redeNeutra'), (r
     res.sendFile(Path.join(__dirname, 'views', 'cadastro-redeNeutra.html'));
 });
 
+APP.get('/demo-redeNeutra', verificarAcessoPagina('demo-redeNeutra'), (req, res) => {
+    res.sendFile(Path.join(__dirname, 'views', 'demo-redeNeutra.html'));
+});
+
 // ======================= USERLOGIN ======================
 
 APP.post('/login', async (req, res) => {
@@ -373,7 +378,7 @@ function gerarSessaoEToken(req: any, res: any, username: string, group: string) 
     req.session.group = group;
 
     const gruposParceiros = [
-        'villaggionet', 'ultracom', 'seliga', 'nv7', 'infinity', 'inova.telecom', 'RedeNeutra'
+        'villaggionet', 'ultracom', 'seliga', 'infinity', 'inova.telecom', 'RedeNeutra'
     ];
 
     let redirectUrl = gruposParceiros.includes(group) ? '/viabilidade-intervip' : '/main';
@@ -458,6 +463,7 @@ APP.use('/viabilidade-intervip', protectRoutes, ROUTES);
 APP.use('/cadastro-bandaLarga', protectRoutes, ROUTES);
 APP.use('/cadastro-corporativo', protectRoutes, ROUTES);
 APP.use('/cadastro-redeNeutra', protectRoutes, ROUTES);
+APP.use('/demo-redeNeutra', protectRoutes, ROUTES);
 APP.use('/problemas-sites-e-APP', protectRoutes, ROUTES);
 APP.use('/lead-Venda', protectRoutes, ROUTES);
 APP.use('/pedidos-linha-telefonica', protectRoutes, ROUTES);

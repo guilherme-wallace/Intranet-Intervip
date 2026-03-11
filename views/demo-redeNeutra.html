@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Intervip - Cadastro Rede Neutra</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="stylesheets/cadastro-vendas.css">
+    <link rel="stylesheet" href="stylesheets/cadastro-redeNeutra.css">
+</head>
+
+<body class="gerenciaIVP-body">
+    <header class="header-modern">
+        <div class="container-fluid">
+            <div class="d-flex align-items-center">
+                <a href="/main" class="d-flex align-items-center text-decoration-none">
+                    <img class="logo me-3" src="images/logo.png" alt="Logo Intervip">
+                </a>
+            </div>
+            <h1 class="header-title fs-4 fw-semibold text-warning m-0">Rede Neutra - Demo</h1>
+            <div class="d-flex align-items-center">
+                
+                <div class="user-info text-end me-4">
+                    <p class="m-0 small text-white-80">Acessando como: <span class="fw-medium">{username}</span></p>
+                    <p class="m-0 small text-white-80">Setor: <span class="fw-medium">{group}</span></p>
+                </div>
+                <button id="theme-toggle" class="btn btn-sm btn-outline-dark rounded-pill px-3">
+                    <i class="bi bi-moon-stars"></i>
+                </button>
+                <button id="btnLogout" class="btn btn-sm btn-outline-danger rounded-pill px-3 ms-2">
+                    <i class="bi bi-box-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="ivp-main">
+        <div class="container py-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <button type="button" class="btn btn-warning btn-sm ms-2" id="btn-abrir-modal-suporte">
+                    <i class="bi bi-chat-dots me-1"></i> Abrir chamado com o suporte
+                </button>
+            </div>
+
+            <div class="row justify-content-center">
+                <div class="col-lg-12">
+                    
+                    <div class="ivp-card mb-4">
+                        <div class="card-body p-4">
+                            <div class="row align-items-end g-3">
+                                <div class="col-md-8">
+                                    <label for="select-parceiro" class="form-label fw-bold">Selecione o Parceiro / Provedor</label>
+                                    <select id="select-parceiro" class="form-select form-select-lg">
+                                        <option value="" selected disabled>Carregando parceiros...</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4 text-end">
+                                    <button id="btn-novo-cliente" class="btn btn-primary btn-lg w-100" disabled>
+                                        <i class="bi bi-person-plus-fill me-2"></i>Cadastrar Novo Cliente
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="painel-clientes" class="ivp-card" style="display: none;">
+                        <div class="card-body p-4">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h4 class="ivp-title m-0"><i class="bi bi-people-fill me-2"></i>Carteira de Clientes</h4>
+                                <div class="d-flex gap-3 text-end">
+                                    <div class="p-2 border rounded bg-light">
+                                        <small class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Valor Fixo</small>
+                                        <span id="stats-valor-fixo" class="fw-bold text-primary fs-5">--</span>
+                                    </div>
+                                    <div class="p-2 border rounded bg-light d-flex align-items-center">
+                                        <div>
+                                            <small class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Total Clientes</small>
+                                            <span id="stats-total-clientes" class="fw-bold text-dark fs-5">0</span>
+                                        </div>
+                                        <button id="btn-refresh-carteira" class="btn btn-sm btn-link text-secondary ms-2" title="Atualizar Lista">
+                                            <i class="bi bi-arrow-clockwise fs-5"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-6">
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                                        <input type="text" class="form-control border-start-0 ps-0" id="input-busca-cliente" placeholder="Buscar por Nome, Login ou Token...">
+                                    </div>
+                                </div>
+                                <div class="col-md-6 d-flex align-items-center justify-content-end">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="chk-mostrar-cancelados">
+                                        <label class="form-check-label" for="chk-mostrar-cancelados">Exibir Cancelados</label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th class="sortable" data-sort="descricao_produto">Descrição / Endereço <i class="bi bi-arrow-down-up small ms-1 text-muted"></i></th>
+                                            <th class="sortable text-align-center" data-sort="created_at">Data Ativação <i class="bi bi-arrow-down-up small ms-1 text-muted"></i></th>
+                                            <th class="sortable text-align-center" data-sort="valor" id="th-valor">Valor <i class="bi bi-arrow-down-up small ms-1 text-muted"></i></th>
+                                            
+                                            <th class="text-align-center">Status</th>
+                                            
+                                            <th class="text-align-center">Sinal RX / TX</th>
+                                            
+                                            <th class="text-end text-align-center">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tabela-clientes-body"></tbody>
+                                </table>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <small class="text-muted" id="contador-registros">Exibindo 0 de 0 registros</small>
+                                <nav>
+                                    <ul class="pagination pagination-sm justify-content-end mb-0" id="paginacao-container"></ul>
+                                </nav>
+                            </div>
+
+                            <div id="loading-clientes" class="text-center py-5" style="display: none;">
+                                <div class="spinner-border text-primary" role="status"></div>
+                                <p class="mt-2 text-muted">Sincronizando carteira...</p>
+                            </div>
+
+                            <div id="empty-clientes" class="text-center py-5 text-muted" style="display: none;">
+                                <i class="bi bi-inbox fs-1"></i>
+                                <p>Nenhum cliente encontrado.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <footer class="ivp-footer">
+         <div class="container-fluid py-3">
+            <div class="text-center">
+                <img src="images/logo.png" alt="Logo Intervip" width="100">
+                <p class="ivp-footer-text">
+                    © 2025 Gerência Intervip | Desenvolvido por 
+                    <a href="https://github.com/guilherme-wallace" target="_blank">Guilherme Wallace</a>
+                </p>
+            </div>
+        </div>
+    </footer>
+
+	<div id="modalAlerta">
+	  <div id="modalContent">
+		<h3>Você não pode passar!</h3>
+		<img src="images/lord-of-the-rings-you-shall-not-pass.gif" alt="You shall not pass GIF">
+		<button id="closeModalBtn">Fechar</button>
+	  </div>
+	</div>
+    
+    <div class="modal fade" id="suporteModal" tabindex="-1" aria-labelledby="suporteModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title" id="suporteModalLabel"><i class="bi bi-tools me-2"></i>Reportar Problema Técnico</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="form-suporte">
+                        <div class="mb-3">
+                            <label for="descricao-problema" class="form-label">Descreva o problema encontrado:</label>
+                            <textarea class="form-control" id="descricao-problema" rows="5" placeholder="Informe aqui o problema encontrado." required></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="btn-enviar-suporte">
+                        Enviar Chamado <i class="bi bi-send-fill ms-1"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade modal-soc-style" id="modalCadastroCliente" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-backdrop="static">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i>Novo Cliente Rede Neutra</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="form-cadastro-rn" class="needs-validation" novalidate>
+                        <div class="row g-3">
+                            
+                            <div class="col-lg-5 border-end pe-lg-4">
+                                <h6 class="text-uppercase text-muted fw-bold mb-3 small">Dados do Ponto</h6>
+                                <div class="mb-3">
+                                    <label class="form-label">Plano IXC <span class="text-danger">*</span></label>
+                                    <select id="rn-plano" class="form-select" required>
+                                        <option value="" selected disabled>Carregando...</option>
+                                    </select>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                            <label class="form-label">Cod. Cliente <span class="text-danger">*</span></label>
+                                            <input type="text" class="form-control" id="rn-cod-cliente-parceiro" required placeholder="Apenas números">
+                                            <div class="invalid-feedback">Obrigatório.</div>
+                                        </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Caixa (CTO)</label>
+                                        <input type="text" class="form-control" id="rn-caixa-atendimento">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Porta</label>
+                                        <input type="text" class="form-control" id="rn-porta">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-7 ps-lg-4">
+                                <h6 class="text-uppercase text-muted fw-bold mb-3 small">Endereço de Instalação</h6>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Buscar Condomínio / Localidade <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="input-condominio-venda" placeholder="Digite o nome..." autocomplete="off">
+                                        <div class="input-group-text bg-white">
+                                            <input class="form-check-input mt-0" type="checkbox" id="chk-sem-condominio">
+                                            <label class="form-check-label ms-2 small" for="chk-sem-condominio">Não cadastrado</label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row g-2">
+                                    <div class="col-md-4">
+                                        <label class="form-label">CEP</label>
+                                        <input type="text" class="form-control" id="rn-cep" required>
+                                    </div>
+                                    <div class="col-md-8">
+                                        <label class="form-label">Endereço</label>
+                                        <input type="text" class="form-control bg-light" id="rn-endereco" readonly required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Número <span class="text-danger">*</span></label>
+                                        <div class="input-group has-validation">
+                                            <input type="text" class="form-control" id="rn-numero" required>
+                                            <button class="btn btn-outline-secondary" type="button" id="btn-rn-sem-numero" title="Sem Número">S/N</button>
+                                            <div class="invalid-feedback">Obrigatório.</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-8">
+                                        <label class="form-label">Bairro</label>
+                                        <input type="text" class="form-control bg-light" id="rn-bairro" readonly required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Cidade</label>
+                                        <input type="text" class="form-control bg-light" id="rn-cidade" readonly>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">UF</label>
+                                        <input type="text" class="form-control bg-light" id="rn-uf" readonly>
+                                    </div>
+                                    
+                                    <div class="col-md-12 mt-2">
+                                        <label class="form-label">Complemento (Bloco/Apto)</label>
+                                        <button type="button" class="form-control btn btn-outline-secondary text-start" id="btn-complemento" disabled>
+                                            Selecione o condomínio primeiro...
+                                        </button>
+                                        <input type="hidden" id="rn-complemento">
+                                    </div>
+                                    
+                                    <div class="col-md-12">
+                                        <label class="form-label">Ponto de Referência</label>
+                                        <input type="text" class="form-control" id="rn-referencia">
+                                    </div>
+                                </div>
+
+                                <input type="hidden" id="hidden-condominio-id">
+                                <input type="hidden" id="hidden-cidade-id">
+                                <input type="hidden" id="hidden-bloco">
+                                <input type="hidden" id="hidden-apartamento">
+                            </div>
+
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer d-flex justify-content-between">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-primary" id="btn-salvar-sem-onu">Criar (Sem ONU)</button>
+                        <button type="button" class="btn btn-success" id="btn-salvar-com-onu">Criar e Autorizar ONU</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="complementoModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Selecionar Complemento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-5 border-end">
+                            <h6>1. Selecione o Bloco</h6>
+                            <div id="blocos-lista-modal" class="list-group" style="max-height: 300px; overflow-y: auto;"></div>
+                        </div>
+                        <div class="col-md-7">
+                            <div id="complemento-details" style="display: none;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="btn-confirmar-complemento" style="display: none;">Confirmar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade modal-soc-style" id="modalEditarCliente" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Editar Cliente Rede Neutra</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="form-editar-cliente">
+                        <div id="badge-cancelado-aviso" style="display:none;" class="mb-3">
+                            <span class="badge badge-purple w-100 py-2">CLIENTE CANCELADO</span>
+                        </div>
+                        <input type="hidden" id="edit-id">
+                        <input type="hidden" id="edit-token">
+                        <input type="hidden" id="edit-login-id-ixc">
+                        <input type="hidden" id="edit-mac-atual">
+
+                        <div class="row g-3">
+                            <div class="col-lg-8 border-end pe-lg-4">
+                                <h6 class="text-uppercase text-muted fw-bold mb-3 small">Dados do Cliente e Login</h6>
+                                <div class="row g-3">
+                                    <div class="col-md-8">
+                                        <label class="form-label">Descrição / Login (Identificação)</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-light text-muted fw-bold" id="edit-prefixo-token">TOKEN-</span>
+                                            <input type="text" class="form-control fw-bold" id="edit-descricao" required maxlength="42">
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-4">
+                                        <label class="form-label">Status</label>
+                                        <select class="form-select fw-bold" id="edit-status">
+                                            <option value="1" class="text-success">Ativo</option>
+                                            <option value="0" class="text-danger">Inativo / Cancelado</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-12 mt-4">
+                                        <h6 class="text-uppercase text-muted fw-bold mb-3 small">Endereço de Instalação</h6>
+                                    </div>
+                                    
+                                    <div class="col-md-12">
+                                        <label class="form-label">Condomínio / Localidade</label>
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" id="edit-condominio" placeholder="Buscar condomínio..." autocomplete="off">
+                                            <div class="input-group-text bg-white">
+                                                <input class="form-check-input mt-0" type="checkbox" id="edit-sem-condominio">
+                                                <label class="form-check-label ms-2 small" for="edit-sem-condominio">Manual</label>
+                                            </div>
+                                        </div>
+                                        <input type="hidden" id="edit-hidden-condominio-id">
+                                        <input type="hidden" id="edit-hidden-cidade-id">
+                                        <input type="hidden" id="edit-hidden-bloco">
+                                        <input type="hidden" id="edit-hidden-apartamento">
+                                    </div>
+
+                                    <div class="col-md-4">
+                                        <label class="form-label">CEP</label>
+                                        <input type="text" class="form-control" id="edit-cep">
+                                    </div>
+                                    <div class="col-md-8">
+                                        <label class="form-label">Endereço</label>
+                                        <input type="text" class="form-control" id="edit-endereco">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Número</label>
+                                        <input type="text" class="form-control" id="edit-numero">
+                                    </div>
+                                    <div class="col-md-8">
+                                        <label class="form-label">Bairro</label>
+                                        <input type="text" class="form-control" id="edit-bairro">
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <label class="form-label">Cidade</label>
+                                        <input type="text" class="form-control bg-light" id="edit-cidade" readonly>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">UF</label>
+                                        <input type="text" class="form-control bg-light" id="edit-uf" readonly>
+                                    </div>
+
+                                    <div class="col-md-12 mt-2">
+                                        <label class="form-label">Complemento</label>
+                                        <div class="input-group">
+                                            <button type="button" class="btn btn-outline-secondary" id="btn-edit-complemento" disabled>
+                                                Selecionar...
+                                            </button>
+                                            <input type="text" class="form-control" id="edit-complemento-text" placeholder="Complemento manual">
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-12">
+                                        <label class="form-label">Referência</label>
+                                        <input type="text" class="form-control" id="edit-referencia">
+                                    </div>
+
+                                    <div class="col-12 mt-3">
+                                        <label class="form-label">Observações</label>
+                                        <textarea class="form-control" id="edit-obs" rows="3"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-4 ps-lg-4">
+                                <h6 class="text-uppercase text-muted fw-bold mb-3 small">Gerenciamento Técnico</h6>
+                                <div class="card bg-light border-0 mb-3">
+                                    <div class="card-body">
+                                        <label class="form-label fw-bold">Status ONU / Sinal</label>
+                                        <div id="display-status-onu" class="mb-3 p-2 bg-white rounded border">
+                                            <span class="badge bg-secondary">Aguardando dados...</span>
+                                        </div>
+                                        <button type="button" class="btn btn-outline-primary w-100" id="btn-abrir-gerenciar-onu">
+                                            <i class="bi bi-router me-2"></i>Gerenciar / Autorizar ONU
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer d-flex justify-content-between">
+                    <div>
+                        <button type="button" class="btn btn-purple ms-2" id="btn-cancelar-cliente">
+                            <i class="bi bi-x-octagon-fill me-1"></i> Cancelar Cliente
+                        </button>
+                    </div>
+                    
+                    <button type="button" class="btn btn-success px-4" id="btn-salvar-edicao">
+                        <i class="bi bi-save me-2"></i>Salvar Alterações
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalGerenciarONU" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-backdrop="static">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title"><i class="bi bi-router me-2"></i>Gerenciamento de ONU</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="alert alert-light border d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <small class="text-uppercase text-muted fw-bold">Cliente</small>
+                            <div class="fw-bold text-primary fs-5" id="onu-cliente-nome">---</div>
+                        </div>
+                        <div class="text-end">
+                            <small class="text-uppercase text-muted fw-bold"></small>
+                            <div class="fw-bold text-dark" id="onu-contrato-id">---</div>
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small fw-bold">STATUS DA AUTORIZAÇÃO</label>
+                            <div id="onu-status-auth" class="p-2 border rounded text-center fw-bold">Verificando...</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small fw-bold">STATUS DA CONEXÃO</label>
+                            <div id="onu-status-conn" class="p-2 border rounded text-center fw-bold">Verificando...</div>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div id="area-autorizacao" style="display: none;">
+                        <h6 class="text-primary mb-3"><i class="bi bi-magic me-2"></i>Nova Autorização</h6>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">1. Selecionar ONU Pendente</label>
+                            <div class="d-flex gap-2">
+                                <input type="text" class="form-control" id="display-onu-selecionada" placeholder="Nenhuma ONU selecionada" readonly>
+                                <button class="btn btn-primary" id="btn-abrir-lista-onus">
+                                    <i class="bi bi-search me-1"></i> Buscar
+                                </button>
+                            </div>
+                            <input type="hidden" id="hidden-hash-onu">
+                            <input type="hidden" id="hidden-mac-onu">
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">2. Transmissor (OLT)</label>
+                                <input type="text" class="form-control" id="display-transmissor" readonly placeholder="Automático...">
+                                <input type="hidden" id="hidden-id-transmissor">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">3. Perfil de Fibra <span class="text-danger">*</span></label>
+                                <select id="onu-perfil" class="form-select">
+                                    <option value="" selected disabled>Selecione...</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="button" class="btn btn-success btn-lg" id="btn-autorizar-onu">
+                                <i class="bi bi-check-lg me-2"></i>CONFIRMAR AUTORIZAÇÃO
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="area-desvinculacao" style="display: none;">
+                        <input type="hidden" id="hidden-id-fibra-atual"> <div class="alert alert-success border-success text-center">
+                            <i class="bi bi-check-circle-fill fs-3 d-block mb-2"></i>
+                            <h5 class="alert-heading">ONU Vinculada</h5>
+                            <p class="mb-0">MAC: <strong class="font-monospace" id="display-mac-atual">---</strong></p>
+                        </div>
+                        
+                        <div class="d-grid gap-2 mt-3">
+                            <button type="button" class="btn btn-warning fw-bold" id="btn-reiniciar-onu">
+                                <i class="bi bi-arrow-repeat me-2"></i>Reiniciar ONU
+                            </button>
+                            <button type="button" class="btn btn-info fw-bold" id="btn-liberar-web">
+                                <i class="bi bi-globe me-2"></i>Liberar Acesso WEB
+                            </button>
+                            <button type="button" class="btn btn-outline-danger mt-3" id="btn-desautorizar-onu">
+                                <i class="bi bi-trash me-2"></i>Desvincular ONU
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalListaONUs" tabindex="-1" aria-hidden="true" style="z-index: 1060;" data-bs-backdrop="static">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">ONUs Pendentes na Rede</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <div class="p-3 bg-light border-bottom sticky-top d-flex gap-2">
+                        <input type="text" class="form-control" id="input-busca-onu-lista" placeholder="Filtrar por MAC ou Modelo...">
+                        <button class="btn btn-primary text-nowrap" id="btn-sync-onus-pendentes">
+                            <i class="bi bi-arrow-clockwise me-1"></i> Recarregar ONUs pendentes
+                        </button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>MAC / Serial</th>
+                                    <th>OLT (Transmissor)</th>
+                                    <th>Modelo</th>
+                                    <th>Slot/Pon</th>
+                                    <th class="text-end">Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="lista-onus-body"></tbody>
+                        </table>
+                    </div>
+                    <div id="loading-onus" class="text-center py-4">
+                        <div class="spinner-border text-primary"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="loading-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center; flex-direction: column;">
+        <div class="card p-4 shadow-lg text-center" style="min-width: 300px;">
+            <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
+            <h5 class="fw-bold text-dark" id="loading-text">Processando...</h5>
+            <small class="text-muted">Aguarde, comunicando com a OLT...</small>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalSuporte" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Mensagem para o Suporte (NOC)</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Descreva o problema:</label>
+                        <textarea id="msgSuporteManual" class="form-control" rows="4" placeholder="Ex: Não estou conseguindo autorizar a ONU devido ao erro..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" id="btnEnviarSuporteManual" class="btn btn-primary">Enviar Mensagem</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="javascripts/jquery.js"></script>
+    <script src="javascripts/bootstrap.bundle.min.js"></script>
+    <script src="javascripts/bootstrap-autocomplete.min.js"></script> 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.inputmask/5.0.9/jquery.inputmask.min.js"></script>
+    <script src="javascripts/demo-redeNeutra.js"></script>
+</body>
+</html>

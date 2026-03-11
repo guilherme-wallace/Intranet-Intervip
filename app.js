@@ -198,6 +198,7 @@ var PERMISSOES_SISTEMA = {
     'card-cadastro-bandaLarga': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Logistica', 'Qualidade'],
     'card-cadastro-corporativo': ['NOC', 'Comercial', 'Corporativo', 'Diretoria', 'Financeiro'],
     'card-cadastro-redeNeutra': ['NOC', 'conectmais', 'conectja', 'seliga', 'nv7', 'netplanety'],
+    'card-demo-redeNeutra': ['NOC'],
 };
 APP.get('/api/permissoes-usuario', function (req, res) {
     var userGroup = req.session.group || 'Sem grupo';
@@ -272,6 +273,9 @@ APP.get('/cadastro-corporativo', verificarAcessoPagina('cadastro-corporativo'), 
 });
 APP.get('/cadastro-redeNeutra', verificarAcessoPagina('cadastro-redeNeutra'), function (req, res) {
     res.sendFile(Path.join(__dirname, 'views', 'cadastro-redeNeutra.html'));
+});
+APP.get('/demo-redeNeutra', verificarAcessoPagina('demo-redeNeutra'), function (req, res) {
+    res.sendFile(Path.join(__dirname, 'views', 'demo-redeNeutra.html'));
 });
 // ======================= USERLOGIN ======================
 APP.post('/login', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
@@ -355,7 +359,7 @@ function gerarSessaoEToken(req, res, username, group) {
     req.session.username = username;
     req.session.group = group;
     var gruposParceiros = [
-        'villaggionet', 'ultracom', 'seliga', 'nv7', 'infinity', 'inova.telecom', 'RedeNeutra'
+        'villaggionet', 'ultracom', 'seliga', 'infinity', 'inova.telecom', 'RedeNeutra'
     ];
     var redirectUrl = gruposParceiros.includes(group) ? '/viabilidade-intervip' : '/main';
     //let redirectUrl = gruposParceiros.includes(group) ? '/viabilidade-intervip' : '/main';
@@ -429,6 +433,7 @@ APP.use('/viabilidade-intervip', protectRoutes, index_1.default);
 APP.use('/cadastro-bandaLarga', protectRoutes, index_1.default);
 APP.use('/cadastro-corporativo', protectRoutes, index_1.default);
 APP.use('/cadastro-redeNeutra', protectRoutes, index_1.default);
+APP.use('/demo-redeNeutra', protectRoutes, index_1.default);
 APP.use('/problemas-sites-e-APP', protectRoutes, index_1.default);
 APP.use('/lead-Venda', protectRoutes, index_1.default);
 APP.use('/pedidos-linha-telefonica', protectRoutes, index_1.default);
