@@ -5,6 +5,7 @@ const MAPA_PARCEIROS = {
     'ultracom': { nome: 'ULTRACOM TELECOMUNICACOES LTDA', perfil: 'RN - ULTRACOM' },
     'seliga': { nome: 'SELIGA TELECOMUNICACOES DO BRASIL EIRELI', perfil: 'RN - Seliga' },
     'nv7': { nome: 'NV7 TELECOM LTDA', perfil: 'RN - NV7' },
+    'nwt': { nome: 'NETWORKS WIRELESS TELECOM - NWT LTDA', perfil: 'RN - NWT' },
     'netplanety': { nome: 'NETPLANETY INFOTELECOM LTDA ME', perfil: 'RN - Net Planety' },
     'infinity': { nome: 'MARCOS VIEIRA KRUGER', perfil: 'RN - MARCOS KRUGER - PF' },
     'inova.telecom': { nome: 'MAICON DE FRANCA CHAVES', perfil: 'RN - MAICON DE FRANCA' },
