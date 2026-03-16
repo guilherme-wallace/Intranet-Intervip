@@ -26,6 +26,7 @@ import ixcRoutes from './routes/api/v5/ixc';
 import { config_login } from './src/configs/loginConfig';
 
 import socRoutes from './routes/api/v5/soc';
+import monitoramentoDeFalhasRoutes from './routes/api/v5/monitoramento-de-falhas';
 import rede_neutraRoutes from './routes/api/v5/rede_neutra';
 import analise_de_riscoRoutes from './routes/api/v5/analise-de-risco';
 
@@ -206,6 +207,7 @@ const PERMISSOES_SISTEMA = {
     'card-migra-onu': ['NOC','Diretoria'],
     'card-cadastro-de-blocos': ['NOC','Diretoria'],
     'card-soc-report': ['NOC','Diretoria'],
+    'card-monitoramento-de-falhas': ['NOC','Diretoria'],
   
     'card-analise-de-risco': ['NOC','TecnicoFibra','TecnicoLogistica','Fibra','Logistica','Diretoria'],
 
@@ -295,6 +297,10 @@ APP.get('/cadastro-de-blocos', verificarAcessoPagina('cadastro-de-blocos'), (req
 
 APP.get('/soc-report', verificarAcessoPagina('soc-report'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'soc-report.html'));
+});
+
+APP.get('/monitoramento-de-falhas', verificarAcessoPagina('monitoramento-de-falhas'), (req, res) => {
+    res.sendFile(Path.join(__dirname, 'views', 'monitoramento-de-falhas.html'));
 });
 
 APP.get('/analise-de-risco', verificarAcessoPagina('analise-de-risco'), (req, res) => {
@@ -428,6 +434,7 @@ APP.use('/api/email', protectApi, emailRoutes);
 APP.use('/api', protectApi, scriptmigraOnusRoute);
 APP.use('/api', protectApi, scriptAddCondominiumsBDRoute);
 APP.use('/api/v5/soc', protectApi, socRoutes);
+APP.use('/api/v5/monitoramento-de-falhas', protectApi, monitoramentoDeFalhasRoutes);
 APP.use('/api/v5/rede_neutra', protectApi, rede_neutraRoutes);
 APP.use('/api/v5/analise-de-risco', protectApi, analise_de_riscoRoutes);
 
@@ -450,9 +457,11 @@ APP.use('/lead', protectRoutes, ROUTES);
 APP.use('/main', protectRoutes, ROUTES);
 APP.use('/e-mails', protectRoutes, ROUTES);
 APP.use('/migra-onu', protectRoutes, ROUTES);
+APP.use('/lead-Venda', protectRoutes, ROUTES);
 APP.use('/soc-report', protectRoutes, ROUTES);
 APP.use('/equipamentos', protectRoutes, ROUTES);
 APP.use('/clientes-online', protectRoutes, ROUTES);
+APP.use('/demo-redeNeutra', protectRoutes, ROUTES);
 APP.use('/analise-de-risco', protectRoutes, ROUTES);
 APP.use('/teste-de-lentidao', protectRoutes, ROUTES);
 APP.use('/problemas-com-VPN', protectRoutes, ROUTES);
@@ -461,11 +470,10 @@ APP.use('/cadastro-de-blocos', protectRoutes, ROUTES);
 APP.use('/viabilidade-intervip', protectRoutes, ROUTES);
 //APP.use('/cadastro-de-vendas', protectRoutes, ROUTES);
 APP.use('/cadastro-bandaLarga', protectRoutes, ROUTES);
-APP.use('/cadastro-corporativo', protectRoutes, ROUTES);
 APP.use('/cadastro-redeNeutra', protectRoutes, ROUTES);
-APP.use('/demo-redeNeutra', protectRoutes, ROUTES);
+APP.use('/cadastro-corporativo', protectRoutes, ROUTES);
 APP.use('/problemas-sites-e-APP', protectRoutes, ROUTES);
-APP.use('/lead-Venda', protectRoutes, ROUTES);
+APP.use('/monitoramento-de-falhas', protectRoutes, ROUTES);
 APP.use('/pedidos-linha-telefonica', protectRoutes, ROUTES);
 APP.use('/problemas-linha-telefonica', protectRoutes, ROUTES);
 APP.use('/pedidos-linha-telefonica-URA', protectRoutes, ROUTES);
