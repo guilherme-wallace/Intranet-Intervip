@@ -285,6 +285,48 @@ body {
     padding: 0.3em 0.5em;
 }
 
+.row-filho-down > td { background-color: rgba(220, 53, 69, 0.08) !important; }
+.row-filho-up > td { background-color: rgba(40, 167, 69, 0.08) !important; }
+.row-filho-ignorado > td { background-color: rgba(108, 117, 125, 0.08) !important; }
+
+.dark-mode .row-filho-down > td { background-color: rgba(220, 53, 69, 0.15) !important; }
+.dark-mode .row-filho-up > td { background-color: rgba(40, 167, 69, 0.15) !important; }
+.dark-mode .row-filho-ignorado > td { background-color: rgba(108, 117, 125, 0.15) !important; }
+
+.row-filho > td {
+    background-color: transparent;
+}
+.dark-mode .row-filho > td {
+    background-color: transparent;
+    color: #e0e0e0;
+}
+
+.dark-mode .text-muted {
+    color: #adb5bd !important; 
+}
+
+.dark-mode .table-light th {
+    background-color: #252525 !important;
+    color: #e0e0e0 !important;
+    border-color: #333 !important;
+}
+
+.dark-mode .row-incidente-pai > td {
+    background-color: var(--card-bg) !important;
+    color: #e0e0e0 !important;
+    border-color: #333 !important;
+}
+
+.dark-mode .row-incidente-pai:hover > td {
+    background-color: #2a2a2a !important;
+}
+
+.dark-mode .row-incidente-pai.table-success > td {
+    background-color: rgba(40, 167, 69, 0.15) !important;
+    color: #e0e0e0 !important;
+    border-color: #333 !important;
+}
+
 /* FOOTER */
 .ivp-footer {
     background-color: var(--footer-bg);
