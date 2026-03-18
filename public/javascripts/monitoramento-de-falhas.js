@@ -93,7 +93,7 @@ function renderizarTabela() {
             <td><span class="badge bg-secondary">${filhos.length} afetados</span></td>
             <td>${statusIndicator}</td>
             <td class="text-end">
-                <button class="btn btn-sm btn-outline-dark btn-gerar-relatorio" data-id="${incidente.id}">
+                <button class="btn btn-sm btn-secondary btn-gerar-relatorio" data-id="${incidente.id}">
                     <i class="bi bi-clipboard"></i> Copiar Relatório
                 </button>
             </td>

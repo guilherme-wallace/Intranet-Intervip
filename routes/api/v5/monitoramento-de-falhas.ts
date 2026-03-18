@@ -12,6 +12,11 @@ router.post('/webhook/n8n', async (req, res) => {
         motivo_falha, status, data_evento, sinal_rx_retorno
     } = req.body;
 
+    let data_evento_sql = data_evento;
+    if (data_evento_sql && data_evento_sql.includes('.')) {
+        data_evento_sql = data_evento_sql.replace(/\./g, '-');
+    }
+
     if (tipo_alerta === 'CORP' && identificador && (!nome_identificado || !nome_identificado.includes('|'))) {
         let idCliente = identificador;
         let idContrato: string | null = null;
@@ -65,9 +70,15 @@ router.post('/webhook/n8n', async (req, res) => {
 
     if (status === 'DOWN') {
         
-        const buscarIncidente = `SELECT id FROM mon_incidentes WHERE regiao_afetada = ? AND status = 'Ativo' ORDER BY id DESC LIMIT 1`;
+        const buscarIncidente = `
+            SELECT id FROM mon_incidentes 
+            WHERE regiao_afetada = ? 
+              AND status = 'Ativo' 
+              AND data_inicio >= CAST(? AS DATETIME) - INTERVAL 10 MINUTE
+            ORDER BY id DESC LIMIT 1
+        `;
         
-        LOCALHOST.query(buscarIncidente, [host_zabbix], (err, results: any) => {
+        LOCALHOST.query(buscarIncidente, [host_zabbix, data_evento_sql], (err, results: any) => {
             if (err) return res.status(500).json({ error: err.message });
 
             const inserirAlertaFinal = (idInc) => {
@@ -76,7 +87,7 @@ router.post('/webhook/n8n', async (req, res) => {
                     (id_incidente, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, data_falha, status) 
                     VALUES (?, ?, ?, ?, ?, ?, ?, 'DOWN')
                 `;
-                LOCALHOST.query(INSERT_ALERTA, [idInc, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, data_evento], (errIns) => {
+                LOCALHOST.query(INSERT_ALERTA, [idInc, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, data_evento_sql], (errIns) => {
                     if (errIns) return res.status(500).json({ error: errIns.message });
                     res.json({ success: true, message: 'Alerta DOWN registrado e agrupado.' });
                 });
@@ -86,7 +97,7 @@ router.post('/webhook/n8n', async (req, res) => {
                 inserirAlertaFinal(results[0].id);
             } else {
                 const criarIncidente = `INSERT INTO mon_incidentes (regiao_afetada, data_inicio, status) VALUES (?, ?, 'Ativo')`;
-                LOCALHOST.query(criarIncidente, [host_zabbix, data_evento], (errCriar, resultsCriar: any) => {
+                LOCALHOST.query(criarIncidente, [host_zabbix, data_evento_sql], (errCriar, resultsCriar: any) => {
                     if (errCriar) return res.status(500).json({ error: errCriar.message });
                     inserirAlertaFinal(resultsCriar.insertId);
                 });
@@ -110,7 +121,7 @@ router.post('/webhook/n8n', async (req, res) => {
 
                 const UPDATE_ALERTA = `UPDATE mon_alertas SET status = 'UP', data_retorno = ?, sinal_rx_retorno = ? WHERE id = ?`;
                 
-                LOCALHOST.query(UPDATE_ALERTA, [data_evento, sinal_rx_retorno, alertaId], (errUpd) => {
+                LOCALHOST.query(UPDATE_ALERTA, [data_evento_sql, sinal_rx_retorno, alertaId], (errUpd) => {
                     if (errUpd) return res.status(500).json({ error: errUpd.message });
 
                     if (incidenteId) {
@@ -122,7 +133,7 @@ router.post('/webhook/n8n', async (req, res) => {
                             if (resCheck && resCheck.length === 0) {
                                 const FECHAR_INCIDENTE = `UPDATE mon_incidentes SET status = 'Resolvido', data_fim = ? WHERE id = ?`;
                                 
-                                LOCALHOST.query(FECHAR_INCIDENTE, [data_evento, incidenteId], (errFim) => {
+                                LOCALHOST.query(FECHAR_INCIDENTE, [data_evento_sql, incidenteId], (errFim) => {
                                     if (errFim) console.error("Erro ao fechar incidente:", errFim);
                                     return res.json({ success: true, message: 'Alerta UP e Incidente Massivo Resolvido!' });
                                 });
