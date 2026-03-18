@@ -92,8 +92,8 @@ function renderizarTabela() {
             </td> 
             <td><span class="badge bg-secondary">${filhos.length} afetados</span></td>
             <td>${statusIndicator}</td>
-            <td class="text-end">
-                <button class="btn btn-sm btn-secondary btn-gerar-relatorio" data-id="${incidente.id}">
+            <td class="text-muted text-center">-</td> <td class="text-end">
+                <button class="btn btn-sm btn-outline-dark btn-gerar-relatorio" data-id="${incidente.id}">
                     <i class="bi bi-clipboard"></i> Copiar Relatório
                 </button>
             </td>
@@ -124,6 +124,7 @@ function renderizarTabela() {
             if(filho.tipo_alerta === 'CORP') tipoBadge = '<span class="badge bg-primary badge-tipo">CORP</span>';
             else if(filho.tipo_alerta === 'FTTB') tipoBadge = '<span class="badge bg-info text-dark badge-tipo">FTTB</span>';
             else if(filho.tipo_alerta === 'PON') tipoBadge = '<span class="badge bg-danger badge-tipo">PON</span>';
+            else if(filho.tipo_alerta === 'ITX') tipoBadge = '<span class="badge bg-warning text-dark badge-tipo">ITX</span>';
             else tipoBadge = `<span class="badge bg-secondary badge-tipo">${filho.tipo_alerta}</span>`;
 
             const dropdownAcoes = `
@@ -151,10 +152,12 @@ function renderizarTabela() {
                 </td>
                 <td>
                     ${tipoBadge} <span class="fw-medium">${filho.nome_identificado || filho.identificador}</span>
-                    <div class="small text-muted mt-1"><i class="bi bi-info-circle"></i> Obs: ${filho.motivo_falha || '-'}</div>
                 </td>
                 <td class="${corTexto} fw-medium">
                     ${statusIcon} ${textoStatus}
+                </td>
+                <td class="text-muted fw-medium small">
+                    ${filho.motivo_falha || 'Desconhecido'}
                 </td>
                 <td class="text-end">
                     ${dropdownAcoes}

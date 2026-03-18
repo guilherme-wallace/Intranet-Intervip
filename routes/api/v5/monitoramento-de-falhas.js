@@ -62,11 +62,15 @@ var database_1 = require("../../../api/database");
 var axios_1 = require("axios");
 var router = Express.Router();
 router.post('/webhook/n8n', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var _a, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, status, data_evento, sinal_rx_retorno, idCliente, idContrato, parts, headersIxc, respCliente, razaoSocial, enderecoCompleto, respContrato, c, error_1, buscarIncidente, BUSCAR_ALERTA;
+    var _a, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, status, data_evento, sinal_rx_retorno, data_evento_sql, idCliente, idContrato, parts, headersIxc, respCliente, razaoSocial, enderecoCompleto, respContrato, c, error_1, buscarIncidente, BUSCAR_ALERTA;
     return __generator(this, function (_b) {
         switch (_b.label) {
             case 0:
                 _a = req.body, host_zabbix = _a.host_zabbix, tipo_alerta = _a.tipo_alerta, identificador = _a.identificador, nome_identificado = _a.nome_identificado, motivo_falha = _a.motivo_falha, status = _a.status, data_evento = _a.data_evento, sinal_rx_retorno = _a.sinal_rx_retorno;
+                data_evento_sql = data_evento;
+                if (data_evento_sql && data_evento_sql.includes('.')) {
+                    data_evento_sql = data_evento_sql.replace(/\./g, '-');
+                }
                 if (!(tipo_alerta === 'CORP' && identificador && (!nome_identificado || !nome_identificado.includes('|')))) return [3 /*break*/, 6];
                 idCliente = identificador;
                 idContrato = null;
@@ -121,13 +125,13 @@ router.post('/webhook/n8n', function (req, res) { return __awaiter(void 0, void 
                 return [3 /*break*/, 6];
             case 6:
                 if (status === 'DOWN') {
-                    buscarIncidente = "SELECT id FROM mon_incidentes WHERE regiao_afetada = ? AND status = 'Ativo' ORDER BY id DESC LIMIT 1";
-                    database_1.LOCALHOST.query(buscarIncidente, [host_zabbix], function (err, results) {
+                    buscarIncidente = "\n            SELECT id FROM mon_incidentes \n            WHERE regiao_afetada = ? \n              AND status = 'Ativo' \n              AND data_inicio >= CAST(? AS DATETIME) - INTERVAL 10 MINUTE\n            ORDER BY id DESC LIMIT 1\n        ";
+                    database_1.LOCALHOST.query(buscarIncidente, [host_zabbix, data_evento_sql], function (err, results) {
                         if (err)
                             return res.status(500).json({ error: err.message });
                         var inserirAlertaFinal = function (idInc) {
                             var INSERT_ALERTA = "\n                    INSERT INTO mon_alertas \n                    (id_incidente, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, data_falha, status) \n                    VALUES (?, ?, ?, ?, ?, ?, ?, 'DOWN')\n                ";
-                            database_1.LOCALHOST.query(INSERT_ALERTA, [idInc, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, data_evento], function (errIns) {
+                            database_1.LOCALHOST.query(INSERT_ALERTA, [idInc, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, data_evento_sql], function (errIns) {
                                 if (errIns)
                                     return res.status(500).json({ error: errIns.message });
                                 res.json({ success: true, message: 'Alerta DOWN registrado e agrupado.' });
@@ -138,7 +142,7 @@ router.post('/webhook/n8n', function (req, res) { return __awaiter(void 0, void 
                         }
                         else {
                             var criarIncidente = "INSERT INTO mon_incidentes (regiao_afetada, data_inicio, status) VALUES (?, ?, 'Ativo')";
-                            database_1.LOCALHOST.query(criarIncidente, [host_zabbix, data_evento], function (errCriar, resultsCriar) {
+                            database_1.LOCALHOST.query(criarIncidente, [host_zabbix, data_evento_sql], function (errCriar, resultsCriar) {
                                 if (errCriar)
                                     return res.status(500).json({ error: errCriar.message });
                                 inserirAlertaFinal(resultsCriar.insertId);
@@ -155,7 +159,7 @@ router.post('/webhook/n8n', function (req, res) { return __awaiter(void 0, void 
                             var alertaId = resBusca[0].id;
                             var incidenteId_1 = resBusca[0].id_incidente;
                             var UPDATE_ALERTA = "UPDATE mon_alertas SET status = 'UP', data_retorno = ?, sinal_rx_retorno = ? WHERE id = ?";
-                            database_1.LOCALHOST.query(UPDATE_ALERTA, [data_evento, sinal_rx_retorno, alertaId], function (errUpd) {
+                            database_1.LOCALHOST.query(UPDATE_ALERTA, [data_evento_sql, sinal_rx_retorno, alertaId], function (errUpd) {
                                 if (errUpd)
                                     return res.status(500).json({ error: errUpd.message });
                                 if (incidenteId_1) {
@@ -165,7 +169,7 @@ router.post('/webhook/n8n', function (req, res) { return __awaiter(void 0, void 
                                             console.error("Erro ao checar alertas restantes:", errCheck);
                                         if (resCheck && resCheck.length === 0) {
                                             var FECHAR_INCIDENTE = "UPDATE mon_incidentes SET status = 'Resolvido', data_fim = ? WHERE id = ?";
-                                            database_1.LOCALHOST.query(FECHAR_INCIDENTE, [data_evento, incidenteId_1], function (errFim) {
+                                            database_1.LOCALHOST.query(FECHAR_INCIDENTE, [data_evento_sql, incidenteId_1], function (errFim) {
                                                 if (errFim)
                                                     console.error("Erro ao fechar incidente:", errFim);
                                                 return res.json({ success: true, message: 'Alerta UP e Incidente Massivo Resolvido!' });
@@ -194,11 +198,11 @@ router.post('/webhook/n8n', function (req, res) { return __awaiter(void 0, void 
     });
 }); });
 router.get('/falhas-ativas', function (req, res) {
-    var queryIncidentes = "\n        SELECT * FROM mon_incidentes \n        WHERE \n            (status = 'Ativo' AND data_inicio <= NOW() - INTERVAL 5 MINUTE)\n           OR \n            (status = 'Resolvido' AND data_fim >= NOW() - INTERVAL 10 MINUTE)\n        ORDER BY data_inicio DESC\n    ";
+    var queryIncidentes = "\n        SELECT * FROM mon_incidentes \n        WHERE \n            (status = 'Ativo' AND data_inicio <= NOW() - INTERVAL '2:30' MINUTE_SECOND)\n           OR \n            (status = 'Resolvido' AND data_fim >= NOW() - INTERVAL 10 MINUTE)\n        ORDER BY data_inicio DESC\n    ";
     database_1.LOCALHOST.query(queryIncidentes, function (errInc, resultIncidentes) {
         if (errInc)
             return res.status(500).json({ error: errInc.message });
-        var queryAlertas = "\n            SELECT * FROM mon_alertas \n            WHERE \n                id_incidente IN (\n                    SELECT id FROM mon_incidentes \n                    WHERE status = 'Ativo' OR (status = 'Resolvido' AND data_fim >= NOW() - INTERVAL 10 MINUTE)\n                )\n                OR \n                (id_incidente IS NULL AND (\n                    (status = 'DOWN' AND data_falha <= NOW() - INTERVAL 5 MINUTE) OR \n                    (status IN ('UP', 'IGNORADO') AND data_retorno >= NOW() - INTERVAL 10 MINUTE)\n                ))\n            ORDER BY data_falha DESC\n        ";
+        var queryAlertas = "\n            SELECT * FROM mon_alertas \n            WHERE \n                status != 'IGNORADO' AND (\n                    id_incidente IN (\n                        SELECT id FROM mon_incidentes \n                        WHERE status = 'Ativo' OR (status = 'Resolvido' AND data_fim >= NOW() - INTERVAL 10 MINUTE)\n                    )\n                    OR \n                    (id_incidente IS NULL AND (\n                        (status = 'DOWN' AND data_falha <= NOW() - INTERVAL '2:30' MINUTE_SECOND) OR \n                        (status IN ('UP', 'IGNORADO') AND data_retorno >= NOW() - INTERVAL 10 MINUTE)\n                    ))\n                )\n            ORDER BY data_falha DESC\n        ";
         database_1.LOCALHOST.query(queryAlertas, function (errAlt, resultAlertas) {
             if (errAlt)
                 return res.status(500).json({ error: errAlt.message });

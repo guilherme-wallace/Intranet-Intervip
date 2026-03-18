@@ -160,7 +160,7 @@ router.get('/falhas-ativas', (req, res) => {
     const queryIncidentes = `
         SELECT * FROM mon_incidentes 
         WHERE 
-            (status = 'Ativo' AND data_inicio <= NOW() - INTERVAL 5 MINUTE)
+            (status = 'Ativo' AND data_inicio <= NOW() - INTERVAL '2:30' MINUTE_SECOND)
            OR 
             (status = 'Resolvido' AND data_fim >= NOW() - INTERVAL 10 MINUTE)
         ORDER BY data_inicio DESC
@@ -172,15 +172,17 @@ router.get('/falhas-ativas', (req, res) => {
         const queryAlertas = `
             SELECT * FROM mon_alertas 
             WHERE 
-                id_incidente IN (
-                    SELECT id FROM mon_incidentes 
-                    WHERE status = 'Ativo' OR (status = 'Resolvido' AND data_fim >= NOW() - INTERVAL 10 MINUTE)
+                status != 'IGNORADO' AND (
+                    id_incidente IN (
+                        SELECT id FROM mon_incidentes 
+                        WHERE status = 'Ativo' OR (status = 'Resolvido' AND data_fim >= NOW() - INTERVAL 10 MINUTE)
+                    )
+                    OR 
+                    (id_incidente IS NULL AND (
+                        (status = 'DOWN' AND data_falha <= NOW() - INTERVAL '2:30' MINUTE_SECOND) OR 
+                        (status IN ('UP', 'IGNORADO') AND data_retorno >= NOW() - INTERVAL 10 MINUTE)
+                    ))
                 )
-                OR 
-                (id_incidente IS NULL AND (
-                    (status = 'DOWN' AND data_falha <= NOW() - INTERVAL 5 MINUTE) OR 
-                    (status IN ('UP', 'IGNORADO') AND data_retorno >= NOW() - INTERVAL 10 MINUTE)
-                ))
             ORDER BY data_falha DESC
         `;
 
