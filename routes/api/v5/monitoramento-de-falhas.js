@@ -61,142 +61,157 @@ var Express = require("express");
 var database_1 = require("../../../api/database");
 var axios_1 = require("axios");
 var router = Express.Router();
-router.post('/webhook/n8n', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var _a, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, status, data_evento, sinal_rx_retorno, data_evento_sql, idCliente, idContrato, parts, headersIxc, respCliente, razaoSocial, enderecoCompleto, respContrato, c, error_1, buscarIncidente, BUSCAR_ALERTA;
-    return __generator(this, function (_b) {
-        switch (_b.label) {
-            case 0:
-                _a = req.body, host_zabbix = _a.host_zabbix, tipo_alerta = _a.tipo_alerta, identificador = _a.identificador, nome_identificado = _a.nome_identificado, motivo_falha = _a.motivo_falha, status = _a.status, data_evento = _a.data_evento, sinal_rx_retorno = _a.sinal_rx_retorno;
-                data_evento_sql = data_evento;
-                if (data_evento_sql && data_evento_sql.includes('.')) {
-                    data_evento_sql = data_evento_sql.replace(/\./g, '-');
-                }
-                if (!(tipo_alerta === 'CORP' && identificador && (!nome_identificado || !nome_identificado.includes('|')))) return [3 /*break*/, 6];
-                idCliente = identificador;
-                idContrato = null;
-                if (identificador.includes('|')) {
-                    parts = identificador.split('|');
-                    idCliente = parts[0];
-                    idContrato = parts[1];
-                }
-                _b.label = 1;
-            case 1:
-                _b.trys.push([1, 5, , 6]);
-                headersIxc = {
-                    'Authorization': "Basic ".concat(process.env.IXC_API_TOKEN),
-                    'ixcsoft': 'listar',
-                    'Content-Type': 'application/json'
-                };
-                return [4 /*yield*/, axios_1.default.post("".concat(process.env.IXC_API_URL, "/webservice/v1/cliente"), {
-                        qtype: "cliente.id", query: idCliente, oper: "=", rp: "1"
-                    }, { headers: headersIxc })];
-            case 2:
-                respCliente = _b.sent();
-                razaoSocial = "";
-                if (respCliente.data && respCliente.data.registros && respCliente.data.registros.length > 0) {
-                    razaoSocial = respCliente.data.registros[0].razao;
-                }
-                enderecoCompleto = "";
-                if (!idContrato) return [3 /*break*/, 4];
-                return [4 /*yield*/, axios_1.default.post("".concat(process.env.IXC_API_URL, "/webservice/v1/cliente_contrato"), {
-                        qtype: "cliente_contrato.id", query: idContrato, oper: "=", rp: "1"
-                    }, { headers: headersIxc })];
-            case 3:
-                respContrato = _b.sent();
-                if (respContrato.data && respContrato.data.registros && respContrato.data.registros.length > 0) {
-                    c = respContrato.data.registros[0];
-                    enderecoCompleto = "".concat(c.endereco, ", ").concat(c.numero);
-                    if (c.complemento)
-                        enderecoCompleto += " (".concat(c.complemento, ")");
-                    enderecoCompleto += " - ".concat(c.bairro);
-                }
-                _b.label = 4;
-            case 4:
-                if (razaoSocial) {
-                    nome_identificado = "".concat(razaoSocial, " (ID: ").concat(idCliente, ")");
-                    if (enderecoCompleto) {
-                        nome_identificado += " | ".concat(enderecoCompleto);
-                    }
-                }
-                return [3 /*break*/, 6];
-            case 5:
-                error_1 = _b.sent();
-                console.error("Erro ao enriquecer dados do CORP via IXC:", error_1.message);
-                return [3 /*break*/, 6];
-            case 6:
-                if (status === 'DOWN') {
-                    buscarIncidente = "\n            SELECT id FROM mon_incidentes \n            WHERE regiao_afetada = ? \n              AND status = 'Ativo' \n              AND data_inicio >= CAST(? AS DATETIME) - INTERVAL 10 MINUTE\n            ORDER BY id DESC LIMIT 1\n        ";
-                    database_1.LOCALHOST.query(buscarIncidente, [host_zabbix, data_evento_sql], function (err, results) {
-                        if (err)
-                            return res.status(500).json({ error: err.message });
-                        var inserirAlertaFinal = function (idInc) {
-                            var INSERT_ALERTA = "\n                    INSERT INTO mon_alertas \n                    (id_incidente, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, data_falha, status) \n                    VALUES (?, ?, ?, ?, ?, ?, ?, 'DOWN')\n                ";
-                            database_1.LOCALHOST.query(INSERT_ALERTA, [idInc, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, data_evento_sql], function (errIns) {
-                                if (errIns)
-                                    return res.status(500).json({ error: errIns.message });
-                                res.json({ success: true, message: 'Alerta DOWN registrado e agrupado.' });
-                            });
-                        };
-                        if (results && results.length > 0) {
-                            inserirAlertaFinal(results[0].id);
-                        }
-                        else {
-                            var criarIncidente = "INSERT INTO mon_incidentes (regiao_afetada, data_inicio, status) VALUES (?, ?, 'Ativo')";
-                            database_1.LOCALHOST.query(criarIncidente, [host_zabbix, data_evento_sql], function (errCriar, resultsCriar) {
-                                if (errCriar)
-                                    return res.status(500).json({ error: errCriar.message });
-                                inserirAlertaFinal(resultsCriar.insertId);
-                            });
-                        }
-                    });
-                }
-                else if (status === 'UP') {
-                    BUSCAR_ALERTA = "\n            SELECT id, id_incidente FROM mon_alertas \n            WHERE identificador = ? AND host_zabbix = ? AND status = 'DOWN' \n            ORDER BY data_falha DESC LIMIT 1\n        ";
-                    database_1.LOCALHOST.query(BUSCAR_ALERTA, [identificador, host_zabbix], function (errBusca, resBusca) {
-                        if (errBusca)
-                            return res.status(500).json({ error: errBusca.message });
-                        if (resBusca && resBusca.length > 0) {
-                            var alertaId = resBusca[0].id;
-                            var incidenteId_1 = resBusca[0].id_incidente;
-                            var UPDATE_ALERTA = "UPDATE mon_alertas SET status = 'UP', data_retorno = ?, sinal_rx_retorno = ? WHERE id = ?";
-                            database_1.LOCALHOST.query(UPDATE_ALERTA, [data_evento_sql, sinal_rx_retorno, alertaId], function (errUpd) {
-                                if (errUpd)
-                                    return res.status(500).json({ error: errUpd.message });
-                                if (incidenteId_1) {
-                                    var CHECK_RESTANTES = "SELECT id FROM mon_alertas WHERE id_incidente = ? AND status = 'DOWN' LIMIT 1";
-                                    database_1.LOCALHOST.query(CHECK_RESTANTES, [incidenteId_1], function (errCheck, resCheck) {
-                                        if (errCheck)
-                                            console.error("Erro ao checar alertas restantes:", errCheck);
-                                        if (resCheck && resCheck.length === 0) {
-                                            var FECHAR_INCIDENTE = "UPDATE mon_incidentes SET status = 'Resolvido', data_fim = ? WHERE id = ?";
-                                            database_1.LOCALHOST.query(FECHAR_INCIDENTE, [data_evento_sql, incidenteId_1], function (errFim) {
-                                                if (errFim)
-                                                    console.error("Erro ao fechar incidente:", errFim);
-                                                return res.json({ success: true, message: 'Alerta UP e Incidente Massivo Resolvido!' });
-                                            });
-                                        }
-                                        else {
-                                            return res.json({ success: true, message: 'Alerta UP, mas Incidente Massivo segue Ativo.' });
-                                        }
-                                    });
-                                }
-                                else {
-                                    res.json({ success: true, message: 'Alerta isolado normalizado para UP.' });
-                                }
-                            });
-                        }
-                        else {
-                            res.json({ success: true, message: 'Nenhum alerta DOWN pendente encontrado para este equipamento.' });
-                        }
-                    });
-                }
-                else {
-                    res.status(400).json({ error: 'Status inválido. Use DOWN ou UP.' });
-                }
-                return [2 /*return*/];
-        }
+var queryAsync = function (sql, params) {
+    if (params === void 0) { params = []; }
+    return new Promise(function (resolve, reject) {
+        database_1.LOCALHOST.query(sql, params, function (err, results) {
+            if (err)
+                reject(err);
+            else
+                resolve(results);
+        });
     });
-}); });
+};
+var webhookQueue = [];
+var isProcessingQueue = false;
+function processWebhookQueue() {
+    return __awaiter(this, void 0, void 0, function () {
+        var task, err_1;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    if (isProcessingQueue)
+                        return [2 /*return*/];
+                    isProcessingQueue = true;
+                    _a.label = 1;
+                case 1:
+                    if (!(webhookQueue.length > 0)) return [3 /*break*/, 6];
+                    task = webhookQueue.shift();
+                    if (!task) return [3 /*break*/, 5];
+                    _a.label = 2;
+                case 2:
+                    _a.trys.push([2, 4, , 5]);
+                    return [4 /*yield*/, task()];
+                case 3:
+                    _a.sent();
+                    return [3 /*break*/, 5];
+                case 4:
+                    err_1 = _a.sent();
+                    console.error("Erro na fila do webhook:", err_1);
+                    return [3 /*break*/, 5];
+                case 5: return [3 /*break*/, 1];
+                case 6:
+                    isProcessingQueue = false;
+                    return [2 /*return*/];
+            }
+        });
+    });
+}
+router.post('/webhook/n8n', function (req, res) {
+    res.json({ success: true, message: 'Alerta recebido e enfileirado para agrupamento.' });
+    webhookQueue.push(function () { return __awaiter(void 0, void 0, void 0, function () {
+        var _a, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, status, data_evento, sinal_rx_retorno, data_evento_sql, idCliente, idContrato, parts, headersIxc, respCliente, razaoSocial, enderecoCompleto, respContrato, c, error_1, buscarIncidente, resInc, idIncidentePai, resCriar, resBusca, alertaId, incidenteId, resCheck;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
+                case 0:
+                    _a = req.body, host_zabbix = _a.host_zabbix, tipo_alerta = _a.tipo_alerta, identificador = _a.identificador, nome_identificado = _a.nome_identificado, motivo_falha = _a.motivo_falha, status = _a.status, data_evento = _a.data_evento, sinal_rx_retorno = _a.sinal_rx_retorno;
+                    data_evento_sql = data_evento;
+                    if (data_evento_sql && data_evento_sql.includes('.')) {
+                        data_evento_sql = data_evento_sql.replace(/\./g, '-');
+                    }
+                    if (!(tipo_alerta === 'CORP' && identificador && (!nome_identificado || !nome_identificado.includes('|')))) return [3 /*break*/, 6];
+                    idCliente = identificador;
+                    idContrato = null;
+                    if (identificador.includes('|')) {
+                        parts = identificador.split('|');
+                        idCliente = parts[0];
+                        idContrato = parts[1];
+                    }
+                    _b.label = 1;
+                case 1:
+                    _b.trys.push([1, 5, , 6]);
+                    headersIxc = { 'Authorization': "Basic ".concat(process.env.IXC_API_TOKEN), 'ixcsoft': 'listar', 'Content-Type': 'application/json' };
+                    return [4 /*yield*/, axios_1.default.post("".concat(process.env.IXC_API_URL, "/webservice/v1/cliente"), { qtype: "cliente.id", query: idCliente, oper: "=", rp: "1" }, { headers: headersIxc })];
+                case 2:
+                    respCliente = _b.sent();
+                    razaoSocial = "";
+                    if (respCliente.data && respCliente.data.registros && respCliente.data.registros.length > 0) {
+                        razaoSocial = respCliente.data.registros[0].razao;
+                    }
+                    enderecoCompleto = "";
+                    if (!idContrato) return [3 /*break*/, 4];
+                    return [4 /*yield*/, axios_1.default.post("".concat(process.env.IXC_API_URL, "/webservice/v1/cliente_contrato"), { qtype: "cliente_contrato.id", query: idContrato, oper: "=", rp: "1" }, { headers: headersIxc })];
+                case 3:
+                    respContrato = _b.sent();
+                    if (respContrato.data && respContrato.data.registros && respContrato.data.registros.length > 0) {
+                        c = respContrato.data.registros[0];
+                        enderecoCompleto = "".concat(c.endereco, ", ").concat(c.numero);
+                        if (c.complemento)
+                            enderecoCompleto += " (".concat(c.complemento, ")");
+                        enderecoCompleto += " - ".concat(c.bairro);
+                    }
+                    _b.label = 4;
+                case 4:
+                    if (razaoSocial) {
+                        nome_identificado = "".concat(razaoSocial, " (ID: ").concat(idCliente, ")");
+                        if (enderecoCompleto)
+                            nome_identificado += " | ".concat(enderecoCompleto);
+                    }
+                    return [3 /*break*/, 6];
+                case 5:
+                    error_1 = _b.sent();
+                    console.error("Erro ao enriquecer dados do CORP via IXC:", error_1.message);
+                    return [3 /*break*/, 6];
+                case 6:
+                    if (!(status === 'DOWN')) return [3 /*break*/, 14];
+                    buscarIncidente = "\n                SELECT id, regiao_afetada FROM mon_incidentes \n                WHERE status = 'Ativo' \n                AND (\n                    (regiao_afetada = ? AND data_inicio >= CAST(? AS DATETIME) - INTERVAL 20 MINUTE)\n                    OR \n                    (data_inicio >= CAST(? AS DATETIME) - INTERVAL 2 MINUTE)\n                )\n                ORDER BY id DESC LIMIT 1\n            ";
+                    return [4 /*yield*/, queryAsync(buscarIncidente, [host_zabbix, data_evento_sql, data_evento_sql])];
+                case 7:
+                    resInc = _b.sent();
+                    idIncidentePai = void 0;
+                    if (!(resInc && resInc.length > 0)) return [3 /*break*/, 10];
+                    idIncidentePai = resInc[0].id;
+                    if (!(resInc[0].regiao_afetada !== host_zabbix && resInc[0].regiao_afetada !== 'Múltiplos Equipamentos')) return [3 /*break*/, 9];
+                    return [4 /*yield*/, queryAsync("UPDATE mon_incidentes SET regiao_afetada = 'M\u00FAltiplos Equipamentos' WHERE id = ?", [idIncidentePai])];
+                case 8:
+                    _b.sent();
+                    _b.label = 9;
+                case 9: return [3 /*break*/, 12];
+                case 10: return [4 /*yield*/, queryAsync("INSERT INTO mon_incidentes (regiao_afetada, data_inicio, status) VALUES (?, ?, 'Ativo')", [host_zabbix, data_evento_sql])];
+                case 11:
+                    resCriar = _b.sent();
+                    idIncidentePai = resCriar.insertId;
+                    _b.label = 12;
+                case 12: return [4 /*yield*/, queryAsync("\n                INSERT INTO mon_alertas \n                (id_incidente, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, data_falha, status) \n                VALUES (?, ?, ?, ?, ?, ?, ?, 'DOWN')\n            ", [idIncidentePai, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, data_evento_sql])];
+                case 13:
+                    _b.sent();
+                    return [3 /*break*/, 19];
+                case 14:
+                    if (!(status === 'UP')) return [3 /*break*/, 19];
+                    return [4 /*yield*/, queryAsync("\n                SELECT id, id_incidente FROM mon_alertas \n                WHERE identificador = ? AND host_zabbix = ? AND status = 'DOWN' \n                ORDER BY data_falha DESC LIMIT 1\n            ", [identificador, host_zabbix])];
+                case 15:
+                    resBusca = _b.sent();
+                    if (!(resBusca && resBusca.length > 0)) return [3 /*break*/, 19];
+                    alertaId = resBusca[0].id;
+                    incidenteId = resBusca[0].id_incidente;
+                    return [4 /*yield*/, queryAsync("UPDATE mon_alertas SET status = 'UP', data_retorno = ?, sinal_rx_retorno = ? WHERE id = ?", [data_evento_sql, sinal_rx_retorno, alertaId])];
+                case 16:
+                    _b.sent();
+                    if (!incidenteId) return [3 /*break*/, 19];
+                    return [4 /*yield*/, queryAsync("SELECT id FROM mon_alertas WHERE id_incidente = ? AND status = 'DOWN' LIMIT 1", [incidenteId])];
+                case 17:
+                    resCheck = _b.sent();
+                    if (!(resCheck.length === 0)) return [3 /*break*/, 19];
+                    return [4 /*yield*/, queryAsync("UPDATE mon_incidentes SET status = 'Resolvido', data_fim = ? WHERE id = ?", [data_evento_sql, incidenteId])];
+                case 18:
+                    _b.sent();
+                    _b.label = 19;
+                case 19: return [2 /*return*/];
+            }
+        });
+    }); });
+    processWebhookQueue();
+});
 router.get('/falhas-ativas', function (req, res) {
     var queryIncidentes = "\n        SELECT * FROM mon_incidentes \n        WHERE \n            (status = 'Ativo' AND data_inicio <= NOW() - INTERVAL '2:30' MINUTE_SECOND)\n           OR \n            (status = 'Resolvido' AND data_fim >= NOW() - INTERVAL 10 MINUTE)\n        ORDER BY data_inicio DESC\n    ";
     database_1.LOCALHOST.query(queryIncidentes, function (errInc, resultIncidentes) {

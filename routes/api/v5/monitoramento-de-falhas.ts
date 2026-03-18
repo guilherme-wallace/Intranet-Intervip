@@ -6,153 +6,140 @@ import axios from 'axios';
 
 const router = Express.Router();
 
-router.post('/webhook/n8n', async (req, res) => {
-    let { 
-        host_zabbix, tipo_alerta, identificador, nome_identificado,
-        motivo_falha, status, data_evento, sinal_rx_retorno
-    } = req.body;
-
-    let data_evento_sql = data_evento;
-    if (data_evento_sql && data_evento_sql.includes('.')) {
-        data_evento_sql = data_evento_sql.replace(/\./g, '-');
-    }
-
-    if (tipo_alerta === 'CORP' && identificador && (!nome_identificado || !nome_identificado.includes('|'))) {
-        let idCliente = identificador;
-        let idContrato: string | null = null;
-
-        if (identificador.includes('|')) {
-            const parts = identificador.split('|');
-            idCliente = parts[0];
-            idContrato = parts[1];
-        }
-
-        try {
-            const headersIxc = {
-                'Authorization': `Basic ${process.env.IXC_API_TOKEN}`,
-                'ixcsoft': 'listar',
-                'Content-Type': 'application/json'
-            };
-
-            const respCliente = await axios.post(`${process.env.IXC_API_URL}/webservice/v1/cliente`, {
-                qtype: "cliente.id", query: idCliente, oper: "=", rp: "1"
-            }, { headers: headersIxc });
-
-            let razaoSocial = "";
-            if (respCliente.data && respCliente.data.registros && respCliente.data.registros.length > 0) {
-                razaoSocial = respCliente.data.registros[0].razao;
-            }
-
-            let enderecoCompleto = "";
-            if (idContrato) {
-                const respContrato = await axios.post(`${process.env.IXC_API_URL}/webservice/v1/cliente_contrato`, {
-                    qtype: "cliente_contrato.id", query: idContrato, oper: "=", rp: "1"
-                }, { headers: headersIxc });
-
-                if (respContrato.data && respContrato.data.registros && respContrato.data.registros.length > 0) {
-                    const c = respContrato.data.registros[0];
-                    enderecoCompleto = `${c.endereco}, ${c.numero}`;
-                    if (c.complemento) enderecoCompleto += ` (${c.complemento})`;
-                    enderecoCompleto += ` - ${c.bairro}`;
-                }
-            }
-
-            if (razaoSocial) {
-                nome_identificado = `${razaoSocial} (ID: ${idCliente})`;
-                if (enderecoCompleto) {
-                    nome_identificado += ` | ${enderecoCompleto}`;
-                }
-            }
-        } catch (error) {
-            console.error("Erro ao enriquecer dados do CORP via IXC:", error.message);
-        }
-    }
-
-    if (status === 'DOWN') {
-        
-        const buscarIncidente = `
-            SELECT id FROM mon_incidentes 
-            WHERE regiao_afetada = ? 
-              AND status = 'Ativo' 
-              AND data_inicio >= CAST(? AS DATETIME) - INTERVAL 10 MINUTE
-            ORDER BY id DESC LIMIT 1
-        `;
-        
-        LOCALHOST.query(buscarIncidente, [host_zabbix, data_evento_sql], (err, results: any) => {
-            if (err) return res.status(500).json({ error: err.message });
-
-            const inserirAlertaFinal = (idInc) => {
-                const INSERT_ALERTA = `
-                    INSERT INTO mon_alertas 
-                    (id_incidente, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, data_falha, status) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, 'DOWN')
-                `;
-                LOCALHOST.query(INSERT_ALERTA, [idInc, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, data_evento_sql], (errIns) => {
-                    if (errIns) return res.status(500).json({ error: errIns.message });
-                    res.json({ success: true, message: 'Alerta DOWN registrado e agrupado.' });
-                });
-            };
-
-            if (results && results.length > 0) {
-                inserirAlertaFinal(results[0].id);
-            } else {
-                const criarIncidente = `INSERT INTO mon_incidentes (regiao_afetada, data_inicio, status) VALUES (?, ?, 'Ativo')`;
-                LOCALHOST.query(criarIncidente, [host_zabbix, data_evento_sql], (errCriar, resultsCriar: any) => {
-                    if (errCriar) return res.status(500).json({ error: errCriar.message });
-                    inserirAlertaFinal(resultsCriar.insertId);
-                });
-            }
+const queryAsync = (sql: string, params: any[] = []): Promise<any> => {
+    return new Promise((resolve, reject) => {
+        LOCALHOST.query(sql, params, (err, results) => {
+            if (err) reject(err);
+            else resolve(results);
         });
+    });
+};
 
-    } else if (status === 'UP') {
-        
-        const BUSCAR_ALERTA = `
-            SELECT id, id_incidente FROM mon_alertas 
-            WHERE identificador = ? AND host_zabbix = ? AND status = 'DOWN' 
-            ORDER BY data_falha DESC LIMIT 1
-        `;
+const webhookQueue: Array<() => Promise<void>> = [];
+let isProcessingQueue = false;
 
-        LOCALHOST.query(BUSCAR_ALERTA, [identificador, host_zabbix], (errBusca, resBusca: any) => {
-            if (errBusca) return res.status(500).json({ error: errBusca.message });
+async function processWebhookQueue() {
+    if (isProcessingQueue) return;
+    isProcessingQueue = true;
+    while (webhookQueue.length > 0) {
+        const task = webhookQueue.shift();
+        if (task) {
+            try {
+                await task();
+            } catch (err) {
+                console.error("Erro na fila do webhook:", err);
+            }
+        }
+    }
+    isProcessingQueue = false;
+}
+
+router.post('/webhook/n8n', (req, res) => {
+    
+    res.json({ success: true, message: 'Alerta recebido e enfileirado para agrupamento.' });
+
+    webhookQueue.push(async () => {
+        let {
+            host_zabbix, tipo_alerta, identificador, nome_identificado,
+            motivo_falha, status, data_evento, sinal_rx_retorno
+        } = req.body;
+
+        let data_evento_sql = data_evento;
+        if (data_evento_sql && data_evento_sql.includes('.')) {
+            data_evento_sql = data_evento_sql.replace(/\./g, '-');
+        }
+
+        if (tipo_alerta === 'CORP' && identificador && (!nome_identificado || !nome_identificado.includes('|'))) {
+            let idCliente = identificador;
+            let idContrato: string | null = null;
+            if (identificador.includes('|')) {
+                const parts = identificador.split('|');
+                idCliente = parts[0];
+                idContrato = parts[1];
+            }
+            try {
+                const headersIxc = { 'Authorization': `Basic ${process.env.IXC_API_TOKEN}`, 'ixcsoft': 'listar', 'Content-Type': 'application/json' };
+                const respCliente = await axios.post(`${process.env.IXC_API_URL}/webservice/v1/cliente`, { qtype: "cliente.id", query: idCliente, oper: "=", rp: "1" }, { headers: headersIxc });
+                let razaoSocial = "";
+                if (respCliente.data && respCliente.data.registros && respCliente.data.registros.length > 0) {
+                    razaoSocial = respCliente.data.registros[0].razao;
+                }
+                let enderecoCompleto = "";
+                if (idContrato) {
+                    const respContrato = await axios.post(`${process.env.IXC_API_URL}/webservice/v1/cliente_contrato`, { qtype: "cliente_contrato.id", query: idContrato, oper: "=", rp: "1" }, { headers: headersIxc });
+                    if (respContrato.data && respContrato.data.registros && respContrato.data.registros.length > 0) {
+                        const c = respContrato.data.registros[0];
+                        enderecoCompleto = `${c.endereco}, ${c.numero}`;
+                        if (c.complemento) enderecoCompleto += ` (${c.complemento})`;
+                        enderecoCompleto += ` - ${c.bairro}`;
+                    }
+                }
+                if (razaoSocial) {
+                    nome_identificado = `${razaoSocial} (ID: ${idCliente})`;
+                    if (enderecoCompleto) nome_identificado += ` | ${enderecoCompleto}`;
+                }
+            } catch (error) {
+                console.error("Erro ao enriquecer dados do CORP via IXC:", error.message);
+            }
+        }
+
+        if (status === 'DOWN') {
             
+            const buscarIncidente = `
+                SELECT id, regiao_afetada FROM mon_incidentes 
+                WHERE status = 'Ativo' 
+                AND (
+                    (regiao_afetada = ? AND data_inicio >= CAST(? AS DATETIME) - INTERVAL 20 MINUTE)
+                    OR 
+                    (data_inicio >= CAST(? AS DATETIME) - INTERVAL 2 MINUTE)
+                )
+                ORDER BY id DESC LIMIT 1
+            `;
+            
+            const resInc = await queryAsync(buscarIncidente, [host_zabbix, data_evento_sql, data_evento_sql]);
+            let idIncidentePai;
+
+            if (resInc && resInc.length > 0) {
+                idIncidentePai = resInc[0].id;
+                if (resInc[0].regiao_afetada !== host_zabbix && resInc[0].regiao_afetada !== 'Múltiplos Equipamentos') {
+                    await queryAsync(`UPDATE mon_incidentes SET regiao_afetada = 'Múltiplos Equipamentos' WHERE id = ?`, [idIncidentePai]);
+                }
+            } else {
+                const resCriar = await queryAsync(`INSERT INTO mon_incidentes (regiao_afetada, data_inicio, status) VALUES (?, ?, 'Ativo')`, [host_zabbix, data_evento_sql]);
+                idIncidentePai = resCriar.insertId;
+            }
+
+            await queryAsync(`
+                INSERT INTO mon_alertas 
+                (id_incidente, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, data_falha, status) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'DOWN')
+            `, [idIncidentePai, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, data_evento_sql]);
+
+        } else if (status === 'UP') {
+            
+            const resBusca = await queryAsync(`
+                SELECT id, id_incidente FROM mon_alertas 
+                WHERE identificador = ? AND host_zabbix = ? AND status = 'DOWN' 
+                ORDER BY data_falha DESC LIMIT 1
+            `, [identificador, host_zabbix]);
+
             if (resBusca && resBusca.length > 0) {
                 const alertaId = resBusca[0].id;
                 const incidenteId = resBusca[0].id_incidente;
 
-                const UPDATE_ALERTA = `UPDATE mon_alertas SET status = 'UP', data_retorno = ?, sinal_rx_retorno = ? WHERE id = ?`;
-                
-                LOCALHOST.query(UPDATE_ALERTA, [data_evento_sql, sinal_rx_retorno, alertaId], (errUpd) => {
-                    if (errUpd) return res.status(500).json({ error: errUpd.message });
+                await queryAsync(`UPDATE mon_alertas SET status = 'UP', data_retorno = ?, sinal_rx_retorno = ? WHERE id = ?`, [data_evento_sql, sinal_rx_retorno, alertaId]);
 
-                    if (incidenteId) {
-                        const CHECK_RESTANTES = `SELECT id FROM mon_alertas WHERE id_incidente = ? AND status = 'DOWN' LIMIT 1`;
-                        
-                        LOCALHOST.query(CHECK_RESTANTES, [incidenteId], (errCheck, resCheck: any) => {
-                            if (errCheck) console.error("Erro ao checar alertas restantes:", errCheck);
-
-                            if (resCheck && resCheck.length === 0) {
-                                const FECHAR_INCIDENTE = `UPDATE mon_incidentes SET status = 'Resolvido', data_fim = ? WHERE id = ?`;
-                                
-                                LOCALHOST.query(FECHAR_INCIDENTE, [data_evento_sql, incidenteId], (errFim) => {
-                                    if (errFim) console.error("Erro ao fechar incidente:", errFim);
-                                    return res.json({ success: true, message: 'Alerta UP e Incidente Massivo Resolvido!' });
-                                });
-                            } else {
-                                return res.json({ success: true, message: 'Alerta UP, mas Incidente Massivo segue Ativo.' });
-                            }
-                        });
-                    } else {
-                        res.json({ success: true, message: 'Alerta isolado normalizado para UP.' });
+                if (incidenteId) {
+                    const resCheck = await queryAsync(`SELECT id FROM mon_alertas WHERE id_incidente = ? AND status = 'DOWN' LIMIT 1`, [incidenteId]);
+                    if (resCheck.length === 0) {
+                        await queryAsync(`UPDATE mon_incidentes SET status = 'Resolvido', data_fim = ? WHERE id = ?`, [data_evento_sql, incidenteId]);
                     }
-                });
-            } else {
-                res.json({ success: true, message: 'Nenhum alerta DOWN pendente encontrado para este equipamento.' });
+                }
             }
-        });
-        
-    } else {
-        res.status(400).json({ error: 'Status inválido. Use DOWN ou UP.' });
-    }
+        }
+    });
+    
+    processWebhookQueue();
 });
 
 router.get('/falhas-ativas', (req, res) => {
