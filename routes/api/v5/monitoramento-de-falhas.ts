@@ -39,9 +39,10 @@ router.post('/webhook/n8n', (req, res) => {
     res.json({ success: true, message: 'Alerta recebido e enfileirado para agrupamento.' });
 
     webhookQueue.push(async () => {
-        let {
+        let { 
             host_zabbix, tipo_alerta, identificador, nome_identificado,
-            motivo_falha, status, data_evento, sinal_rx_retorno
+            motivo_falha, status, data_evento, sinal_rx_retorno,
+            is_update, update_action, update_message
         } = req.body;
 
         let data_evento_sql = data_evento;
@@ -85,11 +86,43 @@ router.post('/webhook/n8n', (req, res) => {
 
         if (status === 'DOWN') {
             
+            const checkDuplicata = await queryAsync(`
+                SELECT id, motivo_falha, id_incidente FROM mon_alertas 
+                WHERE identificador = ? AND host_zabbix = ? AND status = 'DOWN' 
+                ORDER BY id DESC LIMIT 1
+            `, [identificador, host_zabbix]);
+
+            if (checkDuplicata && checkDuplicata.length > 0) {
+                const alertaExistente = checkDuplicata[0];
+                
+                if (is_update === '1' || (update_action && update_action.toLowerCase().includes('acknowledge'))) {
+                    
+                    let novoMotivo = alertaExistente.motivo_falha;
+                    if (update_message && update_message.trim() !== "") {
+                        novoMotivo = `${alertaExistente.motivo_falha} | ACK: ${update_message}`;
+                    } else {
+                        novoMotivo = `${alertaExistente.motivo_falha} | Reconhecido no Zabbix`;
+                    }
+                    
+                    await queryAsync(`UPDATE mon_alertas SET status = 'IGNORADO', motivo_falha = ? WHERE id = ?`, [novoMotivo, alertaExistente.id]);
+                    
+                    if (alertaExistente.id_incidente) {
+                        const checkRestantes = await queryAsync(`SELECT id FROM mon_alertas WHERE id_incidente = ? AND status = 'DOWN' LIMIT 1`, [alertaExistente.id_incidente]);
+                        if (checkRestantes.length === 0) {
+                            await queryAsync(`UPDATE mon_incidentes SET status = 'Resolvido', data_fim = NOW() WHERE id = ?`, [alertaExistente.id_incidente]);
+                        }
+                    }
+                    return;
+                }
+                
+                return; 
+            }
+
             const buscarIncidente = `
                 SELECT id, regiao_afetada FROM mon_incidentes 
                 WHERE status = 'Ativo' 
                 AND (
-                    (regiao_afetada = ? AND data_inicio >= CAST(? AS DATETIME) - INTERVAL 20 MINUTE)
+                    (regiao_afetada = ? AND data_inicio >= CAST(? AS DATETIME) - INTERVAL 10 MINUTE)
                     OR 
                     (data_inicio >= CAST(? AS DATETIME) - INTERVAL 2 MINUTE)
                 )
