@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Intervip - Looking Glass</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="stylesheets/style.css"> 
+    <link rel="stylesheet" href="stylesheets/looking-glass.css">
+</head>
+
+<body class="gerenciaIVP-body">
+
+    <header class="header-modern">
+        <div class="container-fluid">
+            <div class="d-flex align-items-center">
+                <a href="/main" class="d-flex align-items-center text-decoration-none">
+                    <img class="logo me-3" src="images/logo.png" alt="Logo Intervip">
+                </a>
+            </div>
+            <h1 class="header-title fs-4 fw-semibold text-white m-0">🔎 Looking Glass</h1>
+            <div class="d-flex align-items-center">
+                <div class="user-info text-end me-4">
+                    <p class="m-0 small text-white-80">Acessando como: <span class="fw-medium">{username}</span></p>
+                    <p class="m-0 small text-white-80">Setor: <span class="fw-medium">{group}</span></p>
+                </div>
+                <button id="theme-toggle" class="btn btn-sm btn-outline-light rounded-pill px-3">
+                    <i class="bi bi-moon-stars"></i>
+                </button>
+                <button id="btnLogout" class="btn btn-sm btn-outline-danger rounded-pill px-3 ms-2">
+                    <i class="bi bi-box-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container-fluid py-4 ivp-main">
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card ivp-card h-100">
+                    <div class="card-header bg-transparent border-bottom py-3">
+                        <h5 class="mb-0 fw-bold text-primary"><i class="bi bi-sliders me-2"></i>Configuração da Consulta</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="lgForm">
+                            <div class="mb-3">
+                                <label for="consultaType" class="form-label fw-bold">Tipo de Consulta</label>
+                                <select id="consultaType" name="type" class="form-select" required>
+                                    <option value="bgp" selected>BGP (Longer Prefixes)</option>
+                                    <option value="ping">IPv4 Ping</option>
+                                    <option value="trace">IPv4 Traceroute</option>
+                                    <option value="ping6">IPv6 Ping</option>
+                                    <option value="trace6">IPv6 Traceroute</option>
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="targetIp" class="form-label fw-bold">Endereço IP / Prefixo</label>
+                                <input type="text" id="targetIp" name="target" class="form-control" placeholder="Ex: 8.8.8.8" required>
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="routerSource" class="form-label fw-bold">Roteador de Origem</label>
+                                <select id="routerSource" name="router" class="form-select" required>
+                                    <option value="VTA01">VTA01-ROUTER01</option>
+                                    <option value="SEA01">SEA01-ROUTER02</option>
+                                </select>
+                            </div>
+
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary"><i class="bi bi-play-fill me-1"></i>Executar Consulta</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                <div class="card ivp-card h-100 lg-result-card">
+                    <div class="card-header bg-transparent border-bottom py-3 d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-terminal me-2"></i>Resultado</h5>
+                    </div>
+                    <div class="card-body p-0 bg-light">
+                        <pre id="lgResultOutput" class="terminal-output m-0 p-3">...</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="ivp-footer">
+        <div class="container-fluid py-3">
+            <div class="text-center">
+                <img src="images/logo.png" alt="Logo Intervip" width="100">
+                <p class="ivp-footer-text">
+                    © 2026 Gerência Intervip | Desenvolvido por 
+                    <a href="https://github.com/guilherme-wallace" target="_blank">Guilherme Wallace</a>
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="javascripts/jquery.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="javascripts/looking-glass.js"></script>
+</body>
+</html>
