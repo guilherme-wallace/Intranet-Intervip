@@ -27,11 +27,11 @@ import { config_login } from './src/configs/loginConfig';
 
 import socRoutes from './routes/api/v5/soc';
 import monitoramentoDeFalhasRoutes from './routes/api/v5/monitoramento-de-falhas';
+import lookingGlassRoutes from './routes/api/v5/looking-glass';
 import rede_neutraRoutes from './routes/api/v5/rede_neutra';
 import analise_de_riscoRoutes from './routes/api/v5/analise-de-risco';
 
 import * as jwt from 'jsonwebtoken';
-
 
 // =======================================================
 // --- INICIALIZAÇÃO E CONFIGURAÇÕES GLOBAIS ---
@@ -208,6 +208,7 @@ const PERMISSOES_SISTEMA = {
     'card-cadastro-de-blocos': ['NOC','Diretoria'],
     'card-soc-report': ['NOC','Diretoria'],
     'card-monitoramento-de-falhas': ['NOC','Diretoria'],
+    'card-looking-glass': ['NOC','Diretoria'],
   
     'card-analise-de-risco': ['NOC','TecnicoFibra','TecnicoLogistica','Fibra','Logistica','Diretoria'],
 
@@ -301,6 +302,10 @@ APP.get('/soc-report', verificarAcessoPagina('soc-report'), (req, res) => {
 
 APP.get('/monitoramento-de-falhas', verificarAcessoPagina('monitoramento-de-falhas'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'monitoramento-de-falhas.html'));
+});
+
+APP.get('/looking-glass', verificarAcessoPagina('looking-glass'), (req, res) => {
+    res.sendFile(Path.join(__dirname, 'views', 'looking-glass.html'));
 });
 
 APP.get('/analise-de-risco', verificarAcessoPagina('analise-de-risco'), (req, res) => {
@@ -435,6 +440,7 @@ APP.use('/api', protectApi, scriptmigraOnusRoute);
 APP.use('/api', protectApi, scriptAddCondominiumsBDRoute);
 APP.use('/api/v5/soc', protectApi, socRoutes);
 APP.use('/api/v5/monitoramento-de-falhas', protectApi, monitoramentoDeFalhasRoutes);
+APP.use('/api/v5/looking-glass', protectApi, lookingGlassRoutes);
 APP.use('/api/v5/rede_neutra', protectApi, rede_neutraRoutes);
 APP.use('/api/v5/analise-de-risco', protectApi, analise_de_riscoRoutes);
 
@@ -460,6 +466,7 @@ APP.use('/migra-onu', protectRoutes, ROUTES);
 APP.use('/lead-Venda', protectRoutes, ROUTES);
 APP.use('/soc-report', protectRoutes, ROUTES);
 APP.use('/equipamentos', protectRoutes, ROUTES);
+APP.use('/looking-glass', protectRoutes, ROUTES);
 APP.use('/clientes-online', protectRoutes, ROUTES);
 APP.use('/demo-redeNeutra', protectRoutes, ROUTES);
 APP.use('/analise-de-risco', protectRoutes, ROUTES);

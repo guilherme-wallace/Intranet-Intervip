@@ -59,6 +59,7 @@ var ixc_1 = require("./routes/api/v5/ixc");
 var loginConfig_1 = require("./src/configs/loginConfig");
 var soc_1 = require("./routes/api/v5/soc");
 var monitoramento_de_falhas_1 = require("./routes/api/v5/monitoramento-de-falhas");
+var looking_glass_1 = require("./routes/api/v5/looking-glass");
 var rede_neutra_1 = require("./routes/api/v5/rede_neutra");
 var analise_de_risco_1 = require("./routes/api/v5/analise-de-risco");
 var jwt = require("jsonwebtoken");
@@ -196,6 +197,7 @@ var PERMISSOES_SISTEMA = {
     'card-cadastro-de-blocos': ['NOC', 'Diretoria'],
     'card-soc-report': ['NOC', 'Diretoria'],
     'card-monitoramento-de-falhas': ['NOC', 'Diretoria'],
+    'card-looking-glass': ['NOC', 'Diretoria'],
     'card-analise-de-risco': ['NOC', 'TecnicoFibra', 'TecnicoLogistica', 'Fibra', 'Logistica', 'Diretoria'],
     'card-cadastro-bandaLarga': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Logistica', 'Qualidade'],
     'card-cadastro-corporativo': ['NOC', 'Comercial', 'Corporativo', 'Diretoria', 'Financeiro'],
@@ -266,6 +268,9 @@ APP.get('/soc-report', verificarAcessoPagina('soc-report'), function (req, res) 
 });
 APP.get('/monitoramento-de-falhas', verificarAcessoPagina('monitoramento-de-falhas'), function (req, res) {
     res.sendFile(Path.join(__dirname, 'views', 'monitoramento-de-falhas.html'));
+});
+APP.get('/looking-glass', verificarAcessoPagina('looking-glass'), function (req, res) {
+    res.sendFile(Path.join(__dirname, 'views', 'looking-glass.html'));
 });
 APP.get('/analise-de-risco', verificarAcessoPagina('analise-de-risco'), function (req, res) {
     res.sendFile(Path.join(__dirname, 'views', 'analise-de-risco.html'));
@@ -408,6 +413,7 @@ APP.use('/api', protectApi, scriptmigraOnusRoute_1.default);
 APP.use('/api', protectApi, scriptAddCondominiumsBDRoute_1.default);
 APP.use('/api/v5/soc', protectApi, soc_1.default);
 APP.use('/api/v5/monitoramento-de-falhas', protectApi, monitoramento_de_falhas_1.default);
+APP.use('/api/v5/looking-glass', protectApi, looking_glass_1.default);
 APP.use('/api/v5/rede_neutra', protectApi, rede_neutra_1.default);
 APP.use('/api/v5/analise-de-risco', protectApi, analise_de_risco_1.default);
 APP.get('/api/username', protectApi, function (req, res) {
@@ -429,6 +435,7 @@ APP.use('/migra-onu', protectRoutes, index_1.default);
 APP.use('/lead-Venda', protectRoutes, index_1.default);
 APP.use('/soc-report', protectRoutes, index_1.default);
 APP.use('/equipamentos', protectRoutes, index_1.default);
+APP.use('/looking-glass', protectRoutes, index_1.default);
 APP.use('/clientes-online', protectRoutes, index_1.default);
 APP.use('/demo-redeNeutra', protectRoutes, index_1.default);
 APP.use('/analise-de-risco', protectRoutes, index_1.default);
