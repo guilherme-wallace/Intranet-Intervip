@@ -97,14 +97,16 @@ router.post('/webhook/n8n', (req, res) => {
                 
                 if (is_update === '1' || (update_action && update_action.toLowerCase().includes('acknowledge'))) {
                     
-                    let novoMotivo = alertaExistente.motivo_falha;
+                    let motivoBase = alertaExistente.motivo_falha || 'Desconhecido';
+                    let novoMotivo = motivoBase;
+
                     if (update_message && update_message.trim() !== "") {
-                        novoMotivo = `${alertaExistente.motivo_falha} | ACK: ${update_message}`;
+                        novoMotivo = `${motivoBase} | ACK: ${update_message}`;
                     } else {
-                        novoMotivo = `${alertaExistente.motivo_falha} | Reconhecido no Zabbix`;
+                        novoMotivo = `${motivoBase} | Reconhecido no Zabbix`;
                     }
                     
-                    await queryAsync(`UPDATE mon_alertas SET status = 'IGNORADO', motivo_falha = ? WHERE id = ?`, [novoMotivo, alertaExistente.id]);
+                    await queryAsync(`UPDATE mon_alertas SET status = 'IGNORADO', data_retorno = NOW(), motivo_falha = ? WHERE id = ?`, [novoMotivo, alertaExistente.id]);
                     
                     if (alertaExistente.id_incidente) {
                         const checkRestantes = await queryAsync(`SELECT id FROM mon_alertas WHERE id_incidente = ? AND status = 'DOWN' LIMIT 1`, [alertaExistente.id_incidente]);
@@ -112,7 +114,6 @@ router.post('/webhook/n8n', (req, res) => {
                             await queryAsync(`UPDATE mon_incidentes SET status = 'Resolvido', data_fim = NOW() WHERE id = ?`, [alertaExistente.id_incidente]);
                         }
                     }
-                    return;
                 }
                 
                 return; 
@@ -122,7 +123,7 @@ router.post('/webhook/n8n', (req, res) => {
                 SELECT id, regiao_afetada FROM mon_incidentes 
                 WHERE status = 'Ativo' 
                 AND (
-                    (regiao_afetada = ? AND data_inicio >= CAST(? AS DATETIME) - INTERVAL 10 MINUTE)
+                    (regiao_afetada = ? AND data_inicio >= CAST(? AS DATETIME) - INTERVAL 20 MINUTE)
                     OR 
                     (data_inicio >= CAST(? AS DATETIME) - INTERVAL 2 MINUTE)
                 )
@@ -192,17 +193,15 @@ router.get('/falhas-ativas', (req, res) => {
         const queryAlertas = `
             SELECT * FROM mon_alertas 
             WHERE 
-                status != 'IGNORADO' AND (
-                    id_incidente IN (
-                        SELECT id FROM mon_incidentes 
-                        WHERE status = 'Ativo' OR (status = 'Resolvido' AND data_fim >= NOW() - INTERVAL 10 MINUTE)
-                    )
-                    OR 
-                    (id_incidente IS NULL AND (
-                        (status = 'DOWN' AND data_falha <= NOW() - INTERVAL '2:30' MINUTE_SECOND) OR 
-                        (status IN ('UP', 'IGNORADO') AND data_retorno >= NOW() - INTERVAL 10 MINUTE)
-                    ))
+                id_incidente IN (
+                    SELECT id FROM mon_incidentes 
+                    WHERE status = 'Ativo' OR (status = 'Resolvido' AND data_fim >= NOW() - INTERVAL 10 MINUTE)
                 )
+                OR 
+                (id_incidente IS NULL AND (
+                    (status = 'DOWN' AND data_falha <= NOW() - INTERVAL '2:30' MINUTE_SECOND) OR 
+                    (status IN ('UP', 'IGNORADO') AND data_retorno >= NOW() - INTERVAL 10 MINUTE)
+                ))
             ORDER BY data_falha DESC
         `;
 
@@ -234,17 +233,6 @@ router.get('/falhas-ativas', (req, res) => {
     });
 });
 
-router.post('/acao-manual/arquivar', (req, res) => {
-    const { id_alerta } = req.body;
-    
-    const QUERY = `UPDATE mon_alertas SET status = 'UP', data_retorno = NOW() WHERE id = ?`;
-    
-    LOCALHOST.query(QUERY, [id_alerta], (error) => {
-        if (error) return res.status(500).json({ error: error.message });
-        res.json({ success: true, message: 'Alerta arquivado manualmente.' });
-    });
-});
-
 router.get('/busca-contratos/:id_cliente', async (req, res) => {
     const { id_cliente } = req.params;
     try {
@@ -269,19 +257,15 @@ router.get('/busca-contratos/:id_cliente', async (req, res) => {
 
         const contratos = registrosValidos.map(c => {
             let enderecoStr = '';
-            
             if (c.endereco) {
                 enderecoStr = [c.endereco, c.numero, c.bairro].filter(Boolean).join(', ');
             } else if (c.endereco_padrao_cliente === 'S' || !c.endereco) {
                 enderecoStr = [cliente.endereco, cliente.numero, cliente.bairro].filter(Boolean).join(', ');
             }
-            
             if (!enderecoStr || enderecoStr.trim() === '') enderecoStr = 'Endereço não especificado';
 
             return { 
-                id_contrato: c.id, 
-                status: c.status_internet, 
-                endereco: enderecoStr,
+                id_contrato: c.id, status: c.status_internet, endereco: enderecoStr,
                 plano: c.contrato || 'Plano Genérico',
                 data_ativacao: c.data_ativacao ? c.data_ativacao.split('-').reverse().join('/') : 'N/A'
             };
@@ -301,7 +285,6 @@ router.post('/acao-lote', (req, res) => {
 
     const statusDb = acao;
     const placeholders = ids.map(() => '?').join(',');
-    
     const setRetorno = acao === 'UP' ? 'NOW()' : 'NULL';
 
     const UPDATE_ALERTAS = `UPDATE mon_alertas SET status = ?, data_retorno = ${setRetorno} WHERE id IN (${placeholders})`;

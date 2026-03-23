@@ -110,11 +110,11 @@ function processWebhookQueue() {
 router.post('/webhook/n8n', function (req, res) {
     res.json({ success: true, message: 'Alerta recebido e enfileirado para agrupamento.' });
     webhookQueue.push(function () { return __awaiter(void 0, void 0, void 0, function () {
-        var _a, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, status, data_evento, sinal_rx_retorno, data_evento_sql, idCliente, idContrato, parts, headersIxc, respCliente, razaoSocial, enderecoCompleto, respContrato, c, error_1, buscarIncidente, resInc, idIncidentePai, resCriar, resBusca, alertaId, incidenteId, resCheck;
+        var _a, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, status, data_evento, sinal_rx_retorno, is_update, update_action, update_message, data_evento_sql, idCliente, idContrato, parts, headersIxc, respCliente, razaoSocial, enderecoCompleto, respContrato, c, error_1, checkDuplicata, alertaExistente, novoMotivo, checkRestantes, buscarIncidente, resInc, idIncidentePai, resCriar, resBusca, alertaId, incidenteId, resCheck;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
-                    _a = req.body, host_zabbix = _a.host_zabbix, tipo_alerta = _a.tipo_alerta, identificador = _a.identificador, nome_identificado = _a.nome_identificado, motivo_falha = _a.motivo_falha, status = _a.status, data_evento = _a.data_evento, sinal_rx_retorno = _a.sinal_rx_retorno;
+                    _a = req.body, host_zabbix = _a.host_zabbix, tipo_alerta = _a.tipo_alerta, identificador = _a.identificador, nome_identificado = _a.nome_identificado, motivo_falha = _a.motivo_falha, status = _a.status, data_evento = _a.data_evento, sinal_rx_retorno = _a.sinal_rx_retorno, is_update = _a.is_update, update_action = _a.update_action, update_message = _a.update_message;
                     data_evento_sql = data_evento;
                     if (data_evento_sql && data_evento_sql.includes('.')) {
                         data_evento_sql = data_evento_sql.replace(/\./g, '-');
@@ -163,50 +163,78 @@ router.post('/webhook/n8n', function (req, res) {
                     console.error("Erro ao enriquecer dados do CORP via IXC:", error_1.message);
                     return [3 /*break*/, 6];
                 case 6:
-                    if (!(status === 'DOWN')) return [3 /*break*/, 14];
-                    buscarIncidente = "\n                SELECT id, regiao_afetada FROM mon_incidentes \n                WHERE status = 'Ativo' \n                AND (\n                    (regiao_afetada = ? AND data_inicio >= CAST(? AS DATETIME) - INTERVAL 20 MINUTE)\n                    OR \n                    (data_inicio >= CAST(? AS DATETIME) - INTERVAL 2 MINUTE)\n                )\n                ORDER BY id DESC LIMIT 1\n            ";
-                    return [4 /*yield*/, queryAsync(buscarIncidente, [host_zabbix, data_evento_sql, data_evento_sql])];
+                    if (!(status === 'DOWN')) return [3 /*break*/, 21];
+                    return [4 /*yield*/, queryAsync("\n                SELECT id, motivo_falha, id_incidente FROM mon_alertas \n                WHERE identificador = ? AND host_zabbix = ? AND status = 'DOWN' \n                ORDER BY id DESC LIMIT 1\n            ", [identificador, host_zabbix])];
                 case 7:
-                    resInc = _b.sent();
-                    idIncidentePai = void 0;
-                    if (!(resInc && resInc.length > 0)) return [3 /*break*/, 10];
-                    idIncidentePai = resInc[0].id;
-                    if (!(resInc[0].regiao_afetada !== host_zabbix && resInc[0].regiao_afetada !== 'Múltiplos Equipamentos')) return [3 /*break*/, 9];
-                    return [4 /*yield*/, queryAsync("UPDATE mon_incidentes SET regiao_afetada = 'M\u00FAltiplos Equipamentos' WHERE id = ?", [idIncidentePai])];
+                    checkDuplicata = _b.sent();
+                    if (!(checkDuplicata && checkDuplicata.length > 0)) return [3 /*break*/, 13];
+                    alertaExistente = checkDuplicata[0];
+                    if (!(is_update === '1' || (update_action && update_action.toLowerCase().includes('acknowledge')))) return [3 /*break*/, 12];
+                    novoMotivo = alertaExistente.motivo_falha;
+                    if (update_message && update_message.trim() !== "") {
+                        novoMotivo = "".concat(alertaExistente.motivo_falha, " | ACK: ").concat(update_message);
+                    }
+                    else {
+                        novoMotivo = "".concat(alertaExistente.motivo_falha, " | Reconhecido no Zabbix");
+                    }
+                    return [4 /*yield*/, queryAsync("UPDATE mon_alertas SET status = 'IGNORADO', motivo_falha = ? WHERE id = ?", [novoMotivo, alertaExistente.id])];
                 case 8:
                     _b.sent();
-                    _b.label = 9;
-                case 9: return [3 /*break*/, 12];
-                case 10: return [4 /*yield*/, queryAsync("INSERT INTO mon_incidentes (regiao_afetada, data_inicio, status) VALUES (?, ?, 'Ativo')", [host_zabbix, data_evento_sql])];
-                case 11:
+                    if (!alertaExistente.id_incidente) return [3 /*break*/, 11];
+                    return [4 /*yield*/, queryAsync("SELECT id FROM mon_alertas WHERE id_incidente = ? AND status = 'DOWN' LIMIT 1", [alertaExistente.id_incidente])];
+                case 9:
+                    checkRestantes = _b.sent();
+                    if (!(checkRestantes.length === 0)) return [3 /*break*/, 11];
+                    return [4 /*yield*/, queryAsync("UPDATE mon_incidentes SET status = 'Resolvido', data_fim = NOW() WHERE id = ?", [alertaExistente.id_incidente])];
+                case 10:
+                    _b.sent();
+                    _b.label = 11;
+                case 11: return [2 /*return*/];
+                case 12: return [2 /*return*/];
+                case 13:
+                    buscarIncidente = "\n                SELECT id, regiao_afetada FROM mon_incidentes \n                WHERE status = 'Ativo' \n                AND (\n                    (regiao_afetada = ? AND data_inicio >= CAST(? AS DATETIME) - INTERVAL 10 MINUTE)\n                    OR \n                    (data_inicio >= CAST(? AS DATETIME) - INTERVAL 2 MINUTE)\n                )\n                ORDER BY id DESC LIMIT 1\n            ";
+                    return [4 /*yield*/, queryAsync(buscarIncidente, [host_zabbix, data_evento_sql, data_evento_sql])];
+                case 14:
+                    resInc = _b.sent();
+                    idIncidentePai = void 0;
+                    if (!(resInc && resInc.length > 0)) return [3 /*break*/, 17];
+                    idIncidentePai = resInc[0].id;
+                    if (!(resInc[0].regiao_afetada !== host_zabbix && resInc[0].regiao_afetada !== 'Múltiplos Equipamentos')) return [3 /*break*/, 16];
+                    return [4 /*yield*/, queryAsync("UPDATE mon_incidentes SET regiao_afetada = 'M\u00FAltiplos Equipamentos' WHERE id = ?", [idIncidentePai])];
+                case 15:
+                    _b.sent();
+                    _b.label = 16;
+                case 16: return [3 /*break*/, 19];
+                case 17: return [4 /*yield*/, queryAsync("INSERT INTO mon_incidentes (regiao_afetada, data_inicio, status) VALUES (?, ?, 'Ativo')", [host_zabbix, data_evento_sql])];
+                case 18:
                     resCriar = _b.sent();
                     idIncidentePai = resCriar.insertId;
-                    _b.label = 12;
-                case 12: return [4 /*yield*/, queryAsync("\n                INSERT INTO mon_alertas \n                (id_incidente, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, data_falha, status) \n                VALUES (?, ?, ?, ?, ?, ?, ?, 'DOWN')\n            ", [idIncidentePai, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, data_evento_sql])];
-                case 13:
+                    _b.label = 19;
+                case 19: return [4 /*yield*/, queryAsync("\n                INSERT INTO mon_alertas \n                (id_incidente, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, data_falha, status) \n                VALUES (?, ?, ?, ?, ?, ?, ?, 'DOWN')\n            ", [idIncidentePai, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, data_evento_sql])];
+                case 20:
                     _b.sent();
-                    return [3 /*break*/, 19];
-                case 14:
-                    if (!(status === 'UP')) return [3 /*break*/, 19];
+                    return [3 /*break*/, 26];
+                case 21:
+                    if (!(status === 'UP')) return [3 /*break*/, 26];
                     return [4 /*yield*/, queryAsync("\n                SELECT id, id_incidente FROM mon_alertas \n                WHERE identificador = ? AND host_zabbix = ? AND status = 'DOWN' \n                ORDER BY data_falha DESC LIMIT 1\n            ", [identificador, host_zabbix])];
-                case 15:
+                case 22:
                     resBusca = _b.sent();
-                    if (!(resBusca && resBusca.length > 0)) return [3 /*break*/, 19];
+                    if (!(resBusca && resBusca.length > 0)) return [3 /*break*/, 26];
                     alertaId = resBusca[0].id;
                     incidenteId = resBusca[0].id_incidente;
                     return [4 /*yield*/, queryAsync("UPDATE mon_alertas SET status = 'UP', data_retorno = ?, sinal_rx_retorno = ? WHERE id = ?", [data_evento_sql, sinal_rx_retorno, alertaId])];
-                case 16:
+                case 23:
                     _b.sent();
-                    if (!incidenteId) return [3 /*break*/, 19];
+                    if (!incidenteId) return [3 /*break*/, 26];
                     return [4 /*yield*/, queryAsync("SELECT id FROM mon_alertas WHERE id_incidente = ? AND status = 'DOWN' LIMIT 1", [incidenteId])];
-                case 17:
+                case 24:
                     resCheck = _b.sent();
-                    if (!(resCheck.length === 0)) return [3 /*break*/, 19];
+                    if (!(resCheck.length === 0)) return [3 /*break*/, 26];
                     return [4 /*yield*/, queryAsync("UPDATE mon_incidentes SET status = 'Resolvido', data_fim = ? WHERE id = ?", [data_evento_sql, incidenteId])];
-                case 18:
+                case 25:
                     _b.sent();
-                    _b.label = 19;
-                case 19: return [2 /*return*/];
+                    _b.label = 26;
+                case 26: return [2 /*return*/];
             }
         });
     }); });
