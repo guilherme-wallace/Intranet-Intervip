@@ -48,10 +48,14 @@ router.post('/consultar', async (req: Express.Request, res: Express.Response) =>
     }
 
     let ipRouter = '';
+    let loopbackInterface = 'LoopBack0';
+
     if (selectedRouter === 'VTA01') {
         ipRouter = process.env.LG_ROUTER_VTA01_IP || '10.225.1.253';
+        loopbackInterface = 'LoopBack0';
     } else if (selectedRouter === 'SEA01') {
         ipRouter = process.env.LG_ROUTER_SEA01_IP || '172.31.0.78';
+        loopbackInterface = 'LoopBack2';
     } else {
         return res.status(400).json({ error: 'Roteador inválido.' });
     }
@@ -65,16 +69,16 @@ router.post('/consultar', async (req: Express.Request, res: Express.Response) =>
             comando = `display bgp routing-table ${bgpTarget} longer-prefixes | no-more`;
             break;
         case 'ping':
-            comando = `ping -i LoopBack0 ${safeTarget}`;
+            comando = `ping -i ${loopbackInterface} ${safeTarget}`;
             break;
         case 'trace':
-            comando = `tracert -i LoopBack0 ${safeTarget}`;
+            comando = `tracert -i ${loopbackInterface} ${safeTarget}`;
             break;
         case 'ping6':
-            comando = `ping ipv6 -i LoopBack0 ${safeTarget}`;
+            comando = `ping ipv6 ${safeTarget}`;
             break;
         case 'trace6':
-            comando = `tracert ipv6 -i LoopBack0 ${safeTarget}`;
+            comando = `tracert ipv6 ${safeTarget}`;
             break;
         default:
             return res.status(400).json({ error: 'Tipo de consulta inválido.' });

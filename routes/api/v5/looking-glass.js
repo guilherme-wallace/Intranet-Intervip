@@ -110,10 +110,10 @@ router.post('/consultar', function (req, res) { return __awaiter(void 0, void 0,
                         comando = "tracert -i LoopBack0 ".concat(safeTarget);
                         break;
                     case 'ping6':
-                        comando = "ping ipv6 -i LoopBack0 ".concat(safeTarget);
+                        comando = "ping ipv6 ".concat(safeTarget);
                         break;
                     case 'trace6':
-                        comando = "tracert ipv6 -i LoopBack0 ".concat(safeTarget);
+                        comando = "tracert ipv6 ".concat(safeTarget);
                         break;
                     default:
                         return [2 /*return*/, res.status(400).json({ error: 'Tipo de consulta inválido.' })];
