@@ -78,7 +78,7 @@ function executarComandoHuawei(ipRouter, comando) {
     });
 }
 router.post('/consultar', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var _a, type, target, selectedRouter, ipRouter, comando, safeTarget, bgpTarget, output, cleanOutput, indexTotal, error_1;
+    var _a, type, target, selectedRouter, ipRouter, loopbackInterface, comando, safeTarget, bgpTarget, output, cleanOutput, indexTotal, error_1;
     return __generator(this, function (_b) {
         switch (_b.label) {
             case 0:
@@ -87,11 +87,14 @@ router.post('/consultar', function (req, res) { return __awaiter(void 0, void 0,
                     return [2 /*return*/, res.status(400).json({ error: 'Parâmetros incompletos. type, target e router são obrigatórios.' })];
                 }
                 ipRouter = '';
+                loopbackInterface = 'LoopBack0';
                 if (selectedRouter === 'VTA01') {
                     ipRouter = process.env.LG_ROUTER_VTA01_IP || '10.225.1.253';
+                    loopbackInterface = 'LoopBack0';
                 }
                 else if (selectedRouter === 'SEA01') {
                     ipRouter = process.env.LG_ROUTER_SEA01_IP || '172.31.0.78';
+                    loopbackInterface = 'LoopBack2';
                 }
                 else {
                     return [2 /*return*/, res.status(400).json({ error: 'Roteador inválido.' })];
@@ -104,10 +107,10 @@ router.post('/consultar', function (req, res) { return __awaiter(void 0, void 0,
                         comando = "display bgp routing-table ".concat(bgpTarget, " longer-prefixes | no-more");
                         break;
                     case 'ping':
-                        comando = "ping -i LoopBack0 ".concat(safeTarget);
+                        comando = "ping -i ".concat(loopbackInterface, " ").concat(safeTarget);
                         break;
                     case 'trace':
-                        comando = "tracert -i LoopBack0 ".concat(safeTarget);
+                        comando = "tracert -i ".concat(loopbackInterface, " ").concat(safeTarget);
                         break;
                     case 'ping6':
                         comando = "ping ipv6 ".concat(safeTarget);
