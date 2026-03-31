@@ -2,6 +2,27 @@
 import * as Express from 'express';
 import axios, { Method } from 'axios';
 
+function formatarNomePlano(nomeOriginal: string): string {
+    if (!nomeOriginal) return 'Não informado';
+    
+    const nomeUpper = nomeOriginal.toUpperCase();
+    
+    const matchVelocidade = nomeUpper.match(/(\d+[MG])/);
+    const velocidade = matchVelocidade ? matchVelocidade[1] : '';
+
+    let tecnologia = '';
+    if (nomeUpper.includes('FTTH')) tecnologia = 'FTTH';
+    else if (nomeUpper.includes('FTTA')) tecnologia = 'FTTA';
+    else if (nomeUpper.includes('AIRMAX') || nomeUpper.includes('RADIO') || nomeUpper.includes('RÁDIO')) tecnologia = 'Rádio';
+    else if (nomeUpper.includes('PAC')) tecnologia = 'PAC';
+    
+    if (velocidade && tecnologia) {
+        return `${velocidade}_${tecnologia}`;
+    }
+    
+    return nomeOriginal;
+}
+
 const router = Express.Router();
 
 const makeIxcRequest = async (method: Method, endpoint: string, data: any = null, operationType: 'listar' | 'incluir' | 'alterar' | null = null) => {
@@ -497,20 +518,14 @@ const buildMensagemAtendimento = (data: any, planoNome: string): string => {
     ].filter(Boolean).join(' - ');
     const cpfLimpo = data.cnpj_cpf ? data.cnpj_cpf.replace(/\D/g, '') : '';
 
-    return `
-Venda finalizada com sucesso! Cliente, Contrato, Login, Atendimento e OS criados.
+    const planoNomeFormatado = formatarNomePlano(data.plano_nome);
 
+    return `
 OBS: ${data.obs || 'Não informado'}
 
-NOME COMPLETO: ${data.nome}
-NÚMERO DO CPF/CNPJ: ${cpfLimpo}
-NÚMERO DO RG: ${data.ie_identidade}
-DATA DE NASCIMENTO: ${data.data_nascimento}
-DOIS TELEFONES DE CONTATO: ${telefones || 'Não informado'}
-E-MAIL COMPLETO: ${data.email}
-PLANO ESCOLHIDO: ${planoNome}
-DATA DE VENCIMENTO (5, 10, 15 OU 20): ${data.data_vencimento}
-ENDEREÇO COMPLETO COM PONTO DE REFERÊNCIA: ${enderecoCompleto}
+TELEFONES: ${telefones || 'Não informado'}
+PLANO: ${planoNomeFormatado}
+ENDEREÇO: ${enderecoCompleto}
     `.trim().replace(/\n/g, '\r\n');
 };
 

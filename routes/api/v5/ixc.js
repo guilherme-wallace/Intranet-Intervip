@@ -61,6 +61,26 @@ Object.defineProperty(exports, "__esModule", { value: true });
 // routes/api/v5/ixc.ts
 var Express = require("express");
 var axios_1 = require("axios");
+function formatarNomePlano(nomeOriginal) {
+    if (!nomeOriginal)
+        return 'Não informado';
+    var nomeUpper = nomeOriginal.toUpperCase();
+    var matchVelocidade = nomeUpper.match(/(\d+[MG])/);
+    var velocidade = matchVelocidade ? matchVelocidade[1] : '';
+    var tecnologia = '';
+    if (nomeUpper.includes('FTTH'))
+        tecnologia = 'FTTH';
+    else if (nomeUpper.includes('FTTA'))
+        tecnologia = 'FTTA';
+    else if (nomeUpper.includes('AIRMAX') || nomeUpper.includes('RADIO') || nomeUpper.includes('RÁDIO'))
+        tecnologia = 'Rádio';
+    else if (nomeUpper.includes('PAC'))
+        tecnologia = 'PAC';
+    if (velocidade && tecnologia) {
+        return "".concat(velocidade, "_").concat(tecnologia);
+    }
+    return nomeOriginal;
+}
 var router = Express.Router();
 var makeIxcRequest = function (method, endpoint, data, operationType) {
     if (data === void 0) { data = null; }
@@ -599,7 +619,8 @@ var buildMensagemAtendimento = function (data, planoNome) {
         data.referencia ? "(Ref: ".concat(data.referencia, ")") : ''
     ].filter(Boolean).join(' - ');
     var cpfLimpo = data.cnpj_cpf ? data.cnpj_cpf.replace(/\D/g, '') : '';
-    return "\nVenda finalizada com sucesso! Cliente, Contrato, Login, Atendimento e OS criados.\n\nOBS: ".concat(data.obs || 'Não informado', "\n\nNOME COMPLETO: ").concat(data.nome, "\nN\u00DAMERO DO CPF/CNPJ: ").concat(cpfLimpo, "\nN\u00DAMERO DO RG: ").concat(data.ie_identidade, "\nDATA DE NASCIMENTO: ").concat(data.data_nascimento, "\nDOIS TELEFONES DE CONTATO: ").concat(telefones || 'Não informado', "\nE-MAIL COMPLETO: ").concat(data.email, "\nPLANO ESCOLHIDO: ").concat(planoNome, "\nDATA DE VENCIMENTO (5, 10, 15 OU 20): ").concat(data.data_vencimento, "\nENDERE\u00C7O COMPLETO COM PONTO DE REFER\u00CANCIA: ").concat(enderecoCompleto, "\n    ").trim().replace(/\n/g, '\r\n');
+    var planoNomeFormatado = formatarNomePlano(data.plano_nome);
+    return "\nOBS: ".concat(data.obs || 'Não informado', "\n\nTELEFONES: ").concat(telefones || 'Não informado', "\nPLANO: ").concat(planoNomeFormatado, "\nENDERE\u00C7O: ").concat(enderecoCompleto, "\n    ").trim().replace(/\n/g, '\r\n');
 };
 function abrirAtendimentoOS(novoClienteId, clientData, nomePlano, novoLoginId, novoContratoId) {
     return __awaiter(this, void 0, void 0, function () {
