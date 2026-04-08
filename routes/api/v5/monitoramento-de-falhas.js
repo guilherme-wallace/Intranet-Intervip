@@ -108,9 +108,9 @@ function processWebhookQueue() {
     });
 }
 router.post('/webhook/n8n', function (req, res) {
-    res.json({ success: true, message: 'Alerta recebido e enfileirado para agrupamento.' });
+    res.json({ success: true, message: 'Alerta recebido e enfileirado para processamento.' });
     webhookQueue.push(function () { return __awaiter(void 0, void 0, void 0, function () {
-        var _a, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, status, data_evento, sinal_rx_retorno, is_update, update_action, update_message, data_evento_sql, idCliente, idContrato, parts, headersIxc, respCliente, razaoSocial, enderecoCompleto, respContrato, c, error_1, checkDuplicata, alertaExistente, motivoBase, novoMotivo, checkRestantes, buscarIncidente, resInc, idIncidentePai, resCriar, resBusca, alertaId, incidenteId, resCheck;
+        var _a, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, status, data_evento, sinal_rx_retorno, is_update, update_action, update_message, data_evento_sql, idCliente, idContrato, parts, headersIxc, respCliente, razaoSocial, enderecoCompleto, respContrato, c, error_1, checkDuplicata, alertaExistente, motivoBase, novoMotivo, checkRestantes, checkDuplicata, buscarIncidente, resInc, idIncidentePai, resCriar, resBusca, alertaId, incidenteId, resCheck;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
@@ -163,13 +163,12 @@ router.post('/webhook/n8n', function (req, res) {
                     console.error("Erro ao enriquecer dados do CORP via IXC:", error_1.message);
                     return [3 /*break*/, 6];
                 case 6:
-                    if (!(status === 'DOWN')) return [3 /*break*/, 20];
+                    if (!(is_update === '1' || (update_action && update_action.toLowerCase().includes('acknowledge')))) return [3 /*break*/, 12];
                     return [4 /*yield*/, queryAsync("\n                SELECT id, motivo_falha, id_incidente FROM mon_alertas \n                WHERE identificador = ? AND host_zabbix = ? AND status = 'DOWN' \n                ORDER BY id DESC LIMIT 1\n            ", [identificador, host_zabbix])];
                 case 7:
                     checkDuplicata = _b.sent();
-                    if (!(checkDuplicata && checkDuplicata.length > 0)) return [3 /*break*/, 12];
+                    if (!(checkDuplicata && checkDuplicata.length > 0)) return [3 /*break*/, 11];
                     alertaExistente = checkDuplicata[0];
-                    if (!(is_update === '1' || (update_action && update_action.toLowerCase().includes('acknowledge')))) return [3 /*break*/, 11];
                     motivoBase = alertaExistente.motivo_falha || 'Desconhecido';
                     novoMotivo = motivoBase;
                     if (update_message && update_message.trim() !== "") {
@@ -192,55 +191,63 @@ router.post('/webhook/n8n', function (req, res) {
                     _b.label = 11;
                 case 11: return [2 /*return*/];
                 case 12:
+                    if (!(status === 'DOWN')) return [3 /*break*/, 21];
+                    return [4 /*yield*/, queryAsync("\n                SELECT id FROM mon_alertas \n                WHERE identificador = ? AND host_zabbix = ? AND status = 'DOWN' \n                ORDER BY id DESC LIMIT 1\n            ", [identificador, host_zabbix])];
+                case 13:
+                    checkDuplicata = _b.sent();
+                    if (checkDuplicata && checkDuplicata.length > 0)
+                        return [2 /*return*/];
                     buscarIncidente = "\n                SELECT id, regiao_afetada FROM mon_incidentes \n                WHERE status = 'Ativo' \n                AND (\n                    (regiao_afetada = ? AND data_inicio >= CAST(? AS DATETIME) - INTERVAL 20 MINUTE)\n                    OR \n                    (data_inicio >= CAST(? AS DATETIME) - INTERVAL 2 MINUTE)\n                )\n                ORDER BY id DESC LIMIT 1\n            ";
                     return [4 /*yield*/, queryAsync(buscarIncidente, [host_zabbix, data_evento_sql, data_evento_sql])];
-                case 13:
+                case 14:
                     resInc = _b.sent();
                     idIncidentePai = void 0;
-                    if (!(resInc && resInc.length > 0)) return [3 /*break*/, 16];
+                    if (!(resInc && resInc.length > 0)) return [3 /*break*/, 17];
                     idIncidentePai = resInc[0].id;
-                    if (!(resInc[0].regiao_afetada !== host_zabbix && resInc[0].regiao_afetada !== 'Múltiplos Equipamentos')) return [3 /*break*/, 15];
+                    if (!(resInc[0].regiao_afetada !== host_zabbix && resInc[0].regiao_afetada !== 'Múltiplos Equipamentos')) return [3 /*break*/, 16];
                     return [4 /*yield*/, queryAsync("UPDATE mon_incidentes SET regiao_afetada = 'M\u00FAltiplos Equipamentos' WHERE id = ?", [idIncidentePai])];
-                case 14:
+                case 15:
                     _b.sent();
-                    _b.label = 15;
-                case 15: return [3 /*break*/, 18];
-                case 16: return [4 /*yield*/, queryAsync("INSERT INTO mon_incidentes (regiao_afetada, data_inicio, status) VALUES (?, ?, 'Ativo')", [host_zabbix, data_evento_sql])];
-                case 17:
+                    _b.label = 16;
+                case 16: return [3 /*break*/, 19];
+                case 17: return [4 /*yield*/, queryAsync("INSERT INTO mon_incidentes (regiao_afetada, data_inicio, status) VALUES (?, ?, 'Ativo')", [host_zabbix, data_evento_sql])];
+                case 18:
                     resCriar = _b.sent();
                     idIncidentePai = resCriar.insertId;
-                    _b.label = 18;
-                case 18: return [4 /*yield*/, queryAsync("\n                INSERT INTO mon_alertas \n                (id_incidente, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, data_falha, status) \n                VALUES (?, ?, ?, ?, ?, ?, ?, 'DOWN')\n            ", [idIncidentePai, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, data_evento_sql])];
-                case 19:
-                    _b.sent();
-                    return [3 /*break*/, 25];
+                    _b.label = 19;
+                case 19: return [4 /*yield*/, queryAsync("\n                INSERT INTO mon_alertas \n                (id_incidente, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, data_falha, status) \n                VALUES (?, ?, ?, ?, ?, ?, ?, 'DOWN')\n            ", [idIncidentePai, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, data_evento_sql])];
                 case 20:
-                    if (!(status === 'UP')) return [3 /*break*/, 25];
-                    return [4 /*yield*/, queryAsync("\n                SELECT id, id_incidente FROM mon_alertas \n                WHERE identificador = ? AND host_zabbix = ? AND status = 'DOWN' \n                ORDER BY data_falha DESC LIMIT 1\n            ", [identificador, host_zabbix])];
+                    _b.sent();
+                    return [3 /*break*/, 26];
                 case 21:
+                    if (!(status === 'UP')) return [3 /*break*/, 26];
+                    return [4 /*yield*/, queryAsync("\n                SELECT id, id_incidente FROM mon_alertas \n                WHERE identificador = ? AND host_zabbix = ? AND status IN ('DOWN', 'IGNORADO')\n                ORDER BY data_falha DESC LIMIT 1\n            ", [identificador, host_zabbix])];
+                case 22:
                     resBusca = _b.sent();
-                    if (!(resBusca && resBusca.length > 0)) return [3 /*break*/, 25];
+                    if (!(resBusca && resBusca.length > 0)) return [3 /*break*/, 26];
                     alertaId = resBusca[0].id;
                     incidenteId = resBusca[0].id_incidente;
                     return [4 /*yield*/, queryAsync("UPDATE mon_alertas SET status = 'UP', data_retorno = ?, sinal_rx_retorno = ? WHERE id = ?", [data_evento_sql, sinal_rx_retorno, alertaId])];
-                case 22:
-                    _b.sent();
-                    if (!incidenteId) return [3 /*break*/, 25];
-                    return [4 /*yield*/, queryAsync("SELECT id FROM mon_alertas WHERE id_incidente = ? AND status = 'DOWN' LIMIT 1", [incidenteId])];
                 case 23:
-                    resCheck = _b.sent();
-                    if (!(resCheck.length === 0)) return [3 /*break*/, 25];
-                    return [4 /*yield*/, queryAsync("UPDATE mon_incidentes SET status = 'Resolvido', data_fim = ? WHERE id = ?", [data_evento_sql, incidenteId])];
-                case 24:
                     _b.sent();
-                    _b.label = 25;
-                case 25: return [2 /*return*/];
+                    if (!incidenteId) return [3 /*break*/, 26];
+                    return [4 /*yield*/, queryAsync("SELECT id FROM mon_alertas WHERE id_incidente = ? AND status = 'DOWN' LIMIT 1", [incidenteId])];
+                case 24:
+                    resCheck = _b.sent();
+                    if (!(resCheck.length === 0)) return [3 /*break*/, 26];
+                    return [4 /*yield*/, queryAsync("UPDATE mon_incidentes SET status = 'Resolvido', data_fim = ? WHERE id = ?", [data_evento_sql, incidenteId])];
+                case 25:
+                    _b.sent();
+                    _b.label = 26;
+                case 26: return [2 /*return*/];
             }
         });
     }); });
     processWebhookQueue();
 });
 router.get('/falhas-ativas', function (req, res) {
+    var AUTO_HEAL_SQL = "\n        UPDATE mon_incidentes \n        SET status = 'Resolvido', data_fim = NOW() \n        WHERE status = 'Ativo' \n          AND data_inicio <= NOW() - INTERVAL 5 MINUTE\n          AND id NOT IN (SELECT DISTINCT id_incidente FROM mon_alertas WHERE status = 'DOWN' AND id_incidente IS NOT NULL)\n    ";
+    database_1.LOCALHOST.query(AUTO_HEAL_SQL, function () { });
     var queryIncidentes = "\n        SELECT * FROM mon_incidentes \n        WHERE \n            (status = 'Ativo' AND data_inicio <= NOW() - INTERVAL '2:30' MINUTE_SECOND)\n           OR \n            (status = 'Resolvido' AND data_fim >= NOW() - INTERVAL 10 MINUTE)\n        ORDER BY data_inicio DESC\n    ";
     database_1.LOCALHOST.query(queryIncidentes, function (errInc, resultIncidentes) {
         if (errInc)

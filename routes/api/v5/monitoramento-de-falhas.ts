@@ -36,7 +36,7 @@ async function processWebhookQueue() {
 
 router.post('/webhook/n8n', (req, res) => {
     
-    res.json({ success: true, message: 'Alerta recebido e enfileirado para agrupamento.' });
+    res.json({ success: true, message: 'Alerta recebido e enfileirado para processamento.' });
 
     webhookQueue.push(async () => {
         let { 
@@ -84,7 +84,7 @@ router.post('/webhook/n8n', (req, res) => {
             }
         }
 
-        if (status === 'DOWN') {
+        if (is_update === '1' || (update_action && update_action.toLowerCase().includes('acknowledge'))) {
             
             const checkDuplicata = await queryAsync(`
                 SELECT id, motivo_falha, id_incidente FROM mon_alertas 
@@ -94,30 +94,37 @@ router.post('/webhook/n8n', (req, res) => {
 
             if (checkDuplicata && checkDuplicata.length > 0) {
                 const alertaExistente = checkDuplicata[0];
-                
-                if (is_update === '1' || (update_action && update_action.toLowerCase().includes('acknowledge'))) {
-                    
-                    let motivoBase = alertaExistente.motivo_falha || 'Desconhecido';
-                    let novoMotivo = motivoBase;
+                let motivoBase = alertaExistente.motivo_falha || 'Desconhecido';
+                let novoMotivo = motivoBase;
 
-                    if (update_message && update_message.trim() !== "") {
-                        novoMotivo = `${motivoBase} | ACK: ${update_message}`;
-                    } else {
-                        novoMotivo = `${motivoBase} | Reconhecido no Zabbix`;
-                    }
-                    
-                    await queryAsync(`UPDATE mon_alertas SET status = 'IGNORADO', data_retorno = NOW(), motivo_falha = ? WHERE id = ?`, [novoMotivo, alertaExistente.id]);
-                    
-                    if (alertaExistente.id_incidente) {
-                        const checkRestantes = await queryAsync(`SELECT id FROM mon_alertas WHERE id_incidente = ? AND status = 'DOWN' LIMIT 1`, [alertaExistente.id_incidente]);
-                        if (checkRestantes.length === 0) {
-                            await queryAsync(`UPDATE mon_incidentes SET status = 'Resolvido', data_fim = NOW() WHERE id = ?`, [alertaExistente.id_incidente]);
-                        }
-                    }
+                if (update_message && update_message.trim() !== "") {
+                    novoMotivo = `${motivoBase} | ACK: ${update_message}`;
+                } else {
+                    novoMotivo = `${motivoBase} | Reconhecido no Zabbix`;
                 }
                 
-                return; 
+                await queryAsync(`UPDATE mon_alertas SET status = 'IGNORADO', data_retorno = NOW(), motivo_falha = ? WHERE id = ?`, [novoMotivo, alertaExistente.id]);
+                
+                if (alertaExistente.id_incidente) {
+                    const checkRestantes = await queryAsync(`SELECT id FROM mon_alertas WHERE id_incidente = ? AND status = 'DOWN' LIMIT 1`, [alertaExistente.id_incidente]);
+                    if (checkRestantes.length === 0) {
+                        await queryAsync(`UPDATE mon_incidentes SET status = 'Resolvido', data_fim = NOW() WHERE id = ?`, [alertaExistente.id_incidente]);
+                    }
+                }
             }
+            
+            return; 
+        }
+
+        if (status === 'DOWN') {
+            
+            const checkDuplicata = await queryAsync(`
+                SELECT id FROM mon_alertas 
+                WHERE identificador = ? AND host_zabbix = ? AND status = 'DOWN' 
+                ORDER BY id DESC LIMIT 1
+            `, [identificador, host_zabbix]);
+
+            if (checkDuplicata && checkDuplicata.length > 0) return;
 
             const buscarIncidente = `
                 SELECT id, regiao_afetada FROM mon_incidentes 
@@ -153,7 +160,7 @@ router.post('/webhook/n8n', (req, res) => {
             
             const resBusca = await queryAsync(`
                 SELECT id, id_incidente FROM mon_alertas 
-                WHERE identificador = ? AND host_zabbix = ? AND status = 'DOWN' 
+                WHERE identificador = ? AND host_zabbix = ? AND status IN ('DOWN', 'IGNORADO')
                 ORDER BY data_falha DESC LIMIT 1
             `, [identificador, host_zabbix]);
 
@@ -178,6 +185,15 @@ router.post('/webhook/n8n', (req, res) => {
 
 router.get('/falhas-ativas', (req, res) => {
     
+    const AUTO_HEAL_SQL = `
+        UPDATE mon_incidentes 
+        SET status = 'Resolvido', data_fim = NOW() 
+        WHERE status = 'Ativo' 
+          AND data_inicio <= NOW() - INTERVAL 5 MINUTE
+          AND id NOT IN (SELECT DISTINCT id_incidente FROM mon_alertas WHERE status = 'DOWN' AND id_incidente IS NOT NULL)
+    `;
+    LOCALHOST.query(AUTO_HEAL_SQL, () => {});
+
     const queryIncidentes = `
         SELECT * FROM mon_incidentes 
         WHERE 

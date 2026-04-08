@@ -415,10 +415,157 @@ body.dark-mode .btn-outline-dark:hover {
     text-decoration: underline;
 }
 
+/* =========================================
+   RESPONSIVIDADE MOBILE 
+========================================= */
 @media (max-width: 768px) {
-    .header-title { display: none; }
-    .user-info { display: none; }   
-    main.ivp-main { padding: 1rem; }
-    .step-indicator { width: 100%; }
-    .step p { font-size: 0.8rem; }
+    html, body, .gerenciaIVP-body {
+        overflow-x: hidden !important;
+        width: 100% !important;
+    }
+
+    .header-modern { padding: 0 10px !important; }
+    .header-title { display: none !important; }
+    .user-info p { display: none !important; }
+    .logo { height: 32px !important; }
+
+    .sidebar, .ivp-sidebar {
+        position: relative !important;
+        top: 0 !important;
+        width: 100% !important;
+        height: auto !important;
+        border-right: none !important;
+        border-bottom: 2px solid var(--border-color) !important;
+        padding: 1rem !important;
+        z-index: 1;
+    }
+
+    main.ivp-main, .main-content {
+        margin-left: 0 !important;
+        width: 100% !important;
+        padding: 0 !important;
+    }
+
+    body main.ivp-main div.p-4,
+    body main.main-content div.p-4,
+    body main.ivp-main div.p-3,
+    body main.main-content div.p-3,
+    main.ivp-main.p-4,
+    main.main-content.p-4 {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        padding-top: 10px !important;
+        padding-bottom: 0 !important;
+    }
+
+    .main-content .container-fluid,
+    .main-content .row,
+    .main-content .col-12,
+    .main-content .col-xxl-10 {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+
+    .main-content .card {
+        border-radius: 0 !important;
+        border-left: none !important;
+        border-right: none !important;
+        margin-bottom: 0.5rem !important;
+        box-shadow: none !important;
+        border-bottom: 1px solid var(--border-color) !important;
+    }
+
+    .main-content .card-body {
+        padding: 1.25rem 1rem !important;
+    }
+
+    .list-group-item.d-flex {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 0.5rem !important;
+    }
+
+    .list-group-item .badge {
+        align-self: flex-start !important;
+        white-space: normal !important;
+        text-align: left !important;
+    }
+
+    .d-flex.gap-3.mb-2 {
+        gap: 0.5rem !important;
+        flex-wrap: wrap !important;
+    }
+    .form-check-inline {
+        margin-right: 0.5rem !important;
+        margin-bottom: 0.25rem !important;
+    }
+
+    .input-group {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        width: 100% !important;
+    }
+    
+    .input-group > .form-control {
+        min-width: 0 !important; 
+        flex: 1 1 auto !important;
+    }
+
+    .input-group > .btn, 
+    .input-group > .input-group-text {
+        white-space: nowrap !important;
+        flex: 0 0 auto !important;
+        padding: 0.375rem 0.75rem !important;
+    }
+    
+    #btn-buscar-cliente {
+        white-space: nowrap !important;
+        padding: 0.375rem 0.75rem !important; 
+    }
+    
+    .dropdown-menu {
+        max-width: 95vw !important;
+        white-space: normal !important;
+    }
+
+    .row > [class^="col-"] {
+        margin-bottom: 1rem !important;
+    }
+
+    .form-actions-container {
+        flex-direction: column-reverse !important;
+        padding: 1.5rem 1rem !important;
+        background: white;
+        border-top: 1px solid var(--border-color);
+        margin: 0 !important;
+    }
+    .form-actions-container .btn {
+        width: 100% !important;
+        margin-bottom: 0.75rem !important;
+        padding: 0.85rem !important;
+        font-weight: 500;
+    }
+
+    body main .main-content .card-body .row > div > .d-flex {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.75rem !important;
+    }
+
+    body main .main-content .card-body .row > div > .d-flex.gap-3.mb-2 {
+        flex-direction: row !important;
+        align-items: center !important;
+        flex-wrap: wrap !important;
+    }
+
+    body main .main-content .card-body .row > div > .d-flex > .input-group {
+        width: 100% !important;
+    }
+
+    body main .main-content .card-body .row > div > .d-flex > .form-check:not(.form-check-inline) {
+        margin-left: 0 !important; 
+        margin-top: 0 !important; 
+    }
 }
