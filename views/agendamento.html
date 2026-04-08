@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Intervip - Agendamento Técnico</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="stylesheets/style.css">
+    <link rel="stylesheet" href="stylesheets/agendamento.css"> 
+</head>
+
+<body class="gerenciaIVP-body">
+    <header class="header-modern">
+        <div class="container-fluid">
+            <div class="d-flex align-items-center">
+                <a href="/main" class="d-flex align-items-center text-decoration-none">
+                    <img class="logo me-3" src="images/logo.png" alt="Logo Intervip">
+                </a>
+            </div>
+            <h1 class="header-title fs-4 fw-semibold text-white m-0">Agendamento Técnico</h1>
+            <div class="d-flex align-items-center">
+                
+                <div class="user-info text-end me-4">
+                    <p class="m-0 small text-white-80">Acessando como: <span class="fw-medium">{username}</span></p>
+                    <p class="m-0 small text-white-80">Setor: <span class="fw-medium">{group}</span></p>
+                </div>
+                <button id="theme-toggle" class="btn btn-sm btn-outline-dark rounded-pill px-3">
+                    <i class="bi bi-moon-stars"></i>
+                </button>
+                <button id="btnLogout" class="btn btn-sm btn-outline-danger rounded-pill px-3 ms-2">
+                    <i class="bi bi-box-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="ivp-main">
+        <div class="container py-4">
+            <h3 class="mb-4 text-primary"><i class="bi bi-calendar-date me-2"></i>Agendamento Técnico e Instalação</h3>
+
+            <div id="loading-os" class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-2 text-muted fw-bold">Buscando dados da OS no IXC...</p>
+            </div>
+
+            <div id="conteudo-agendamento" style="display: none;">
+                <div class="row g-4">
+                    <div class="col-lg-5">
+                        <div class="ivp-card h-100">
+                            <div class="card-header bg-light border-bottom p-3">
+                                <h6 class="mb-0 fw-bold text-muted text-uppercase">Resumo da Ordem de Serviço</h6>
+                            </div>
+                            <div class="card-body p-4">
+                                <div class="mb-3">
+                                    <span id="badge-tipo-os" class="badge bg-primary mb-2 fs-6">---</span>
+                                    <h4 id="os-cliente-nome" class="fw-bold text-dark mb-1">---</h4>
+                                    <small id="os-ticket-id" class="text-muted">Ticket: #---</small>
+                                </div>
+                                <hr>
+                                <p class="mb-1 text-muted small fw-bold">ENDEREÇO DE ATENDIMENTO</p>
+                                <p id="os-endereco" class="fw-medium mb-3">---</p>
+                                
+                                <p class="mb-1 text-muted small fw-bold">MUNICÍPIO / TIPO</p>
+                                <p class="fw-medium mb-3">
+                                    <span id="os-municipio" class="text-primary fw-bold">---</span> | 
+                                    <span id="os-tipo-imovel">---</span>
+                                </p>
+
+                                <p class="mb-1 text-muted small fw-bold">MENSAGEM / SINTOMA</p>
+                                <div id="os-mensagem" class="bg-light p-2 rounded small border text-wrap overflow-hidden" style="max-height: 150px; overflow-y: auto;">---</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-7">
+                        <div class="ivp-card h-100">
+                            <div class="card-body p-4">
+                                <h5 class="fw-bold text-primary mb-4"><i class="bi bi-clock-history me-2"></i>Escolha o Horário</h5>
+                                
+                                <form id="form-agendamento">
+                                    <input type="hidden" id="hidden-os-id">
+                                    <input type="hidden" id="hidden-municipio">
+                                    <input type="hidden" id="hidden-tipo-servico">
+
+                                    <div class="mb-4">
+                                        <label class="form-label fw-bold">1. Selecione a Data <span class="text-danger">*</span></label>
+                                        <input type="date" class="form-control form-control-lg" id="input-data" required>
+                                    </div>
+
+                                    <div class="mb-4">
+                                        <label class="form-label fw-bold d-flex justify-content-between">
+                                            <span>2. Selecione o Turno <span class="text-danger">*</span></span>
+                                            <span id="loading-vagas" class="spinner-border spinner-border-sm text-primary d-none" role="status"></span>
+                                        </label>
+                                        
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <input type="radio" class="btn-check" name="turno" id="turno-matutino" value="MATUTINO" autocomplete="off" disabled required>
+                                                <label class="btn btn-outline-primary w-100 p-3 text-start" for="turno-matutino" id="label-matutino">
+                                                    <div class="fw-bold fs-5 mb-1"><i class="bi bi-sunrise me-2"></i>Manhã</div>
+                                                    <small class="d-block text-muted" id="vagas-matutino">Aguardando data...</small>
+                                                </label>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <input type="radio" class="btn-check" name="turno" id="turno-vespertino" value="VESPERTINO" autocomplete="off" disabled required>
+                                                <label class="btn btn-outline-primary w-100 p-3 text-start" for="turno-vespertino" id="label-vespertino">
+                                                    <div class="fw-bold fs-5 mb-1"><i class="bi bi-sunset me-2"></i>Tarde</div>
+                                                    <small class="d-block text-muted" id="vagas-vespertino">Aguardando data...</small>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="bg-light p-3 rounded border mb-4 d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-0 fw-bold"><i class="bi bi-puzzle me-1"></i>Aceita Encaixe?</h6>
+                                            <small class="text-muted">Se a agenda liberar, o técnico pode ir antes.</small>
+                                        </div>
+                                        <div class="form-check form-switch fs-4 mb-0">
+                                            <input class="form-check-input" type="checkbox" id="chk-encaixe">
+                                        </div>
+                                    </div>
+
+                                    <div class="text-end">
+                                        <button type="submit" class="btn btn-success btn-lg px-5" id="btn-confirmar-agendamento" disabled>
+                                            <i class="bi bi-check-circle me-2"></i>Confirmar Agendamento
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <footer class="ivp-footer">
+         <div class="container-fluid py-3">
+            <div class="text-center">
+                <img src="images/logo.png" alt="Logo Intervip" width="100">
+                <p class="ivp-footer-text">
+                    © 2026 Gerência Intervip | Desenvolvido por 
+                    <a href="https://github.com/guilherme-wallace" target="_blank">Guilherme Wallace</a>
+                </p>
+            </div>
+        </div>
+    </footer>
+    
+    <script src="javascripts/jquery.js"></script>
+    <script src="javascripts/bootstrap.bundle.min.js"></script>
+    <script src="javascripts/bootstrap-autocomplete.min.js"></script> 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.inputmask/5.0.9/jquery.inputmask.min.js"></script>
+    <script src="javascripts/agendamento.js"></script> 
+</body>
+</html>
