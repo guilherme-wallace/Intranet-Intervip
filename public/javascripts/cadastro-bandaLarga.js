@@ -694,10 +694,11 @@ async function cadastrarClienteNoIXC(clientData, existingClientId = null) {
                 const newBtn = submitButton.cloneNode(true);
                 submitButton.parentNode.replaceChild(newBtn, submitButton);
                 
-                newBtn.addEventListener('click', () => {
-                    window.location.reload();
-                });
+                submitButton.innerHTML = '<i class="bi bi-calendar-check me-2"></i>Agendar Instalação';
 
+                newBtn.addEventListener('click', () => {
+                    window.location.href = `/agenda?os=${result.ticketId}&origem=venda`;
+                });
             } else {
                 if (clienteConsultado) {
                      submitButton.innerHTML = 'Finalizar Novo Contrato';

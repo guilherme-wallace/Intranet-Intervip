@@ -30,6 +30,7 @@ import monitoramentoDeFalhasRoutes from './routes/api/v5/monitoramento-de-falhas
 import lookingGlassRoutes from './routes/api/v5/looking-glass';
 import rede_neutraRoutes from './routes/api/v5/rede_neutra';
 import analise_de_riscoRoutes from './routes/api/v5/analise-de-risco';
+import abertura_OSRoutes from './routes/api/v5/abertura-OS';
 
 import * as jwt from 'jsonwebtoken';
 
@@ -211,6 +212,7 @@ const PERMISSOES_SISTEMA = {
     'card-looking-glass': ['NOC','Diretoria'],
   
     'card-analise-de-risco': ['NOC','TecnicoFibra','TecnicoLogistica','Fibra','Logistica','Diretoria'],
+    'card-abertura-OS': ['NOC'],
 
     'card-cadastro-bandaLarga': ['NOC','Comercial','Almoxarifado','Corporativo','Diretoria','Fibra','Financeiro','Helpdesk','CRI','Logistica','Qualidade'],
     'card-cadastro-corporativo': ['NOC','Comercial','Corporativo','Diretoria','Financeiro'],
@@ -310,6 +312,10 @@ APP.get('/looking-glass', verificarAcessoPagina('looking-glass'), (req, res) => 
 
 APP.get('/analise-de-risco', verificarAcessoPagina('analise-de-risco'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'analise-de-risco.html'));
+});
+
+APP.get('/abertura-OS', verificarAcessoPagina('abertura-OS'), (req, res) => {
+    res.sendFile(Path.join(__dirname, 'views', 'abertura-OS.html'));
 });
 
 APP.get('/cadastro-bandaLarga', verificarAcessoPagina('cadastro-bandaLarga'), (req, res) => {
@@ -443,6 +449,8 @@ APP.use('/api/v5/monitoramento-de-falhas', protectApi, monitoramentoDeFalhasRout
 APP.use('/api/v5/looking-glass', protectApi, lookingGlassRoutes);
 APP.use('/api/v5/rede_neutra', protectApi, rede_neutraRoutes);
 APP.use('/api/v5/analise-de-risco', protectApi, analise_de_riscoRoutes);
+APP.use('/api/v5/abertura-OS', protectApi, abertura_OSRoutes);
+
 
 
 
@@ -465,6 +473,7 @@ APP.use('/e-mails', protectRoutes, ROUTES);
 APP.use('/migra-onu', protectRoutes, ROUTES);
 APP.use('/lead-Venda', protectRoutes, ROUTES);
 APP.use('/soc-report', protectRoutes, ROUTES);
+APP.use('/abertura-OS', protectRoutes, ROUTES);
 APP.use('/equipamentos', protectRoutes, ROUTES);
 APP.use('/looking-glass', protectRoutes, ROUTES);
 APP.use('/clientes-online', protectRoutes, ROUTES);

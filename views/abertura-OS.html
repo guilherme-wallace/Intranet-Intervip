@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Intervip - Abertura de Atendimentos</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="stylesheets/style.css">
+    <link rel="stylesheet" href="stylesheets/abertura-OS.css">
+</head>
+
+<body class="gerenciaIVP-body">
+    <header class="header-modern">
+        <div class="container-fluid">
+            <div class="d-flex align-items-center">
+                <a href="/main" class="d-flex align-items-center text-decoration-none">
+                    <img class="logo me-3" src="images/logo.png" alt="Logo Intervip">
+                </a>
+            </div>
+            <h1 class="header-title fs-4 fw-semibold text-white m-0">Abertura de Atendimentos</h1>
+            <div class="d-flex align-items-center">
+                
+                <div class="user-info text-end me-4">
+                    <p class="m-0 small text-white-80">Acessando como: <span class="fw-medium">{username}</span></p>
+                    <p class="m-0 small text-white-80">Setor: <span class="fw-medium">{group}</span></p>
+                </div>
+                <button id="theme-toggle" class="btn btn-sm btn-outline-dark rounded-pill px-3">
+                    <i class="bi bi-moon-stars"></i>
+                </button>
+                <button id="btnLogout" class="btn btn-sm btn-outline-danger rounded-pill px-3 ms-2">
+                    <i class="bi bi-box-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="ivp-main">
+        <div class="container py-4">
+            <h3 class="mb-4 text-primary"><i class="bi bi-headset me-2"></i>Triagem e Abertura de OS</h3>
+
+            <div class="row">
+                <div class="col-lg-4">
+                    <div class="ivp-card mb-4">
+                        <div class="card-body p-4">
+                            <label class="form-label fw-bold">Buscar Cliente</label>
+                            <div class="input-group mb-3">
+                                <input type="text" id="input-busca-cliente" class="form-control" placeholder="CPF, CNPJ ou Nome...">
+                                <button class="btn btn-primary" id="btn-buscar-cliente">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
+                            
+                            <div id="alerta-os-aberta" class="alert alert-warning d-none small">
+                                <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                                Este cliente já possui uma OS <strong>em andamento</strong>. 
+                                <button class="btn btn-sm btn-link p-0 text-dark fw-bold ms-1" id="btn-ver-os-aberta">Ver Detalhes</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-8">
+                    <div class="ivp-card" id="card-diagnostico" style="opacity: 0.5; pointer-events: none;">
+                        <div class="card-body p-4">
+                            <div class="d-flex justify-content-between border-bottom pb-3 mb-3">
+                                <div>
+                                    <h5 class="fw-bold mb-0 text-primary" id="display-nome-cliente">Aguardando busca...</h5>
+                                    <small class="text-muted" id="display-endereco-cliente">---</small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-secondary" id="display-tipo-imovel">---</span>
+                                </div>
+                            </div>
+
+                            <form id="form-triagem">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Motivo do Contato <span class="text-danger">*</span></label>
+                                        <select class="form-select" id="select-motivo" required>
+                                            <option value="" selected disabled>Selecione...</option>
+                                            <option value="LOS">LOS (Sem Sinal)</option>
+                                            <option value="LENTIDAO">Lentidão / Intermitência</option>
+                                            <option value="ROTEADOR">Falha no Roteador (Wi-Fi)</option>
+                                            <option value="MUDANCA">Mudança de Endereço</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Contrato Vinculado</label>
+                                        <select class="form-select" id="select-contrato" required>
+                                            <option value="" selected disabled>---</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-12 bg-light p-3 rounded border d-none" id="area-checklist">
+                                        <h6 class="text-muted fw-bold small text-uppercase mb-2"><i class="bi bi-check2-square me-1"></i>Checklist Obrigatório</h6>
+                                        <div id="checklist-items"></div>
+                                    </div>
+
+                                    <div class="col-12 mt-3">
+                                        <label class="form-label fw-bold">Observações para a Logística/Técnico</label>
+                                        <textarea class="form-control" id="obs-triagem" rows="3" placeholder="Relato do cliente..."></textarea>
+                                    </div>
+
+                                    <div class="col-12 mt-3 d-flex justify-content-between align-items-center bg-light p-3 rounded">
+                                        <div>
+                                            <h6 class="mb-1 fw-bold text-dark"><i class="bi bi-calendar-plus me-1"></i>Aceita Encaixe?</h6>
+                                            <small class="text-muted">Marque caso o cliente tenha disponibilidade flexível de horário.</small>
+                                        </div>
+                                        <div class="form-check form-switch fs-4">
+                                            <input class="form-check-input" type="checkbox" id="chk-aceita-encaixe">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="text-end mt-4">
+                                    <button type="button" class="btn btn-success px-4" id="btn-gerar-os">
+                                        <i class="bi bi-file-earmark-plus me-2"></i>Avançar para Agendamento
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="ivp-footer">
+         <div class="container-fluid py-3">
+            <div class="text-center">
+                <img src="images/logo.png" alt="Logo Intervip" width="100">
+                <p class="ivp-footer-text">
+                    © 2025 Gerência Intervip | Desenvolvido por 
+                    <a href="https://github.com/guilherme-wallace" target="_blank">Guilherme Wallace</a>
+                </p>
+            </div>
+        </div>
+    </footer>
+    
+    <script src="javascripts/jquery.js"></script>
+    <script src="javascripts/bootstrap.bundle.min.js"></script>
+    <script src="javascripts/bootstrap-autocomplete.min.js"></script> 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.inputmask/5.0.9/jquery.inputmask.min.js"></script>
+    <script src="javascripts/agenda.js"></script>
+</body>
+</html>
