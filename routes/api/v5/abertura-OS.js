@@ -36,7 +36,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-// routes/api/v5/agenda.ts
+// routes/api/v5/abertura-OS.ts
 var Express = require("express");
 var axios_1 = require("axios");
 var database_1 = require("../../../api/database");
@@ -85,68 +85,4 @@ var makeIxcRequest = function (method, endpoint, data) {
         });
     });
 };
-router.get('/triagem/busca-cliente/:termo', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var termo, payloadBusca, cliResp, cliente, contratoResp, chamadosPendentes, osAbertas, error_2;
-    return __generator(this, function (_a) {
-        switch (_a.label) {
-            case 0:
-                termo = req.params.termo;
-                _a.label = 1;
-            case 1:
-                _a.trys.push([1, 5, , 6]);
-                payloadBusca = {
-                    qtype: isNaN(Number(termo)) ? "cliente.razao" : "cliente.cnpj_cpf",
-                    query: termo,
-                    oper: isNaN(Number(termo)) ? "L" : "=",
-                    page: "1",
-                    rp: "5"
-                };
-                return [4 /*yield*/, makeIxcRequest('POST', '/cliente', payloadBusca)];
-            case 2:
-                cliResp = _a.sent();
-                if (!cliResp.registros || cliResp.registros.length === 0) {
-                    return [2 /*return*/, res.status(404).json({ error: "Cliente não encontrado no IXC." })];
-                }
-                cliente = cliResp.registros[0];
-                return [4 /*yield*/, makeIxcRequest('POST', '/cliente_contrato', {
-                        qtype: "cliente_contrato.id_cliente",
-                        query: cliente.id,
-                        oper: "=",
-                        page: "1",
-                        rp: "10"
-                    })];
-            case 3:
-                contratoResp = _a.sent();
-                return [4 /*yield*/, makeIxcRequest('POST', '/suporte', {
-                        qtype: "suporte.id_cliente",
-                        query: cliente.id,
-                        oper: "=",
-                        page: "1",
-                        rp: "10"
-                    })];
-            case 4:
-                chamadosPendentes = _a.sent();
-                osAbertas = (chamadosPendentes.registros || []).filter(function (os) { return os.status === 'A' || os.status === 'EN'; });
-                res.json({
-                    cliente: {
-                        id: cliente.id,
-                        nome: cliente.razao,
-                        documento: cliente.cnpj_cpf,
-                        endereco: cliente.endereco,
-                        numero: cliente.numero,
-                        bairro: cliente.bairro,
-                        cidade: cliente.cidade
-                    },
-                    contratos: contratoResp.registros || [],
-                    os_abertas: osAbertas
-                });
-                return [3 /*break*/, 6];
-            case 5:
-                error_2 = _a.sent();
-                res.status(500).json({ error: error_2.message });
-                return [3 /*break*/, 6];
-            case 6: return [2 /*return*/];
-        }
-    });
-}); });
 exports.default = router;
