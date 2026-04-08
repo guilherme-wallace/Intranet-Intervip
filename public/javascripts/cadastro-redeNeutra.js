@@ -124,8 +124,22 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function setupListeners() {
+    
     document.getElementById('select-parceiro').addEventListener('change', function(e) {
+        resetarEstadoPaginaCompleto();
         parceiroIdSelecionado = e.target.value;
+
+        const wrapperContratos = document.getElementById('wrapper-exibir-contratos');
+        const chkExibirContratos = document.getElementById('chk-exibir-contratos');
+        const secaoContratos = document.getElementById('secao-contratos-parceiro');
+        
+        const isNOC = (userGroupGlobal && userGroupGlobal.toUpperCase() === 'NOC') || 
+                      (usernameGlobal && usernameGlobal.toUpperCase().includes('NOC'));
+
+        if (wrapperContratos) wrapperContratos.style.display = (parceiroIdSelecionado && isNOC) ? 'block' : 'none';
+        if (chkExibirContratos) chkExibirContratos.checked = false;
+        if (secaoContratos) secaoContratos.style.display = 'none';
+
         const btnNovo = document.getElementById('btn-novo-cliente');
         const option = e.target.options[e.target.selectedIndex];
         
@@ -219,7 +233,7 @@ function setupListeners() {
         if (loginId) {
             abrirModalONU(loginId, nomeDesc, mac);
         } else {
-            alert("Este cliente não possui um Login IXC vinculado para gerenciar a ONU.");
+            alert("Este cliente não possui um Login vinculado para gerenciar a ONU.");
         }
     });
     
@@ -322,7 +336,7 @@ function setupListeners() {
                 body: JSON.stringify({ id_fibra: idFibra })
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Falha ao comunicar com o IXC.');
+            if (!res.ok) throw new Error(data.error || 'Falha na comunicação.');
             alert('Comando de REINÍCIO da ONU enviado com sucesso!');
         } catch (error) {
             alert('Erro: ' + error.message);
@@ -350,7 +364,7 @@ function setupListeners() {
                 body: JSON.stringify({ id_fibra: idFibra })
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Falha ao comunicar com o IXC.');
+            if (!res.ok) throw new Error(data.error || 'Falha na comunicação.');
             alert('Comando de Liberação WEB enviado com sucesso!');
         } catch (error) {
             alert('Erro: ' + error.message);
@@ -917,7 +931,9 @@ async function carregarParceiros() {
             const option = document.createElement('option');
             option.value = p.id; 
             option.textContent = `${p.nome} (Contrato: ${p.ixc_contrato_id})`;
-            option.dataset.valorFixo = p.valor_fixo; 
+            option.dataset.valorFixo = p.valor_fixo;
+            option.dataset.ixcClienteId = p.ixc_cliente_id || ''; 
+            option.dataset.ixcContratoId = p.ixc_contrato_id || '';
             select.appendChild(option);
         });
 
@@ -979,7 +995,7 @@ async function abrirModalEditar(cliente) {
 
     if (cliente.ixc_login_id) {
         const displayOnu = document.getElementById('display-status-onu');
-        displayOnu.innerHTML = `<div class="d-flex align-items-center text-muted"><div class="spinner-border spinner-border-sm me-2"></div> Carregando dados IXC...</div>`;
+        displayOnu.innerHTML = `<div class="d-flex align-items-center text-muted"><div class="spinner-border spinner-border-sm me-2"></div> Carregando dados...</div>`;
         
         try {
             const response = await fetch(`/api/v5/rede_neutra/onu-detalhes/${cliente.ixc_login_id}`);
@@ -1036,7 +1052,7 @@ async function abrirModalEditar(cliente) {
 
         } catch (e) {
             console.error(e);
-            displayOnu.innerHTML = `<div class="alert alert-warning small p-1">Erro ao carregar IXC. Edição local permitida.</div>`;
+            displayOnu.innerHTML = `<div class="alert alert-warning small p-1">Erro ao carregar. Edição local permitida.</div>`;
         }
     }
 
@@ -1053,7 +1069,7 @@ async function cancelarCliente() {
     const originalText = btn.innerHTML;
     
     btn.disabled = true;
-    showLoading("Processando cancelamento no IXC e OLT... Aguarde.");
+    showLoading("Processando cancelamento no banco e OLT... Aguarde.");
 
     try {
         const response = await fetch('/api/v5/rede_neutra/cancelar-cliente', {
@@ -1363,7 +1379,7 @@ async function salvarNovoCliente(autorizarOnu = false) {
         });
 
         const result = await response.json();
-        if (!response.ok) throw new Error(result.error || 'Erro ao salvar cliente no banco/IXC.');
+        if (!response.ok) throw new Error(result.error || 'Erro ao salvar cliente no banco.');
 
         modalCadastro.hide();
         carregarCarteiraClientes(payload.parceiro_id);
@@ -1451,7 +1467,7 @@ async function carregarListasONU() {
     const selTransmissor = document.getElementById('onu-transmissor');
     const selPerfil = document.getElementById('onu-perfil');
 
-    selOnu.innerHTML = '<option value="" selected disabled>Carregando lista do IXC...</option>';
+    selOnu.innerHTML = '<option value="" selected disabled>Carregando lista...</option>';
     
     try {
         const [resOnus, resTrans, resPerfil] = await Promise.all([
@@ -1583,7 +1599,7 @@ function selecionarOnuDaLista(mac, oltName, idHash, model) {
         document.getElementById('display-transmissor').value = `Não encontrado: ${oltName}`;
         document.getElementById('hidden-id-transmissor').value = "";
         document.getElementById('display-transmissor').classList.add('is-invalid');
-        alert(`Atenção: O transmissor "${oltName}" vindo da ONU não foi encontrado na lista de transmissores cadastrados no IXC. Verifique o cadastro.`);
+        alert(`Atenção: O transmissor "${oltName}" vindo da ONU não foi encontrado na lista de transmissores cadastrados no banco. Verifique o cadastro.`);
     }
 
     modalListaONUs.hide();
@@ -1936,6 +1952,229 @@ function formatCondoName(name) {
     }
     
     return name;
+}
+
+document.addEventListener('change', async function(e) {
+    if (e.target && e.target.id === 'select-parceiro') {
+        parceiroIdSelecionado = e.target.value;
+
+        const chkExibirContratos = document.getElementById('chk-exibir-contratos');
+        const secaoContratos = document.getElementById('secao-contratos-parceiro');
+        const accordionContratos = document.getElementById('accordionContratos');
+        
+        if (chkExibirContratos) chkExibirContratos.checked = false;
+        if (secaoContratos) secaoContratos.style.display = 'none';
+        if (accordionContratos) accordionContratos.innerHTML = '';
+
+        const tabela = document.querySelector('.table-hover');
+        const paginacao = document.getElementById('paginacao-container');
+        if (tabela) tabela.style.display = 'table';
+        if (paginacao) {
+            const divPag = paginacao.closest('.d-flex');
+            if (divPag) divPag.style.display = 'flex';
+        }
+
+        if (typeof todosClientesCache !== 'undefined') todosClientesCache = [];
+        if (typeof dadosFiltrados !== 'undefined') dadosFiltrados = [];
+        if (typeof paginaAtual !== 'undefined') paginaAtual = 1;
+
+        const tbodyClientes = document.getElementById('lista-clientes-body');
+        if (tbodyClientes) tbodyClientes.innerHTML = '';
+
+        const inputBusca = document.getElementById('input-busca-cliente');
+        if (inputBusca) inputBusca.value = '';
+    }
+
+    if (e.target && e.target.id === 'chk-exibir-contratos') {
+        const isChecked = e.target.checked;
+        const secaoContratos = document.getElementById('secao-contratos-parceiro');
+        const painelVazio = document.getElementById('empty-clientes');
+        
+        const tbodyClientes = document.getElementById('lista-clientes-body');
+        const tableContainer = tbodyClientes ? tbodyClientes.closest('.table-responsive') : null;
+
+        if (isChecked) {
+            if (tableContainer) tableContainer.style.display = 'none';
+            if (painelVazio) painelVazio.style.display = 'none';
+            
+            if (secaoContratos) {
+                secaoContratos.style.display = 'block';
+                await carregarContratosAdicionais();
+            }
+        } else {
+            if (secaoContratos) secaoContratos.style.display = 'none';
+            
+            if (todosClientesCache && todosClientesCache.length > 0) {
+                if (tableContainer) tableContainer.style.display = 'block';
+            } else {
+                if (painelVazio) painelVazio.style.display = 'block';
+            }
+        }
+    }
+});
+
+async function carregarContratosAdicionais() {
+    const accordion = document.getElementById('accordionContratos');
+    if (!accordion) return;
+    
+    accordion.innerHTML = '<div class="text-center p-5"><div class="spinner-border text-primary"></div><div class="mt-2 text-muted fw-medium">Cruzando dados no banco, aguarde...</div></div>';
+
+    try {
+        const selectParceiro = document.getElementById('select-parceiro');
+        const option = selectParceiro.options[selectParceiro.selectedIndex];
+        
+        const idCliente = option.dataset.ixcClienteId || '';
+        const idContratoPrincipal = option.dataset.ixcContratoId || '';
+        const nomeParceiro = option.text.split('(')[0].trim();
+
+        const response = await fetch(`/api/v5/rede_neutra/parceiro-contratos-ixc?id_cliente=${idCliente}&id_contrato_principal=${idContratoPrincipal}&nome=${encodeURIComponent(nomeParceiro)}`);
+        const contratos = await response.json();
+
+        if (!response.ok) throw new Error(contratos.error || "Erro ao buscar contratos.");
+
+        if (contratos.length === 0) {
+            accordion.innerHTML = '<div class="text-center text-muted p-5"><i class="bi bi-info-circle fs-2 d-block mb-2"></i>Nenhum contrato ativo encontrado para este parceiro.</div>';
+            return;
+        }
+
+        accordion.innerHTML = '';
+        contratos.forEach((contrato) => {
+            const accItem = document.createElement('div');
+            accItem.className = 'accordion-item border-bottom mb-2 bg-white shadow-sm';
+            
+            let loginsHtml = '';
+            if (contrato.logins && contrato.logins.length > 0) {
+                loginsHtml = `<div class="table-responsive m-3 border rounded shadow-sm">
+                    <table class="table table-hover align-middle mb-0 bg-white">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-3"><i class="bi bi-person-badge me-1"></i> Login PPPoE</th>
+                                <th><i class="bi bi-router me-1"></i> MAC da ONU</th>
+                                <th><i class="bi bi-activity me-1"></i> Sinal RX / TX</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${contrato.logins.map(l => {
+                                let onuMac = '<span class="text-muted small">Sem ONU</span>';
+                                let onuSinal = '<small class="text-muted">-</small>';
+                                
+                                if (l.onu) {
+                                    onuMac = `<span class="font-monospace fw-bold">${l.onu.mac || l.onu.onu_mac || '-'}</span>`;
+                                    const rx = l.onu.sinal_rx && l.onu.sinal_rx !== '-' ? `${l.onu.sinal_rx} dBm` : '-';
+                                    const tx = l.onu.sinal_tx && l.onu.sinal_tx !== '-' ? `${l.onu.sinal_tx} dBm` : '-';
+                                    
+                                    const valRx = parseFloat(l.onu.sinal_rx);
+                                    let rxClass = 'text-success';
+                                    if (!isNaN(valRx) && (valRx < -26 || valRx === 0)) {
+                                        rxClass = 'text-danger';
+                                    } else if (!isNaN(valRx) && valRx < -24) {
+                                        rxClass = 'text-warning';
+                                    }
+                                    
+                                    onuSinal = `<div style="font-size: 0.85rem; line-height: 1.2;">
+                                        <span class="${rxClass} fw-bold">RX: ${rx}</span><br>
+                                        <span class="text-secondary fw-medium">TX: ${tx}</span>
+                                    </div>`;
+                                } else if (l.mac) {
+                                    onuMac = `<span class="font-monospace">${l.mac}</span>`;
+                                }
+
+                                return `<tr>
+                                    <td class="ps-3 fw-medium text-primary">${l.login}</td>
+                                    <td>${onuMac}</td>
+                                    <td>${onuSinal}</td>
+                                </tr>`;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>`;
+            } else {
+                loginsHtml = '<div class="alert alert-light m-3 border text-muted"><i class="bi bi-exclamation-circle me-2"></i>Nenhum login (PPPoE) vinculado a este contrato.</div>';
+            }
+
+            accItem.innerHTML = `
+                <h2 class="accordion-header" id="headingC${contrato.id}">
+                    <button class="accordion-button collapsed py-3" type="button" aria-expanded="false" aria-controls="collapseC${contrato.id}">
+                        <div class="d-flex w-100 justify-content-between align-items-center me-3">
+                            <div>
+                                <span class="badge bg-success me-2">Ativo</span>
+                                <span class="fw-bold me-2">ID: ${contrato.id}</span> 
+                                <span class="text-muted border-start ps-2 border-2">${contrato.contrato || 'Contrato'}</span>
+                            </div>
+                            <div class="small text-muted text-truncate d-none d-md-block" style="max-width: 400px;">
+                                <i class="bi bi-geo-alt-fill me-1 text-primary"></i>${contrato.endereco || ''}, ${contrato.numero || ''} - ${contrato.bairro || ''}
+                            </div>
+                        </div>
+                    </button>
+                </h2>
+                <div id="collapseC${contrato.id}" class="accordion-collapse collapse" aria-labelledby="headingC${contrato.id}" data-bs-parent="#accordionContratos">
+                    <div class="accordion-body p-0 bg-light">
+                        ${loginsHtml}
+                    </div>
+                </div>`;
+            
+            const btn = accItem.querySelector('.accordion-button');
+            const collapseTarget = accItem.querySelector('.accordion-collapse');
+            
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const isExpanded = collapseTarget.classList.contains('show');
+                
+                document.querySelectorAll('#accordionContratos .accordion-collapse.show').forEach(el => {
+                    el.classList.remove('show');
+                    const relatedBtn = el.parentElement.querySelector('.accordion-button');
+                    if(relatedBtn) {
+                        relatedBtn.classList.add('collapsed');
+                        relatedBtn.setAttribute('aria-expanded', 'false');
+                    }
+                });
+
+                if (!isExpanded) {
+                    collapseTarget.classList.add('show');
+                    btn.classList.remove('collapsed');
+                    btn.setAttribute('aria-expanded', 'true');
+                }
+            });
+
+            accordion.appendChild(accItem);
+        });
+    } catch (error) {
+        accordion.innerHTML = `<div class="text-center text-danger p-4"><i class="bi bi-x-circle fs-3 d-block mb-2"></i>${error.message}</div>`;
+    }
+}
+
+function resetarEstadoPaginaCompleto() {
+    todosClientesCache = [];
+    dadosFiltrados = [];
+    paginaAtual = 1;
+    parceiroIdSelecionado = document.getElementById('select-parceiro').value;
+
+    const tbody = document.getElementById('lista-clientes-body');
+    if (tbody) tbody.innerHTML = '';
+    
+    const totalClientes = document.getElementById('stats-total-clientes');
+    if (totalClientes) totalClientes.textContent = '0'; 
+    
+    const inputBusca = document.getElementById('input-busca-cliente');
+    if (inputBusca) inputBusca.value = '';
+
+    const paginacao = document.getElementById('paginacao-container');
+    if (paginacao) paginacao.innerHTML = '';
+
+    const chkExibirContratos = document.getElementById('chk-exibir-contratos');
+    if (chkExibirContratos) chkExibirContratos.checked = false;
+
+    const secaoContratos = document.getElementById('secao-contratos-parceiro');
+    if (secaoContratos) secaoContratos.style.display = 'none';
+
+    const accordion = document.getElementById('accordionContratos');
+    if (accordion) accordion.innerHTML = '';
+
+    const painelVazio = document.getElementById('empty-clientes');
+    if (painelVazio) painelVazio.style.display = 'none';
+    
+    const loadingContainer = document.getElementById('loading-clientes');
+    if (loadingContainer) loadingContainer.style.display = 'none';
 }
 
 function initializeThemeAndUserInfo() {

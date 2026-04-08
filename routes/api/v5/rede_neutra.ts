@@ -14,28 +14,32 @@ const executeDb = (query: string, params: any[] = []) => {
     });
 };
 
-const makeIxcRequest = async (method: Method, endpoint: string, data: any = null) => {
+const makeIxcRequest = async (
+    method: Method, 
+    endpoint: string, 
+    data: any = null, 
+    operationType: 'listar' | 'incluir' | 'alterar' | null = null
+) => {
     const url = `${process.env.IXC_API_URL}/webservice/v1${endpoint}`;
     const token = process.env.IXC_API_TOKEN; 
+    
     const headers: any = {
         'Authorization': `Basic ${token}`,
         'Content-Type': 'application/json'
     };
+
     if (data && data.qtype) {
         headers['ixcsoft'] = 'listar';
         method = 'POST'; 
+    } else if (operationType) {
+        headers['ixcsoft'] = operationType;
     }
+
     try {
-        // LOG REQUEST
-        //console.log(`[IXC Req] ${method} ${endpoint}`, data ? JSON.stringify(data) : '');
-        
         const response = await axios({ method, url, headers, data });
-        
-        // LOG RESPONSE
-        //console.log(`[IXC Res] ${endpoint}:`, JSON.stringify(response.data)); 
         return response.data;
-    } catch (error) {
-        console.error(`[IXC Err] ${endpoint}:`, error.response?.data || error.message);
+    } catch (error: any) {
+        console.error(`Erro ao chamar API IXC (${endpoint}):`, error.response?.data || error.message);
         throw error;
     }
 };
@@ -1251,6 +1255,127 @@ router.post('/onus-pendentes/sync-olt', async (req, res) => {
     } catch (error) {
         console.error("Erro na rota de sync das OLTs:", error.message);
         res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/parceiro-contratos-ixc', async (req, res) => {
+    let idCliente = req.query.id_cliente as string;
+    const idContratoPrincipal = req.query.id_contrato_principal as string;
+    const nomeParceiro = req.query.nome as string;
+
+    try {
+        if (!idCliente || idCliente === 'undefined' || idCliente === 'null' || idCliente === '') {
+            if (!nomeParceiro) return res.status(400).json({ error: "Cliente não possui ID e o nome não foi informado." });
+
+            let reqBuscaNome = await makeIxcRequest('POST', '/cliente', {
+                qtype: 'cliente.razao', query: nomeParceiro.trim(), oper: '=', page: '1', rp: '1'
+            }, 'listar');
+
+            if (!reqBuscaNome.registros || reqBuscaNome.registros.length === 0) {
+                reqBuscaNome = await makeIxcRequest('POST', '/cliente', {
+                    qtype: 'cliente.fantasia', query: nomeParceiro.trim(), oper: '=', page: '1', rp: '1'
+                }, 'listar');
+            }
+
+            if (!reqBuscaNome.registros || reqBuscaNome.registros.length === 0) {
+                const partes = nomeParceiro.split('-');
+                if (partes.length > 0) {
+                    reqBuscaNome = await makeIxcRequest('POST', '/cliente', {
+                        qtype: 'cliente.razao', query: partes[0].trim(), oper: 'L', page: '1', rp: '1'
+                    }, 'listar');
+                }
+            }
+
+            if (!reqBuscaNome.registros || reqBuscaNome.registros.length === 0) {
+                const partes = nomeParceiro.split('-');
+                if (partes.length > 1) {
+                    const fantasiaCurta = partes[1].replace('LTDA', '').replace('ME', '').trim();
+                    reqBuscaNome = await makeIxcRequest('POST', '/cliente', {
+                        qtype: 'cliente.fantasia', query: fantasiaCurta, oper: 'L', page: '1', rp: '1'
+                    }, 'listar');
+                }
+            }
+
+            if (!reqBuscaNome.registros || reqBuscaNome.registros.length === 0) {
+                return res.status(404).json({ error: `Parceiro '${nomeParceiro}' não foi localizado no IXC de nenhuma forma.` });
+            }
+            idCliente = reqBuscaNome.registros[0].id;
+        }
+
+        const reqContratos = await makeIxcRequest('POST', '/cliente_contrato', {
+            qtype: 'cliente_contrato.id_cliente',
+            query: String(idCliente),
+            oper: '=',
+            page: '1',
+            rp: '200',
+            sortname: 'cliente_contrato.id',
+            sortorder: 'desc'
+        }, 'listar');
+
+        let contratos = reqContratos.registros || [];
+
+        contratos = contratos.filter((c: any) => {
+            const isAtivo = c.status === 'A';
+            const isPrincipal = idContratoPrincipal && String(c.id) === String(idContratoPrincipal);
+            return isAtivo && !isPrincipal;
+        });
+
+        for (const contrato of contratos) {
+            const reqLogins = await makeIxcRequest('POST', '/radusuarios', {
+                qtype: 'radusuarios.id_contrato',
+                query: String(contrato.id),
+                oper: '=',
+                page: '1',
+                rp: '100',
+                sortname: 'radusuarios.id',
+                sortorder: 'desc'
+            }, 'listar');
+            
+            const logins = reqLogins.registros || [];
+
+            for (const login of logins) {
+                let onuEncontrada = null;
+
+                if (login.id) {
+                    const reqOnuId = await makeIxcRequest('POST', '/radpop_radio_cliente_fibra', {
+                        qtype: 'radpop_radio_cliente_fibra.id_login',
+                        query: String(login.id),
+                        oper: '=',
+                        page: '1',
+                        rp: '1'
+                    }, 'listar');
+
+                    if (reqOnuId.registros && reqOnuId.registros.length > 0) {
+                        onuEncontrada = reqOnuId.registros[0];
+                    }
+                }
+
+                if (!onuEncontrada && login.mac) {
+                    const reqOnuMac = await makeIxcRequest('POST', '/radpop_radio_cliente_fibra', {
+                        qtype: 'radpop_radio_cliente_fibra.mac',
+                        query: String(login.mac),
+                        oper: '=',
+                        page: '1',
+                        rp: '1'
+                    }, 'listar');
+
+                    if (reqOnuMac.registros && reqOnuMac.registros.length > 0) {
+                        onuEncontrada = reqOnuMac.registros[0];
+                    }
+                }
+
+                if (onuEncontrada) {
+                    login.onu = onuEncontrada;
+                }
+            }
+            contrato.logins = logins;
+        }
+
+        res.json(contratos);
+
+    } catch (error: any) {
+        console.error("Erro na rota parceiro-contratos-ixc:", error.message);
+        res.status(500).json({ error: "Erro interno ao buscar contratos no IXC." });
     }
 });
 

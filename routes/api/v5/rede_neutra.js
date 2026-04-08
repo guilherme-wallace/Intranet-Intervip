@@ -62,8 +62,9 @@ var executeDb = function (query, params) {
         });
     });
 };
-var makeIxcRequest = function (method, endpoint, data) {
+var makeIxcRequest = function (method, endpoint, data, operationType) {
     if (data === void 0) { data = null; }
+    if (operationType === void 0) { operationType = null; }
     return __awaiter(void 0, void 0, void 0, function () {
         var url, token, headers, response, error_1;
         var _a;
@@ -80,18 +81,19 @@ var makeIxcRequest = function (method, endpoint, data) {
                         headers['ixcsoft'] = 'listar';
                         method = 'POST';
                     }
+                    else if (operationType) {
+                        headers['ixcsoft'] = operationType;
+                    }
                     _b.label = 1;
                 case 1:
                     _b.trys.push([1, 3, , 4]);
                     return [4 /*yield*/, (0, axios_1.default)({ method: method, url: url, headers: headers, data: data })];
                 case 2:
                     response = _b.sent();
-                    // LOG RESPONSE
-                    //console.log(`[IXC Res] ${endpoint}:`, JSON.stringify(response.data)); 
                     return [2 /*return*/, response.data];
                 case 3:
                     error_1 = _b.sent();
-                    console.error("[IXC Err] ".concat(endpoint, ":"), ((_a = error_1.response) === null || _a === void 0 ? void 0 : _a.data) || error_1.message);
+                    console.error("Erro ao chamar API IXC (".concat(endpoint, "):"), ((_a = error_1.response) === null || _a === void 0 ? void 0 : _a.data) || error_1.message);
                     throw error_1;
                 case 4: return [2 /*return*/];
             }
@@ -1482,6 +1484,154 @@ router.post('/onus-pendentes/sync-olt', function (req, res) { return __awaiter(v
                 res.status(500).json({ error: error_18.message });
                 return [3 /*break*/, 9];
             case 9: return [2 /*return*/];
+        }
+    });
+}); });
+router.get('/parceiro-contratos-ixc', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var idCliente, idContratoPrincipal, nomeParceiro, reqBuscaNome, partes, partes, fantasiaCurta, reqContratos, contratos, _i, contratos_1, contrato, reqLogins, logins, _a, logins_1, login, onuEncontrada, reqOnuId, reqOnuMac, error_19;
+    return __generator(this, function (_b) {
+        switch (_b.label) {
+            case 0:
+                idCliente = req.query.id_cliente;
+                idContratoPrincipal = req.query.id_contrato_principal;
+                nomeParceiro = req.query.nome;
+                _b.label = 1;
+            case 1:
+                _b.trys.push([1, 22, , 23]);
+                if (!(!idCliente || idCliente === 'undefined' || idCliente === 'null' || idCliente === '')) return [3 /*break*/, 9];
+                if (!nomeParceiro)
+                    return [2 /*return*/, res.status(400).json({ error: "Cliente não possui ID e o nome não foi informado." })];
+                return [4 /*yield*/, makeIxcRequest('POST', '/cliente', {
+                        qtype: 'cliente.razao', query: nomeParceiro.trim(), oper: '=', page: '1', rp: '1'
+                    }, 'listar')];
+            case 2:
+                reqBuscaNome = _b.sent();
+                if (!(!reqBuscaNome.registros || reqBuscaNome.registros.length === 0)) return [3 /*break*/, 4];
+                return [4 /*yield*/, makeIxcRequest('POST', '/cliente', {
+                        qtype: 'cliente.fantasia', query: nomeParceiro.trim(), oper: '=', page: '1', rp: '1'
+                    }, 'listar')];
+            case 3:
+                reqBuscaNome = _b.sent();
+                _b.label = 4;
+            case 4:
+                if (!(!reqBuscaNome.registros || reqBuscaNome.registros.length === 0)) return [3 /*break*/, 6];
+                partes = nomeParceiro.split('-');
+                if (!(partes.length > 0)) return [3 /*break*/, 6];
+                return [4 /*yield*/, makeIxcRequest('POST', '/cliente', {
+                        qtype: 'cliente.razao', query: partes[0].trim(), oper: 'L', page: '1', rp: '1'
+                    }, 'listar')];
+            case 5:
+                reqBuscaNome = _b.sent();
+                _b.label = 6;
+            case 6:
+                if (!(!reqBuscaNome.registros || reqBuscaNome.registros.length === 0)) return [3 /*break*/, 8];
+                partes = nomeParceiro.split('-');
+                if (!(partes.length > 1)) return [3 /*break*/, 8];
+                fantasiaCurta = partes[1].replace('LTDA', '').replace('ME', '').trim();
+                return [4 /*yield*/, makeIxcRequest('POST', '/cliente', {
+                        qtype: 'cliente.fantasia', query: fantasiaCurta, oper: 'L', page: '1', rp: '1'
+                    }, 'listar')];
+            case 7:
+                reqBuscaNome = _b.sent();
+                _b.label = 8;
+            case 8:
+                if (!reqBuscaNome.registros || reqBuscaNome.registros.length === 0) {
+                    return [2 /*return*/, res.status(404).json({ error: "Parceiro '".concat(nomeParceiro, "' n\u00E3o foi localizado no IXC de nenhuma forma.") })];
+                }
+                idCliente = reqBuscaNome.registros[0].id;
+                _b.label = 9;
+            case 9: return [4 /*yield*/, makeIxcRequest('POST', '/cliente_contrato', {
+                    qtype: 'cliente_contrato.id_cliente',
+                    query: String(idCliente),
+                    oper: '=',
+                    page: '1',
+                    rp: '200',
+                    sortname: 'cliente_contrato.id',
+                    sortorder: 'desc'
+                }, 'listar')];
+            case 10:
+                reqContratos = _b.sent();
+                contratos = reqContratos.registros || [];
+                contratos = contratos.filter(function (c) {
+                    var isAtivo = c.status === 'A';
+                    var isPrincipal = idContratoPrincipal && String(c.id) === String(idContratoPrincipal);
+                    return isAtivo && !isPrincipal;
+                });
+                _i = 0, contratos_1 = contratos;
+                _b.label = 11;
+            case 11:
+                if (!(_i < contratos_1.length)) return [3 /*break*/, 21];
+                contrato = contratos_1[_i];
+                return [4 /*yield*/, makeIxcRequest('POST', '/radusuarios', {
+                        qtype: 'radusuarios.id_contrato',
+                        query: String(contrato.id),
+                        oper: '=',
+                        page: '1',
+                        rp: '100',
+                        sortname: 'radusuarios.id',
+                        sortorder: 'desc'
+                    }, 'listar')];
+            case 12:
+                reqLogins = _b.sent();
+                logins = reqLogins.registros || [];
+                _a = 0, logins_1 = logins;
+                _b.label = 13;
+            case 13:
+                if (!(_a < logins_1.length)) return [3 /*break*/, 19];
+                login = logins_1[_a];
+                onuEncontrada = null;
+                if (!login.id) return [3 /*break*/, 15];
+                return [4 /*yield*/, makeIxcRequest('POST', '/radpop_radio_cliente_fibra', {
+                        qtype: 'radpop_radio_cliente_fibra.id_login',
+                        query: String(login.id),
+                        oper: '=',
+                        page: '1',
+                        rp: '1'
+                    }, 'listar')];
+            case 14:
+                reqOnuId = _b.sent();
+                if (reqOnuId.registros && reqOnuId.registros.length > 0) {
+                    onuEncontrada = reqOnuId.registros[0];
+                }
+                _b.label = 15;
+            case 15:
+                if (!(!onuEncontrada && login.mac)) return [3 /*break*/, 17];
+                return [4 /*yield*/, makeIxcRequest('POST', '/radpop_radio_cliente_fibra', {
+                        qtype: 'radpop_radio_cliente_fibra.mac',
+                        query: String(login.mac),
+                        oper: '=',
+                        page: '1',
+                        rp: '1'
+                    }, 'listar')];
+            case 16:
+                reqOnuMac = _b.sent();
+                if (reqOnuMac.registros && reqOnuMac.registros.length > 0) {
+                    onuEncontrada = reqOnuMac.registros[0];
+                }
+                _b.label = 17;
+            case 17:
+                if (onuEncontrada) {
+                    login.onu = onuEncontrada;
+                }
+                _b.label = 18;
+            case 18:
+                _a++;
+                return [3 /*break*/, 13];
+            case 19:
+                contrato.logins = logins;
+                _b.label = 20;
+            case 20:
+                _i++;
+                return [3 /*break*/, 11];
+            case 21:
+                res.json(contratos);
+                return [3 /*break*/, 23];
+            case 22:
+                error_19 = _b.sent();
+                console.error("Erro na rota parceiro-contratos-ixc:", error_19.message);
+                res.status(500).json({ error: "Erro interno ao buscar contratos no IXC." });
+                return [3 /*break*/, 23];
+            case 23: return [2 /*return*/];
         }
     });
 }); });

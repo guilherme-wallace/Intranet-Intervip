@@ -62,7 +62,7 @@ var monitoramento_de_falhas_1 = require("./routes/api/v5/monitoramento-de-falhas
 var looking_glass_1 = require("./routes/api/v5/looking-glass");
 var rede_neutra_1 = require("./routes/api/v5/rede_neutra");
 var analise_de_risco_1 = require("./routes/api/v5/analise-de-risco");
-var agenda_1 = require("./routes/api/v5/agenda");
+var abertura_OS_1 = require("./routes/api/v5/abertura-OS");
 var jwt = require("jsonwebtoken");
 process.on('uncaughtException', function (error) {
     console.error('--- ERRO NÃO CAPTURADO (Uncaught Exception) ---');
@@ -200,7 +200,7 @@ var PERMISSOES_SISTEMA = {
     'card-monitoramento-de-falhas': ['NOC', 'Diretoria'],
     'card-looking-glass': ['NOC', 'Diretoria'],
     'card-analise-de-risco': ['NOC', 'TecnicoFibra', 'TecnicoLogistica', 'Fibra', 'Logistica', 'Diretoria'],
-    'card-agenda': ['NOC'],
+    'card-abertura-OS': ['NOC'],
     'card-cadastro-bandaLarga': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Logistica', 'Qualidade'],
     'card-cadastro-corporativo': ['NOC', 'Comercial', 'Corporativo', 'Diretoria', 'Financeiro'],
     'card-cadastro-redeNeutra': ['NOC', 'conectmais', 'conectja', 'seliga', 'nv7', 'netplanety'],
@@ -277,8 +277,8 @@ APP.get('/looking-glass', verificarAcessoPagina('looking-glass'), function (req,
 APP.get('/analise-de-risco', verificarAcessoPagina('analise-de-risco'), function (req, res) {
     res.sendFile(Path.join(__dirname, 'views', 'analise-de-risco.html'));
 });
-APP.get('/agenda', verificarAcessoPagina('agenda'), function (req, res) {
-    res.sendFile(Path.join(__dirname, 'views', 'agenda.html'));
+APP.get('/abertura-OS', verificarAcessoPagina('abertura-OS'), function (req, res) {
+    res.sendFile(Path.join(__dirname, 'views', 'abertura-OS.html'));
 });
 APP.get('/cadastro-bandaLarga', verificarAcessoPagina('cadastro-bandaLarga'), function (req, res) {
     res.sendFile(Path.join(__dirname, 'views', 'cadastro-bandaLarga.html'));
@@ -421,7 +421,7 @@ APP.use('/api/v5/monitoramento-de-falhas', protectApi, monitoramento_de_falhas_1
 APP.use('/api/v5/looking-glass', protectApi, looking_glass_1.default);
 APP.use('/api/v5/rede_neutra', protectApi, rede_neutra_1.default);
 APP.use('/api/v5/analise-de-risco', protectApi, analise_de_risco_1.default);
-APP.use('/api/v5/agenda', protectApi, agenda_1.default);
+APP.use('/api/v5/abertura-OS', protectApi, abertura_OS_1.default);
 APP.get('/api/username', protectApi, function (req, res) {
     if (req.user) {
         return res.json({ username: req.user.username, group: req.user.group });
@@ -436,11 +436,11 @@ APP.get('/api/username', protectApi, function (req, res) {
 APP.use('/', index_1.default);
 APP.use('/lead', protectRoutes, index_1.default);
 APP.use('/main', protectRoutes, index_1.default);
-APP.use('/agenda', protectRoutes, index_1.default);
 APP.use('/e-mails', protectRoutes, index_1.default);
 APP.use('/migra-onu', protectRoutes, index_1.default);
 APP.use('/lead-Venda', protectRoutes, index_1.default);
 APP.use('/soc-report', protectRoutes, index_1.default);
+APP.use('/abertura-OS', protectRoutes, index_1.default);
 APP.use('/equipamentos', protectRoutes, index_1.default);
 APP.use('/looking-glass', protectRoutes, index_1.default);
 APP.use('/clientes-online', protectRoutes, index_1.default);
