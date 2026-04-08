@@ -31,6 +31,7 @@ import lookingGlassRoutes from './routes/api/v5/looking-glass';
 import rede_neutraRoutes from './routes/api/v5/rede_neutra';
 import analise_de_riscoRoutes from './routes/api/v5/analise-de-risco';
 import abertura_OSRoutes from './routes/api/v5/abertura-OS';
+import agendamentoRoutes from './routes/api/v5/agendamento';
 
 import * as jwt from 'jsonwebtoken';
 
@@ -192,17 +193,17 @@ const PERMISSOES_SISTEMA = {
     'card-Avisos': ['NOC','Comercial','Almoxarifado','Corporativo','Diretoria','Fibra','Financeiro','Helpdesk','CRI','Logistica','Qualidade'],
     
     'card-viabilidade-intervip': ['NOC','Comercial','Almoxarifado','Corporativo','Diretoria','Fibra','Financeiro','Helpdesk','CRI','Logistica','Qualidade','villaggionet','ultracom','seliga','nv7','nwt','netplanety','infinity','inova.telecom','conectmais','conectja','RedeNeutra'],
-    'card-clientes-online': ['NOC','Comercial','Almoxarifado','Corporativo','Diretoria','Fibra','Financeiro','Helpdesk','CRI','Logistica','Qualidade'],
+    'card-clientes-online': ['NOC','Almoxarifado','Corporativo','Diretoria','Fibra','Financeiro','Helpdesk','CRI','Logistica','Qualidade'],
     'card-lead-Venda': ['NOC','Comercial','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
     'card-cadastro-de-vendas': ['NOC','Comercial','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
     'card-equipamentos': ['NOC','Comercial','Almoxarifado','Corporativo','Diretoria','Fibra','Financeiro','Helpdesk','CRI','Logistica','Qualidade','TecnicoFibra','TecnicoLogistica'],
-    'card-teste-de-lentidao': ['NOC','Comercial','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
-    'card-problemas-com-VPN': ['NOC','Comercial','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
-    'card-problemas-sites-e-APP': ['NOC','Comercial','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
+    'card-teste-de-lentidao': ['NOC','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
+    'card-problemas-com-VPN': ['NOC','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
+    'card-problemas-sites-e-APP': ['NOC','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
 
-    'card-pedidos-linha-telefonica': ['NOC','Comercial','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
-    'card-pedidos-linha-telefonica-URA': ['NOC','Comercial','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
-    'card-problemas-linha-telefonica': ['NOC','Comercial','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
+    'card-pedidos-linha-telefonica': ['NOC','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
+    'card-pedidos-linha-telefonica-URA': ['NOC','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
+    'card-problemas-linha-telefonica': ['NOC','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
 
     'card-e-mails': ['NOC','Diretoria'],
     'card-migra-onu': ['NOC','Diretoria'],
@@ -213,9 +214,10 @@ const PERMISSOES_SISTEMA = {
   
     'card-analise-de-risco': ['NOC','TecnicoFibra','TecnicoLogistica','Fibra','Logistica','Diretoria'],
     'card-abertura-OS': ['NOC'],
+    'card-agendamento': ['NOC'],
 
     'card-cadastro-bandaLarga': ['NOC','Comercial','Almoxarifado','Corporativo','Diretoria','Fibra','Financeiro','Helpdesk','CRI','Logistica','Qualidade'],
-    'card-cadastro-corporativo': ['NOC','Comercial','Corporativo','Diretoria','Financeiro'],
+    'card-cadastro-corporativo': ['NOC','Corporativo','Diretoria','Financeiro'],
     'card-cadastro-redeNeutra': ['NOC','conectmais','conectja','seliga','nv7','netplanety'],
     'card-demo-redeNeutra': ['NOC'],
 };
@@ -316,6 +318,10 @@ APP.get('/analise-de-risco', verificarAcessoPagina('analise-de-risco'), (req, re
 
 APP.get('/abertura-OS', verificarAcessoPagina('abertura-OS'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'abertura-OS.html'));
+});
+
+APP.get('/agendamento', verificarAcessoPagina('agendamento'), (req, res) => {
+    res.sendFile(Path.join(__dirname, 'views', 'agendamento.html'));
 });
 
 APP.get('/cadastro-bandaLarga', verificarAcessoPagina('cadastro-bandaLarga'), (req, res) => {
@@ -450,6 +456,8 @@ APP.use('/api/v5/looking-glass', protectApi, lookingGlassRoutes);
 APP.use('/api/v5/rede_neutra', protectApi, rede_neutraRoutes);
 APP.use('/api/v5/analise-de-risco', protectApi, analise_de_riscoRoutes);
 APP.use('/api/v5/abertura-OS', protectApi, abertura_OSRoutes);
+APP.use('/api/v5/agendamento', protectApi, agendamentoRoutes);
+
 
 
 
@@ -473,6 +481,7 @@ APP.use('/e-mails', protectRoutes, ROUTES);
 APP.use('/migra-onu', protectRoutes, ROUTES);
 APP.use('/lead-Venda', protectRoutes, ROUTES);
 APP.use('/soc-report', protectRoutes, ROUTES);
+APP.use('/agendamento', protectRoutes, ROUTES);
 APP.use('/abertura-OS', protectRoutes, ROUTES);
 APP.use('/equipamentos', protectRoutes, ROUTES);
 APP.use('/looking-glass', protectRoutes, ROUTES);
