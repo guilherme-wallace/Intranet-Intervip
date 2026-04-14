@@ -78,7 +78,7 @@ function executarComandoHuawei(ipRouter, comando) {
     });
 }
 router.post('/consultar', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var _a, type, target, selectedRouter, ipRouter, loopbackInterface, comando, safeTarget, bgpTarget, output, cleanOutput, indexTotal, error_1;
+    var _a, type, target, selectedRouter, ipRouter, loopbackInterface, comando, safeTarget, bgpTarget, bgp6Target, output, cleanOutput, indexTotal, error_1;
     return __generator(this, function (_b) {
         switch (_b.label) {
             case 0:
@@ -106,6 +106,10 @@ router.post('/consultar', function (req, res) { return __awaiter(void 0, void 0,
                         bgpTarget = safeTarget.replace('/', ' ');
                         comando = "display bgp routing-table ".concat(bgpTarget, " longer-prefixes | no-more");
                         break;
+                    case 'bgp6':
+                        bgp6Target = safeTarget.replace('/', ' ');
+                        comando = "display bgp ipv6 routing-table ".concat(bgp6Target, " | no-more");
+                        break;
                     case 'ping':
                         comando = "ping -i ".concat(loopbackInterface, " ").concat(safeTarget);
                         break;
@@ -131,7 +135,7 @@ router.post('/consultar', function (req, res) { return __awaiter(void 0, void 0,
                 cleanOutput = cleanOutput.replace(/<[a-zA-Z0-9\-_]+>/g, '');
                 cleanOutput = cleanOutput.replace(/^Info: The max number of VTY users.*$/gm, '');
                 cleanOutput = cleanOutput.replace(/^\s*The (current|last) login.*$/gm, '');
-                if (type === 'bgp') {
+                if (type === 'bgp' || type === 'bgp6') {
                     indexTotal = cleanOutput.indexOf('Total Number of Routes:');
                     if (indexTotal !== -1) {
                         cleanOutput = cleanOutput.substring(indexTotal);

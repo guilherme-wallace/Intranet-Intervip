@@ -12,6 +12,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const val = typeSelect.value;
         if (val === 'bgp') {
             targetInput.placeholder = 'Ex: 8.8.8.0/24';
+        } else if (val === 'bgp6') {
+            targetInput.placeholder = 'Ex: 2001:4860:4860::/64';
         } else if (val === 'ping' || val === 'trace') {
             targetInput.placeholder = 'Ex: 8.8.8.8';
         } else {
@@ -28,11 +30,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (type === 'bgp') {
             currentVal = currentVal.replace(/[^0-9.\/]/g, '');
             const parts = currentVal.split('/');
-            if (parts.length > 2) {
-                currentVal = parts[0] + '/' + parts.slice(1).join('').replace(/\//g, '');
-            }
+            if (parts.length > 2) currentVal = parts[0] + '/' + parts.slice(1).join('').replace(/\//g, '');
+            
+        } else if (type === 'bgp6') {
+            currentVal = currentVal.replace(/[^0-9a-fA-F:\/]/g, '');
+            const parts = currentVal.split('/');
+            if (parts.length > 2) currentVal = parts[0] + '/' + parts.slice(1).join('').replace(/\//g, '');
+
         } else if (type === 'ping' || type === 'trace') {
             currentVal = currentVal.replace(/[^0-9.]/g, '');
+            
         } else if (type === 'ping6' || type === 'trace6') {
             currentVal = currentVal.replace(/[^0-9a-fA-F:]/g, '');
         }
@@ -48,7 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const formData = new FormData(lgForm);
         const requestData = {
             type: formData.get('type'),
-            target: formData.get('target').trim(), 
+            target: formData.get('target').trim(),
             router: formData.get('router')
         };
 
@@ -58,29 +65,33 @@ document.addEventListener('DOMContentLoaded', () => {
         const regexIPv4 = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
         const regexIPv4CIDR = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/(?:[0-9]|[1-2][0-9]|3[0-2])$/;
         const regexIPv6 = /^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:))$/;
+        const regexIPv6CIDR = /^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:))\/(12[0-8]|1[0-1][0-9]|[1-9]?[0-9]|0)$/;
 
         if (requestData.type === 'bgp') {
             if (!regexIPv4CIDR.test(requestData.target)) {
                 isValid = false;
-                errorMessage = 'IP ou máscara inválida. Verifique os octetos e não esqueça a máscara no final (Ex: 8.8.8.0/24).';
+                errorMessage = 'Para BGP IPv4, informe IP e máscara corretos (Ex: 8.8.8.0/24).';
             }
-        } 
-        else if (requestData.type === 'ping' || requestData.type === 'trace') {
+        } else if (requestData.type === 'bgp6') {
+            if (!regexIPv6CIDR.test(requestData.target)) {
+                isValid = false;
+                errorMessage = 'Para BGP IPv6, informe IP e máscara corretos (Ex: 2001:4860:4860::/64).';
+            }
+        } else if (requestData.type === 'ping' || requestData.type === 'trace') {
             if (!regexIPv4.test(requestData.target)) {
                 isValid = false;
-                errorMessage = 'Endereço IPv4 inválido. Verifique os números digitados.';
+                errorMessage = 'Endereço IPv4 inválido (Não use máscara para Ping/Trace).';
             }
-        }
-        else if (requestData.type === 'ping6' || requestData.type === 'trace6') {
+        } else if (requestData.type === 'ping6' || requestData.type === 'trace6') {
             if (!regexIPv6.test(requestData.target)) {
                 isValid = false;
-                errorMessage = 'Endereço IPv6 inválido. Verifique a formatação.';
+                errorMessage = 'Endereço IPv6 inválido (Não use máscara para Ping/Trace).';
             }
         }
 
         if (!isValid) {
             targetInput.classList.add('is-invalid');
-            resultOutput.textContent = `Atenção: ${errorMessage}`;
+            resultOutput.textContent = `Erro de Formatação: ${errorMessage}`;
             resultOutput.classList.add('text-danger');
             return; 
         }

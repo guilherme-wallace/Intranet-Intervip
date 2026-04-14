@@ -68,6 +68,10 @@ router.post('/consultar', async (req: Express.Request, res: Express.Response) =>
             const bgpTarget = safeTarget.replace('/', ' ');
             comando = `display bgp routing-table ${bgpTarget} longer-prefixes | no-more`;
             break;
+        case 'bgp6':
+            const bgp6Target = safeTarget.replace('/', ' ');
+            comando = `display bgp ipv6 routing-table ${bgp6Target} | no-more`;
+            break;
         case 'ping':
             comando = `ping -i ${loopbackInterface} ${safeTarget}`;
             break;
@@ -90,11 +94,10 @@ router.post('/consultar', async (req: Express.Request, res: Express.Response) =>
         let cleanOutput = output;
 
         cleanOutput = cleanOutput.replace(/<[a-zA-Z0-9\-_]+>/g, '');
-
         cleanOutput = cleanOutput.replace(/^Info: The max number of VTY users.*$/gm, '');
         cleanOutput = cleanOutput.replace(/^\s*The (current|last) login.*$/gm, '');
 
-        if (type === 'bgp') {
+        if (type === 'bgp' || type === 'bgp6') {
             const indexTotal = cleanOutput.indexOf('Total Number of Routes:');
             if (indexTotal !== -1) {
                 cleanOutput = cleanOutput.substring(indexTotal);
