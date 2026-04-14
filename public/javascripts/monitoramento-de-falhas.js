@@ -63,7 +63,7 @@ function renderizarTabela() {
     if (!tbody) return;
     
     if (incidentesAtuais.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted"><i class="bi bi-check-circle fs-4 d-block mb-2 text-success"></i>Nenhuma falha massiva ou alerta ativo no momento.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted"><i class="bi bi-check-circle fs-4 d-block mb-2 text-success"></i>Nenhuma falha massiva ou alerta ativo no momento.</td></tr>';
         badgeTotal.innerText = '0';
         verificarAcoesLote();
         return;
@@ -87,7 +87,10 @@ function renderizarTabela() {
         html += `
         <tr class="row-incidente-pai ${rowColorClass}" data-group-id="${groupId}">
             <td class="text-center">
-                <i class="bi bi-chevron-right btn-toggle-group"></i>
+                <div class="d-flex align-items-center justify-content-center gap-2">
+                    ${!todosResolvidos ? `<input class="form-check-input chk-incidente-lote m-0" type="checkbox" value="${incidente.id}">` : ''}
+                    <i class="bi bi-chevron-right btn-toggle-group cursor-pointer"></i>
+                </div>
             </td>
             <td>${formatarData(incidente.data_inicio)}</td>
             <td>
@@ -200,16 +203,14 @@ function renderizarTabela() {
         });
     });
 
-    document.querySelectorAll('.chk-alerta-lote').forEach(chk => {
+    document.querySelectorAll('.chk-alerta-lote, .chk-incidente-lote').forEach(chk => {
         chk.addEventListener('change', verificarAcoesLote);
     });
     
     document.querySelectorAll('.btn-mudar-status-ind').forEach(btn => {
         btn.addEventListener('click', function(e) {
             e.preventDefault();
-            const id = parseInt(this.getAttribute('data-id'));
-            const status = this.getAttribute('data-status');
-            dispararAcaoLote(status, [id]);
+            dispararAcaoLote(this.getAttribute('data-status'), [parseInt(this.getAttribute('data-id'))]);
         });
     });
 
@@ -217,12 +218,43 @@ function renderizarTabela() {
 }
 
 function verificarAcoesLote() {
-    const selecionados = document.querySelectorAll('.chk-alerta-lote:checked').length;
+    const alertasSelecionados = document.querySelectorAll('.chk-alerta-lote:checked');
+    const incidentesSelecionados = document.querySelectorAll('.chk-incidente-lote:checked');
     const barra = document.getElementById('barra-acoes-lote');
-    if (selecionados > 0) {
-        document.getElementById('qtd-selecionados').innerText = selecionados;
+    
+    const btnNormalizar = document.getElementById('btn-lote-normalizar');
+    const btnDown = document.getElementById('btn-lote-down');
+    const btnIgnorar = document.getElementById('btn-lote-ignorar');
+    const btnDesmembrar = document.getElementById('btn-lote-desmembrar');
+    const btnUnificar = document.getElementById('btn-lote-unificar');
+
+    let total = alertasSelecionados.length + incidentesSelecionados.length;
+
+    if (total > 0) {
+        document.getElementById('qtd-selecionados').innerText = total;
         barra.classList.remove('d-none');
         barra.classList.add('d-flex');
+
+        if (incidentesSelecionados.length > 1 && alertasSelecionados.length === 0) {
+            if(btnNormalizar) btnNormalizar.classList.add('d-none');
+            if(btnDown) btnDown.classList.add('d-none');
+            if(btnIgnorar) btnIgnorar.classList.add('d-none');
+            if(btnDesmembrar) btnDesmembrar.classList.add('d-none');
+            if(btnUnificar) btnUnificar.classList.remove('d-none');
+        } else if (alertasSelecionados.length > 0 && incidentesSelecionados.length === 0) {
+            if(btnNormalizar) btnNormalizar.classList.remove('d-none');
+            if(btnDown) btnDown.classList.remove('d-none');
+            if(btnIgnorar) btnIgnorar.classList.remove('d-none');
+            if(btnDesmembrar) btnDesmembrar.classList.remove('d-none');
+            if(btnUnificar) btnUnificar.classList.add('d-none');
+        } else {
+            if(btnNormalizar) btnNormalizar.classList.add('d-none');
+            if(btnDown) btnDown.classList.add('d-none');
+            if(btnIgnorar) btnIgnorar.classList.add('d-none');
+            if(btnDesmembrar) btnDesmembrar.classList.add('d-none');
+            if(btnUnificar) btnUnificar.classList.add('d-none');
+            document.getElementById('qtd-selecionados').innerText = "Selecione mais de uma massiva. Apenas 1";
+        }
     } else {
         barra.classList.add('d-none');
         barra.classList.remove('d-flex');
@@ -246,9 +278,37 @@ async function dispararAcaoLote(acaoStr, preIds = null) {
     } catch(e) { console.error(e); }
 }
 
+async function dispararDesmembrarLote() {
+    const ids = Array.from(document.querySelectorAll('.chk-alerta-lote:checked')).map(chk => parseInt(chk.value));
+    if (!ids.length) return;
+    if (!confirm(`Tem certeza que deseja separar ${ids.length} alerta(s) em uma NOVA massiva pai?`)) return;
+
+    try {
+        const response = await fetch('/api/v5/monitoramento-de-falhas/acao-desmembrar', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ alertas_ids: ids })
+        });
+        if (response.ok) carregarFalhas(); else alert("Erro ao desmembrar alertas.");
+    } catch(e) { console.error(e); }
+}
+
+async function dispararUnificarLote() {
+    const ids = Array.from(document.querySelectorAll('.chk-incidente-lote:checked')).map(chk => parseInt(chk.value));
+    if (ids.length < 2) return alert("Selecione pelo menos 2 massivas para unificar.");
+    if (!confirm(`Tem certeza que deseja unificar as ${ids.length} massivas em UMA SÓ?`)) return;
+
+    try {
+        const response = await fetch('/api/v5/monitoramento-de-falhas/acao-unificar', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ incidentes_ids: ids })
+        });
+        if (response.ok) carregarFalhas(); else alert("Erro ao unificar massivas.");
+    } catch(e) { console.error(e); }
+}
+
 document.getElementById('btn-lote-normalizar')?.addEventListener('click', () => dispararAcaoLote('UP'));
 document.getElementById('btn-lote-down')?.addEventListener('click', () => dispararAcaoLote('DOWN'));
 document.getElementById('btn-lote-ignorar')?.addEventListener('click', () => dispararAcaoLote('IGNORADO'));
+document.getElementById('btn-lote-desmembrar')?.addEventListener('click', dispararDesmembrarLote);
+document.getElementById('btn-lote-unificar')?.addEventListener('click', dispararUnificarLote);
 
 let selectedCondoManual = null;
 let selectedContratoCorp = null;
@@ -287,11 +347,7 @@ if (inputBuscaCondo) {
                         container.innerHTML = '';
                         
                         blocos.forEach(b => {
-                            container.innerHTML += `
-                            <div class="form-check form-switch border rounded p-2 d-flex align-items-center">
-                                <input class="form-check-input ms-0 me-3 chk-bloco-manual" type="checkbox" role="switch" value="${b.name}" checked>
-                                <label class="form-check-label flex-grow-1">${b.name}</label>
-                            </div>`;
+                            container.innerHTML += `<div class="form-check form-switch border rounded p-2 d-flex align-items-center"><input class="form-check-input ms-0 me-3 chk-bloco-manual" type="checkbox" role="switch" value="${b.name}" checked><label class="form-check-label flex-grow-1">${b.name}</label></div>`;
                         });
                         
                         document.getElementById('btn-abrir-modal-blocos').classList.remove('d-none');
@@ -306,58 +362,32 @@ if (inputBuscaCondo) {
     });
 }
 
-document.getElementById('btn-abrir-modal-blocos')?.addEventListener('click', () => {
-    new bootstrap.Modal(document.getElementById('modalSelecaoBlocos')).show();
-});
-document.getElementById('btn-marcar-todos-blocos')?.addEventListener('click', () => {
-    document.querySelectorAll('.chk-bloco-manual').forEach(chk => chk.checked = true);
-});
-document.getElementById('btn-desmarcar-todos-blocos')?.addEventListener('click', () => {
-    document.querySelectorAll('.chk-bloco-manual').forEach(chk => chk.checked = false);
-});
-document.getElementById('btn-confirmar-blocos')?.addEventListener('click', () => {
-    atualizarTextoBlocosSelecionados();
-    bootstrap.Modal.getInstance(document.getElementById('modalSelecaoBlocos')).hide();
-});
+document.getElementById('btn-abrir-modal-blocos')?.addEventListener('click', () => new bootstrap.Modal(document.getElementById('modalSelecaoBlocos')).show());
+document.getElementById('btn-marcar-todos-blocos')?.addEventListener('click', () => document.querySelectorAll('.chk-bloco-manual').forEach(chk => chk.checked = true));
+document.getElementById('btn-desmarcar-todos-blocos')?.addEventListener('click', () => document.querySelectorAll('.chk-bloco-manual').forEach(chk => chk.checked = false));
+document.getElementById('btn-confirmar-blocos')?.addEventListener('click', () => { atualizarTextoBlocosSelecionados(); bootstrap.Modal.getInstance(document.getElementById('modalSelecaoBlocos')).hide(); });
 
 function atualizarTextoBlocosSelecionados() {
-    const marcados = document.querySelectorAll('.chk-bloco-manual:checked').length;
-    const total = document.querySelectorAll('.chk-bloco-manual').length;
-    document.getElementById('texto-blocos-selecionados').innerText = `${marcados} de ${total} blocos afetados.`;
+    document.getElementById('texto-blocos-selecionados').innerText = `${document.querySelectorAll('.chk-bloco-manual:checked').length} de ${document.querySelectorAll('.chk-bloco-manual').length} blocos afetados.`;
 }
 
 document.getElementById('btn-buscar-corp')?.addEventListener('click', async () => {
     const id = document.getElementById('busca-cliente-corp').value;
     if(!id) return;
-    
     document.getElementById('btn-buscar-corp').innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-    
     try {
         const res = await fetch(`/api/v5/monitoramento-de-falhas/busca-contratos/${id}`);
         const data = await res.json();
-        
         document.getElementById('nome-cliente-corp').textContent = data.nome;
         const sel = document.getElementById('lista-contratos-corp');
         sel.innerHTML = '';
         selectedContratoCorp = null;
 
-        if (data.contratos.length === 0) {
-            sel.innerHTML = '<div class="alert alert-warning">Nenhum contrato ativo encontrado.</div>';
-        } else {
+        if (data.contratos.length === 0) sel.innerHTML = '<div class="alert alert-warning">Nenhum contrato ativo.</div>';
+        else {
             data.contratos.forEach(c => {
-                const statusMap = {'A':'Ativo', 'AA':'Ativo', 'BO':'Bloqueado', 'P':'Pendente'};
                 const statusBadgeClass = ['A','AA'].includes(c.status) ? 'bg-success' : 'bg-warning text-dark';
-                const statusText = statusMap[c.status] || c.status;
-                
-                sel.innerHTML += `
-                <a href="#" class="list-group-item list-group-item-action item-contrato-corp" data-id="${c.id_contrato}" data-name="${c.plano}" data-endereco="${c.endereco}">
-                    <div class="d-flex w-100 justify-content-between mb-1">
-                        <h6 class="mb-1 fw-bold text-primary">ID ${c.id_contrato} - ${c.plano}</h6>
-                        <span class="badge ${statusBadgeClass}">${statusText}</span>
-                    </div>
-                    <p class="mb-1 small text-muted"><i class="bi bi-geo-alt-fill"></i> ${c.endereco}</p>
-                    <small class="text-muted fw-bold">Ativado em: ${c.data_ativacao}</small>
-                </a>`;
+                sel.innerHTML += `<a href="#" class="list-group-item list-group-item-action item-contrato-corp" data-id="${c.id_contrato}" data-name="${c.plano}" data-endereco="${c.endereco}"><div class="d-flex w-100 justify-content-between mb-1"><h6 class="mb-1 fw-bold text-primary">ID ${c.id_contrato} - ${c.plano}</h6><span class="badge ${statusBadgeClass}">${c.status}</span></div><p class="mb-1 small text-muted"><i class="bi bi-geo-alt-fill"></i> ${c.endereco}</p></a>`;
             });
         }
         sel.classList.remove('d-none');
@@ -367,19 +397,10 @@ document.getElementById('btn-buscar-corp')?.addEventListener('click', async () =
                 e.preventDefault();
                 document.querySelectorAll('.item-contrato-corp').forEach(i => i.classList.remove('active', 'bg-primary-subtle'));
                 this.classList.add('active', 'bg-primary-subtle');
-                selectedContratoCorp = {
-                    id: this.getAttribute('data-id'),
-                    nome: this.getAttribute('data-name'),
-                    endereco: this.getAttribute('data-endereco')
-                };
+                selectedContratoCorp = { id: this.getAttribute('data-id'), nome: this.getAttribute('data-name'), endereco: this.getAttribute('data-endereco') };
             });
         });
-
-    } catch(e) {
-        alert("Erro ao buscar contratos no IXC.");
-    } finally {
-        document.getElementById('btn-buscar-corp').innerHTML = 'Buscar Contratos';
-    }
+    } catch(e) { alert("Erro ao buscar no IXC."); } finally { document.getElementById('btn-buscar-corp').innerHTML = 'Buscar Contratos'; }
 });
 
 const btnSalvarManual = document.getElementById('btn-salvar-manual');
@@ -388,32 +409,20 @@ if (btnSalvarManual) {
         const tipo = document.getElementById('man-tipo').value;
         const host = document.getElementById('man-host').value;
         const obs = document.getElementById('man-obs').value || 'Reportado Manualmente';
-        
-        let identificadorStr = '';
-        let nomeVisual = '';
+        let identificadorStr = '', nomeVisual = '';
 
         if (tipo === 'FTTB') {
             if(!selectedCondoManual) return alert("Selecione o condomínio.");
-            
             const blocosMarcados = Array.from(document.querySelectorAll('.chk-bloco-manual:checked')).map(chk => chk.value);
-            const totalBlocos = document.querySelectorAll('.chk-bloco-manual').length;
-            
             identificadorStr = selectedCondoManual.id.toString();
             nomeVisual = selectedCondoManual.nome;
-            
-            if (blocosMarcados.length < totalBlocos && blocosMarcados.length > 0) {
-                nomeVisual += ` (Blocos: ${blocosMarcados.join(', ')})`;
-            } else if (blocosMarcados.length === 0) {
-                return alert("Pelo menos um bloco deve ser selecionado para gerar a falha.");
-            }
-
+            if (blocosMarcados.length < document.querySelectorAll('.chk-bloco-manual').length && blocosMarcados.length > 0) nomeVisual += ` (Blocos: ${blocosMarcados.join(', ')})`;
+            else if (blocosMarcados.length === 0) return alert("Pelo menos um bloco.");
         } else if (tipo === 'CORP') {
             const idCli = document.getElementById('busca-cliente-corp').value;
-            if(!idCli || !selectedContratoCorp) return alert("Busque o cliente e clique sobre o contrato afetado na lista.");
-            
+            if(!idCli || !selectedContratoCorp) return alert("Selecione o contrato.");
             identificadorStr = `${idCli}|${selectedContratoCorp.id}`;
             nomeVisual = `${document.getElementById('nome-cliente-corp').textContent} | ${selectedContratoCorp.nome} - ${selectedContratoCorp.endereco}`;
-
         } else {
             identificadorStr = document.getElementById('identificador-backbone').value;
             nomeVisual = identificadorStr;
@@ -426,29 +435,9 @@ if (btnSalvarManual) {
         const tzoffset = date.getTimezoneOffset() * 60000;
         const dataLocal = new Date(date.getTime() - tzoffset).toISOString().slice(0, 19).replace('T', ' ');
 
-        const dados = {
-            host_zabbix: host,
-            tipo_alerta: tipo,
-            identificador: identificadorStr,
-            nome_identificado: nomeVisual,
-            motivo_falha: obs,
-            status: 'DOWN',
-            data_evento: dataLocal
-        };
-
         try {
-            const response = await fetch('/api/v5/monitoramento-de-falhas/webhook/n8n', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(dados)
-            });
-
-            if (response.ok) {
-                bootstrap.Modal.getInstance(document.getElementById('modalNovaFalha')).hide();
-                carregarFalhas(); 
-            } else {
-                alert('Erro ao salvar falha manual.');
-            }
+            const response = await fetch('/api/v5/monitoramento-de-falhas/webhook/n8n', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ host_zabbix: host, tipo_alerta: tipo, identificador: identificadorStr, nome_identificado: nomeVisual, motivo_falha: obs, status: 'DOWN', data_evento: dataLocal }) });
+            if (response.ok) { bootstrap.Modal.getInstance(document.getElementById('modalNovaFalha')).hide(); carregarFalhas(); } else alert('Erro ao salvar falha manual.');
         } catch (error) { console.error(error); }
     });
 }
@@ -459,22 +448,21 @@ function toggleGrupo(groupId, rowElement) {
     if(linhas.length === 0) return;
 
     const isHidden = linhas[0].style.display === 'none';
-    
     linhas.forEach(tr => tr.style.display = isHidden ? 'table-row' : 'none');
 
     if(isHidden) {
         gruposExpandidos.add(groupId);
-        if (icon) {
-            icon.classList.add('expanded');
-            icon.classList.replace('bi-chevron-right', 'bi-chevron-down');
-        }
+        if (icon) { icon.classList.add('expanded'); icon.classList.replace('bi-chevron-right', 'bi-chevron-down'); }
     } else {
         gruposExpandidos.delete(groupId);
-        if (icon) {
-            icon.classList.remove('expanded');
-            icon.classList.replace('bi-chevron-down', 'bi-chevron-right');
-        }
+        if (icon) { icon.classList.remove('expanded'); icon.classList.replace('bi-chevron-down', 'bi-chevron-right'); }
     }
+}
+
+function formatarData(dataString) {
+    if(!dataString) return '-';
+    const data = new Date(dataString);
+    return data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + ' - ' + data.toLocaleDateString('pt-BR');
 }
 
 function gerarRelatorio(incidenteId) {
@@ -484,7 +472,8 @@ function gerarRelatorio(incidenteId) {
     const alertasAtivos = incidente.alertas.filter(a => a.status === 'DOWN');
     const hostsRelatorio = [...new Set(alertasAtivos.map(a => a.host_zabbix))].join(', ');
 
-    let textoRelatorio = `*Massiva:* ${hostsRelatorio || incidente.regiao_afetada}\n\n`;
+    const dataFormatada = formatarData(incidente.data_inicio);
+    let textoRelatorio = `*Massiva - ${dataFormatada}:* ${hostsRelatorio || incidente.regiao_afetada}\n\n`;
 
     const corporativos = alertasAtivos.filter(a => a.tipo_alerta === 'CORP');
     const publicos = alertasAtivos.filter(a => ['FTTB', 'PON', 'HTSP', 'WIFI'].includes(a.tipo_alerta));
@@ -492,7 +481,6 @@ function gerarRelatorio(incidenteId) {
 
     const limparNome = (nome) => {
         let limpo = nome || '';
-        
         let partes = limpo.split('|');
         if (partes.length > 1) {
             let endereco = partes[1].trim();
@@ -500,52 +488,44 @@ function gerarRelatorio(incidenteId) {
                 limpo = partes[0].trim();
             }
         }
-        
         limpo = limpo.replace(/(^|PON Afetada:\s*|,\s*)\d+\s*-\s*/g, '$1');
-        
         limpo = limpo.replace(/link down/gi, 'Offline');
-        
         return limpo;
     };
 
     if (corporativos.length > 0) {
         textoRelatorio += `*Corporativos Afetados:*\n`;
-        corporativos.forEach(c => {
-            textoRelatorio += `${limparNome(c.nome_identificado)}\n`; 
-        });
+        corporativos.forEach(c => textoRelatorio += `${limparNome(c.nome_identificado)}\n`);
         textoRelatorio += `\n`;
     }
 
     if (publicos.length > 0) {
         textoRelatorio += `*Condomínios / Varejo Afetados:*\n`;
-        publicos.forEach(p => {
-            textoRelatorio += `${limparNome(p.nome_identificado)}\n`;
-        });
+        publicos.forEach(p => textoRelatorio += `${limparNome(p.nome_identificado)}\n`);
         textoRelatorio += `\n`;
     }
 
     if (interconexoes.length > 0) {
         textoRelatorio += `*Interconexões / Backbone Afetados:*\n`;
         interconexoes.forEach(i => {
-            textoRelatorio += `${limparNome(i.nome_identificado)}\n`;
+            if (i.tipo_alerta === 'BACKBONE') {
+                let nomeRaw = i.nome_identificado || '';
+                const match = nomeRaw.match(/([^(]+)\(([^)]+)\)/);
+                if (match) {
+                    textoRelatorio += `${i.host_zabbix} - ${match[1].trim()} *->* ${match[2].trim()}\n`;
+                } else {
+                    textoRelatorio += `${i.host_zabbix} - ${limparNome(nomeRaw)}\n`;
+                }
+            } else {
+                textoRelatorio += `${limparNome(i.nome_identificado)}\n`;
+            }
         });
         textoRelatorio += `\n`;
     }
 
     navigator.clipboard.writeText(textoRelatorio.trim()).then(() => {
-        const toastEl = document.getElementById('toastCopiado');
-        const toast = new bootstrap.Toast(toastEl);
-        toast.show();
-    }).catch(err => {
-        console.error('Erro ao copiar', err);
-        alert('Erro ao copiar o relatório.');
-    });
-}
-
-function formatarData(dataString) {
-    if(!dataString) return '-';
-    const data = new Date(dataString);
-    return data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + ' - ' + data.toLocaleDateString('pt-BR');
+        new bootstrap.Toast(document.getElementById('toastCopiado')).show();
+    }).catch(err => { alert('Erro ao copiar o relatório.'); });
 }
 
 function initializeThemeAndUserInfo() {

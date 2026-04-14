@@ -110,7 +110,7 @@ function processWebhookQueue() {
 router.post('/webhook/n8n', function (req, res) {
     res.json({ success: true, message: 'Alerta recebido e enfileirado para processamento.' });
     webhookQueue.push(function () { return __awaiter(void 0, void 0, void 0, function () {
-        var _a, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, status, data_evento, sinal_rx_retorno, is_update, update_action, update_message, data_evento_sql, idCliente, idContrato, parts, headersIxc, respCliente, razaoSocial, enderecoCompleto, respContrato, c, error_1, checkDuplicata, alertaExistente, motivoBase, novoMotivo, checkRestantes, checkDuplicata, buscarIncidente, resInc, idIncidentePai, resCriar, resBusca, alertaId, incidenteId, resCheck;
+        var _a, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, status, data_evento, sinal_rx_retorno, is_update, update_action, update_message, data_evento_sql, idClienteForIXC, idContrato, parts, matchITX, sufixoFilial, nomeRaw, match, match, match, headersIxc, respCliente, razaoSocial, enderecoCompleto, respContrato, c, error_1, checkDuplicata, alertaExistente, motivoBase, novoMotivo, checkRestantes, checkDuplicata, buscarIncidente, resInc, idIncidentePai, resCriar, resBusca, alertaId, incidenteId, resCheck;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
@@ -119,19 +119,47 @@ router.post('/webhook/n8n', function (req, res) {
                     if (data_evento_sql && data_evento_sql.includes('.')) {
                         data_evento_sql = data_evento_sql.replace(/\./g, '-');
                     }
-                    if (!(tipo_alerta === 'CORP' && identificador && (!nome_identificado || !nome_identificado.includes('|')))) return [3 /*break*/, 6];
-                    idCliente = identificador;
+                    idClienteForIXC = null;
                     idContrato = null;
-                    if (identificador.includes('|')) {
-                        parts = identificador.split('|');
-                        idCliente = parts[0];
-                        idContrato = parts[1];
+                    if (tipo_alerta === 'CORP' && identificador) {
+                        if (identificador.includes('|')) {
+                            parts = identificador.split('|');
+                            idClienteForIXC = parts[0];
+                            idContrato = parts[1];
+                        }
+                        else {
+                            idClienteForIXC = identificador;
+                        }
+                    }
+                    else if (tipo_alerta === 'ITX' && (nome_identificado || identificador)) {
+                        matchITX = (nome_identificado || identificador).match(/ITX-(\d+)/i);
+                        if (matchITX) {
+                            idClienteForIXC = matchITX[1];
+                        }
+                    }
+                    if (!(idClienteForIXC && (!nome_identificado || !nome_identificado.includes('|')))) return [3 /*break*/, 6];
+                    sufixoFilial = "";
+                    nomeRaw = nome_identificado || "";
+                    if (idClienteForIXC === '29571') {
+                        match = nomeRaw.match(/29571-(AP\d+)/i);
+                        if (match)
+                            sufixoFilial = " (Filial ".concat(match[1], ")");
+                    }
+                    else if (idClienteForIXC === '58540') {
+                        match = nomeRaw.match(/58540_([a-zA-Z0-9_]+)/i);
+                        if (match)
+                            sufixoFilial = " (Filial ".concat(match[1], ")");
+                    }
+                    else if (idClienteForIXC === '56525') {
+                        match = nomeRaw.match(/56525-([a-zA-Z0-9\-]+)/i);
+                        if (match)
+                            sufixoFilial = " (Filial ".concat(match[1].trim(), ")");
                     }
                     _b.label = 1;
                 case 1:
                     _b.trys.push([1, 5, , 6]);
                     headersIxc = { 'Authorization': "Basic ".concat(process.env.IXC_API_TOKEN), 'ixcsoft': 'listar', 'Content-Type': 'application/json' };
-                    return [4 /*yield*/, axios_1.default.post("".concat(process.env.IXC_API_URL, "/webservice/v1/cliente"), { qtype: "cliente.id", query: idCliente, oper: "=", rp: "1" }, { headers: headersIxc })];
+                    return [4 /*yield*/, axios_1.default.post("".concat(process.env.IXC_API_URL, "/webservice/v1/cliente"), { qtype: "cliente.id", query: idClienteForIXC, oper: "=", rp: "1" }, { headers: headersIxc })];
                 case 2:
                     respCliente = _b.sent();
                     razaoSocial = "";
@@ -153,14 +181,14 @@ router.post('/webhook/n8n', function (req, res) {
                     _b.label = 4;
                 case 4:
                     if (razaoSocial) {
-                        nome_identificado = "".concat(razaoSocial, " (ID: ").concat(idCliente, ")");
+                        nome_identificado = "".concat(razaoSocial, " (ID: ").concat(idClienteForIXC, ")").concat(sufixoFilial);
                         if (enderecoCompleto)
                             nome_identificado += " | ".concat(enderecoCompleto);
                     }
                     return [3 /*break*/, 6];
                 case 5:
                     error_1 = _b.sent();
-                    console.error("Erro ao enriquecer dados do CORP via IXC:", error_1.message);
+                    console.error("Erro IXC:", error_1.message);
                     return [3 /*break*/, 6];
                 case 6:
                     if (!(is_update === '1' || (update_action && update_action.toLowerCase().includes('acknowledge')))) return [3 /*break*/, 12];
@@ -191,7 +219,7 @@ router.post('/webhook/n8n', function (req, res) {
                     _b.label = 11;
                 case 11: return [2 /*return*/];
                 case 12:
-                    if (!(status === 'DOWN')) return [3 /*break*/, 21];
+                    if (!(status === 'DOWN')) return [3 /*break*/, 19];
                     return [4 /*yield*/, queryAsync("\n                SELECT id FROM mon_alertas \n                WHERE identificador = ? AND host_zabbix = ? AND status = 'DOWN' \n                ORDER BY id DESC LIMIT 1\n            ", [identificador, host_zabbix])];
                 case 13:
                     checkDuplicata = _b.sent();
@@ -202,50 +230,47 @@ router.post('/webhook/n8n', function (req, res) {
                 case 14:
                     resInc = _b.sent();
                     idIncidentePai = void 0;
-                    if (!(resInc && resInc.length > 0)) return [3 /*break*/, 17];
+                    if (!(resInc && resInc.length > 0)) return [3 /*break*/, 15];
                     idIncidentePai = resInc[0].id;
-                    if (!(resInc[0].regiao_afetada !== host_zabbix && resInc[0].regiao_afetada !== 'Múltiplos Equipamentos')) return [3 /*break*/, 16];
-                    return [4 /*yield*/, queryAsync("UPDATE mon_incidentes SET regiao_afetada = 'M\u00FAltiplos Equipamentos' WHERE id = ?", [idIncidentePai])];
-                case 15:
-                    _b.sent();
-                    _b.label = 16;
-                case 16: return [3 /*break*/, 19];
-                case 17: return [4 /*yield*/, queryAsync("INSERT INTO mon_incidentes (regiao_afetada, data_inicio, status) VALUES (?, ?, 'Ativo')", [host_zabbix, data_evento_sql])];
-                case 18:
+                    return [3 /*break*/, 17];
+                case 15: return [4 /*yield*/, queryAsync("INSERT INTO mon_incidentes (regiao_afetada, data_inicio, status) VALUES (?, ?, 'Ativo')", [host_zabbix, data_evento_sql])];
+                case 16:
                     resCriar = _b.sent();
                     idIncidentePai = resCriar.insertId;
-                    _b.label = 19;
-                case 19: return [4 /*yield*/, queryAsync("\n                INSERT INTO mon_alertas \n                (id_incidente, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, data_falha, status) \n                VALUES (?, ?, ?, ?, ?, ?, ?, 'DOWN')\n            ", [idIncidentePai, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, data_evento_sql])];
-                case 20:
+                    _b.label = 17;
+                case 17: return [4 /*yield*/, queryAsync("\n                INSERT INTO mon_alertas \n                (id_incidente, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, data_falha, status) \n                VALUES (?, ?, ?, ?, ?, ?, ?, 'DOWN')\n            ", [idIncidentePai, host_zabbix, tipo_alerta, identificador, nome_identificado, motivo_falha, data_evento_sql])];
+                case 18:
                     _b.sent();
-                    return [3 /*break*/, 26];
-                case 21:
-                    if (!(status === 'UP')) return [3 /*break*/, 26];
+                    return [3 /*break*/, 24];
+                case 19:
+                    if (!(status === 'UP')) return [3 /*break*/, 24];
                     return [4 /*yield*/, queryAsync("\n                SELECT id, id_incidente FROM mon_alertas \n                WHERE identificador = ? AND host_zabbix = ? AND status IN ('DOWN', 'IGNORADO')\n                ORDER BY data_falha DESC LIMIT 1\n            ", [identificador, host_zabbix])];
-                case 22:
+                case 20:
                     resBusca = _b.sent();
-                    if (!(resBusca && resBusca.length > 0)) return [3 /*break*/, 26];
+                    if (!(resBusca && resBusca.length > 0)) return [3 /*break*/, 24];
                     alertaId = resBusca[0].id;
                     incidenteId = resBusca[0].id_incidente;
                     return [4 /*yield*/, queryAsync("UPDATE mon_alertas SET status = 'UP', data_retorno = ?, sinal_rx_retorno = ? WHERE id = ?", [data_evento_sql, sinal_rx_retorno, alertaId])];
+                case 21:
+                    _b.sent();
+                    if (!incidenteId) return [3 /*break*/, 24];
+                    return [4 /*yield*/, queryAsync("SELECT id FROM mon_alertas WHERE id_incidente = ? AND status = 'DOWN' LIMIT 1", [incidenteId])];
+                case 22:
+                    resCheck = _b.sent();
+                    if (!(resCheck.length === 0)) return [3 /*break*/, 24];
+                    return [4 /*yield*/, queryAsync("UPDATE mon_incidentes SET status = 'Resolvido', data_fim = ? WHERE id = ?", [data_evento_sql, incidenteId])];
                 case 23:
                     _b.sent();
-                    if (!incidenteId) return [3 /*break*/, 26];
-                    return [4 /*yield*/, queryAsync("SELECT id FROM mon_alertas WHERE id_incidente = ? AND status = 'DOWN' LIMIT 1", [incidenteId])];
-                case 24:
-                    resCheck = _b.sent();
-                    if (!(resCheck.length === 0)) return [3 /*break*/, 26];
-                    return [4 /*yield*/, queryAsync("UPDATE mon_incidentes SET status = 'Resolvido', data_fim = ? WHERE id = ?", [data_evento_sql, incidenteId])];
-                case 25:
-                    _b.sent();
-                    _b.label = 26;
-                case 26: return [2 /*return*/];
+                    _b.label = 24;
+                case 24: return [2 /*return*/];
             }
         });
     }); });
     processWebhookQueue();
 });
 router.get('/falhas-ativas', function (req, res) {
+    var ARCHIVE_OLD_SQL = "\n        UPDATE mon_alertas \n        SET status = 'IGNORADO', motivo_falha = CONCAT(IFNULL(motivo_falha, ''), ' | Arquivado auto. (Mais de 3 dias)') \n        WHERE status = 'DOWN' \n          AND data_falha <= NOW() - INTERVAL 3 DAY\n    ";
+    database_1.LOCALHOST.query(ARCHIVE_OLD_SQL, function () { });
     var AUTO_HEAL_SQL = "\n        UPDATE mon_incidentes \n        SET status = 'Resolvido', data_fim = NOW() \n        WHERE status = 'Ativo' \n          AND data_inicio <= NOW() - INTERVAL 5 MINUTE\n          AND id NOT IN (SELECT DISTINCT id_incidente FROM mon_alertas WHERE status = 'DOWN' AND id_incidente IS NOT NULL)\n    ";
     database_1.LOCALHOST.query(AUTO_HEAL_SQL, function () { });
     var queryIncidentes = "\n        SELECT * FROM mon_incidentes \n        WHERE \n            (status = 'Ativo' AND data_inicio <= NOW() - INTERVAL '2:30' MINUTE_SECOND)\n           OR \n            (status = 'Resolvido' AND data_fim >= NOW() - INTERVAL 10 MINUTE)\n        ORDER BY data_inicio DESC\n    ";
@@ -259,6 +284,7 @@ router.get('/falhas-ativas', function (req, res) {
             var incidentesAgrupados = resultIncidentes.map(function (inc) {
                 return __assign(__assign({}, inc), { alertas: resultAlertas.filter(function (a) { return a.id_incidente === inc.id; }) });
             });
+            incidentesAgrupados = incidentesAgrupados.filter(function (inc) { return inc.alertas && inc.alertas.length > 0; });
             var alertasIsolados = resultAlertas.filter(function (a) { return a.id_incidente === null; });
             alertasIsolados.forEach(function (alerta) {
                 incidentesAgrupados.push({
@@ -325,6 +351,81 @@ router.get('/busca-contratos/:id_cliente', function (req, res) { return __awaite
                 res.status(500).json({ error: error_2.message });
                 return [3 /*break*/, 5];
             case 5: return [2 /*return*/];
+        }
+    });
+}); });
+router.post('/acao-desmembrar', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var alertas_ids, placeholders, alertasInfo, host, dataInicio, resCriar, novoIncidenteId, error_3;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                alertas_ids = req.body.alertas_ids;
+                if (!alertas_ids || !alertas_ids.length)
+                    return [2 /*return*/, res.status(400).json({ error: 'Nenhum alerta fornecido.' })];
+                _a.label = 1;
+            case 1:
+                _a.trys.push([1, 5, , 6]);
+                placeholders = alertas_ids.map(function () { return '?'; }).join(',');
+                return [4 /*yield*/, queryAsync("SELECT host_zabbix, data_falha FROM mon_alertas WHERE id IN (".concat(placeholders, ") LIMIT 1"), alertas_ids)];
+            case 2:
+                alertasInfo = _a.sent();
+                if (!alertasInfo.length)
+                    return [2 /*return*/, res.status(404).json({ error: 'Alertas não encontrados.' })];
+                host = alertasInfo[0].host_zabbix;
+                dataInicio = alertasInfo[0].data_falha;
+                return [4 /*yield*/, queryAsync("INSERT INTO mon_incidentes (regiao_afetada, data_inicio, status) VALUES (?, ?, 'Ativo')", [host, dataInicio])];
+            case 3:
+                resCriar = _a.sent();
+                novoIncidenteId = resCriar.insertId;
+                return [4 /*yield*/, queryAsync("UPDATE mon_alertas SET id_incidente = ? WHERE id IN (".concat(placeholders, ")"), __spreadArray([novoIncidenteId], alertas_ids, true))];
+            case 4:
+                _a.sent();
+                res.json({ success: true, message: 'Nova massiva criada com sucesso.' });
+                return [3 /*break*/, 6];
+            case 5:
+                error_3 = _a.sent();
+                res.status(500).json({ error: error_3.message });
+                return [3 /*break*/, 6];
+            case 6: return [2 /*return*/];
+        }
+    });
+}); });
+router.post('/acao-unificar', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var incidentes_ids, placeholders, incidentes, masterId, idsParaMesclar, placeholdersMesclar, error_4;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                incidentes_ids = req.body.incidentes_ids;
+                if (!incidentes_ids || incidentes_ids.length < 2)
+                    return [2 /*return*/, res.status(400).json({ error: 'Selecione pelo menos 2 massivas.' })];
+                _a.label = 1;
+            case 1:
+                _a.trys.push([1, 6, , 7]);
+                placeholders = incidentes_ids.map(function () { return '?'; }).join(',');
+                return [4 /*yield*/, queryAsync("SELECT id FROM mon_incidentes WHERE id IN (".concat(placeholders, ") ORDER BY data_inicio ASC"), incidentes_ids)];
+            case 2:
+                incidentes = _a.sent();
+                if (!incidentes.length)
+                    return [2 /*return*/, res.status(404).json({ error: 'Incidentes não encontrados.' })];
+                masterId = incidentes[0].id;
+                idsParaMesclar = incidentes.slice(1).map(function (i) { return i.id; });
+                placeholdersMesclar = idsParaMesclar.map(function () { return '?'; }).join(',');
+                if (!(idsParaMesclar.length > 0)) return [3 /*break*/, 5];
+                return [4 /*yield*/, queryAsync("UPDATE mon_alertas SET id_incidente = ? WHERE id_incidente IN (".concat(placeholdersMesclar, ")"), __spreadArray([masterId], idsParaMesclar, true))];
+            case 3:
+                _a.sent();
+                return [4 /*yield*/, queryAsync("UPDATE mon_incidentes SET status = 'Resolvido', data_fim = NOW() WHERE id IN (".concat(placeholdersMesclar, ")"), idsParaMesclar)];
+            case 4:
+                _a.sent();
+                _a.label = 5;
+            case 5:
+                res.json({ success: true, message: 'Massivas unificadas com sucesso.' });
+                return [3 /*break*/, 7];
+            case 6:
+                error_4 = _a.sent();
+                res.status(500).json({ error: error_4.message });
+                return [3 /*break*/, 7];
+            case 7: return [2 /*return*/];
         }
     });
 }); });

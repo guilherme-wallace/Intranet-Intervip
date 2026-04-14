@@ -50,21 +50,51 @@ router.post('/webhook/n8n', (req, res) => {
             data_evento_sql = data_evento_sql.replace(/\./g, '-');
         }
 
-        if (tipo_alerta === 'CORP' && identificador && (!nome_identificado || !nome_identificado.includes('|'))) {
-            let idCliente = identificador;
-            let idContrato: string | null = null;
+        let idClienteForIXC: string | null = null;
+        let idContrato: string | null = null;
+
+        if (tipo_alerta === 'CORP' && identificador) {
             if (identificador.includes('|')) {
                 const parts = identificador.split('|');
-                idCliente = parts[0];
+                idClienteForIXC = parts[0];
                 idContrato = parts[1];
+            } else {
+                idClienteForIXC = identificador;
             }
+        } else if (tipo_alerta === 'ITX' && (nome_identificado || identificador)) {
+            const matchITX = (nome_identificado || identificador).match(/ITX-(\d+)/i);
+            if (matchITX) {
+                idClienteForIXC = matchITX[1];
+            }
+        }
+
+        if (idClienteForIXC && (!nome_identificado || !nome_identificado.includes('|'))) {
+            
+            let sufixoFilial = "";
+            const nomeRaw = nome_identificado || identificador || "";
+            
+            if (idClienteForIXC === '29571') {
+                const match = nomeRaw.match(/29571-(AP\d+)/i);
+                if (match) sufixoFilial = ` - Filial ${match[1]}`;
+            } else if (idClienteForIXC === '58540') {
+                let match = nomeRaw.match(/58540_([^:]+)/i);
+                if (!match) match = nomeRaw.match(/58540-OBTL-([^:]+)/i);
+                if (!match) match = nomeRaw.match(/58540-STTL-([^:]+)/i);
+                if (match) sufixoFilial = ` - Filial ${match[1].replace(/_$/, '').trim()}`;
+            } else if (idClienteForIXC === '56525') {
+                const match = nomeRaw.match(/56525-.*?(R\d+-\d+)/i);
+                if (match) sufixoFilial = ` - Filial ${match[1].trim()}`;
+            }
+
             try {
                 const headersIxc = { 'Authorization': `Basic ${process.env.IXC_API_TOKEN}`, 'ixcsoft': 'listar', 'Content-Type': 'application/json' };
-                const respCliente = await axios.post(`${process.env.IXC_API_URL}/webservice/v1/cliente`, { qtype: "cliente.id", query: idCliente, oper: "=", rp: "1" }, { headers: headersIxc });
+                const respCliente = await axios.post(`${process.env.IXC_API_URL}/webservice/v1/cliente`, { qtype: "cliente.id", query: idClienteForIXC, oper: "=", rp: "1" }, { headers: headersIxc });
+                
                 let razaoSocial = "";
                 if (respCliente.data && respCliente.data.registros && respCliente.data.registros.length > 0) {
                     razaoSocial = respCliente.data.registros[0].razao;
                 }
+                
                 let enderecoCompleto = "";
                 if (idContrato) {
                     const respContrato = await axios.post(`${process.env.IXC_API_URL}/webservice/v1/cliente_contrato`, { qtype: "cliente_contrato.id", query: idContrato, oper: "=", rp: "1" }, { headers: headersIxc });
@@ -75,12 +105,13 @@ router.post('/webhook/n8n', (req, res) => {
                         enderecoCompleto += ` - ${c.bairro}`;
                     }
                 }
+                
                 if (razaoSocial) {
-                    nome_identificado = `${razaoSocial} (ID: ${idCliente})`;
+                    nome_identificado = `${razaoSocial} (ID: ${idClienteForIXC})${sufixoFilial}`;
                     if (enderecoCompleto) nome_identificado += ` | ${enderecoCompleto}`;
                 }
-            } catch (error) {
-                console.error("Erro ao enriquecer dados do CORP via IXC:", error.message);
+            } catch (error) { 
+                console.error("Erro IXC:", error.message); 
             }
         }
 
@@ -142,9 +173,6 @@ router.post('/webhook/n8n', (req, res) => {
 
             if (resInc && resInc.length > 0) {
                 idIncidentePai = resInc[0].id;
-                //if (resInc[0].regiao_afetada !== host_zabbix && resInc[0].regiao_afetada !== 'Múltiplos Equipamentos') {
-                //    await queryAsync(`UPDATE mon_incidentes SET regiao_afetada = 'Múltiplos Equipamentos' WHERE id = ?`, [idIncidentePai]);
-                //}
             } else {
                 const resCriar = await queryAsync(`INSERT INTO mon_incidentes (regiao_afetada, data_inicio, status) VALUES (?, ?, 'Ativo')`, [host_zabbix, data_evento_sql]);
                 idIncidentePai = resCriar.insertId;
@@ -232,12 +260,14 @@ router.get('/falhas-ativas', (req, res) => {
         LOCALHOST.query(queryAlertas, (errAlt, resultAlertas: any[]) => {
             if (errAlt) return res.status(500).json({ error: errAlt.message });
 
-            const incidentesAgrupados = resultIncidentes.map(inc => {
+            let incidentesAgrupados = resultIncidentes.map(inc => {
                 return {
                     ...inc,
                     alertas: resultAlertas.filter(a => a.id_incidente === inc.id)
                 };
             });
+
+            incidentesAgrupados = incidentesAgrupados.filter(inc => inc.alertas && inc.alertas.length > 0);
 
             const alertasIsolados = resultAlertas.filter(a => a.id_incidente === null);
             alertasIsolados.forEach(alerta => {
@@ -277,9 +307,9 @@ router.get('/busca-contratos/:id_cliente', async (req, res) => {
             qtype: "cliente_contrato.id_cliente", query: id_cliente, oper: "=", rp: "50"
         }, { headers: headersIxc });
 
-        const registrosValidos = (respContrato.data?.registros || []).filter(c => !['D', 'C', 'CM', 'CA'].includes(c.status_internet));
+        const registrosValidos = (respContrato.data?.registros || []).filter((c: any) => !['D', 'C', 'CM', 'CA'].includes(c.status_internet));
 
-        const contratos = registrosValidos.map(c => {
+        const contratos = registrosValidos.map((c: any) => {
             let enderecoStr = '';
             if (c.endereco) {
                 enderecoStr = [c.endereco, c.numero, c.bairro].filter(Boolean).join(', ');
@@ -299,6 +329,48 @@ router.get('/busca-contratos/:id_cliente', async (req, res) => {
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
+});
+
+router.post('/acao-desmembrar', async (req, res) => {
+    const { alertas_ids } = req.body;
+    if (!alertas_ids || !alertas_ids.length) return res.status(400).json({ error: 'Nenhum alerta fornecido.' });
+
+    try {
+        const placeholders = alertas_ids.map(() => '?').join(',');
+        const alertasInfo = await queryAsync(`SELECT host_zabbix, data_falha FROM mon_alertas WHERE id IN (${placeholders}) LIMIT 1`, alertas_ids);
+        if (!alertasInfo.length) return res.status(404).json({ error: 'Alertas não encontrados.' });
+        
+        const host = alertasInfo[0].host_zabbix;
+        const dataInicio = alertasInfo[0].data_falha;
+
+        const resCriar = await queryAsync(`INSERT INTO mon_incidentes (regiao_afetada, data_inicio, status) VALUES (?, ?, 'Ativo')`, [host, dataInicio]);
+        const novoIncidenteId = resCriar.insertId;
+
+        await queryAsync(`UPDATE mon_alertas SET id_incidente = ? WHERE id IN (${placeholders})`, [novoIncidenteId, ...alertas_ids]);
+        res.json({ success: true, message: 'Nova massiva criada com sucesso.' });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+router.post('/acao-unificar', async (req, res) => {
+    const { incidentes_ids } = req.body;
+    if (!incidentes_ids || incidentes_ids.length < 2) return res.status(400).json({ error: 'Selecione pelo menos 2 massivas.' });
+
+    try {
+        const placeholders = incidentes_ids.map(() => '?').join(',');
+        const incidentes = await queryAsync(`SELECT id FROM mon_incidentes WHERE id IN (${placeholders}) ORDER BY data_inicio ASC`, incidentes_ids);
+        if (!incidentes.length) return res.status(404).json({ error: 'Incidentes não encontrados.' });
+
+        const masterId = incidentes[0].id;
+        const idsParaMesclar = incidentes.slice(1).map((i: any) => i.id);
+        const placeholdersMesclar = idsParaMesclar.map(() => '?').join(',');
+
+        if (idsParaMesclar.length > 0) {
+            await queryAsync(`UPDATE mon_alertas SET id_incidente = ? WHERE id_incidente IN (${placeholdersMesclar})`, [masterId, ...idsParaMesclar]);
+            await queryAsync(`UPDATE mon_incidentes SET status = 'Resolvido', data_fim = NOW() WHERE id IN (${placeholdersMesclar})`, idsParaMesclar);
+        }
+
+        res.json({ success: true, message: 'Massivas unificadas com sucesso.' });
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 router.post('/acao-lote', (req, res) => {
