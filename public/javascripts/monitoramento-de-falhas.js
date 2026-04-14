@@ -81,6 +81,9 @@ function renderizarTabela() {
         const statusIndicator = todosResolvidos ? '<span class="status-ok"></span> Resolvido' : '<span class="status-pulse-down"></span> Incidente Ativo';
         const rowColorClass = todosResolvidos ? 'table-success opacity-75' : '';
 
+        const hostsUnicos = [...new Set(filhos.map(f => f.host_zabbix))];
+        const listaHostsStr = hostsUnicos.join(', ');
+
         html += `
         <tr class="row-incidente-pai ${rowColorClass}" data-group-id="${groupId}">
             <td class="text-center">
@@ -88,11 +91,12 @@ function renderizarTabela() {
             </td>
             <td>${formatarData(incidente.data_inicio)}</td>
             <td>
-                <span class="text-primary">${incidente.regiao_afetada || 'Múltiplos Equipamentos'}</span>
+                <span class="text-primary fw-bold">${listaHostsStr}</span>
             </td> 
             <td><span class="badge bg-secondary">${filhos.length} afetados</span></td>
             <td>${statusIndicator}</td>
-            <td class="text-muted text-center">-</td> <td class="text-end">
+            <td class="text-muted text-center">-</td> 
+            <td class="text-end">
                 <button class="btn btn-sm btn-secondary btn-gerar-relatorio" data-id="${incidente.id}">
                     <i class="bi bi-clipboard"></i> Copiar Relatório
                 </button>
@@ -477,15 +481,37 @@ function gerarRelatorio(incidenteId) {
     const incidente = incidentesAtuais.find(i => i.id === incidenteId);
     if(!incidente || !incidente.alertas) return;
 
-    let textoRelatorio = `*Massiva:* ${incidente.regiao_afetada || 'Região não identificada'}\n\n`;
+    const alertasAtivos = incidente.alertas.filter(a => a.status === 'DOWN');
+    const hostsRelatorio = [...new Set(alertasAtivos.map(a => a.host_zabbix))].join(', ');
 
-    const corporativos = incidente.alertas.filter(a => a.tipo_alerta === 'CORP');
-    const publicos = incidente.alertas.filter(a => ['FTTB', 'PON', 'HTSP', 'WIFI'].includes(a.tipo_alerta));
+    let textoRelatorio = `*Massiva:* ${hostsRelatorio || incidente.regiao_afetada}\n\n`;
+
+    const corporativos = alertasAtivos.filter(a => a.tipo_alerta === 'CORP');
+    const publicos = alertasAtivos.filter(a => ['FTTB', 'PON', 'HTSP', 'WIFI'].includes(a.tipo_alerta));
+    const interconexoes = alertasAtivos.filter(a => ['ITX', 'BACKBONE'].includes(a.tipo_alerta));
+
+    const limparNome = (nome) => {
+        let limpo = nome || '';
+        
+        let partes = limpo.split('|');
+        if (partes.length > 1) {
+            let endereco = partes[1].trim();
+            if (/^[\s,\-]*$/.test(endereco) || endereco.toLowerCase() === 'endereço não especificado') {
+                limpo = partes[0].trim();
+            }
+        }
+        
+        limpo = limpo.replace(/(^|PON Afetada:\s*|,\s*)\d+\s*-\s*/g, '$1');
+        
+        limpo = limpo.replace(/link down/gi, 'Offline');
+        
+        return limpo;
+    };
 
     if (corporativos.length > 0) {
         textoRelatorio += `*Corporativos Afetados:*\n`;
         corporativos.forEach(c => {
-            textoRelatorio += `${c.nome_identificado} - (${c.motivo_falha})\n`;
+            textoRelatorio += `${limparNome(c.nome_identificado)}\n`; 
         });
         textoRelatorio += `\n`;
     }
@@ -493,11 +519,20 @@ function gerarRelatorio(incidenteId) {
     if (publicos.length > 0) {
         textoRelatorio += `*Condomínios / Varejo Afetados:*\n`;
         publicos.forEach(p => {
-            textoRelatorio += `${p.nome_identificado} - (${p.motivo_falha})\n`;
+            textoRelatorio += `${limparNome(p.nome_identificado)}\n`;
         });
+        textoRelatorio += `\n`;
     }
 
-    navigator.clipboard.writeText(textoRelatorio).then(() => {
+    if (interconexoes.length > 0) {
+        textoRelatorio += `*Interconexões / Backbone Afetados:*\n`;
+        interconexoes.forEach(i => {
+            textoRelatorio += `${limparNome(i.nome_identificado)}\n`;
+        });
+        textoRelatorio += `\n`;
+    }
+
+    navigator.clipboard.writeText(textoRelatorio.trim()).then(() => {
         const toastEl = document.getElementById('toastCopiado');
         const toast = new bootstrap.Toast(toastEl);
         toast.show();

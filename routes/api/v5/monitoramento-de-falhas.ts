@@ -142,9 +142,9 @@ router.post('/webhook/n8n', (req, res) => {
 
             if (resInc && resInc.length > 0) {
                 idIncidentePai = resInc[0].id;
-                if (resInc[0].regiao_afetada !== host_zabbix && resInc[0].regiao_afetada !== 'Múltiplos Equipamentos') {
-                    await queryAsync(`UPDATE mon_incidentes SET regiao_afetada = 'Múltiplos Equipamentos' WHERE id = ?`, [idIncidentePai]);
-                }
+                //if (resInc[0].regiao_afetada !== host_zabbix && resInc[0].regiao_afetada !== 'Múltiplos Equipamentos') {
+                //    await queryAsync(`UPDATE mon_incidentes SET regiao_afetada = 'Múltiplos Equipamentos' WHERE id = ?`, [idIncidentePai]);
+                //}
             } else {
                 const resCriar = await queryAsync(`INSERT INTO mon_incidentes (regiao_afetada, data_inicio, status) VALUES (?, ?, 'Ativo')`, [host_zabbix, data_evento_sql]);
                 idIncidentePai = resCriar.insertId;
@@ -184,6 +184,14 @@ router.post('/webhook/n8n', (req, res) => {
 });
 
 router.get('/falhas-ativas', (req, res) => {
+
+    const ARCHIVE_OLD_SQL = `
+        UPDATE mon_alertas 
+        SET status = 'IGNORADO', motivo_falha = CONCAT(IFNULL(motivo_falha, ''), ' | Arquivado auto. (Mais de 3 dias)') 
+        WHERE status = 'DOWN' 
+          AND data_falha <= NOW() - INTERVAL 3 DAY
+    `;
+    LOCALHOST.query(ARCHIVE_OLD_SQL, () => {});
     
     const AUTO_HEAL_SQL = `
         UPDATE mon_incidentes 
