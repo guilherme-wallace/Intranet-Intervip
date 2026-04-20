@@ -47,8 +47,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('data_nascimento').setAttribute('max', today);
-    $('#whatsapp').inputmask('(99) 99999-9999');
-    $('#telefone_celular').inputmask('(99) 99999-9999');
+    $('#whatsapp, #telefone_celular').inputmask({
+        mask: ["(99) 9999-9999", "(99) 99999-9999"],
+        keepStatic: true,
+        showMaskOnHover: false,
+        showMaskOnFocus: false
+    });
     $('#cep').inputmask('99999-999');
     $('#cep_cliente').inputmask('99999-999');
     $('#input-cep-consulta').inputmask('99999-999');
@@ -85,6 +89,21 @@ document.addEventListener('DOMContentLoaded', function() {
     setupTela1Listeners();
 
     $('#btn-voltar-consulta').on('click', () => irParaTela('consulta'));
+
+    document.getElementById('chk-endereco-matriz-diferente').addEventListener('change', function() {
+    const container = document.getElementById('container-endereco-matriz');
+    container.style.display = this.checked ? 'block' : 'none';
+    
+    toggleRequiredEnderecoCliente(this.checked);
+    
+    if (!this.checked) {
+        document.querySelectorAll('#container-endereco-matriz input').forEach(input => {
+            input.value = '';
+            input.classList.remove('is-valid', 'is-invalid');
+        });
+    }
+    checkFormValidity();
+});
 });
 
 function setupPlanosModalListeners() {
@@ -552,7 +571,9 @@ function preencherFormularioComCliente() {
         tituloForm.text('2. Cadastrar Novo Cliente Corporativo');
         btnFinalizar.text('Finalizar Cadastro');
         sectionEnderecoCliente.show();
-        toggleRequiredEnderecoCliente(true);
+        $('#chk-endereco-matriz-diferente').prop('checked', false);
+        $('#container-endereco-matriz').hide();
+        toggleRequiredEnderecoCliente(false);
         
         form.find('input, select').prop('disabled', false);
         
@@ -612,6 +633,20 @@ function setupFormValidation() {
         
         if (!validateField(document.getElementById('plano-display-btn'))) {
             isFormFullyValid = false;
+        }
+
+        const whats = document.getElementById('whatsapp').value.replace(/\D/g, '');
+        const tel = document.getElementById('telefone_celular').value.replace(/\D/g, '');
+        const whatsValido = (whats.length === 10 || whats.length === 11);
+        const telValido = (tel.length === 10 || tel.length === 11);
+
+        if (!whatsValido && !telValido) {
+            isFormFullyValid = false;
+            document.getElementById('whatsapp').classList.add('is-invalid');
+            document.getElementById('telefone_celular').classList.add('is-invalid');
+        } else {
+            if (!whatsValido && whats.length > 0) document.getElementById('whatsapp').classList.add('is-invalid');
+            if (!telValido && tel.length > 0) document.getElementById('telefone_celular').classList.add('is-invalid');
         }
 
         checkFormValidity();
@@ -856,7 +891,9 @@ function getTechnologyString(technologyId) {
 
 function setupFieldValidation() {
     const form = document.getElementById('venda-form');
-    const fieldsToValidate = form.querySelectorAll('input[required], select[required]');
+    
+    const fieldsToValidate = form.querySelectorAll('input[required], select[required], #whatsapp, #telefone_celular');
+
     fieldsToValidate.forEach(field => {
         field.addEventListener('blur', () => {
             if (!field.disabled) {
@@ -909,9 +946,16 @@ function validateField(field) {
     let value = field.value.trim();
     
     if (field.id === 'complemento') {
-         isValid = value !== '';
-    } else if (field.id === 'whatsapp' || field.id === 'cep') {
+        isValid = value !== '';
+    } else if (field.id === 'cep') {
         isValid = $(field).inputmask('isComplete');
+    } else if (field.id === 'whatsapp' || field.id === 'telefone_celular') {
+        const fieldVal = value.replace(/\D/g, '');
+        if (fieldVal.length > 0) {
+            isValid = (fieldVal.length === 10 || fieldVal.length === 11);
+        } else {
+            isValid = true;
+        }
     } else if (field.id === 'cpf') {
         const cleanValue = value.replace(/\D/g, '');
         if (cleanValue.length === 11) {
@@ -961,6 +1005,15 @@ function checkFormValidity() {
              if (!validateField(field)) isFormValid = false;
         }
     });
+
+    const whats = document.getElementById('whatsapp').value.replace(/\D/g, '');
+    const tel = document.getElementById('telefone_celular').value.replace(/\D/g, '');
+    const whatsValido = (whats.length === 10 || whats.length === 11);
+    const telValido = (tel.length === 10 || tel.length === 11);
+
+    if (!whatsValido && !telValido) {
+        isFormValid = false;
+    }
 
     submitButton.disabled = !isFormValid;
     if (isFormValid) {

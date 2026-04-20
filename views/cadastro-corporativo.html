@@ -161,24 +161,25 @@
                                                 </div>
                                             </div>
                                             <div class="col-md-6">
-                                                <label for="data_nascimento" class="form-label">Data de Abertura / Nascimento<span style="color: red;"> * </span></label>
-                                                <input type="date" class="form-control" id="data_nascimento" required>
+                                                <label for="data_nascimento" class="form-label">Data de Abertura / Nascimento</label>
+                                                <input type="date" class="form-control" id="data_nascimento">
                                                 <div class="invalid-feedback">Data inválida.</div>
                                             </div>
                                         </div>
                                     </fieldset>
                                     
                                     <fieldset class="form-section mt-4">
-                                        <legend class="section-legend">Contato</legend>
+                                        <legend class="section-legend">Contato <span style="color: red;"> * </span></legend>
                                         <div class="row g-3">
                                             <div class="col-md-6">
                                                 <label for="whatsapp" class="form-label">WhatsApp Principal<span style="color: red;"> * </span></label>
-                                                <input type="tel" class="form-control" id="whatsapp" required placeholder="(00) 00000-0000">
-                                                <div class="invalid-feedback">WhatsApp inválido.</div>
+                                                <input type="tel" class="form-control" id="whatsapp" placeholder="(00) 00000-0000">
+                                                <div class="invalid-feedback">Informe um número válido (Fixo ou Celular) ou preencha o secundário.</div>
                                             </div>
                                             <div class="col-md-6">
                                                 <label for="telefone_celular" class="form-label">Telefone Secundário</label>
                                                 <input type="tel" class="form-control" id="telefone_celular" placeholder="(00) 0000-0000">
+                                                <div class="invalid-feedback">Informe um número válido (Fixo ou Celular) ou preencha o principal.</div>
                                             </div>
                                             <div class="col-md-12">
                                                 <label for="email" class="form-label">E-mail<span style="color: red;"> * </span> </label>
@@ -187,43 +188,7 @@
                                             </div>
                                         </div>
                                     </fieldset>
-
-                                    <fieldset class="form-section mt-4" id="section-endereco-cliente" style="display: none;">
-                                        <legend class="section-legend">Endereço do Cliente (Matriz/Fiscal)</legend>
-                                        <div class="row g-3">
-                                            <div class="col-md-4">
-                                                <label for="cep_cliente" class="form-label">CEP<span style="color: red;"> * </span></label>
-                                                <input type="text" class="form-control" id="cep_cliente" placeholder="00000-000">
-                                                <div class="invalid-feedback">CEP inválido.</div>
-                                            </div>
-                                            <div class="col-md-8">
-                                                <label for="endereco_cliente" class="form-label">Endereço (Rua/Avenida)</label>
-                                                <input type="text" class="form-control bg-light" id="endereco_cliente" readonly>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <label for="numero_cliente" class="form-label">Número<span style="color: red;"> * </span></label>
-                                                <input type="text" class="form-control" id="numero_cliente">
-                                            </div>
-                                            <div class="col-md-8">
-                                                <label for="bairro_cliente" class="form-label">Bairro</label>
-                                                <input type="text" class="form-control bg-light" id="bairro_cliente" readonly>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label for="cidade_cliente" class="form-label">Cidade</label>
-                                                <input type="text" class="form-control bg-light" id="cidade_cliente" readonly>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label for="uf_cliente" class="form-label">Estado (UF)</label>
-                                                <input type="text" class="form-control bg-light" id="uf_cliente" readonly>
-                                            </div>
-                                            <div class="col-md-12">
-                                                <label for="complemento_cliente" class="form-label">Complemento</label>
-                                                <input type="text" class="form-control" id="complemento_cliente">
-                                            </div>
-                                            <input type="hidden" id="hidden-cidade-id-cliente">
-                                        </div>
-                                    </fieldset>
-
+                                    
                                     <fieldset class="form-section mt-4">
                                         <legend class="section-legend">Endereço de Instalação</legend>
                                         <div class="row g-3">
@@ -277,6 +242,56 @@
                                             <input type="hidden" id="hidden-cidade-id">
                                             <input type="hidden" id="hidden-bloco">
                                             <input type="hidden" id="hidden-apartamento">
+                                        </div>
+                                    </fieldset>
+
+                                    <fieldset class="form-section mt-4" id="section-endereco-cliente" style="display: none;">
+                                        <legend class="section-legend">Endereço do Cliente (Matriz/Fiscal)</legend>
+
+                                        <div class="card bg-light border-primary mb-4 shadow-sm">
+                                            <div class="card-body py-3">
+                                                <div class="form-check form-switch fs-5 mb-0 d-flex align-items-center">
+                                                    <input class="form-check-input mt-0" type="checkbox" role="switch" id="chk-endereco-matriz-diferente" style="cursor: pointer;">
+                                                    <label class="form-check-label fw-semibold ms-3 text-primary" for="chk-endereco-matriz-diferente" style="cursor: pointer;">
+                                                        O endereço da Matriz/Fiscal é diferente do endereço de Instalação?
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div id="container-endereco-matriz" style="display: none;">
+                                            <div class="row g-3">
+                                                <div class="col-md-4">
+                                                    <label for="cep_cliente" class="form-label">CEP da Matriz<span style="color: red;"> * </span></label>
+                                                    <input type="text" class="form-control" id="cep_cliente" placeholder="00000-000">
+                                                    <div class="invalid-feedback">CEP inválido.</div>
+                                                </div>
+                                                <div class="col-md-8">
+                                                    <label for="endereco_cliente" class="form-label">Endereço (Rua/Avenida)</label>
+                                                    <input type="text" class="form-control bg-light" id="endereco_cliente" readonly>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label for="numero_cliente" class="form-label">Número<span style="color: red;"> * </span></label>
+                                                    <input type="text" class="form-control" id="numero_cliente">
+                                                </div>
+                                                <div class="col-md-8">
+                                                    <label for="bairro_cliente" class="form-label">Bairro</label>
+                                                    <input type="text" class="form-control bg-light" id="bairro_cliente" readonly>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label for="cidade_cliente" class="form-label">Cidade</label>
+                                                    <input type="text" class="form-control bg-light" id="cidade_cliente" readonly>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label for="uf_cliente" class="form-label">Estado (UF)</label>
+                                                    <input type="text" class="form-control bg-light" id="uf_cliente" readonly>
+                                                </div>
+                                                <div class="col-md-12">
+                                                    <label for="complemento_cliente" class="form-label">Complemento</label>
+                                                    <input type="text" class="form-control" id="complemento_cliente">
+                                                </div>
+                                                <input type="hidden" id="hidden-cidade-id-cliente">
+                                            </div>
                                         </div>
                                     </fieldset>
 
