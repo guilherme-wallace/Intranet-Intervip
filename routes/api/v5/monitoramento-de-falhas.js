@@ -139,21 +139,25 @@ router.post('/webhook/n8n', function (req, res) {
                     }
                     if (!(idClienteForIXC && (!nome_identificado || !nome_identificado.includes('|')))) return [3 /*break*/, 6];
                     sufixoFilial = "";
-                    nomeRaw = nome_identificado || "";
+                    nomeRaw = nome_identificado || identificador || "";
                     if (idClienteForIXC === '29571') {
                         match = nomeRaw.match(/29571-(AP\d+)/i);
                         if (match)
-                            sufixoFilial = " (Filial ".concat(match[1], ")");
+                            sufixoFilial = " - Filial ".concat(match[1]);
                     }
                     else if (idClienteForIXC === '58540') {
-                        match = nomeRaw.match(/58540_([a-zA-Z0-9_]+)/i);
+                        match = nomeRaw.match(/58540_([^:]+)/i);
+                        if (!match)
+                            match = nomeRaw.match(/58540-OBTL-([^:]+)/i);
+                        if (!match)
+                            match = nomeRaw.match(/58540-STTL-([^:]+)/i);
                         if (match)
-                            sufixoFilial = " (Filial ".concat(match[1], ")");
+                            sufixoFilial = " - Filial ".concat(match[1].replace(/_$/, '').trim());
                     }
                     else if (idClienteForIXC === '56525') {
-                        match = nomeRaw.match(/56525-([a-zA-Z0-9\-]+)/i);
+                        match = nomeRaw.match(/56525-.*?(R\d+-\d+)/i);
                         if (match)
-                            sufixoFilial = " (Filial ".concat(match[1].trim(), ")");
+                            sufixoFilial = " - Filial ".concat(match[1].trim());
                     }
                     _b.label = 1;
                 case 1:
