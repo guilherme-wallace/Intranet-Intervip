@@ -54,7 +54,7 @@ const makeIxcRequest = async (method: Method, endpoint: string, data: any = null
             data: data 
         });
         return response.data;
-    } catch (error) {
+    } catch (error: any) {
         console.error(`Erro ao chamar API IXC (${endpoint}):`, error.response?.data || error.message);
         const ixcError = error.response?.data;
         let ixcErrorMessage = "Erro desconhecido";
@@ -85,7 +85,7 @@ const getIxcDateDMY = () => {
 };
 
 const getModeloPlano = (idPlano: string): string => {
-    const map = {
+    const map: Record<string, string> = {
         '7878': '12',
         '7879': '4',
         '7881': '13',
@@ -98,7 +98,7 @@ const getModeloPlano = (idPlano: string): string => {
 };
 
 const getTipoContratoPorVencimento = (diaVencimento: string): string => {
-    const map = {
+    const map: Record<string, string> = {
         '5': '5',
         '10': '10',
         '15': '15',
@@ -120,7 +120,7 @@ function formatarDataNasParaDMY(dataYMD: string): string {
         const [year, month, day] = dataYMD.split('-');
         if (!year || !month || !day) return dataYMD;
         return `${day}-${month}-${year}`;
-    } catch (e) {
+    } catch (e: any) {
         console.error("Erro ao formatar data_nascimento:", e);
         return dataYMD;
     }
@@ -157,7 +157,7 @@ async function getFinancialStatus(clientId: string): Promise<boolean> {
                 }
             }
         }
-    } catch (error) {
+    } catch (error: any) {
         console.error(`Erro ao verificar financeiro do cliente ${clientId}:`, error.message);
         return false;
     }
@@ -173,7 +173,7 @@ router.get('/vendedores', async (req, res) => {
         if (!ixcResponse || !ixcResponse.registros) throw new Error("Resposta inesperada da API IXC para vendedores.");
         const vendedores = ixcResponse.registros.map((v: any) => ({ id: v.id, nome: v.nome }));
         res.json(vendedores);
-    } catch (error) {
+    } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
 });
@@ -187,7 +187,7 @@ router.get('/planos-home', async (req, res) => {
             .filter((plano: any) => plano.nome && plano.nome.toUpperCase().includes('HOME'))
             .map((plano: any) => ({ id: plano.id, nome: plano.nome }));
         res.json(planosHome);
-    } catch (error) {
+    } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
 });
@@ -205,7 +205,7 @@ router.get('/planos-ativos', async (req, res) => {
         }));
         
         res.json(todosPlanos);
-    } catch (error) {
+    } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
 });
@@ -360,7 +360,7 @@ async function criarContrato(
 
 //plano de venda -> ID plano
 const getGrupoRadiusPorPlano = (idPlano: string): string => {
-    const map = {
+    const map: Record<string, string> = {
         '7878': '3336',
         '7879': '3337',
         '7881': '3339',
@@ -488,7 +488,7 @@ async function criarLogin(novoClienteId: string, novoContratoId: string, clientD
                 throw new Error(`Falha ao criar login PPPoE: ${errorMessage}`);
             }
 
-        } catch (error) {
+        } catch (error: any) {
             if (error.message && error.message.includes("Login já existe!")) {
                 console.log(`Login '${login}' já existe (erro capturado). Tentando próximo...`);
             } else {
@@ -571,7 +571,7 @@ async function abrirAtendimentoOS(novoClienteId: string, clientData: any, nomePl
     return ticketId.toString(); 
 }
 
-async function abrirChamadoSuporteInterno(mensagemErro: string): Promise<string> {
+async function abrirChamadoSuporteInterno(mensagemErro: string): Promise<string | null> {
     console.log("Tentando abrir chamado de suporte automático/manual...");
 
     const suportePayload = {
@@ -605,7 +605,7 @@ async function abrirChamadoSuporteInterno(mensagemErro: string): Promise<string>
 
         console.log(`Chamado de suporte aberto com sucesso. ID: ${ticketId}`);
         return ticketId;
-    } catch (error) {
+    } catch (error: any) {
         console.error("ALERTA CRÍTICO: Falha ao abrir chamado de suporte automático:", error.message);
         return null;
     }
@@ -659,7 +659,7 @@ Complemento: ${clientData.complemento}
     try {
         await makeIxcRequest('POST', '/su_ticket', suportePayload, 'incluir');
         console.log("Chamado NOC criado com sucesso.");
-    } catch (error) {
+    } catch (error: any) {
         console.error("Erro ao criar chamado NOC:", error.message);
     }
 }
@@ -818,7 +818,7 @@ async function ajustarFinanceiroContrato(contratoId: string, valorAcordadoStr: s
             }
         }
 
-    } catch (error) {
+    } catch (error: any) {
         console.error(`Erro ao ajustar financeiro: ${error.message}`);
     }
 }
@@ -835,7 +835,7 @@ router.post('/cliente', async (req, res) => {
             if (planoInfo && planoInfo.registros && planoInfo.registros.length > 0) {
                 nomePlano = planoInfo.registros[0].nome;
             }
-        } catch (e) {
+        } catch (e: any) {
             console.warn(`Aviso: Não foi possível buscar o nome do plano ${clientData.id_plano_ixc}. Usando ID.`);
         }
 
@@ -865,7 +865,7 @@ router.post('/cliente', async (req, res) => {
             ticketId: novoTicketId
         });
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('ERRO FATAL no cadastro BANDA LARGA:', error);
 
         try {
@@ -888,7 +888,7 @@ Condomínio ID: ${clientData.id_condominio}
 
             await abrirChamadoSuporteInterno(mensagemErroAutomatico);
 
-        } catch (supportError) {
+        } catch (supportError: any) {
             console.error("Não foi possível abrir o chamado de erro automático:", supportError);
         }
 
@@ -918,7 +918,7 @@ router.post('/cliente-corporativo', async (req, res) => {
             if (planoInfo && planoInfo.registros && planoInfo.registros.length > 0) {
                 nomePlano = planoInfo.registros[0].nome;
             }
-        } catch (e) {
+        } catch (e: any) {
             console.warn(`Aviso: erro ao buscar plano.`);
         }
 
@@ -928,7 +928,7 @@ router.post('/cliente-corporativo', async (req, res) => {
         } else {
             try {
                 novoClienteId = await cadastrarCliente(clientData, dataCadastro, FILIAL_CORPORATIVO);
-            } catch (error) {
+            } catch (error: any) {
                 const errorMsg = error.message || '';
                 if (errorMsg.includes('Este CNPJ/CPF já está Cadastrado') || errorMsg.includes('já está Cadastrado')) {
                     const match = errorMsg.match(/ID:\s*(\d+)/);
@@ -960,7 +960,7 @@ router.post('/cliente-corporativo', async (req, res) => {
             ticketId: novoTicketId
         });
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('ERRO FATAL no cadastro corporativo:', error);
 
         try {
@@ -983,7 +983,7 @@ Endereço Instalação: ${clientData.endereco}, ${clientData.numero} - ${clientD
 
             await abrirChamadoSuporteInterno(mensagemErroAutomatico);
 
-        } catch (supportError) {
+        } catch (supportError: any) {
             console.error("Não foi possível abrir o chamado de erro automático:", supportError);
         }
 
@@ -1072,7 +1072,7 @@ router.post('/consultar-cliente', async (req, res) => {
             contratosComAtraso: Array.from(contratosComAtraso) 
         });
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("Erro ao consultar cliente:", error.message);
         res.status(500).json({ error: `Erro ao consultar cliente: ${error.message}` });
     }
@@ -1122,7 +1122,7 @@ router.post('/consultar-endereco', async (req, res) => {
             res.json(response.registros || []);
         }
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("Erro ao consultar por endereço:", error.message);
         res.status(500).json({ error: `Erro ao consultar endereço: ${error.message}` });
     }
@@ -1141,7 +1141,7 @@ router.post('/abrir-chamado-suporte', async (req, res) => {
         } else {
             throw new Error("Falha ao criar ticket.");
         }
-    } catch (error) {
+    } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
 });
@@ -1168,7 +1168,7 @@ router.get('/cidades', async (req, res) => {
         } else {
             res.json([]);
         }
-    } catch (error) {
+    } catch (error: any) {
         console.error("Erro ao buscar cidades:", error.message);
         res.status(500).json({ error: "Falha ao buscar cidades" });
     }
@@ -1193,9 +1193,247 @@ router.get('/ufs', async (req, res) => {
         } else {
             res.json([]);
         }
-    } catch (error) {
+    } catch (error: any) {
         console.error("Erro ao buscar UFs:", error.message);
         res.status(500).json({ error: "Falha ao buscar UFs" });
+    }
+});
+
+async function buscarDetalhesContratoELoginAntigo(contratoId: string) {
+    console.log(`Buscando detalhes do contrato antigo ID: ${contratoId}`);
+    
+    const contratoOldResponse = await makeIxcRequest('POST', '/cliente_contrato', { qtype: 'cliente_contrato.id', query: contratoId, oper: '=' });
+    if (!contratoOldResponse || !contratoOldResponse.registros || contratoOldResponse.registros.length === 0) {
+        throw new Error("Contrato antigo não encontrado no IXC.");
+    }
+    const contratoAntigo = contratoOldResponse.registros[0];
+
+    const loginOldResponse = await makeIxcRequest('POST', '/radusuarios', { qtype: 'radusuarios.id_contrato', query: contratoId, oper: '=' });
+    if (!loginOldResponse || !loginOldResponse.registros || loginOldResponse.registros.length === 0) {
+        throw new Error("Login PPPoE não encontrado no contrato antigo.");
+    }
+    const loginAntigo = loginOldResponse.registros[0];
+
+    return { contratoAntigo, loginAntigo };
+}
+
+async function transferirLoginPPPoE(
+    loginAntigo: any, 
+    novoClienteId: string, 
+    novoContratoId: string, 
+    idGrupoRadius: string, 
+    dataCadastro: string,
+    clientData: any
+) {
+    const loginAntigoString = loginAntigo.login;
+    let macAntigo = loginAntigo.mac;
+
+    console.log(`Iniciando transferência do Login PPPoE: ${loginAntigoString}`);
+
+    const novoNomeAntigo = `${loginAntigoString}-para-${novoClienteId}`;
+    
+    const payloadRenomear = {
+        "autenticacao": loginAntigo.autenticacao || "L",
+        "tipo_conexao_mapa": loginAntigo.tipo_conexao_mapa || "58",
+        "id_cliente": loginAntigo.id_cliente,
+        "id_contrato": loginAntigo.id_contrato,
+        "id_grupo": loginAntigo.id_grupo,
+        "login": novoNomeAntigo,
+        "senha_md5": loginAntigo.senha_md5 || "N",
+        "senha": loginAntigo.senha || `ivp@${loginAntigo.id_cliente}`,
+        "login_simultaneo": loginAntigo.login_simultaneo || "1",
+        "ativo": loginAntigo.ativo || "S",
+        "auto_preencher_ip": loginAntigo.auto_preencher_ip || "H",
+        "fixar_ip": loginAntigo.fixar_ip || "H",
+        "relacionar_ip_ao_login": loginAntigo.relacionar_ip_ao_login || "H",
+        "autenticacao_por_mac": "N",
+        "auto_preencher_mac": loginAntigo.auto_preencher_mac || "H",
+        "relacionar_mac_ao_login": loginAntigo.relacionar_mac_ao_login || "H",
+        "tipo_vinculo_plano": loginAntigo.tipo_vinculo_plano || "D",
+        "mac": "",
+        
+        "endereco_padrao_cliente": "S",
+        "id_filial": clientData.id_filial || loginAntigo.id_filial || "3",
+        "cep": clientData.cep,
+        "endereco": clientData.endereco,
+        "numero": clientData.numero,
+        "bairro": clientData.bairro,
+        "cidade": clientData.cidade,
+        "complemento": clientData.complemento,
+        "bloco": clientData.bloco,
+        "apartamento": clientData.apartamento,
+        "referencia": clientData.referencia,
+        "id_condominio": clientData.id_condominio
+    };
+    
+    console.log(`Enviando comando para renomear login para: ${novoNomeAntigo}...`);
+    const responsePut = await makeIxcRequest('PUT', `/radusuarios/${loginAntigo.id}`, payloadRenomear, 'alterar');
+    
+    if (responsePut && responsePut.type === 'error') {
+        throw new Error(`Erro ao renomear login antigo no IXC: ${responsePut.message}`);
+    }
+    
+    console.log(`Comando PUT executado com sucesso no IXC. Novo nome: ${novoNomeAntigo}.`);
+
+    console.log("Aguardando 3 segundos para o cache do banco de dados do IXC...");
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    console.log(`Criando novo login PPPoE: '${loginAntigoString}' no contrato ${novoContratoId}`);
+
+    const loginPayload = {
+        'id_cliente': novoClienteId,
+        'id_contrato': novoContratoId,
+        'login': loginAntigoString,
+        'senha': `ivp@${novoClienteId}`,
+        'id_grupo': idGrupoRadius,
+        'mac': macAntigo || '',
+        'ativo': 'S',
+        'autenticacao': 'L',
+        'login_simultaneo': '1',
+        'auto_preencher_ip': 'H', 
+        'fixar_ip': 'H', 
+        'relacionar_ip_ao_login': 'H',
+        'tipo_vinculo_plano': 'D',
+        'ultima_atualizacao': dataCadastro,
+        'tipo_conexao_mapa': '58',
+        'autenticacao_por_mac': macAntigo ? 'S' : 'P',
+        'auto_preencher_mac': 'H', 
+        'relacionar_mac_ao_login': 'H',
+        'senha_md5': 'N',
+        
+        'id_filial': clientData.id_filial || '3',
+        'endereco_padrao_cliente': 'S',
+        'cep': clientData.cep,
+        'endereco': clientData.endereco,
+        'numero': clientData.numero,
+        'bairro': clientData.bairro,
+        'cidade': clientData.cidade,
+        'complemento': clientData.complemento,
+        'bloco': clientData.bloco,
+        'apartamento': clientData.apartamento,
+        'referencia': clientData.referencia,
+        'id_condominio': clientData.id_condominio
+    };
+
+    const loginResponse = await makeIxcRequest('POST', '/radusuarios', loginPayload);
+    
+    if (loginResponse && loginResponse.type === 'error') {
+        throw new Error(`API IXC Recusou a criação do PPPoE: ${loginResponse.message}`);
+    }
+    
+    if (loginResponse && loginResponse.id) {
+        console.log(`Novo login criado com sucesso. ID: ${loginResponse.id} | Nome: ${loginAntigoString}`);
+        return loginResponse.id;
+    }
+
+    throw new Error(loginResponse ? JSON.stringify(loginResponse) : 'Retorno vazio ao criar login');
+}
+
+async function cancelarContratoAntigo(contratoId: string) {
+    console.log(`Cancelando contrato antigo ID: ${contratoId}`);
+    const payloadCancelamento = {
+        status: 'C',
+        status_internet: 'D',
+        motivo_inclusao: 'C',
+        obs: 'Cancelado via automação de Mudança de Titularidade.',
+    };
+
+    await makeIxcRequest('PUT', `/cliente_contrato/${contratoId}`, payloadCancelamento, 'alterar');
+    console.log(`Contrato ${contratoId} cancelado com sucesso.`);
+}
+
+router.post('/mudanca-titularidade', async (req, res) => {
+    const { contratoAntigoId, existingClientId, ...clientData } = req.body;
+    const dataCadastro = getIxcDate();
+
+    try {
+        const { contratoAntigo, loginAntigo } = await buscarDetalhesContratoELoginAntigo(contratoAntigoId);
+
+        if (contratoAntigo.endereco_padrao_cliente === 'S') {
+            console.log(`Contrato antigo usa endereço do cliente. Buscando dados do cliente ID: ${contratoAntigo.id_cliente}...`);
+            const clienteOldResponse = await makeIxcRequest('POST', '/cliente', { qtype: 'cliente.id', query: contratoAntigo.id_cliente, oper: '=' });
+            
+            if (clienteOldResponse && clienteOldResponse.registros && clienteOldResponse.registros.length > 0) {
+                const clienteAntigo = clienteOldResponse.registros[0];
+                clientData.cep = clienteAntigo.cep || '';
+                clientData.endereco = clienteAntigo.endereco || '';
+                clientData.numero = clienteAntigo.numero || '';
+                clientData.bairro = clienteAntigo.bairro || '';
+                clientData.cidade = clienteAntigo.cidade || '';
+                clientData.uf = clienteAntigo.uf || '';
+                clientData.complemento = clienteAntigo.complemento || '';
+                clientData.bloco = clienteAntigo.bloco || '';
+                clientData.apartamento = clienteAntigo.apartamento || '';
+                clientData.referencia = clienteAntigo.referencia || '';
+                clientData.id_condominio = clienteAntigo.id_condominio || '';
+            }
+        } else {
+            clientData.cep = contratoAntigo.cep || '';
+            clientData.endereco = contratoAntigo.endereco || '';
+            clientData.numero = contratoAntigo.numero || '';
+            clientData.bairro = contratoAntigo.bairro || '';
+            clientData.cidade = contratoAntigo.cidade || '';
+            clientData.uf = contratoAntigo.uf || '';
+            clientData.complemento = contratoAntigo.complemento || '';
+            clientData.bloco = contratoAntigo.bloco || '';
+            clientData.apartamento = contratoAntigo.apartamento || '';
+            clientData.referencia = contratoAntigo.referencia || '';
+            clientData.id_condominio = contratoAntigo.id_condominio || '';
+        }
+
+        clientData.id_filial = contratoAntigo.id_filial; 
+        clientData.id_vendedor = clientData.id_vendedor || contratoAntigo.id_vendedor || '45';
+
+        let nomePlano = `ID ${clientData.id_plano_ixc}`;
+        try {
+            const planoInfo = await makeIxcRequest('POST', `/vd_contratos`, { qtype: 'vd_contratos.id', query: clientData.id_plano_ixc, oper: '=' });
+            if (planoInfo && planoInfo.registros && planoInfo.registros.length > 0) {
+                nomePlano = planoInfo.registros[0].nome;
+            }
+        } catch (e: any) {
+            console.warn(`Aviso: erro ao buscar plano.`);
+        }
+
+        let novoClienteId: string;
+
+        if (existingClientId) {
+            console.log(`Mudança Titularidade: Atualizando Cliente existente ID ${existingClientId}`);
+            novoClienteId = existingClientId;
+            await atualizarCliente(novoClienteId, clientData, dataCadastro);
+        } else {
+            console.log(`Mudança Titularidade: Cadastrando Novo Cliente`);
+            novoClienteId = await cadastrarCliente(clientData, dataCadastro);
+        }
+
+        const novoContratoId = await criarContrato(novoClienteId, clientData, dataCadastro, nomePlano);
+
+        const idGrupoRadius = getGrupoRadiusPorPlano(clientData.id_plano_ixc) || '2006';
+        const novoLoginId = await transferirLoginPPPoE(
+            loginAntigo, 
+            novoClienteId, 
+            novoContratoId, 
+            idGrupoRadius, 
+            dataCadastro,
+            clientData
+        );
+
+        await cancelarContratoAntigo(contratoAntigoId);
+
+        clientData.titulo_atendimento = "MUDANÇA DE TITULARIDADE - BANDA LARGA";
+        const novoTicketId = await abrirAtendimentoOS(novoClienteId, clientData, nomePlano, novoLoginId, novoContratoId);
+
+        res.status(201).json({
+            success: true,
+            message: "Mudança de Titularidade concluída com sucesso!",
+            clienteId: novoClienteId,
+            contratoId: novoContratoId,
+            loginId: novoLoginId,
+            ticketId: novoTicketId
+        });
+
+    } catch (error: any) {
+        console.error('ERRO FATAL na Mudança de Titularidade:', error);
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 

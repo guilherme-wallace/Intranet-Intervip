@@ -1369,4 +1369,266 @@ router.get('/ufs', function (req, res) { return __awaiter(void 0, void 0, void 0
         }
     });
 }); });
+function buscarDetalhesContratoELoginAntigo(contratoId) {
+    return __awaiter(this, void 0, void 0, function () {
+        var contratoOldResponse, contratoAntigo, loginOldResponse, loginAntigo;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    console.log("Buscando detalhes do contrato antigo ID: ".concat(contratoId));
+                    return [4 /*yield*/, makeIxcRequest('POST', '/cliente_contrato', { qtype: 'cliente_contrato.id', query: contratoId, oper: '=' })];
+                case 1:
+                    contratoOldResponse = _a.sent();
+                    if (!contratoOldResponse || !contratoOldResponse.registros || contratoOldResponse.registros.length === 0) {
+                        throw new Error("Contrato antigo não encontrado no IXC.");
+                    }
+                    contratoAntigo = contratoOldResponse.registros[0];
+                    return [4 /*yield*/, makeIxcRequest('POST', '/radusuarios', { qtype: 'radusuarios.id_contrato', query: contratoId, oper: '=' })];
+                case 2:
+                    loginOldResponse = _a.sent();
+                    if (!loginOldResponse || !loginOldResponse.registros || loginOldResponse.registros.length === 0) {
+                        throw new Error("Login PPPoE não encontrado no contrato antigo.");
+                    }
+                    loginAntigo = loginOldResponse.registros[0];
+                    return [2 /*return*/, { contratoAntigo: contratoAntigo, loginAntigo: loginAntigo }];
+            }
+        });
+    });
+}
+function transferirLoginPPPoE(loginAntigo, novoClienteId, novoContratoId, idGrupoRadius, dataCadastro, clientData) {
+    return __awaiter(this, void 0, void 0, function () {
+        var loginAntigoString, macAntigo, novoNomeAntigo, payloadRenomear, responsePut, loginPayload, loginResponse;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    loginAntigoString = loginAntigo.login;
+                    macAntigo = loginAntigo.mac;
+                    console.log("Iniciando transfer\u00EAncia do Login PPPoE: ".concat(loginAntigoString));
+                    novoNomeAntigo = "".concat(loginAntigoString, "_OLD");
+                    payloadRenomear = {
+                        "autenticacao": loginAntigo.autenticacao || "L",
+                        "tipo_conexao_mapa": loginAntigo.tipo_conexao_mapa || "58",
+                        "id_cliente": loginAntigo.id_cliente,
+                        "id_contrato": loginAntigo.id_contrato,
+                        "id_grupo": loginAntigo.id_grupo,
+                        "login": novoNomeAntigo,
+                        "senha_md5": loginAntigo.senha_md5 || "N",
+                        "senha": loginAntigo.senha || "ivp@".concat(loginAntigo.id_cliente),
+                        "login_simultaneo": loginAntigo.login_simultaneo || "1",
+                        "ativo": loginAntigo.ativo || "S",
+                        "auto_preencher_ip": loginAntigo.auto_preencher_ip || "H",
+                        "fixar_ip": loginAntigo.fixar_ip || "H",
+                        "relacionar_ip_ao_login": loginAntigo.relacionar_ip_ao_login || "H",
+                        "autenticacao_por_mac": "N",
+                        "auto_preencher_mac": loginAntigo.auto_preencher_mac || "H",
+                        "relacionar_mac_ao_login": loginAntigo.relacionar_mac_ao_login || "H",
+                        "tipo_vinculo_plano": loginAntigo.tipo_vinculo_plano || "D",
+                        "mac": "",
+                        "endereco_padrao_cliente": "S",
+                        "id_filial": clientData.id_filial || loginAntigo.id_filial || "3",
+                        "cep": clientData.cep,
+                        "endereco": clientData.endereco,
+                        "numero": clientData.numero,
+                        "bairro": clientData.bairro,
+                        "cidade": clientData.cidade,
+                        "complemento": clientData.complemento,
+                        "bloco": clientData.bloco,
+                        "apartamento": clientData.apartamento,
+                        "referencia": clientData.referencia,
+                        "id_condominio": clientData.id_condominio
+                    };
+                    console.log("Enviando comando para renomear login para: ".concat(novoNomeAntigo, "..."));
+                    return [4 /*yield*/, makeIxcRequest('PUT', "/radusuarios/".concat(loginAntigo.id), payloadRenomear, 'alterar')];
+                case 1:
+                    responsePut = _a.sent();
+                    if (responsePut && responsePut.type === 'error') {
+                        throw new Error("Erro ao renomear login antigo no IXC: ".concat(responsePut.message));
+                    }
+                    console.log("Comando PUT executado com sucesso no IXC. Novo nome: ".concat(novoNomeAntigo, "."));
+                    console.log("Aguardando 3 segundos para o cache do banco de dados do IXC...");
+                    return [4 /*yield*/, new Promise(function (resolve) { return setTimeout(resolve, 3000); })];
+                case 2:
+                    _a.sent();
+                    console.log("Criando novo login PPPoE: '".concat(loginAntigoString, "' no contrato ").concat(novoContratoId));
+                    loginPayload = {
+                        'id_cliente': novoClienteId,
+                        'id_contrato': novoContratoId,
+                        'login': loginAntigoString,
+                        'senha': "ivp@".concat(novoClienteId),
+                        'id_grupo': idGrupoRadius,
+                        'mac': macAntigo || '',
+                        'ativo': 'S',
+                        'autenticacao': 'L',
+                        'login_simultaneo': '1',
+                        'auto_preencher_ip': 'H',
+                        'fixar_ip': 'H',
+                        'relacionar_ip_ao_login': 'H',
+                        'tipo_vinculo_plano': 'D',
+                        'ultima_atualizacao': dataCadastro,
+                        'tipo_conexao_mapa': '58',
+                        'autenticacao_por_mac': macAntigo ? 'S' : 'P',
+                        'auto_preencher_mac': 'H',
+                        'relacionar_mac_ao_login': 'H',
+                        'senha_md5': 'N',
+                        'id_filial': clientData.id_filial || '3',
+                        'endereco_padrao_cliente': 'S',
+                        'cep': clientData.cep,
+                        'endereco': clientData.endereco,
+                        'numero': clientData.numero,
+                        'bairro': clientData.bairro,
+                        'cidade': clientData.cidade,
+                        'complemento': clientData.complemento,
+                        'bloco': clientData.bloco,
+                        'apartamento': clientData.apartamento,
+                        'referencia': clientData.referencia,
+                        'id_condominio': clientData.id_condominio
+                    };
+                    return [4 /*yield*/, makeIxcRequest('POST', '/radusuarios', loginPayload)];
+                case 3:
+                    loginResponse = _a.sent();
+                    if (loginResponse && loginResponse.type === 'error') {
+                        throw new Error("API IXC Recusou a cria\u00E7\u00E3o do PPPoE: ".concat(loginResponse.message));
+                    }
+                    if (loginResponse && loginResponse.id) {
+                        console.log("Novo login criado com sucesso. ID: ".concat(loginResponse.id, " | Nome: ").concat(loginAntigoString));
+                        return [2 /*return*/, loginResponse.id];
+                    }
+                    throw new Error(loginResponse ? JSON.stringify(loginResponse) : 'Retorno vazio ao criar login');
+            }
+        });
+    });
+}
+function cancelarContratoAntigo(contratoId) {
+    return __awaiter(this, void 0, void 0, function () {
+        var payloadCancelamento;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    console.log("Cancelando contrato antigo ID: ".concat(contratoId));
+                    payloadCancelamento = {
+                        status: 'C',
+                        status_internet: 'D',
+                        motivo_inclusao: 'C',
+                        obs: 'Cancelado via automação de Mudança de Titularidade.',
+                    };
+                    return [4 /*yield*/, makeIxcRequest('PUT', "/cliente_contrato/".concat(contratoId), payloadCancelamento, 'alterar')];
+                case 1:
+                    _a.sent();
+                    console.log("Contrato ".concat(contratoId, " cancelado com sucesso."));
+                    return [2 /*return*/];
+            }
+        });
+    });
+}
+router.post('/mudanca-titularidade', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var _a, contratoAntigoId, existingClientId, clientData, dataCadastro, _b, contratoAntigo, loginAntigo, clienteOldResponse, clienteAntigo, nomePlano, planoInfo, e_3, novoClienteId, novoContratoId, idGrupoRadius, novoLoginId, novoTicketId, error_18;
+    return __generator(this, function (_c) {
+        switch (_c.label) {
+            case 0:
+                _a = req.body, contratoAntigoId = _a.contratoAntigoId, existingClientId = _a.existingClientId, clientData = __rest(_a, ["contratoAntigoId", "existingClientId"]);
+                dataCadastro = getIxcDate();
+                _c.label = 1;
+            case 1:
+                _c.trys.push([1, 18, , 19]);
+                return [4 /*yield*/, buscarDetalhesContratoELoginAntigo(contratoAntigoId)];
+            case 2:
+                _b = _c.sent(), contratoAntigo = _b.contratoAntigo, loginAntigo = _b.loginAntigo;
+                if (!(contratoAntigo.endereco_padrao_cliente === 'S')) return [3 /*break*/, 4];
+                console.log("Contrato antigo usa endere\u00E7o do cliente. Buscando dados do cliente ID: ".concat(contratoAntigo.id_cliente, "..."));
+                return [4 /*yield*/, makeIxcRequest('POST', '/cliente', { qtype: 'cliente.id', query: contratoAntigo.id_cliente, oper: '=' })];
+            case 3:
+                clienteOldResponse = _c.sent();
+                if (clienteOldResponse && clienteOldResponse.registros && clienteOldResponse.registros.length > 0) {
+                    clienteAntigo = clienteOldResponse.registros[0];
+                    clientData.cep = clienteAntigo.cep || '';
+                    clientData.endereco = clienteAntigo.endereco || '';
+                    clientData.numero = clienteAntigo.numero || '';
+                    clientData.bairro = clienteAntigo.bairro || '';
+                    clientData.cidade = clienteAntigo.cidade || '';
+                    clientData.uf = clienteAntigo.uf || '';
+                    clientData.complemento = clienteAntigo.complemento || '';
+                    clientData.bloco = clienteAntigo.bloco || '';
+                    clientData.apartamento = clienteAntigo.apartamento || '';
+                    clientData.referencia = clienteAntigo.referencia || '';
+                    clientData.id_condominio = clienteAntigo.id_condominio || '';
+                }
+                return [3 /*break*/, 5];
+            case 4:
+                clientData.cep = contratoAntigo.cep || '';
+                clientData.endereco = contratoAntigo.endereco || '';
+                clientData.numero = contratoAntigo.numero || '';
+                clientData.bairro = contratoAntigo.bairro || '';
+                clientData.cidade = contratoAntigo.cidade || '';
+                clientData.uf = contratoAntigo.uf || '';
+                clientData.complemento = contratoAntigo.complemento || '';
+                clientData.bloco = contratoAntigo.bloco || '';
+                clientData.apartamento = contratoAntigo.apartamento || '';
+                clientData.referencia = contratoAntigo.referencia || '';
+                clientData.id_condominio = contratoAntigo.id_condominio || '';
+                _c.label = 5;
+            case 5:
+                clientData.id_filial = contratoAntigo.id_filial;
+                clientData.id_vendedor = clientData.id_vendedor || contratoAntigo.id_vendedor || '45';
+                nomePlano = "ID ".concat(clientData.id_plano_ixc);
+                _c.label = 6;
+            case 6:
+                _c.trys.push([6, 8, , 9]);
+                return [4 /*yield*/, makeIxcRequest('POST', "/vd_contratos", { qtype: 'vd_contratos.id', query: clientData.id_plano_ixc, oper: '=' })];
+            case 7:
+                planoInfo = _c.sent();
+                if (planoInfo && planoInfo.registros && planoInfo.registros.length > 0) {
+                    nomePlano = planoInfo.registros[0].nome;
+                }
+                return [3 /*break*/, 9];
+            case 8:
+                e_3 = _c.sent();
+                console.warn("Aviso: erro ao buscar plano.");
+                return [3 /*break*/, 9];
+            case 9:
+                novoClienteId = void 0;
+                if (!existingClientId) return [3 /*break*/, 11];
+                console.log("Mudan\u00E7a Titularidade: Atualizando Cliente existente ID ".concat(existingClientId));
+                novoClienteId = existingClientId;
+                return [4 /*yield*/, atualizarCliente(novoClienteId, clientData, dataCadastro)];
+            case 10:
+                _c.sent();
+                return [3 /*break*/, 13];
+            case 11:
+                console.log("Mudan\u00E7a Titularidade: Cadastrando Novo Cliente");
+                return [4 /*yield*/, cadastrarCliente(clientData, dataCadastro)];
+            case 12:
+                novoClienteId = _c.sent();
+                _c.label = 13;
+            case 13: return [4 /*yield*/, criarContrato(novoClienteId, clientData, dataCadastro, nomePlano)];
+            case 14:
+                novoContratoId = _c.sent();
+                idGrupoRadius = getGrupoRadiusPorPlano(clientData.id_plano_ixc) || '2006';
+                return [4 /*yield*/, transferirLoginPPPoE(loginAntigo, novoClienteId, novoContratoId, idGrupoRadius, dataCadastro, clientData)];
+            case 15:
+                novoLoginId = _c.sent();
+                return [4 /*yield*/, cancelarContratoAntigo(contratoAntigoId)];
+            case 16:
+                _c.sent();
+                clientData.titulo_atendimento = "MUDANÇA DE TITULARIDADE - BANDA LARGA";
+                return [4 /*yield*/, abrirAtendimentoOS(novoClienteId, clientData, nomePlano, novoLoginId, novoContratoId)];
+            case 17:
+                novoTicketId = _c.sent();
+                res.status(201).json({
+                    success: true,
+                    message: "Mudança de Titularidade concluída com sucesso!",
+                    clienteId: novoClienteId,
+                    contratoId: novoContratoId,
+                    loginId: novoLoginId,
+                    ticketId: novoTicketId
+                });
+                return [3 /*break*/, 19];
+            case 18:
+                error_18 = _c.sent();
+                console.error('ERRO FATAL na Mudança de Titularidade:', error_18);
+                res.status(500).json({ success: false, error: error_18.message });
+                return [3 /*break*/, 19];
+            case 19: return [2 /*return*/];
+        }
+    });
+}); });
 exports.default = router;
