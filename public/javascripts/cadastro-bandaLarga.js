@@ -4,6 +4,7 @@ let complementoModal = null;
 let currentBlocks = [];
 let selectedBlock = null;
 let bsSuporteModal = null;
+let bsModalMudanca = null;
 
 let tipoConsulta = 'cpf';
 let clienteConsultado = null;
@@ -35,6 +36,49 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     $('#input-documento').inputmask('999.999.999-99');
+
+    $('#input-cpf-novo-titular').inputmask({ mask: ['999.999.999-99', '99.999.999/9999-99'], keepStatic: true });
+
+    $('#btn-consultar-novo-titular').on('click', async function() {
+        const documento = $('#input-cpf-novo-titular').val();
+        if (!$('#input-cpf-novo-titular').inputmask('isComplete')) {
+            $('#modal-mudanca-error').text('Por favor, preencha o documento corretamente.').show();
+            return;
+        }
+
+        const cleanDoc = documento.replace(/\D/g, '');
+        const isValid = cleanDoc.length === 11 ? validarCPF(cleanDoc) : validarCNPJ(cleanDoc);
+
+        if (!isValid) {
+            $('#modal-mudanca-error').text('O CPF/CNPJ informado é inválido.').show();
+            return;
+        }
+
+        $('#modal-mudanca-error').hide();
+        $('#loading-novo-titular').show();
+        $(this).prop('disabled', true);
+
+        try {
+            const response = await fetch('/api/v5/ixc/consultar-cliente', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cnpj_cpf: documento })
+            });
+
+            if (!response.ok) throw new Error('Falha ao consultar o cliente.');
+
+            const data = await response.json();
+            bsModalMudanca.hide();
+            
+            iniciarMudancaTitularidade(idContratoMudanca, data.cliente, documento);
+
+        } catch (error) {
+            $('#modal-mudanca-error').text('Erro na consulta: ' + error.message).show();
+        } finally {
+            $('#loading-novo-titular').hide();
+            $(this).prop('disabled', false);
+        }
+    });
     
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('data_nascimento').setAttribute('max', today);
@@ -258,26 +302,51 @@ async function consultarClientePorDocumento() {
             
             const listaContratos = $('#lista-contratos');
             listaContratos.empty();
+            if ($('#btn-mudanca-titularidade').length === 0) {
+                $('#btn-ir-para-cadastro').before(`
+                    <button type="button" id="btn-mudanca-titularidade" class="btn btn-warning me-2" disabled>
+                        <i class="bi bi-person-lines-fill"></i> Mudança de Titularidade
+                    </button>
+                `);
+                
+                $('#btn-mudanca-titularidade').on('click', function() {
+                    const contratoSelecionado = $('input[name="contratoSelecionado"]:checked').val();
+                    if(contratoSelecionado) {
+                        idContratoMudanca = contratoSelecionado;
+                        document.getElementById('input-cpf-novo-titular').value = '';
+                        $('#modal-mudanca-error').hide();
+                        
+                        if (!bsModalMudanca) {
+                            bsModalMudanca = new bootstrap.Modal(document.getElementById('modalCpfNovoTitular'));
+                        }
+                        bsModalMudanca.show();
+                    }
+                });
+            }
+
             if (data.contratos.length > 0) {
                 data.contratos.forEach(contrato => {
                     const statusClass = getStatusClass(contrato.status_internet);
                     const statusText = getStatusText(contrato.status_internet);
                     const temAtraso = data.contratosComAtraso.includes(contrato.id);
                     const classeAtraso = temAtraso ? 'list-group-item-atraso' : '';
+                    
                     let enderecoContrato = 'Endereço não especificado no contrato';
                     if (contrato.endereco) {
                         enderecoContrato = [contrato.endereco, contrato.numero, contrato.bairro, contrato.complemento].filter(Boolean).join(', ');
-                    }
-                    else if (contrato.endereco_padrao_cliente === 'S' && clienteConsultado) {
+                    } else if (contrato.endereco_padrao_cliente === 'S' && clienteConsultado) {
                         enderecoContrato = [clienteConsultado.endereco, clienteConsultado.numero, clienteConsultado.bairro, clienteConsultado.complemento].filter(Boolean).join(', ');
                     }
-                    //console.log("Endereço do contrato:", enderecoContrato);
+
                     listaContratos.append(`
                         <li class="list-group-item d-flex justify-content-between align-items-center ${classeAtraso}">
-                            <div>
-                                <strong>Contrato:</strong> ${contrato.contrato} (ID: ${contrato.id})<br>
-                                <small>Ativado em: ${contrato.data_ativacao}</small><br>
-                                <small class="text-muted"><i class="bi bi-geo-alt-fill me-1"></i>${enderecoContrato}</small>
+                            <div class="d-flex align-items-center">
+                                <input class="form-check-input me-3 radio-contrato" type="radio" name="contratoSelecionado" value="${contrato.id}" ${contrato.status_internet === 'D' || contrato.status_internet === 'C' ? 'disabled' : ''}>
+                                <div>
+                                    <strong>Contrato:</strong> ${contrato.contrato} (ID: ${contrato.id})<br>
+                                    <small>Ativado em: ${contrato.data_ativacao}</small><br>
+                                    <small class="text-muted"><i class="bi bi-geo-alt-fill me-1"></i>${enderecoContrato}</small>
+                                </div>
                             </div>
                             <div>
                                 <span class="badge ${statusClass} rounded-pill">${statusText}</span>
@@ -286,8 +355,14 @@ async function consultarClientePorDocumento() {
                         </li>
                     `);
                 });
+
+                $('.radio-contrato').on('change', function() {
+                    $('#btn-mudanca-titularidade').prop('disabled', false);
+                });
+
             } else {
                 listaContratos.append('<li class="list-group-item">Nenhum contrato encontrado.</li>');
+                $('#btn-mudanca-titularidade').hide();
             }
             
             $('#btn-ir-para-cadastro').text('Cadastrar Novo Contrato').removeClass('btn-success').addClass('btn-primary');
@@ -478,7 +553,18 @@ function preencherFormularioComCliente() {
         $('#nome').val(clienteConsultado.razao).prop('disabled', true);
         $('#cpf').val(clienteConsultado.cnpj_cpf).prop('disabled', true);
         $('#rg').val(clienteConsultado.ie_identidade);
-        $('#data_nascimento').val(clienteConsultado.data_nascimento);
+
+        let dataFormatada = clienteConsultado.data_nascimento;
+        if (dataFormatada) {
+            if (dataFormatada.includes('/')) {
+                const partes = dataFormatada.split('/');
+                dataFormatada = `${partes[2]}-${partes[1]}-${partes[0]}`; 
+            } else if (dataFormatada.includes(' ')) {
+                dataFormatada = dataFormatada.split(' ')[0];
+            }
+        }
+        $('#data_nascimento').val(dataFormatada);
+
         $('#whatsapp').val(clienteConsultado.whatsapp);
         $('#telefone_celular').val(clienteConsultado.telefone_celular);
         $('#email').val(clienteConsultado.email);
@@ -547,16 +633,20 @@ function setupFormValidation() {
             }
         });
 
-        const semCondominio = $('#chk-sem-condominio').is(':checked');
-        
-        if (semCondominio) {
-            if (!validateField(document.getElementById('input-complemento-livre'))) {
-                isFormFullyValid = false;
-            }
-            document.getElementById('btn-complemento').classList.remove('is-invalid');
-        } else {
-            if (!validateField(document.getElementById('btn-complemento'))) {
-                isFormFullyValid = false;
+        const formMode = $('#venda-form').attr('data-mode');
+
+        if (formMode !== 'mudanca') {
+            const semCondominio = $('#chk-sem-condominio').is(':checked');
+            
+            if (semCondominio) {
+                if (!validateField(document.getElementById('input-complemento-livre'))) {
+                    isFormFullyValid = false;
+                }
+                document.getElementById('btn-complemento').classList.remove('is-invalid');
+            } else {
+                if (!validateField(document.getElementById('btn-complemento'))) {
+                    isFormFullyValid = false;
+                }
             }
         }
 
@@ -564,16 +654,25 @@ function setupFormValidation() {
 
         if (isFormFullyValid) {
             const semCondominio = $('#chk-sem-condominio').is(':checked');
+            
+            const comboVendedor = document.getElementById('vendedor');
+            const idVendedor = comboVendedor.value || '45';
+            const nomeVendedor = comboVendedor.selectedIndex >= 0 && comboVendedor.value !== "" 
+                                 ? comboVendedor.options[comboVendedor.selectedIndex].text 
+                                 : 'Transferência / Sistema';
+
             const clientData = {
                 // Dados Pessoais
                 nome: document.getElementById('nome').value.trim(),
                 cnpj_cpf: document.getElementById('cpf').value,
                 ie_identidade: document.getElementById('rg').value.trim(),
                 data_nascimento: document.getElementById('data_nascimento').value,
+                
                 // Contato
                 telefone_celular: document.getElementById('telefone_celular').value.replace(/\D/g,''),
                 whatsapp: document.getElementById('whatsapp').value.replace(/\D/g,''),
                 email: document.getElementById('email').value.trim(),
+                
                 // Endereço
                 cep: document.getElementById('cep').value.trim(),
                 endereco: document.getElementById('endereco').value.trim(),
@@ -587,13 +686,16 @@ function setupFormValidation() {
                 referencia: document.getElementById('referencia').value.trim(),
                 condominio_novo_nome: semCondominio ? document.getElementById('input-condominio-venda').value.trim() : '',
                 id_condominio: document.getElementById('hidden-condominio-id').value,
+                
                 // Venda
-                id_vendedor: document.getElementById('vendedor').value,
-                nome_vendedor: document.getElementById('vendedor').options[document.getElementById('vendedor').selectedIndex].text,
+                id_vendedor: idVendedor,
+                nome_vendedor: nomeVendedor,
                 id_plano_ixc: document.getElementById('plano').value, 
                 data_vencimento: document.getElementById('data_vencimento').value,
+                
                 // Observações
                 obs: document.getElementById('observacoes_venda').value.trim(),
+                
                 // Campos fixos
                 ativo: "S", tipo_pessoa: "F", contribuinte_icms: "N", tipo_cliente_scm: "03", id_tipo_cliente: "6", id_filial: "3", bloqueio_automatico: "S",
                 tipo_assinante: "3", tipo_localidade: "U", iss_classificacao_padrao: "99", id_carteira_cobranca: "11",
@@ -601,13 +703,17 @@ function setupFormValidation() {
                 // Campos atendimento
                 assunto_ticket: "1", id_assunto: "1", id_wfl_processo: "3", titulo_atendimento: "INSTALAÇÃO - BANDA LARGA"
             };
-            
-            let existingId = null;
-            if (clienteConsultado && clienteConsultado.id) {
-                existingId = clienteConsultado.id;
+
+            if (formMode === 'mudanca') {
+                if (novoTitularConsultado && novoTitularConsultado.id) {
+                    clientData.existingClientId = novoTitularConsultado.id;
+                }
+                executarMudancaTitularidadeNoIXC(clientData, idContratoMudanca);
+            } else {
+                let existingId = null;
+                if (clienteConsultado && clienteConsultado.id) { existingId = clienteConsultado.id; }
+                cadastrarClienteNoIXC(clientData, existingId);
             }
-            
-            cadastrarClienteNoIXC(clientData, existingId);
             
         } else {
             showModal('Atenção', 'Por favor, corrija os campos marcados em vermelho.', 'warning');
@@ -1312,6 +1418,104 @@ async function enviarChamadoSuporte() {
     } finally {
         btnEnviar.disabled = false;
         btnEnviar.innerHTML = textoOriginal;
+    }
+}
+
+let idContratoMudanca = null;
+let novoTitularConsultado = null;
+
+function iniciarMudancaTitularidade(contratoId, clienteEncontrado, documentoInformado) {
+    idContratoMudanca = contratoId;
+    novoTitularConsultado = clienteEncontrado;
+    
+    $('#tela-1-consulta').hide();
+    $('#tela-2-cadastro').show();
+    window.scrollTo(0, 0);
+
+    resetFormularioCompleto();
+    
+    $('#titulo-form-cadastro').text('Mudança de Titularidade (Novo Titular)');
+    $('#btn-finalizar-venda').text('Finalizar Mudança').removeClass('btn-success btn-primary').addClass('btn-warning');
+    
+    $('#bloco-endereco-completo').hide();
+    $('#cep, #endereco, #numero, #bairro, #cidade, #uf, #referencia, #complemento, #input-condominio-venda, #input-complemento-livre').prop('required', false).closest('.col-md-3, .col-md-4, .col-md-6, .col-12').hide();
+    $('#chk-sem-condominio').closest('.form-check').hide();
+    $('#btn-complemento').hide();
+
+    $('#vendedor').prop('required', false).closest('div').hide();
+
+    loadPlans('ALL'); 
+
+    $('#nome, #cpf, #rg, #data_nascimento, #whatsapp, #telefone_celular, #email').prop('disabled', false);
+
+    if (clienteEncontrado) {
+        $('#nome').val(clienteEncontrado.razao).prop('disabled', true);
+        $('#cpf').val(clienteEncontrado.cnpj_cpf).prop('disabled', true);
+        $('#rg').val(clienteEncontrado.ie_identidade);
+
+        let dataFormatadaNovo = clienteEncontrado.data_nascimento;
+        if (dataFormatadaNovo) {
+            if (dataFormatadaNovo.includes('/')) {
+                const partes = dataFormatadaNovo.split('/');
+                dataFormatadaNovo = `${partes[2]}-${partes[1]}-${partes[0]}`;
+            } else if (dataFormatadaNovo.includes(' ')) {
+                dataFormatadaNovo = dataFormatadaNovo.split(' ')[0];
+            }
+        }
+        $('#data_nascimento').val(dataFormatadaNovo);
+
+        $('#whatsapp').val(clienteEncontrado.whatsapp);
+        $('#telefone_celular').val(clienteEncontrado.telefone_celular);
+        $('#email').val(clienteEncontrado.email);
+        
+        showModal('Novo Titular Encontrado!', 'O novo titular já possui cadastro no IXC. Seus dados foram preenchidos automaticamente. Atualize os contatos se necessário.', 'info');
+    } else {
+        $('#cpf').val(documentoInformado);
+        $('#nome, #rg, #data_nascimento, #whatsapp, #telefone_celular, #email').val('');
+    }
+
+    const form = document.getElementById('venda-form');
+    $('#venda-form').attr('data-mode', 'mudanca');
+    
+    $('#venda-form').find('input:visible, select:visible').each(function() {
+        if ($(this).val()) validateField(this);
+    });
+    checkFormValidity();
+}
+
+async function executarMudancaTitularidadeNoIXC(clientData, contratoAntigoId) {
+    const submitButton = document.getElementById('btn-finalizar-venda');
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Transferindo...';
+
+    const payload = { ...clientData, contratoAntigoId: contratoAntigoId };
+
+    try {
+        const response = await fetch('/api/v5/ixc/mudanca-titularidade', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) throw new Error(result.error || 'Erro desconhecido no servidor.');
+        
+        showModal('Sucesso!', 
+            `Mudança de titularidade concluída!<br>
+             O contrato antigo foi cancelado e a ONU foi migrada para o novo titular.<br>
+             <strong>Novo Cliente ID:</strong> ${result.clienteId}<br>
+             <strong>Novo Contrato ID:</strong> ${result.contratoId}<br>
+             <strong>OS Abertura ID:</strong> ${result.ticketId}`,
+            'success'
+        );
+        
+    } catch (error) {
+        console.error("Erro na mudança de titularidade:", error);
+        showModal('Erro na Transferência', `Não foi possível concluir a mudança de titularidade.<br><strong>Motivo:</strong> ${error.message}`, 'danger');
+    } finally {
+        submitButton.disabled = false;
+        submitButton.innerHTML = 'Finalizar Mudança';
     }
 }
 

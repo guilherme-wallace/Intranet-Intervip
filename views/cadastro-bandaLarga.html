@@ -196,76 +196,78 @@
                                         </div>
                                     </fieldset>
 
-                                    <fieldset class="form-section mt-4">
-                                        <legend class="section-legend">Endereço de Instalação</legend>
-                                        <div class="row g-3">
-                                            <div class="col-md-12 ivp-search-box mb-3">
-                                                <label for="input-condominio-venda" class="form-label">Buscar Condomínio / Localidade<span style="color: red; margin: 0; padding: 0;"> * </span></label>
-                                                <div class="align-items-center mb-2">
-                                                    <input type="text" class="form-control form-control-lg ivp-input me-3" id="input-condominio-venda" placeholder="Digite o nome para buscar..." autocomplete="off" required>
-                                                    
-                                                    <div class="form-check text-nowrap">
-                                                        <input class="form-check-input" type="checkbox" id="chk-sem-condominio">
-                                                        <label class="form-check-label small" for="chk-sem-condominio">
-                                                            Bairro / Condomínio não cadastrado
-                                                        </label>
+                                    <div id="bloco-endereco-completo">
+                                        <fieldset class="form-section mt-4">
+                                            <legend class="section-legend">Endereço de Instalação</legend>
+                                            <div class="row g-3">
+                                                <div class="col-md-12 ivp-search-box mb-3">
+                                                    <label for="input-condominio-venda" class="form-label">Buscar Condomínio / Localidade<span style="color: red; margin: 0; padding: 0;"> * </span></label>
+                                                    <div class="align-items-center mb-2">
+                                                        <input type="text" class="form-control form-control-lg ivp-input me-3" id="input-condominio-venda" placeholder="Digite o nome para buscar..." autocomplete="off" required>
+                                                        
+                                                        <div class="form-check text-nowrap">
+                                                            <input class="form-check-input" type="checkbox" id="chk-sem-condominio">
+                                                            <label class="form-check-label small" for="chk-sem-condominio">
+                                                                Bairro / Condomínio não cadastrado
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                    <div class="invalid-feedback">Selecione uma localidade válida da busca.</div>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label for="cep" class="form-label">CEP</label>
+                                                    <input type="text" class="form-control" id="cep" placeholder="00000-000" required>
+                                                    <div class="invalid-feedback">CEP inválido.</div>
+                                                </div>
+                                                <div class="col-md-8">
+                                                    <label for="endereco" class="form-label">Endereço (Rua/Avenida)</label>
+                                                    <input type="text" class="form-control" id="endereco" required>
+                                                    <div class="invalid-feedback">Informe o endereço.</div>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label for="numero" class="form-label">Número<span style="color: red;"> * </span></label>
+                                                    <div class="input-group has-validation">
+                                                        <input type="text" class="form-control" id="numero" required>
+                                                        <button class="btn btn-outline-secondary" type="button" id="btn-sem-numero" title="Sem Número">S/N</button>
+                                                        <div class="invalid-feedback">Informe o número ou S/N.</div>
                                                     </div>
                                                 </div>
-                                                <div class="invalid-feedback">Selecione uma localidade válida da busca.</div>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <label for="cep" class="form-label">CEP</label>
-                                                <input type="text" class="form-control" id="cep" placeholder="00000-000" required>
-                                                <div class="invalid-feedback">CEP inválido.</div>
-                                            </div>
-                                            <div class="col-md-8">
-                                                <label for="endereco" class="form-label">Endereço (Rua/Avenida)</label>
-                                                <input type="text" class="form-control" id="endereco" required>
-                                                <div class="invalid-feedback">Informe o endereço.</div>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <label for="numero" class="form-label">Número<span style="color: red;"> * </span></label>
-                                                <div class="input-group has-validation">
-                                                    <input type="text" class="form-control" id="numero" required>
-                                                    <button class="btn btn-outline-secondary" type="button" id="btn-sem-numero" title="Sem Número">S/N</button>
-                                                    <div class="invalid-feedback">Informe o número ou S/N.</div>
+                                                <div class="col-md-8">
+                                                    <label for="bairro" class="form-label">Bairro</label>
+                                                    <input type="text" class="form-control" id="bairro" required>
+                                                    <div class="invalid-feedback">Informe o bairro.</div>
                                                 </div>
-                                            </div>
-                                            <div class="col-md-8">
-                                                <label for="bairro" class="form-label">Bairro</label>
-                                                <input type="text" class="form-control" id="bairro" required>
-                                                <div class="invalid-feedback">Informe o bairro.</div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label for="cidade" class="form-label">Cidade</label>
-                                                <input type="text" class="form-control" id="cidade" required>
-                                                <div class="invalid-feedback">Cidade inválida.</div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label for="uf" class="form-label">Estado (UF)</label>
-                                                <input type="text" class="form-control" id="uf" required>
-                                                <div class="invalid-feedback">UF inválido.</div>
-                                            </div>
-                                            <div class="col-12">
-                                                <label for="btn-complemento" class="form-label">Complemento (Bloco, Apto, etc.)<span style="color: red; margin: 0; padding: 0;"> * </span></label>
-                                                
-                                                <button type="button" class="form-control btn btn-outline-secondary text-start" id="btn-complemento">Selecione o complemento...</button>
-                                                
-                                                <input type="text" class="form-control" id="input-complemento-livre" style="display: none;" disabled placeholder="Digite o complemento (Ex: Casa, Apto 101, Térreo...)">
+                                                <div class="col-md-6">
+                                                    <label for="cidade" class="form-label">Cidade</label>
+                                                    <input type="text" class="form-control" id="cidade" required>
+                                                    <div class="invalid-feedback">Cidade inválida.</div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label for="uf" class="form-label">Estado (UF)</label>
+                                                    <input type="text" class="form-control" id="uf" required>
+                                                    <div class="invalid-feedback">UF inválido.</div>
+                                                </div>
+                                                <div class="col-12">
+                                                    <label for="btn-complemento" class="form-label">Complemento (Bloco, Apto, etc.)<span style="color: red; margin: 0; padding: 0;"> * </span></label>
+                                                    
+                                                    <button type="button" class="form-control btn btn-outline-secondary text-start" id="btn-complemento">Selecione o complemento...</button>
+                                                    
+                                                    <input type="text" class="form-control" id="input-complemento-livre" style="display: none;" disabled placeholder="Digite o complemento (Ex: Casa, Apto 101, Térreo...)">
 
-                                                <input type="hidden" id="complemento" required> 
-                                                <div class="invalid-feedback">Por favor, informe o complemento.</div>
+                                                    <input type="hidden" id="complemento" required> 
+                                                    <div class="invalid-feedback">Por favor, informe o complemento.</div>
+                                                </div>
+                                                <div class="col-12">
+                                                    <label for="referencia" class="form-label">Ponto de Referência</label>
+                                                    <input type="text" class="form-control" id="referencia"> 
+                                                </div>
+                                                <input type="hidden" id="hidden-condominio-id">
+                                                <input type="hidden" id="hidden-cidade-id">
+                                                <input type="hidden" id="hidden-bloco">
+                                                <input type="hidden" id="hidden-apartamento">
                                             </div>
-                                            <div class="col-12">
-                                                <label for="referencia" class="form-label">Ponto de Referência</label>
-                                                <input type="text" class="form-control" id="referencia"> 
-                                            </div>
-                                            <input type="hidden" id="hidden-condominio-id">
-                                            <input type="hidden" id="hidden-cidade-id">
-                                            <input type="hidden" id="hidden-bloco">
-                                            <input type="hidden" id="hidden-apartamento">
-                                        </div>
-                                    </fieldset>
+                                        </fieldset>
+                                    </div>
 
                                     <fieldset class="form-section mt-4">
                                         <legend class="section-legend">Detalhes da Venda</legend>
@@ -418,6 +420,36 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <div class="modal fade" id="modalCpfNovoTitular" tabindex="-1" aria-labelledby="modalCpfNovoTitularLabel" aria-hidden="true" data-bs-backdrop="static">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header bg-warning">
+            <h5 class="modal-title" id="modalCpfNovoTitularLabel"><i class="bi bi-person-lines-fill me-2"></i>Mudança de Titularidade</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p style="color: #333333">Informe o <strong>CPF ou CNPJ do NOVO titular</strong> para prosseguir com a transferência:</p>
+            <div class="mb-3">
+                <input type="text" class="form-control form-control-lg" id="input-cpf-novo-titular" placeholder="Digite o CPF ou CNPJ...">
+                <div id="modal-mudanca-error" class="text-danger mt-2 fw-medium" style="display: none; font-size: 0.9em;"></div>
+            </div>
+            <div id="loading-novo-titular" class="text-center my-3" style="display: none;">
+                <div class="spinner-border text-warning" role="status">
+                    <span class="visually-hidden">Consultando...</span>
+                </div>
+                <p class="mt-2 mb-0 fw-medium">Verificando novo titular no IXC...</p>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-warning fw-bold" id="btn-consultar-novo-titular">
+                Consultar e Prosseguir <i class="bi bi-arrow-right ms-1"></i>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <script src="javascripts/jquery.js"></script>
