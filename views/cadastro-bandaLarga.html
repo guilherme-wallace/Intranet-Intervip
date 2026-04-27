@@ -452,6 +452,28 @@
       </div>
     </div>
 
+    <div class="modal fade" id="modalSelecaoLogin" tabindex="-1" aria-labelledby="modalSelecaoLoginLabel" aria-hidden="true" data-bs-backdrop="static">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header bg-primary text-white">
+            <h5 class="modal-title" id="modalSelecaoLoginLabel"><i class="bi bi-hdd-network-fill me-2"></i>Selecionar Login</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p>Este contrato possui múltiplos logins atrelados. Selecione qual deles você deseja transferir para o novo titular:</p>
+            <div class="list-group mt-3" id="lista-logins-modal">
+                </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-primary fw-bold" id="btn-confirmar-login-transferencia" disabled>
+                Confirmar Login <i class="bi bi-check-lg ms-1"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script src="javascripts/jquery.js"></script>
     <script src="javascripts/bootstrap.bundle.min.js"></script>
     <script src="javascripts/bootstrap-autocomplete.min.js"></script> 

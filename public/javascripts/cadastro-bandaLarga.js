@@ -9,6 +9,26 @@ let bsModalMudanca = null;
 let tipoConsulta = 'cpf';
 let clienteConsultado = null;
 
+let bsModalSelecaoLogin = null;
+window.loginSelecionadoParaTransferencia = null;
+window.isTransferenciaParcialGlobal = false;
+
+function abrirModalNovoTitular() {
+    document.getElementById('input-cpf-novo-titular').value = '';
+    $('#modal-mudanca-error').hide();
+    if (!bsModalMudanca) bsModalMudanca = new bootstrap.Modal(document.getElementById('modalCpfNovoTitular'));
+    bsModalMudanca.show();
+}
+
+$(document).ready(function() {
+    $('#btn-confirmar-login-transferencia').on('click', function() {
+        window.loginSelecionadoParaTransferencia = $('input[name="loginSelectModal"]:checked').val();
+        window.isTransferenciaParcialGlobal = true;
+        bsModalSelecaoLogin.hide();
+        abrirModalNovoTitular();
+    });
+});
+
 document.addEventListener('DOMContentLoaded', function() {
     
     const infoModalElement = document.getElementById('infoModal');
@@ -310,24 +330,69 @@ async function consultarClientePorDocumento() {
             
             const listaContratos = $('#lista-contratos');
             listaContratos.empty();
+
             if ($('#btn-mudanca-titularidade').length === 0) {
                 $('#btn-ir-para-cadastro').before(`
-                    <button type="button" id="btn-mudanca-titularidade" class="btn btn-warning me-2" disabled>
-                        <i class="bi bi-person-lines-fill"></i> Mudança de Titularidade
-                    </button>
+                    <span class="d-inline-block me-2 wrapper-tooltip-mudanca" tabindex="0" data-bs-toggle="tooltip" title="Selecione um contrato na lista acima para habilitar a transferência.">
+                        <button type="button" id="btn-mudanca-titularidade" class="btn btn-warning" disabled style="pointer-events: none;">
+                            <i class="bi bi-person-lines-fill"></i> Mudança de Titularidade
+                        </button>
+                    </span>
                 `);
                 
-                $('#btn-mudanca-titularidade').on('click', function() {
+                $('[data-bs-toggle="tooltip"]').tooltip();
+                
+                $('#btn-mudanca-titularidade').on('click', async function() {
                     const contratoSelecionado = $('input[name="contratoSelecionado"]:checked').val();
-                    if(contratoSelecionado) {
-                        idContratoMudanca = contratoSelecionado;
-                        document.getElementById('input-cpf-novo-titular').value = '';
-                        $('#modal-mudanca-error').hide();
+                    if(!contratoSelecionado) return;
+
+                    const btnOriginalHtml = $(this).html();
+                    $(this).html('<span class="spinner-border spinner-border-sm"></span> Verificando logins...').prop('disabled', true);
+
+                    try {
+                        const response = await fetch(`/api/v5/ixc/logins-contrato/${contratoSelecionado}`);
+                        const logins = await response.json();
                         
-                        if (!bsModalMudanca) {
-                            bsModalMudanca = new bootstrap.Modal(document.getElementById('modalCpfNovoTitular'));
+                        if(logins.length === 0) {
+                            showModal('Aviso', 'Este contrato não possui nenhum login PPPoE ativo para transferir.', 'warning');
+                            $(this).html(btnOriginalHtml).prop('disabled', false);
+                            return;
                         }
-                        bsModalMudanca.show();
+                        
+                        idContratoMudanca = contratoSelecionado;
+
+                        if(logins.length > 1) {
+                            const listaModal = $('#lista-logins-modal');
+                            listaModal.empty();
+                            logins.forEach(l => {
+                                listaModal.append(`
+                                    <label class="list-group-item d-flex gap-3 align-items-center" style="cursor: pointer;">
+                                        <input class="form-check-input flex-shrink-0 radio-login-selecao" type="radio" name="loginSelectModal" value="${l.id}">
+                                        <span>
+                                            <strong>${l.login}</strong><br>
+                                            <small class="text-muted">MAC: ${l.mac || 'Não vinculado'}</small>
+                                        </span>
+                                    </label>
+                                `);
+                            });
+                            
+                            $('#btn-confirmar-login-transferencia').prop('disabled', true);
+                            
+                            $('.radio-login-selecao').on('change', function() {
+                                $('#btn-confirmar-login-transferencia').prop('disabled', false);
+                            });
+
+                            if (!bsModalSelecaoLogin) bsModalSelecaoLogin = new bootstrap.Modal(document.getElementById('modalSelecaoLogin'));
+                            bsModalSelecaoLogin.show();
+                        } else {
+                            window.isTransferenciaParcialGlobal = false;
+                            window.loginSelecionadoParaTransferencia = logins[0].id;
+                            abrirModalNovoTitular();
+                        }
+                    } catch (e) {
+                        showModal('Erro', 'Falha ao buscar logins do contrato.', 'danger');
+                    } finally {
+                        $(this).html(btnOriginalHtml).prop('disabled', false);
                     }
                 });
             }
@@ -345,11 +410,13 @@ async function consultarClientePorDocumento() {
                     } else if (contrato.endereco_padrao_cliente === 'S' && clienteConsultado) {
                         enderecoContrato = [clienteConsultado.endereco, clienteConsultado.numero, clienteConsultado.bairro, clienteConsultado.complemento].filter(Boolean).join(', ');
                     }
+                    
+                    const isDesativado = contrato.status_internet === 'D' || contrato.status_internet === 'C';
 
                     listaContratos.append(`
-                        <li class="list-group-item d-flex justify-content-between align-items-center ${classeAtraso}">
+                        <li class="list-group-item d-flex justify-content-between align-items-center ${classeAtraso} ${isDesativado ? 'disabled' : ''}">
                             <div class="d-flex align-items-center">
-                                <input class="form-check-input me-3 radio-contrato" type="radio" name="contratoSelecionado" value="${contrato.id}" ${contrato.status_internet === 'D' || contrato.status_internet === 'C' ? 'disabled' : ''}>
+                                <input class="form-check-input me-3 radio-contrato" type="radio" name="contratoSelecionado" value="${contrato.id}" ${isDesativado ? 'disabled' : ''}>
                                 <div>
                                     <strong>Contrato:</strong> ${contrato.contrato} (ID: ${contrato.id})<br>
                                     <small>Ativado em: ${contrato.data_ativacao}</small><br>
@@ -364,8 +431,17 @@ async function consultarClientePorDocumento() {
                     `);
                 });
 
+                $('#lista-contratos .list-group-item:not(.disabled)').on('click', function(e) {
+                    if ($(e.target).is('input[type="radio"]')) return;
+                    $(this).find('.radio-contrato').prop('checked', true).trigger('change');
+                });
+
                 $('.radio-contrato').on('change', function() {
-                    $('#btn-mudanca-titularidade').prop('disabled', false);
+                    $('#btn-mudanca-titularidade').prop('disabled', false).css('pointer-events', 'auto');
+                    const wrapper = $('.wrapper-tooltip-mudanca');
+                    if(wrapper.length) {
+                        wrapper.tooltip('dispose');
+                    }
                 });
 
             } else {
@@ -1497,7 +1573,12 @@ async function executarMudancaTitularidadeNoIXC(clientData, contratoAntigoId) {
     submitButton.disabled = true;
     submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Transferindo...';
 
-    const payload = { ...clientData, contratoAntigoId: contratoAntigoId };
+    const payload = { 
+        ...clientData, 
+        contratoAntigoId: contratoAntigoId,
+        loginSelecionadoId: window.loginSelecionadoParaTransferencia,
+        isTransferenciaParcial: window.isTransferenciaParcialGlobal
+    };
 
     try {
         const response = await fetch('/api/v5/ixc/mudanca-titularidade', {
@@ -1512,7 +1593,7 @@ async function executarMudancaTitularidadeNoIXC(clientData, contratoAntigoId) {
         
         showModal('Sucesso!', 
             `Mudança de titularidade concluída!<br>
-             O contrato antigo foi cancelado e a ONU foi migrada para o novo titular.<br>
+             O Login foi migrado para o novo titular.<br>
              <strong>Novo Cliente ID:</strong> ${result.clienteId}<br>
              <strong>Novo Contrato ID:</strong> ${result.contratoId}<br>
              <strong>OS Abertura ID:</strong> ${result.ticketId}`,

@@ -397,6 +397,37 @@ body.dark-mode .btn-outline-dark:hover {
     background-color: #c82333;
 }
 
+#lista-contratos .list-group-item {
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+#lista-contratos .list-group-item:not(.disabled):hover {
+    background-color: var(--primary-light);
+    border-color: var(--primary-color);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+}
+
+#lista-contratos .list-group-item.disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+}
+
+#lista-contratos .list-group-item.disabled:hover {
+    background-color: transparent;
+    border-color: var(--border-color);
+    transform: none;
+    box-shadow: none;
+}
+
+.radio-contrato {
+    width: 1rem !important;
+    height: 1rem !important;
+    cursor: pointer;
+    accent-color: var(--primary-color);
+}
+
 /* FOOTER */
 .ivp-footer {
     background-color: var(--footer-bg);
