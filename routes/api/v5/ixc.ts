@@ -1,6 +1,7 @@
 // routes/api/v5/ixc.ts
 import * as Express from 'express';
 import axios, { Method } from 'axios';
+import { LOCALHOST } from '../../../api/database';
 
 function formatarNomePlano(nomeOriginal: string): string {
     if (!nomeOriginal) return 'Não informado';
@@ -569,6 +570,150 @@ async function abrirAtendimentoOS(novoClienteId: string, clientData: any, nomePl
 
     console.log(`Etapa 4 OK: Atendimento/OS ID ${ticketId} criado.`);
     return ticketId.toString(); 
+}
+
+async function obterIdFuncionarioIxc(usuario_intranet: string): Promise<string> {
+    if (!usuario_intranet) return "138";
+
+    try {
+        return await new Promise<string>((resolve, reject) => {
+            LOCALHOST.query(
+                'SELECT id_funcionario_ixc FROM usuarios_intranet WHERE usuario = ? AND ativo = 1',
+                [usuario_intranet],
+                (err: any, results: any[]) => {
+                    if (err) {
+                        console.error("Erro ao executar query de id_funcionario_ixc:", err);
+                        return resolve("138");
+                    }
+                    
+                    if (results && results.length > 0 && results[0].id_funcionario_ixc) {
+                        resolve(results[0].id_funcionario_ixc.toString());
+                    } else {
+                        console.warn(`Usuário '${usuario_intranet}' não encontrado ou inativo no banco local. Usando ID padrão.`);
+                        resolve("138");
+                    }
+                }
+            );
+        });
+    } catch (error) {
+        console.error("Erro geral ao consultar id_funcionario_ixc no banco local:", error);
+    }
+    
+    return "138"; // Fallback final
+}
+
+async function fecharTarefaOS(ticketId: string, idWflTarefaProxima: string, mensagem: string, idTecnico: string) {
+    console.log(`Buscando OS aberta no ticket ${ticketId}...`);
+    
+    const osResponse = await makeIxcRequest('POST', '/su_oss_chamado', {
+        qtype: 'su_oss_chamado.id_ticket', query: ticketId, oper: '=', rp: '20', sortname: 'su_oss_chamado.id', sortorder: 'desc'
+    });
+
+    if (!osResponse || !osResponse.registros || osResponse.registros.length === 0) {
+        throw new Error(`Nenhuma OS encontrada para o ticket ${ticketId}`);
+    }
+
+    const osAberta = osResponse.registros.find((os: any) => os.status === 'A' || os.status === 'EN');
+    if (!osAberta) {
+        console.log(`Aviso: Nenhuma OS aberta encontrada no ticket ${ticketId}. O fluxo já pode ter avançado.`);
+        return;
+    }
+
+    console.log(`Finalizando OS ${osAberta.id} via su_oss_chamado_fechar e engatilhando próxima tarefa ID ${idWflTarefaProxima}...`);
+    
+    const payloadFechamento = {
+        "id_chamado": osAberta.id, 
+        "gera_comissao_aux": "N",
+        "data_inicio": getIxcDate(),
+        "data_final": getIxcDate(),
+        "id_resposta": "",
+        "mensagem": mensagem,
+        "id_tecnico": idTecnico || osAberta.id_tecnico || "138",
+        "id_equipe": "",
+        "gera_comissao": "N",
+        "status": "F",
+        "data": getIxcDate().split(' ')[0],
+        "id_evento": "",
+        "id_su_diagnostico": "",
+        "justificativa_sla_atrasado": "",
+        "latitude": "",
+        "longitude": "",
+        "gps_time": "",
+        "id_processo": osAberta.id_wfl_processo || "46",
+        "id_tarefa_atual": osAberta.id_wfl_tarefa,
+        "eh_tarefa_decisao": "N",
+        "sequencia_atual": "",
+        "proxima_sequencia_forcada": "",
+        "finaliza_processo_aux": "N",
+        "id_evento_status": "",
+        "id_proxima_tarefa": idWflTarefaProxima,
+        "id_proxima_tarefa_aux": ""
+    };
+
+    const resp = await makeIxcRequest('POST', '/su_oss_chamado_fechar', payloadFechamento);
+    
+    if (resp && resp.type === 'error') {
+        throw new Error(`Erro no motor WFL ao avançar OS ${osAberta.id}: ${resp.message.replace(/<br \/>/g, ' - ')}`);
+    }
+
+    console.log(`Motor WFL disparado! OS ${osAberta.id} finalizada e próxima tarefa gerada com sucesso!`);
+    
+    await new Promise(resolve => setTimeout(resolve, 3000));
+}
+
+async function abrirTicketProcesso46(clienteId: string, contratoId: string, loginId: string, isNovoCliente: boolean, nomePlano: string, clientData: any, dadosTransferencia: any, idFuncionarioIxc: string) {
+    console.log(`Abrindo ticket Proc 46 para o cliente ${clienteId} (${isNovoCliente ? 'NOVO' : 'ANTIGO'})...`);
+    
+    let mensagem_padrao = '';
+
+    if (isNovoCliente) {
+        // Cliente novo
+        mensagem_padrao = `MUDANÇA DE TITULARIDADE VIA INTRANET\n\nCliente antigo:\n- Nome: ${dadosTransferencia.oldClienteNome}\n- Código: ${dadosTransferencia.oldClienteId}\n- Plano escolhido: ${nomePlano}`;
+    } else {
+        // Cliente antigo
+        mensagem_padrao = `MUDANÇA DE TITULARIDADE VIA INTRANET\n\nCliente novo:\n- Nome: ${dadosTransferencia.newClienteNome}\n- Código: ${dadosTransferencia.newClienteId}\n- Contatos: ${dadosTransferencia.newTelefones}\n -Plano escolhido: ${nomePlano}`;
+    }
+
+    const atendimentoPayload = {
+        "id_cliente": clienteId,
+        "titulo": "ALTERAÇÃO DE TITULARIDADE / RAZÃO SOCIAL",
+        "id_wfl_processo": "46",
+        "id_ticket_setor": "4",
+        "prioridade": "M",
+        "id_responsavel_tecnico": idFuncionarioIxc,
+        "id_filial": clientData.id_filial || "3",
+        "tipo": "C",
+        "menssagem": mensagem_padrao,
+        "status": "OSAB",
+        "su_status": "EP",
+        "id_login": loginId || '',
+        "id_contrato": contratoId || ''
+    };
+
+    const response = await makeIxcRequest('POST', '/su_ticket', atendimentoPayload, 'incluir');
+    const ticketId = response.id || response.id_su_ticket;
+    
+    if (!ticketId || response.type === 'error') {
+        throw new Error(`Falha ao abrir ticket: ${response.message || 'ID não retornado.'}`);
+    }
+
+    console.log(`Ticket Processo 46 criado: ${ticketId}. Aguardando OS inicial nascer...`);
+    await new Promise(resolve => setTimeout(resolve, 3000)); 
+
+    if (!isNovoCliente) {
+        console.log(`Avançando OSs do Cliente ANTIGO (Ticket ${ticketId})...`);
+        await fecharTarefaOS(ticketId, '398', 'Processo iniciado pela Intranet.', idFuncionarioIxc);
+        await fecharTarefaOS(ticketId, '399', 'Alteração efetuada com sucesso.', idFuncionarioIxc);
+        await fecharTarefaOS(ticketId, '402', 'Login transferido para a nova titularidade. Aguardando conferência de cancelamento pelo Financeiro.', idFuncionarioIxc);
+        console.log(`>>> Fluxo Cliente Antigo posicionado com sucesso no Financeiro (Tarefa 402) <<<`);
+    } else {
+        console.log(`Avançando OSs do Cliente NOVO (Ticket ${ticketId})...`);
+        await fecharTarefaOS(ticketId, '460', 'Processo iniciado pela Intranet.', idFuncionarioIxc);
+        await fecharTarefaOS(ticketId, '403', 'Contrato e Login gerados automaticamente. Aguardando Retorno CRI.', idFuncionarioIxc);
+        console.log(`>>> Fluxo Cliente Novo posicionado com sucesso no CRI (Tarefa 403) <<<`);
+    }
+
+    return ticketId;
 }
 
 async function abrirChamadoSuporteInterno(mensagemErro: string): Promise<string | null> {
@@ -1242,7 +1387,7 @@ async function transferirLoginPPPoE(
         "senha_md5": loginAntigo.senha_md5 || "N",
         "senha": loginAntigo.senha || `ivp@${loginAntigo.id_cliente}`,
         "login_simultaneo": loginAntigo.login_simultaneo || "1",
-        "ativo": loginAntigo.ativo || "S",
+        "ativo": "N",
         "auto_preencher_ip": loginAntigo.auto_preencher_ip || "H",
         "fixar_ip": loginAntigo.fixar_ip || "H",
         "relacionar_ip_ao_login": loginAntigo.relacionar_ip_ao_login || "H",
@@ -1284,9 +1429,9 @@ async function transferirLoginPPPoE(
         'id_cliente': novoClienteId,
         'id_contrato': novoContratoId,
         'login': loginAntigoString,
-        'senha': `ivp@${novoClienteId}`,
+        'senha': loginAntigo.senha || `ivp@${loginAntigo.id_cliente}`,
         'id_grupo': idGrupoRadius,
-        'mac': macAntigo || '',
+        'mac': '',
         'ativo': 'S',
         'autenticacao': 'L',
         'login_simultaneo': '1',
@@ -1296,7 +1441,7 @@ async function transferirLoginPPPoE(
         'tipo_vinculo_plano': 'D',
         'ultima_atualizacao': dataCadastro,
         'tipo_conexao_mapa': '58',
-        'autenticacao_por_mac': macAntigo ? 'S' : 'P',
+        'autenticacao_por_mac': 'P',
         'auto_preencher_mac': 'H', 
         'relacionar_mac_ao_login': 'H',
         'senha_md5': 'N',
@@ -1329,6 +1474,67 @@ async function transferirLoginPPPoE(
     throw new Error(loginResponse ? JSON.stringify(loginResponse) : 'Retorno vazio ao criar login');
 }
 
+async function desconectarLoginPPPoE(loginId: string) {
+    console.log(`Enviando comando de desconexão (Kick) para o login ID: ${loginId}`);
+    try {
+        await makeIxcRequest('POST', '/desconectar_clientes', { id: loginId });
+        console.log(`Comando de desconexão executado com sucesso para o login ${loginId}.`);
+    } catch (error: any) {
+        console.warn(`Aviso: Falha ao enviar comando de desconexão para o login ${loginId}. (O cliente pode já estar offline). Erro: ${error.message}`);
+    }
+}
+
+async function transferirOnuFibra(loginAntigoId: string, novoLoginId: string, novoContratoId: string) {
+    console.log(`Verificando existência de ONU (Fibra) atrelada ao login antigo (ID: ${loginAntigoId})...`);
+
+    try {
+        const fibraResp = await makeIxcRequest('POST', '/radpop_radio_cliente_fibra', {
+            qtype: 'radpop_radio_cliente_fibra.id_login',
+            query: loginAntigoId,
+            oper: '=',
+            rp: '1'
+        });
+
+        if (fibraResp && fibraResp.registros && fibraResp.registros.length > 0) {
+            const fibra = fibraResp.registros[0];
+            console.log(`ONU encontrada (ID Fibra: ${fibra.id}). Transferindo para o novo login (ID: ${novoLoginId}) e contrato (ID: ${novoContratoId})...`);
+
+            const payloadFibra = {
+                ...fibra, 
+                id_login: novoLoginId,
+                id_contrato: novoContratoId
+            };
+
+            const putResp = await makeIxcRequest('PUT', `/radpop_radio_cliente_fibra/${fibra.id}`, payloadFibra, 'alterar');
+
+            if (putResp && putResp.type === 'error') {
+                throw new Error(`IXC recusou a transferência da ONU: ${putResp.message}`);
+            }
+
+            console.log(`ONU transferida com sucesso! Agora a fibra está vinculada ao novo login e contrato.`);
+        } else {
+            console.log(`Nenhuma ONU de fibra encontrada para o login antigo.`);
+        }
+    } catch (error: any) {
+        console.error(`Erro ao transferir vínculo da ONU de fibra: ${error.message}`);
+    }
+}
+
+async function ativarContrato(contratoId: string) {
+    console.log(`Enviando comando para ativar o contrato ID: ${contratoId}...`);
+    try {
+        const resp = await makeIxcRequest('POST', '/cliente_contrato_ativar_cliente', { id_contrato: contratoId });
+        
+        if (resp && resp.type === 'error') {
+            throw new Error(resp.message);
+        }
+        
+        console.log(`Contrato ${contratoId} ativado com sucesso!`);
+    } catch (error: any) {
+        console.error(`Falha ao ativar o contrato ${contratoId}: ${error.message}`);
+    }
+}
+
 async function cancelarContratoAntigo(contratoId: string) {
     console.log(`Cancelando contrato antigo ID: ${contratoId}`);
     const payloadCancelamento = {
@@ -1349,24 +1555,25 @@ router.post('/mudanca-titularidade', async (req, res) => {
     try {
         const { contratoAntigo, loginAntigo } = await buscarDetalhesContratoELoginAntigo(contratoAntigoId);
 
+        console.log(`Buscando dados do cliente antigo ID: ${contratoAntigo.id_cliente}...`);
+        const clienteOldResponse = await makeIxcRequest('POST', '/cliente', { qtype: 'cliente.id', query: contratoAntigo.id_cliente, oper: '=' });
+        let clienteAntigo: any = {};
+        if (clienteOldResponse && clienteOldResponse.registros && clienteOldResponse.registros.length > 0) {
+            clienteAntigo = clienteOldResponse.registros[0];
+        }
+
         if (contratoAntigo.endereco_padrao_cliente === 'S') {
-            console.log(`Contrato antigo usa endereço do cliente. Buscando dados do cliente ID: ${contratoAntigo.id_cliente}...`);
-            const clienteOldResponse = await makeIxcRequest('POST', '/cliente', { qtype: 'cliente.id', query: contratoAntigo.id_cliente, oper: '=' });
-            
-            if (clienteOldResponse && clienteOldResponse.registros && clienteOldResponse.registros.length > 0) {
-                const clienteAntigo = clienteOldResponse.registros[0];
-                clientData.cep = clienteAntigo.cep || '';
-                clientData.endereco = clienteAntigo.endereco || '';
-                clientData.numero = clienteAntigo.numero || '';
-                clientData.bairro = clienteAntigo.bairro || '';
-                clientData.cidade = clienteAntigo.cidade || '';
-                clientData.uf = clienteAntigo.uf || '';
-                clientData.complemento = clienteAntigo.complemento || '';
-                clientData.bloco = clienteAntigo.bloco || '';
-                clientData.apartamento = clienteAntigo.apartamento || '';
-                clientData.referencia = clienteAntigo.referencia || '';
-                clientData.id_condominio = clienteAntigo.id_condominio || '';
-            }
+            clientData.cep = clienteAntigo.cep || '';
+            clientData.endereco = clienteAntigo.endereco || '';
+            clientData.numero = clienteAntigo.numero || '';
+            clientData.bairro = clienteAntigo.bairro || '';
+            clientData.cidade = clienteAntigo.cidade || '';
+            clientData.uf = clienteAntigo.uf || '';
+            clientData.complemento = clienteAntigo.complemento || '';
+            clientData.bloco = clienteAntigo.bloco || '';
+            clientData.apartamento = clienteAntigo.apartamento || '';
+            clientData.referencia = clienteAntigo.referencia || '';
+            clientData.id_condominio = clienteAntigo.id_condominio || '';
         } else {
             clientData.cep = contratoAntigo.cep || '';
             clientData.endereco = contratoAntigo.endereco || '';
@@ -1417,10 +1624,43 @@ router.post('/mudanca-titularidade', async (req, res) => {
             clientData
         );
 
-        await cancelarContratoAntigo(contratoAntigoId);
+        await transferirOnuFibra(loginAntigo.id, novoLoginId, novoContratoId);
+        
+        console.log(`Contrato antigo (ID: ${contratoAntigoId}) mantido. O Financeiro fará a validação de cancelamento via WFL.`);
 
-        clientData.titulo_atendimento = "MUDANÇA DE TITULARIDADE - BANDA LARGA";
-        const novoTicketId = await abrirAtendimentoOS(novoClienteId, clientData, nomePlano, novoLoginId, novoContratoId);
+        if (contratoAntigo.status === 'A') {
+            console.log(`O contrato antigo era 'Ativo'. Engatilhando ativação do novo contrato...`);
+            await ativarContrato(novoContratoId);
+        } else {
+            console.log(`O contrato antigo possuía status '${contratoAntigo.status}'. O novo permanecerá como Pré-contrato (P).`);
+        }
+
+        const telefonesNovos = (clientData.whatsapp && clientData.whatsapp !== clientData.telefone_celular)
+            ? `${clientData.telefone_celular} / ${clientData.whatsapp}`
+            : clientData.telefone_celular;
+
+        const dadosTransferencia = {
+            oldClienteId: contratoAntigo.id_cliente,
+            oldClienteNome: clienteAntigo.razao || 'Não informado',
+            newClienteId: novoClienteId,
+            newClienteNome: clientData.nome,
+            newTelefones: telefonesNovos
+        };
+
+        const idFuncionarioIxc = await obterIdFuncionarioIxc(clientData.usuario_intranet);
+        console.log(`Usuário logado: ${clientData.usuario_intranet || 'Desconhecido'} | ID Funcionário IXC mapeado: ${idFuncionarioIxc}`);
+
+        const ticketAntigoId = await abrirTicketProcesso46(
+            loginAntigo.id_cliente, contratoAntigoId, loginAntigo.id, false, nomePlano, clientData, dadosTransferencia, idFuncionarioIxc
+        );
+        
+        const ticketNovoId = await abrirTicketProcesso46(
+            novoClienteId, novoContratoId, novoLoginId, true, nomePlano, clientData, dadosTransferencia, idFuncionarioIxc
+        );
+
+        console.log("Iniciando rotina de desconexão forçada dos logins...");
+        await desconectarLoginPPPoE(loginAntigo.id);
+        await desconectarLoginPPPoE(novoLoginId);
 
         res.status(201).json({
             success: true,
@@ -1428,7 +1668,7 @@ router.post('/mudanca-titularidade', async (req, res) => {
             clienteId: novoClienteId,
             contratoId: novoContratoId,
             loginId: novoLoginId,
-            ticketId: novoTicketId
+            ticketId: ticketNovoId
         });
 
     } catch (error: any) {

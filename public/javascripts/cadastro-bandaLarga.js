@@ -68,15 +68,23 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!response.ok) throw new Error('Falha ao consultar o cliente.');
 
             const data = await response.json();
-            bsModalMudanca.hide();
             
+            if (data.contratosComAtraso && data.contratosComAtraso.length > 0) {
+                $('#loading-novo-titular').hide();
+                $('#btn-consultar-novo-titular').prop('disabled', false);
+                bsModalMudanca.hide();
+                showModal('Transferência Bloqueada', 'Não é possível transferir a titularidade para este cliente. Constam <strong>faturas em atraso</strong> (inadimplência) no sistema.', 'danger');
+                return;
+            }
+
+            bsModalMudanca.hide();
             iniciarMudancaTitularidade(idContratoMudanca, data.cliente, documento);
 
         } catch (error) {
             $('#modal-mudanca-error').text('Erro na consulta: ' + error.message).show();
         } finally {
             $('#loading-novo-titular').hide();
-            $(this).prop('disabled', false);
+            $('#btn-consultar-novo-titular').prop('disabled', false);
         }
     });
     
@@ -662,6 +670,7 @@ function setupFormValidation() {
                                  : 'Transferência / Sistema';
 
             const clientData = {
+                usuario_intranet: document.querySelector('.user-info span')?.textContent || '',
                 // Dados Pessoais
                 nome: document.getElementById('nome').value.trim(),
                 cnpj_cpf: document.getElementById('cpf').value,
