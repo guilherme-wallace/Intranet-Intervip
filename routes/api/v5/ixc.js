@@ -217,7 +217,6 @@ function getFinancialStatus(clientId) {
                     _b.label = 1;
                 case 1:
                     _b.trys.push([1, 3, , 4]);
-                    console.log("Verificando financeiro do ID: ".concat(clientId));
                     return [4 /*yield*/, makeIxcRequest('POST', '/fn_areceber', financeiroPayload)];
                 case 2:
                     financeiroResponse = _b.sent();
@@ -228,7 +227,7 @@ function getFinancialStatus(clientId) {
                             titulo = _a[_i];
                             vencimento = new Date(titulo.data_vencimento);
                             if (vencimento < hoje) {
-                                console.log("Cliente ".concat(clientId, " POSSUI atraso."));
+                                //console.log(`Cliente ${clientId} POSSUI atraso.`);
                                 return [2 /*return*/, true];
                             }
                         }
@@ -238,9 +237,9 @@ function getFinancialStatus(clientId) {
                     error_2 = _b.sent();
                     console.error("Erro ao verificar financeiro do cliente ".concat(clientId, ":"), error_2.message);
                     return [2 /*return*/, false];
-                case 4:
-                    console.log("Cliente ".concat(clientId, " N\u00C2O possui atraso."));
-                    return [2 /*return*/, false];
+                case 4: 
+                //console.log(`Cliente ${clientId} NÂO possui atraso.`);
+                return [2 /*return*/, false];
             }
         });
     });
@@ -327,7 +326,6 @@ function cadastrarCliente(clientData, dataCadastro, filialId) {
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    console.log("Iniciando Etapa 1: Cadastro do Cliente (Filial ".concat(filialId, ")..."));
                     today = dataCadastro.split(' ')[0];
                     usaEnderecoCliente = clientData.cep_cliente && clientData.cep_cliente !== '';
                     celularParaEnviar = clientData.telefone_celular || clientData.whatsapp;
@@ -372,12 +370,12 @@ function cadastrarCliente(clientData, dataCadastro, filialId) {
                     return [4 /*yield*/, makeIxcRequest('POST', '/cliente', clientePayload)];
                 case 1:
                     clienteResponse = _a.sent();
-                    console.log("Resposta da API IXC (Etapa 1):", clienteResponse);
+                    //console.log("Resposta da API IXC (Etapa 1):", clienteResponse);
                     if (!clienteResponse || !clienteResponse.id) {
                         errorMessage = clienteResponse.message || clienteResponse.mensagem || clienteResponse.msg || 'Resposta inválida do IXC.';
                         throw new Error("Falha ao cadastrar cliente: ".concat(errorMessage));
                     }
-                    console.log("Etapa 1 OK: Cliente ID ".concat(clienteResponse.id, " criado."));
+                    //console.log(`Etapa 1 OK: Cliente ID ${clienteResponse.id} criado.`);
                     return [2 /*return*/, clienteResponse.id];
             }
         });
@@ -390,7 +388,6 @@ function criarContrato(novoClienteId, clientData, dataCadastro, nomePlano, optio
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    console.log("Iniciando Etapa 2: Criação do Contrato...");
                     today = dataCadastro.split(' ')[0];
                     idTipoContrato = getTipoContratoPorVencimento(clientData.data_vencimento);
                     idModelo = getModeloPlano(clientData.id_plano_ixc);
@@ -415,6 +412,9 @@ function criarContrato(novoClienteId, clientData, dataCadastro, nomePlano, optio
                         'id_filial': options.id_filial,
                         'id_carteira_cobranca': options.id_carteira_cobranca,
                         'bloqueio_automatico': options.bloqueio_automatico,
+                        'base_geracao_tipo_doc': options.base_geracao_tipo_doc || 'P',
+                        'tipo_doc_opc': options.tipo_doc_opc || '',
+                        'tipo_doc_opc2': options.tipo_doc_opc2 || '',
                         'data_assinatura': today,
                         'data': getIxcDateDMY(),
                         'status': 'P',
@@ -428,7 +428,6 @@ function criarContrato(novoClienteId, clientData, dataCadastro, nomePlano, optio
                         'cc_previsao': 'P',
                         'tipo_cobranca': 'P',
                         'renovacao_automatica': 'S',
-                        'base_geracao_tipo_doc': 'P',
                         'aviso_atraso': 'S',
                         'fidelidade': '12',
                         'ultima_atualizacao': dataCadastro,
@@ -447,12 +446,12 @@ function criarContrato(novoClienteId, clientData, dataCadastro, nomePlano, optio
                     return [4 /*yield*/, makeIxcRequest('POST', '/cliente_contrato', contratoPayload)];
                 case 1:
                     contratoResponse = _a.sent();
-                    console.log("Resposta da API IXC (Etapa 2):", contratoResponse);
+                    //console.log("Resposta da API IXC (Etapa 2):", contratoResponse);
                     if (!contratoResponse || !contratoResponse.id) {
                         errorMessage = contratoResponse.message || contratoResponse.msg || 'Resposta inválida do IXC.';
                         throw new Error("Falha ao criar contrato: ".concat(errorMessage));
                     }
-                    console.log("Etapa 2 OK: Contrato ID ".concat(contratoResponse.id, " criado."));
+                    //console.log(`Etapa 2 OK: Contrato ID ${contratoResponse.id} criado.`);
                     return [2 /*return*/, contratoResponse.id];
             }
         });
@@ -541,7 +540,6 @@ function criarLogin(novoClienteId, novoContratoId, clientData, dataCadastro) {
                     loginSufixo = (tentativa === 1) ? '' : "_".concat(tentativa);
                     login = "".concat(novoClienteId).concat(loginSufixo);
                     senha = "ivp@".concat(novoClienteId);
-                    console.log("Iniciando Etapa 3 (Tentativa ".concat(tentativa, "): Cria\u00E7\u00E3o do Login PPPoE '").concat(login, "'..."));
                     loginPayload = {
                         'id_cliente': novoClienteId,
                         'id_contrato': novoContratoId,
@@ -575,14 +573,14 @@ function criarLogin(novoClienteId, novoContratoId, clientData, dataCadastro) {
                     return [4 /*yield*/, makeIxcRequest('POST', '/radusuarios', loginPayload)];
                 case 3:
                     loginResponse = _a.sent();
-                    console.log("Resposta da API IXC (Etapa 3):", loginResponse);
+                    //console.log("Resposta da API IXC (Etapa 3):", loginResponse);
                     if (loginResponse && loginResponse.id) {
-                        console.log("Etapa 3 OK: Login PPPoE ID ".concat(loginResponse.id, " criado com o login '").concat(login, "'."));
+                        //console.log(`Etapa 3 OK: Login PPPoE ID ${loginResponse.id} criado com o login '${login}'.`);
                         return [2 /*return*/, loginResponse.id];
                     }
                     errorMessage = (loginResponse.message || loginResponse.msg || 'Resposta inválida do IXC.').replace(/<br \/>/g, ' ');
                     if (errorMessage.includes("Login já existe!")) {
-                        console.log("Login '".concat(login, "' j\u00E1 existe. Tentando pr\u00F3ximo..."));
+                        //console.log(`Login '${login}' já existe. Tentando próximo...`);
                     }
                     else {
                         throw new Error("Falha ao criar login PPPoE: ".concat(errorMessage));
@@ -629,7 +627,6 @@ function abrirAtendimentoOS(novoClienteId, clientData, nomePlano, novoLoginId, n
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    console.log("Iniciando Etapa 4: Abertura de Atendimento/OS Unificado...");
                     mensagem_padrao = buildMensagemAtendimento(clientData, nomePlano);
                     atendimentoPayload = {
                         "id_cliente": novoClienteId,
@@ -653,13 +650,12 @@ function abrirAtendimentoOS(novoClienteId, clientData, nomePlano, novoLoginId, n
                     return [4 /*yield*/, makeIxcRequest('POST', '/su_ticket', atendimentoPayload, 'incluir')];
                 case 1:
                     atendimentoResponse = _a.sent();
-                    console.log("Resposta da API IXC (Etapa 4):", atendimentoResponse);
                     ticketId = atendimentoResponse.id || atendimentoResponse.id_su_ticket;
                     if (!atendimentoResponse || !ticketId) {
                         errorMessage = (atendimentoResponse.message || atendimentoResponse.msg || 'Resposta inválida do IXC.').replace(/<br \/>/g, ' ');
                         throw new Error("Falha ao abrir atendimento/OS unificado: ".concat(errorMessage));
                     }
-                    console.log("Etapa 4 OK: Atendimento/OS ID ".concat(ticketId, " criado."));
+                    //console.log(`Etapa 4 OK: Atendimento/OS ID ${ticketId} criado.`);
                     return [2 /*return*/, ticketId.toString()];
             }
         });
@@ -679,14 +675,14 @@ function obterIdFuncionarioIxc(usuario_intranet) {
                     return [4 /*yield*/, new Promise(function (resolve, reject) {
                             database_1.LOCALHOST.query('SELECT id_funcionario_ixc FROM usuarios_intranet WHERE usuario = ? AND ativo = 1', [usuario_intranet], function (err, results) {
                                 if (err) {
-                                    console.error("Erro ao executar query de id_funcionario_ixc:", err);
+                                    //console.error("Erro ao executar query de id_funcionario_ixc:", err);
                                     return resolve("138");
                                 }
                                 if (results && results.length > 0 && results[0].id_funcionario_ixc) {
                                     resolve(results[0].id_funcionario_ixc.toString());
                                 }
                                 else {
-                                    console.warn("Usu\u00E1rio '".concat(usuario_intranet, "' n\u00E3o encontrado ou inativo no banco local. Usando ID padr\u00E3o."));
+                                    //console.warn(`Usuário '${usuario_intranet}' não encontrado ou inativo no banco local. Usando ID padrão.`);
                                     resolve("138");
                                 }
                             });
@@ -706,11 +702,9 @@ function fecharTarefaOS(ticketId, idWflTarefaProxima, mensagem, idTecnico) {
         var osResponse, osAberta, payloadFechamento, resp;
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0:
-                    console.log("Buscando OS aberta no ticket ".concat(ticketId, "..."));
-                    return [4 /*yield*/, makeIxcRequest('POST', '/su_oss_chamado', {
-                            qtype: 'su_oss_chamado.id_ticket', query: ticketId, oper: '=', rp: '20', sortname: 'su_oss_chamado.id', sortorder: 'desc'
-                        })];
+                case 0: return [4 /*yield*/, makeIxcRequest('POST', '/su_oss_chamado', {
+                        qtype: 'su_oss_chamado.id_ticket', query: ticketId, oper: '=', rp: '20', sortname: 'su_oss_chamado.id', sortorder: 'desc'
+                    })];
                 case 1:
                     osResponse = _a.sent();
                     if (!osResponse || !osResponse.registros || osResponse.registros.length === 0) {
@@ -718,10 +712,9 @@ function fecharTarefaOS(ticketId, idWflTarefaProxima, mensagem, idTecnico) {
                     }
                     osAberta = osResponse.registros.find(function (os) { return os.status === 'A' || os.status === 'EN'; });
                     if (!osAberta) {
-                        console.log("Aviso: Nenhuma OS aberta encontrada no ticket ".concat(ticketId, ". O fluxo j\u00E1 pode ter avan\u00E7ado."));
+                        //console.log(`Aviso: Nenhuma OS aberta encontrada no ticket ${ticketId}. O fluxo já pode ter avançado.`);
                         return [2 /*return*/];
                     }
-                    console.log("Finalizando OS ".concat(osAberta.id, " via su_oss_chamado_fechar e engatilhando pr\u00F3xima tarefa ID ").concat(idWflTarefaProxima, "..."));
                     payloadFechamento = {
                         "id_chamado": osAberta.id,
                         "gera_comissao_aux": "N",
@@ -756,22 +749,23 @@ function fecharTarefaOS(ticketId, idWflTarefaProxima, mensagem, idTecnico) {
                     if (resp && resp.type === 'error') {
                         throw new Error("Erro no motor WFL ao avan\u00E7ar OS ".concat(osAberta.id, ": ").concat(resp.message.replace(/<br \/>/g, ' - ')));
                     }
-                    console.log("Motor WFL disparado! OS ".concat(osAberta.id, " finalizada e pr\u00F3xima tarefa gerada com sucesso!"));
+                    //console.log(`Motor WFL disparado! OS ${osAberta.id} finalizada e próxima tarefa gerada com sucesso!`);
                     return [4 /*yield*/, new Promise(function (resolve) { return setTimeout(resolve, 3000); })];
                 case 3:
+                    //console.log(`Motor WFL disparado! OS ${osAberta.id} finalizada e próxima tarefa gerada com sucesso!`);
                     _a.sent();
                     return [2 /*return*/];
             }
         });
     });
 }
-function abrirTicketProcesso46(clienteId, contratoId, loginId, isNovoCliente, nomePlano, clientData, dadosTransferencia, idFuncionarioIxc) {
+function abrirTicketProcesso46(clienteId, contratoId, loginId, isNovoCliente, nomePlano, clientData, dadosTransferencia, idFuncionarioIxc, isTransferenciaParcial) {
+    if (isTransferenciaParcial === void 0) { isTransferenciaParcial = false; }
     return __awaiter(this, void 0, void 0, function () {
         var mensagem_padrao, atendimentoPayload, response, ticketId;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    console.log("Abrindo ticket Proc 46 para o cliente ".concat(clienteId, " (").concat(isNovoCliente ? 'NOVO' : 'ANTIGO', ")..."));
                     mensagem_padrao = '';
                     if (isNovoCliente) {
                         // Cliente novo
@@ -803,34 +797,38 @@ function abrirTicketProcesso46(clienteId, contratoId, loginId, isNovoCliente, no
                     if (!ticketId || response.type === 'error') {
                         throw new Error("Falha ao abrir ticket: ".concat(response.message || 'ID não retornado.'));
                     }
-                    console.log("Ticket Processo 46 criado: ".concat(ticketId, ". Aguardando OS inicial nascer..."));
+                    //console.log(`Ticket Processo 46 criado: ${ticketId}. Aguardando OS inicial nascer...`);
                     return [4 /*yield*/, new Promise(function (resolve) { return setTimeout(resolve, 3000); })];
                 case 2:
+                    //console.log(`Ticket Processo 46 criado: ${ticketId}. Aguardando OS inicial nascer...`);
                     _a.sent();
-                    if (!!isNovoCliente) return [3 /*break*/, 6];
-                    console.log("Avan\u00E7ando OSs do Cliente ANTIGO (Ticket ".concat(ticketId, ")..."));
+                    if (!!isNovoCliente) return [3 /*break*/, 9];
+                    //console.log(`Avançando OSs do Cliente ANTIGO (Ticket ${ticketId})...`);
                     return [4 /*yield*/, fecharTarefaOS(ticketId, '398', 'Processo iniciado pela Intranet.', idFuncionarioIxc)];
                 case 3:
+                    //console.log(`Avançando OSs do Cliente ANTIGO (Ticket ${ticketId})...`);
                     _a.sent();
                     return [4 /*yield*/, fecharTarefaOS(ticketId, '399', 'Alteração efetuada com sucesso.', idFuncionarioIxc)];
                 case 4:
                     _a.sent();
-                    return [4 /*yield*/, fecharTarefaOS(ticketId, '402', 'Login transferido para a nova titularidade. Aguardando conferência de cancelamento pelo Financeiro.', idFuncionarioIxc)];
+                    if (!isTransferenciaParcial) return [3 /*break*/, 6];
+                    return [4 /*yield*/, fecharTarefaOS(ticketId, '403', 'Transferência PARCIAL de login efetuada. Contrato mantido ativo. Aguardando Retorno CRI.', idFuncionarioIxc)];
                 case 5:
                     _a.sent();
-                    console.log(">>> Fluxo Cliente Antigo posicionado com sucesso no Financeiro (Tarefa 402) <<<");
-                    return [3 /*break*/, 9];
-                case 6:
-                    console.log("Avan\u00E7ando OSs do Cliente NOVO (Ticket ".concat(ticketId, ")..."));
-                    return [4 /*yield*/, fecharTarefaOS(ticketId, '460', 'Processo iniciado pela Intranet.', idFuncionarioIxc)];
+                    return [3 /*break*/, 8];
+                case 6: return [4 /*yield*/, fecharTarefaOS(ticketId, '402', 'Login transferido para a nova titularidade. Aguardando conferência de cancelamento pelo Financeiro.', idFuncionarioIxc)];
                 case 7:
                     _a.sent();
-                    return [4 /*yield*/, fecharTarefaOS(ticketId, '403', 'Contrato e Login gerados automaticamente. Aguardando Retorno CRI.', idFuncionarioIxc)];
-                case 8:
+                    _a.label = 8;
+                case 8: return [3 /*break*/, 11];
+                case 9: 
+                //console.log(`Avançando OSs do Cliente NOVO (Ticket ${ticketId})...`);
+                return [4 /*yield*/, fecharTarefaOS(ticketId, '460', 'Processo iniciado pela Intranet.', idFuncionarioIxc)];
+                case 10:
+                    //console.log(`Avançando OSs do Cliente NOVO (Ticket ${ticketId})...`);
                     _a.sent();
-                    console.log(">>> Fluxo Cliente Novo posicionado com sucesso no CRI (Tarefa 403) <<<");
-                    _a.label = 9;
-                case 9: return [2 /*return*/, ticketId];
+                    _a.label = 11;
+                case 11: return [2 /*return*/, ticketId];
             }
         });
     });
@@ -841,7 +839,6 @@ function abrirChamadoSuporteInterno(mensagemErro) {
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    console.log("Tentando abrir chamado de suporte automático/manual...");
                     suportePayload = {
                         "tipo": "E",
                         "id_estrutura": "3",
@@ -873,7 +870,7 @@ function abrirChamadoSuporteInterno(mensagemErro) {
                     ticketId = response.id || response.id_su_ticket;
                     if (!ticketId)
                         throw new Error("ID do ticket não retornado.");
-                    console.log("Chamado de suporte aberto com sucesso. ID: ".concat(ticketId));
+                    //console.log(`Chamado de suporte aberto com sucesso. ID: ${ticketId}`);
                     return [2 /*return*/, ticketId];
                 case 3:
                     error_8 = _a.sent();
@@ -890,7 +887,6 @@ function abrirChamadoNocCadastro(nomeNovoCondominio, clientData, clienteId) {
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    console.log("Abrindo chamado para o NOC - Cadastro de Condomínio...");
                     mensagem = "\nSOLICITA\u00C7\u00C3O DE CADASTRO DE NOVO CONDOM\u00CDNIO/LOCALIDADE\n-----------------------------------------------------\nO vendedor informou um local n\u00E3o cadastrado no sistema.\n\nNOME DO CONDOM\u00CDNIO/BAIRRO INFORMADO:\n>> ".concat(nomeNovoCondominio.toUpperCase(), " <<\n\nCLIENTE VINCULADO \u00C0 INSTALA\u00C7\u00C3O:\nID Cliente: ").concat(clienteId, "\nNome: ").concat(clientData.nome, "\nCPF/CNPJ: ").concat(clientData.cnpj_cpf, "\nEndere\u00E7o: ").concat(clientData.endereco, ", ").concat(clientData.numero, "\nBairro: ").concat(clientData.bairro, "\nCidade: ").concat(clientData.cidade, "\nComplemento: ").concat(clientData.complemento, "\n\n    ").trim();
                     suportePayload = {
                         "tipo": "E",
@@ -937,7 +933,6 @@ function atualizarCliente(clientId, clientData, dataCadastro) {
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    console.log("Iniciando Etapa 1.5: Atualiza\u00E7\u00E3o (PUT) do Cliente ID ".concat(clientId, "..."));
                     today = dataCadastro.split(' ')[0];
                     usaEnderecoCliente = clientData.cep_cliente && clientData.cep_cliente !== '';
                     updatePayload = {
@@ -980,7 +975,7 @@ function atualizarCliente(clientId, clientData, dataCadastro) {
                     updateResponse = _a.sent();
                     console.log("Resposta da API IXC (Etapa 1.5 - Update):", updateResponse);
                     if (!updateResponse || (updateResponse.message && !updateResponse.message.includes('sucesso'))) {
-                        console.warn("Aviso na Etapa 1.5: ".concat(updateResponse.message || 'Resposta inesperada.'));
+                        //console.warn(`Aviso na Etapa 1.5: ${updateResponse.message || 'Resposta inesperada.'}`);
                     }
                     console.log("Etapa 1.5 OK: Cliente ID ".concat(clientId, " atualizado."));
                     return [2 /*return*/];
@@ -1022,7 +1017,7 @@ function ajustarFinanceiroContrato(contratoId, valorAcordadoStr, idPlano) {
                 case 2:
                     produtosResponse = _b.sent();
                     if (!produtosResponse || !produtosResponse.registros || produtosResponse.registros.length === 0) {
-                        console.warn("Nenhum produto encontrado no modelo do plano ".concat(idPlano, "."));
+                        //console.warn(`Nenhum produto encontrado no modelo do plano ${idPlano}.`);
                         return [2 /*return*/];
                     }
                     _i = 0, _a = produtosResponse.registros;
@@ -1121,16 +1116,15 @@ router.post('/cliente', function (req, res) { return __awaiter(void 0, void 0, v
                 return [3 /*break*/, 5];
             case 5:
                 if (!existingClientId) return [3 /*break*/, 7];
-                console.log("Cliente ID ".concat(existingClientId, " fornecido. Pulando Etapa 1."));
+                //console.log(`Cliente ID ${existingClientId} fornecido. Pulando Etapa 1.`);
                 novoClienteId = existingClientId;
                 return [4 /*yield*/, atualizarCliente(novoClienteId, clientData, dataCadastro)];
             case 6:
                 _b.sent();
                 return [3 /*break*/, 9];
-            case 7:
-                console.log("Nenhum Cliente ID fornecido. Executando Etapa 1 (Cadastro de Cliente)...");
-                return [4 /*yield*/, cadastrarCliente(clientData, dataCadastro)];
+            case 7: return [4 /*yield*/, cadastrarCliente(clientData, dataCadastro)];
             case 8:
+                //console.log("Nenhum Cliente ID fornecido. Executando Etapa 1 (Cadastro de Cliente)...");
                 novoClienteId = _b.sent();
                 _b.label = 9;
             case 9: return [4 /*yield*/, criarContrato(novoClienteId, clientData, dataCadastro, nomePlano)];
@@ -1193,7 +1187,10 @@ router.post('/cliente-corporativo', function (req, res) { return __awaiter(void 
                 OPCOES_CONTRATO_CORP = {
                     id_filial: '1',
                     id_carteira_cobranca: '10',
-                    bloqueio_automatico: 'N'
+                    bloqueio_automatico: 'N',
+                    base_geracao_tipo_doc: 'OPC',
+                    tipo_doc_opc: '11',
+                    tipo_doc_opc2: '6'
                 };
                 _b.label = 1;
             case 1:
@@ -1306,16 +1303,14 @@ router.post('/consultar-cliente', function (req, res) { return __awaiter(void 0,
                     sortname: "cliente.id",
                     sortorder: "asc"
                 };
-                console.log("Consultando cliente:", clientePayload);
                 return [4 /*yield*/, makeIxcRequest('POST', '/cliente', clientePayload)];
             case 2:
                 clienteResponse = _a.sent();
                 if (!clienteResponse || clienteResponse.total === 0 || clienteResponse.total === "0") {
-                    console.log("Cliente não encontrado.");
+                    //console.log("Cliente não encontrado.");
                     return [2 /*return*/, res.json({ cliente: null, contratos: [], contratosComAtraso: [] })];
                 }
                 cliente = clienteResponse.registros[0];
-                console.log("Cliente encontrado: ID ".concat(cliente.id));
                 contratoPayload = {
                     qtype: "cliente_contrato.id_cliente",
                     query: cliente.id,
@@ -1325,12 +1320,10 @@ router.post('/consultar-cliente', function (req, res) { return __awaiter(void 0,
                     sortname: "cliente_contrato.id",
                     sortorder: "desc"
                 };
-                console.log("Consultando contratos:", contratoPayload);
                 return [4 /*yield*/, makeIxcRequest('POST', '/cliente_contrato', contratoPayload)];
             case 3:
                 contratoResponse = _a.sent();
                 contratos = (contratoResponse && contratoResponse.registros) ? contratoResponse.registros : [];
-                console.log("Encontrados ".concat(contratos.length, " contratos."));
                 financeiroPayload = {
                     "qtype": "fn_areceber.id_cliente",
                     "query": cliente.id,
@@ -1344,7 +1337,6 @@ router.post('/consultar-cliente', function (req, res) { return __awaiter(void 0,
                         { "TB": "fn_areceber.status", "OP": "!=", "P": "R" }
                     ])
                 };
-                console.log("Consultando financeiro:", financeiroPayload);
                 return [4 /*yield*/, makeIxcRequest('POST', '/fn_areceber', financeiroPayload)];
             case 4:
                 financeiroResponse = _a.sent();
@@ -1359,7 +1351,7 @@ router.post('/consultar-cliente', function (req, res) { return __awaiter(void 0,
                         }
                     });
                 }
-                console.log("Contratos com atraso: ".concat(Array.from(contratosComAtraso_1)));
+                //console.log(`Contratos com atraso: ${Array.from(contratosComAtraso)}`);
                 res.json({
                     cliente: cliente,
                     contratos: contratos,
@@ -1540,25 +1532,48 @@ router.get('/ufs', function (req, res) { return __awaiter(void 0, void 0, void 0
         }
     });
 }); });
-function buscarDetalhesContratoELoginAntigo(contratoId) {
+router.get('/logins-contrato/:id', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var response, error_19;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                _a.trys.push([0, 2, , 3]);
+                return [4 /*yield*/, makeIxcRequest('POST', '/radusuarios', {
+                        qtype: 'radusuarios.id_contrato', query: req.params.id, oper: '=', rp: '100'
+                    })];
+            case 1:
+                response = _a.sent();
+                res.json(response.registros || []);
+                return [3 /*break*/, 3];
+            case 2:
+                error_19 = _a.sent();
+                res.status(500).json({ error: error_19.message });
+                return [3 /*break*/, 3];
+            case 3: return [2 /*return*/];
+        }
+    });
+}); });
+function buscarDetalhesContratoELoginAntigo(contratoId, loginSelecionadoId) {
     return __awaiter(this, void 0, void 0, function () {
-        var contratoOldResponse, contratoAntigo, loginOldResponse, loginAntigo;
+        var contratoOldResponse, contratoAntigo, queryLogin, loginOldResponse, loginAntigo;
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0:
-                    console.log("Buscando detalhes do contrato antigo ID: ".concat(contratoId));
-                    return [4 /*yield*/, makeIxcRequest('POST', '/cliente_contrato', { qtype: 'cliente_contrato.id', query: contratoId, oper: '=' })];
+                case 0: return [4 /*yield*/, makeIxcRequest('POST', '/cliente_contrato', { qtype: 'cliente_contrato.id', query: contratoId, oper: '=' })];
                 case 1:
                     contratoOldResponse = _a.sent();
                     if (!contratoOldResponse || !contratoOldResponse.registros || contratoOldResponse.registros.length === 0) {
                         throw new Error("Contrato antigo não encontrado no IXC.");
                     }
                     contratoAntigo = contratoOldResponse.registros[0];
-                    return [4 /*yield*/, makeIxcRequest('POST', '/radusuarios', { qtype: 'radusuarios.id_contrato', query: contratoId, oper: '=' })];
+                    queryLogin = { qtype: 'radusuarios.id_contrato', query: contratoId, oper: '=' };
+                    if (loginSelecionadoId) {
+                        queryLogin = { qtype: 'radusuarios.id', query: loginSelecionadoId, oper: '=' };
+                    }
+                    return [4 /*yield*/, makeIxcRequest('POST', '/radusuarios', queryLogin)];
                 case 2:
                     loginOldResponse = _a.sent();
                     if (!loginOldResponse || !loginOldResponse.registros || loginOldResponse.registros.length === 0) {
-                        throw new Error("Login PPPoE não encontrado no contrato antigo.");
+                        throw new Error("Login PPPoE não encontrado.");
                     }
                     loginAntigo = loginOldResponse.registros[0];
                     return [2 /*return*/, { contratoAntigo: contratoAntigo, loginAntigo: loginAntigo }];
@@ -1574,7 +1589,6 @@ function transferirLoginPPPoE(loginAntigo, novoClienteId, novoContratoId, idGrup
                 case 0:
                     loginAntigoString = loginAntigo.login;
                     macAntigo = loginAntigo.mac;
-                    console.log("Iniciando transfer\u00EAncia do Login PPPoE: ".concat(loginAntigoString));
                     novoNomeAntigo = "".concat(loginAntigoString, "-para-").concat(novoClienteId);
                     payloadRenomear = {
                         "autenticacao": loginAntigo.autenticacao || "L",
@@ -1586,7 +1600,7 @@ function transferirLoginPPPoE(loginAntigo, novoClienteId, novoContratoId, idGrup
                         "senha_md5": loginAntigo.senha_md5 || "N",
                         "senha": loginAntigo.senha || "ivp@".concat(loginAntigo.id_cliente),
                         "login_simultaneo": loginAntigo.login_simultaneo || "1",
-                        "ativo": loginAntigo.ativo || "S",
+                        "ativo": "N",
                         "auto_preencher_ip": loginAntigo.auto_preencher_ip || "H",
                         "fixar_ip": loginAntigo.fixar_ip || "H",
                         "relacionar_ip_ao_login": loginAntigo.relacionar_ip_ao_login || "H",
@@ -1608,24 +1622,24 @@ function transferirLoginPPPoE(loginAntigo, novoClienteId, novoContratoId, idGrup
                         "referencia": clientData.referencia,
                         "id_condominio": clientData.id_condominio
                     };
-                    console.log("Enviando comando para renomear login para: ".concat(novoNomeAntigo, "..."));
                     return [4 /*yield*/, makeIxcRequest('PUT', "/radusuarios/".concat(loginAntigo.id), payloadRenomear, 'alterar')];
                 case 1:
                     responsePut = _a.sent();
                     if (responsePut && responsePut.type === 'error') {
                         throw new Error("Erro ao renomear login antigo no IXC: ".concat(responsePut.message));
                     }
-                    console.log("Comando PUT executado com sucesso no IXC. Novo nome: ".concat(novoNomeAntigo, "."));
-                    console.log("Aguardando 3 segundos para o cache do banco de dados do IXC...");
+                    //console.log(`Comando PUT executado com sucesso no IXC. Novo nome: ${novoNomeAntigo}.`);
+                    //console.log("Aguardando 3 segundos para o cache do banco de dados do IXC...");
                     return [4 /*yield*/, new Promise(function (resolve) { return setTimeout(resolve, 3000); })];
                 case 2:
+                    //console.log(`Comando PUT executado com sucesso no IXC. Novo nome: ${novoNomeAntigo}.`);
+                    //console.log("Aguardando 3 segundos para o cache do banco de dados do IXC...");
                     _a.sent();
-                    console.log("Criando novo login PPPoE: '".concat(loginAntigoString, "' no contrato ").concat(novoContratoId));
                     loginPayload = {
                         'id_cliente': novoClienteId,
                         'id_contrato': novoContratoId,
                         'login': loginAntigoString,
-                        'senha': "ivp@".concat(novoClienteId),
+                        'senha': loginAntigo.senha || "ivp@".concat(loginAntigo.id_cliente),
                         'id_grupo': idGrupoRadius,
                         'mac': '',
                         'ativo': 'S',
@@ -1661,7 +1675,7 @@ function transferirLoginPPPoE(loginAntigo, novoClienteId, novoContratoId, idGrup
                         throw new Error("API IXC Recusou a cria\u00E7\u00E3o do PPPoE: ".concat(loginResponse.message));
                     }
                     if (loginResponse && loginResponse.id) {
-                        console.log("Novo login criado com sucesso. ID: ".concat(loginResponse.id, " | Nome: ").concat(loginAntigoString));
+                        //console.log(`Novo login criado com sucesso. ID: ${loginResponse.id} | Nome: ${loginAntigoString}`);
                         return [2 /*return*/, loginResponse.id];
                     }
                     throw new Error(loginResponse ? JSON.stringify(loginResponse) : 'Retorno vazio ao criar login');
@@ -1671,94 +1685,78 @@ function transferirLoginPPPoE(loginAntigo, novoClienteId, novoContratoId, idGrup
 }
 function desconectarLoginPPPoE(loginId) {
     return __awaiter(this, void 0, void 0, function () {
-        var error_19;
+        var error_20;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    console.log("Enviando comando de desconex\u00E3o (Kick) para o login ID: ".concat(loginId));
-                    _a.label = 1;
-                case 1:
-                    _a.trys.push([1, 3, , 4]);
+                    _a.trys.push([0, 2, , 3]);
                     return [4 /*yield*/, makeIxcRequest('POST', '/desconectar_clientes', { id: loginId })];
-                case 2:
+                case 1:
                     _a.sent();
-                    console.log("Comando de desconex\u00E3o executado com sucesso para o login ".concat(loginId, "."));
-                    return [3 /*break*/, 4];
-                case 3:
-                    error_19 = _a.sent();
-                    console.warn("Aviso: Falha ao enviar comando de desconex\u00E3o para o login ".concat(loginId, ". (O cliente pode j\u00E1 estar offline). Erro: ").concat(error_19.message));
-                    return [3 /*break*/, 4];
-                case 4: return [2 /*return*/];
+                    return [3 /*break*/, 3];
+                case 2:
+                    error_20 = _a.sent();
+                    console.warn("Aviso: Falha ao enviar comando de desconex\u00E3o para o login ".concat(loginId, ". (O cliente pode j\u00E1 estar offline). Erro: ").concat(error_20.message));
+                    return [3 /*break*/, 3];
+                case 3: return [2 /*return*/];
             }
         });
     });
 }
 function transferirOnuFibra(loginAntigoId, novoLoginId, novoContratoId) {
     return __awaiter(this, void 0, void 0, function () {
-        var fibraResp, fibra, payloadFibra, putResp, error_20;
+        var fibraResp, fibra, payloadFibra, putResp, error_21;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    console.log("Verificando exist\u00EAncia de ONU (Fibra) atrelada ao login antigo (ID: ".concat(loginAntigoId, ")..."));
-                    _a.label = 1;
-                case 1:
-                    _a.trys.push([1, 6, , 7]);
+                    _a.trys.push([0, 4, , 5]);
                     return [4 /*yield*/, makeIxcRequest('POST', '/radpop_radio_cliente_fibra', {
                             qtype: 'radpop_radio_cliente_fibra.id_login',
                             query: loginAntigoId,
                             oper: '=',
                             rp: '1'
                         })];
-                case 2:
+                case 1:
                     fibraResp = _a.sent();
-                    if (!(fibraResp && fibraResp.registros && fibraResp.registros.length > 0)) return [3 /*break*/, 4];
+                    if (!(fibraResp && fibraResp.registros && fibraResp.registros.length > 0)) return [3 /*break*/, 3];
                     fibra = fibraResp.registros[0];
-                    console.log("ONU encontrada (ID Fibra: ".concat(fibra.id, "). Transferindo para o novo login (ID: ").concat(novoLoginId, ") e contrato (ID: ").concat(novoContratoId, ")..."));
                     payloadFibra = __assign(__assign({}, fibra), { id_login: novoLoginId, id_contrato: novoContratoId });
                     return [4 /*yield*/, makeIxcRequest('PUT', "/radpop_radio_cliente_fibra/".concat(fibra.id), payloadFibra, 'alterar')];
-                case 3:
+                case 2:
                     putResp = _a.sent();
                     if (putResp && putResp.type === 'error') {
                         throw new Error("IXC recusou a transfer\u00EAncia da ONU: ".concat(putResp.message));
                     }
-                    console.log("ONU transferida com sucesso! Agora a fibra est\u00E1 vinculada ao novo login e contrato.");
-                    return [3 /*break*/, 5];
+                    return [3 /*break*/, 3];
+                case 3: return [3 /*break*/, 5];
                 case 4:
-                    console.log("Nenhuma ONU de fibra encontrada para o login antigo.");
-                    _a.label = 5;
-                case 5: return [3 /*break*/, 7];
-                case 6:
-                    error_20 = _a.sent();
-                    console.error("Erro ao transferir v\u00EDnculo da ONU de fibra: ".concat(error_20.message));
-                    return [3 /*break*/, 7];
-                case 7: return [2 /*return*/];
+                    error_21 = _a.sent();
+                    console.error("Erro ao transferir v\u00EDnculo da ONU de fibra: ".concat(error_21.message));
+                    return [3 /*break*/, 5];
+                case 5: return [2 /*return*/];
             }
         });
     });
 }
 function ativarContrato(contratoId) {
     return __awaiter(this, void 0, void 0, function () {
-        var resp, error_21;
+        var resp, error_22;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    console.log("Enviando comando para ativar o contrato ID: ".concat(contratoId, "..."));
-                    _a.label = 1;
-                case 1:
-                    _a.trys.push([1, 3, , 4]);
+                    _a.trys.push([0, 2, , 3]);
                     return [4 /*yield*/, makeIxcRequest('POST', '/cliente_contrato_ativar_cliente', { id_contrato: contratoId })];
-                case 2:
+                case 1:
                     resp = _a.sent();
                     if (resp && resp.type === 'error') {
                         throw new Error(resp.message);
                     }
-                    console.log("Contrato ".concat(contratoId, " ativado com sucesso!"));
-                    return [3 /*break*/, 4];
-                case 3:
-                    error_21 = _a.sent();
-                    console.error("Falha ao ativar o contrato ".concat(contratoId, ": ").concat(error_21.message));
-                    return [3 /*break*/, 4];
-                case 4: return [2 /*return*/];
+                    return [3 /*break*/, 3];
+                case 2:
+                    error_22 = _a.sent();
+                    console.error("Falha ao ativar o contrato ".concat(contratoId, ": ").concat(error_22.message));
+                    return [3 /*break*/, 3];
+                case 3: return [2 /*return*/];
             }
         });
     });
@@ -1769,7 +1767,6 @@ function cancelarContratoAntigo(contratoId) {
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    console.log("Cancelando contrato antigo ID: ".concat(contratoId));
                     payloadCancelamento = {
                         status: 'C',
                         status_internet: 'D',
@@ -1779,26 +1776,24 @@ function cancelarContratoAntigo(contratoId) {
                     return [4 /*yield*/, makeIxcRequest('PUT', "/cliente_contrato/".concat(contratoId), payloadCancelamento, 'alterar')];
                 case 1:
                     _a.sent();
-                    console.log("Contrato ".concat(contratoId, " cancelado com sucesso."));
                     return [2 /*return*/];
             }
         });
     });
 }
 router.post('/mudanca-titularidade', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var _a, contratoAntigoId, existingClientId, clientData, dataCadastro, _b, contratoAntigo, loginAntigo, clienteOldResponse, clienteAntigo, nomePlano, planoInfo, e_3, novoClienteId, novoContratoId, idGrupoRadius, novoLoginId, telefonesNovos, dadosTransferencia, idFuncionarioIxc, ticketAntigoId, ticketNovoId, error_22;
+    var _a, contratoAntigoId, existingClientId, loginSelecionadoId, isTransferenciaParcial, clientData, dataCadastro, _b, contratoAntigo, loginAntigo, clienteOldResponse, clienteAntigo, nomePlano, planoInfo, e_3, novoClienteId, novoContratoId, idGrupoRadius, novoLoginId, telefonesNovos, dadosTransferencia, idFuncionarioIxc, ticketAntigoId, ticketNovoId, error_23;
     return __generator(this, function (_c) {
         switch (_c.label) {
             case 0:
-                _a = req.body, contratoAntigoId = _a.contratoAntigoId, existingClientId = _a.existingClientId, clientData = __rest(_a, ["contratoAntigoId", "existingClientId"]);
+                _a = req.body, contratoAntigoId = _a.contratoAntigoId, existingClientId = _a.existingClientId, loginSelecionadoId = _a.loginSelecionadoId, isTransferenciaParcial = _a.isTransferenciaParcial, clientData = __rest(_a, ["contratoAntigoId", "existingClientId", "loginSelecionadoId", "isTransferenciaParcial"]);
                 dataCadastro = getIxcDate();
                 _c.label = 1;
             case 1:
-                _c.trys.push([1, 23, , 24]);
-                return [4 /*yield*/, buscarDetalhesContratoELoginAntigo(contratoAntigoId)];
+                _c.trys.push([1, 22, , 23]);
+                return [4 /*yield*/, buscarDetalhesContratoELoginAntigo(contratoAntigoId, loginSelecionadoId)];
             case 2:
                 _b = _c.sent(), contratoAntigo = _b.contratoAntigo, loginAntigo = _b.loginAntigo;
-                console.log("Buscando dados do cliente antigo ID: ".concat(contratoAntigo.id_cliente, "..."));
                 return [4 /*yield*/, makeIxcRequest('POST', '/cliente', { qtype: 'cliente.id', query: contratoAntigo.id_cliente, oper: '=' })];
             case 3:
                 clienteOldResponse = _c.sent();
@@ -1852,16 +1847,15 @@ router.post('/mudanca-titularidade', function (req, res) { return __awaiter(void
             case 7:
                 novoClienteId = void 0;
                 if (!existingClientId) return [3 /*break*/, 9];
-                console.log("Mudan\u00E7a Titularidade: Atualizando Cliente existente ID ".concat(existingClientId));
+                //console.log(`Mudança Titularidade: Atualizando Cliente existente ID ${existingClientId}`);
                 novoClienteId = existingClientId;
                 return [4 /*yield*/, atualizarCliente(novoClienteId, clientData, dataCadastro)];
             case 8:
                 _c.sent();
                 return [3 /*break*/, 11];
-            case 9:
-                console.log("Mudan\u00E7a Titularidade: Cadastrando Novo Cliente");
-                return [4 /*yield*/, cadastrarCliente(clientData, dataCadastro)];
+            case 9: return [4 /*yield*/, cadastrarCliente(clientData, dataCadastro)];
             case 10:
+                //console.log(`Mudança Titularidade: Cadastrando Novo Cliente`);
                 novoClienteId = _c.sent();
                 _c.label = 11;
             case 11: return [4 /*yield*/, criarContrato(novoClienteId, clientData, dataCadastro, nomePlano)];
@@ -1874,17 +1868,14 @@ router.post('/mudanca-titularidade', function (req, res) { return __awaiter(void
                 return [4 /*yield*/, transferirOnuFibra(loginAntigo.id, novoLoginId, novoContratoId)];
             case 14:
                 _c.sent();
-                console.log("Contrato antigo (ID: ".concat(contratoAntigoId, ") mantido. O Financeiro far\u00E1 a valida\u00E7\u00E3o de cancelamento via WFL."));
                 if (!(contratoAntigo.status === 'A')) return [3 /*break*/, 16];
-                console.log("O contrato antigo era 'Ativo'. Engatilhando ativa\u00E7\u00E3o do novo contrato...");
+                //console.log(`O contrato antigo era 'Ativo'. Engatilhando ativação do novo contrato...`);
                 return [4 /*yield*/, ativarContrato(novoContratoId)];
             case 15:
+                //console.log(`O contrato antigo era 'Ativo'. Engatilhando ativação do novo contrato...`);
                 _c.sent();
-                return [3 /*break*/, 17];
+                return [3 /*break*/, 16];
             case 16:
-                console.log("O contrato antigo possu\u00EDa status '".concat(contratoAntigo.status, "'. O novo permanecer\u00E1 como Pr\u00E9-contrato (P)."));
-                _c.label = 17;
-            case 17:
                 telefonesNovos = (clientData.whatsapp && clientData.whatsapp !== clientData.telefone_celular)
                     ? "".concat(clientData.telefone_celular, " / ").concat(clientData.whatsapp)
                     : clientData.telefone_celular;
@@ -1896,21 +1887,21 @@ router.post('/mudanca-titularidade', function (req, res) { return __awaiter(void
                     newTelefones: telefonesNovos
                 };
                 return [4 /*yield*/, obterIdFuncionarioIxc(clientData.usuario_intranet)];
-            case 18:
+            case 17:
                 idFuncionarioIxc = _c.sent();
-                console.log("Usu\u00E1rio logado: ".concat(clientData.usuario_intranet || 'Desconhecido', " | ID Funcion\u00E1rio IXC mapeado: ").concat(idFuncionarioIxc));
-                return [4 /*yield*/, abrirTicketProcesso46(loginAntigo.id_cliente, contratoAntigoId, loginAntigo.id, false, nomePlano, clientData, dadosTransferencia, idFuncionarioIxc)];
-            case 19:
+                return [4 /*yield*/, abrirTicketProcesso46(loginAntigo.id_cliente, contratoAntigoId, loginAntigo.id, false, nomePlano, clientData, dadosTransferencia, idFuncionarioIxc, isTransferenciaParcial)];
+            case 18:
                 ticketAntigoId = _c.sent();
                 return [4 /*yield*/, abrirTicketProcesso46(novoClienteId, novoContratoId, novoLoginId, true, nomePlano, clientData, dadosTransferencia, idFuncionarioIxc)];
-            case 20:
+            case 19:
                 ticketNovoId = _c.sent();
-                console.log("Iniciando rotina de desconexão forçada dos logins...");
+                //console.log("Iniciando rotina de desconexão forçada dos logins...");
                 return [4 /*yield*/, desconectarLoginPPPoE(loginAntigo.id)];
-            case 21:
+            case 20:
+                //console.log("Iniciando rotina de desconexão forçada dos logins...");
                 _c.sent();
                 return [4 /*yield*/, desconectarLoginPPPoE(novoLoginId)];
-            case 22:
+            case 21:
                 _c.sent();
                 res.status(201).json({
                     success: true,
@@ -1920,13 +1911,13 @@ router.post('/mudanca-titularidade', function (req, res) { return __awaiter(void
                     loginId: novoLoginId,
                     ticketId: ticketNovoId
                 });
-                return [3 /*break*/, 24];
-            case 23:
-                error_22 = _c.sent();
-                console.error('ERRO FATAL na Mudança de Titularidade:', error_22);
-                res.status(500).json({ success: false, error: error_22.message });
-                return [3 /*break*/, 24];
-            case 24: return [2 /*return*/];
+                return [3 /*break*/, 23];
+            case 22:
+                error_23 = _c.sent();
+                console.error('ERRO FATAL na Mudança de Titularidade:', error_23);
+                res.status(500).json({ success: false, error: error_23.message });
+                return [3 /*break*/, 23];
+            case 23: return [2 /*return*/];
         }
     });
 }); });

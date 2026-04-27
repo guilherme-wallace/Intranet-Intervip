@@ -143,7 +143,7 @@ async function getFinancialStatus(clientId: string): Promise<boolean> {
     };
 
     try {
-        console.log(`Verificando financeiro do ID: ${clientId}`);
+        //console.log(`Verificando financeiro do ID: ${clientId}`);
         const financeiroResponse = await makeIxcRequest('POST', '/fn_areceber', financeiroPayload);
         
         const hoje = new Date();
@@ -153,7 +153,7 @@ async function getFinancialStatus(clientId: string): Promise<boolean> {
             for (const titulo of financeiroResponse.registros) {
                 const vencimento = new Date(titulo.data_vencimento);
                 if (vencimento < hoje) {
-                    console.log(`Cliente ${clientId} POSSUI atraso.`);
+                    //console.log(`Cliente ${clientId} POSSUI atraso.`);
                     return true;
                 }
             }
@@ -163,7 +163,7 @@ async function getFinancialStatus(clientId: string): Promise<boolean> {
         return false;
     }
     
-    console.log(`Cliente ${clientId} NÂO possui atraso.`);
+    //console.log(`Cliente ${clientId} NÂO possui atraso.`);
     return false;
 }
 
@@ -212,7 +212,7 @@ router.get('/planos-ativos', async (req, res) => {
 });
 
 async function cadastrarCliente(clientData: any, dataCadastro: string, filialId: string = '3'): Promise<string> {
-    console.log(`Iniciando Etapa 1: Cadastro do Cliente (Filial ${filialId})...`);
+    //console.log(`Iniciando Etapa 1: Cadastro do Cliente (Filial ${filialId})...`);
     const today = dataCadastro.split(' ')[0];
     const usaEnderecoCliente = clientData.cep_cliente && clientData.cep_cliente !== '';
     const celularParaEnviar = clientData.telefone_celular || clientData.whatsapp;
@@ -263,13 +263,13 @@ async function cadastrarCliente(clientData: any, dataCadastro: string, filialId:
 
     //console.log("Cliente Payload (Etapa 1):", JSON.stringify(clientePayload, null, 2));
     const clienteResponse = await makeIxcRequest('POST', '/cliente', clientePayload);
-    console.log("Resposta da API IXC (Etapa 1):", clienteResponse);
+    //console.log("Resposta da API IXC (Etapa 1):", clienteResponse);
 
     if (!clienteResponse || !clienteResponse.id) {
         const errorMessage = clienteResponse.message || clienteResponse.mensagem || clienteResponse.msg || 'Resposta inválida do IXC.';
         throw new Error(`Falha ao cadastrar cliente: ${errorMessage}`);
     }
-    console.log(`Etapa 1 OK: Cliente ID ${clienteResponse.id} criado.`);
+    //console.log(`Etapa 1 OK: Cliente ID ${clienteResponse.id} criado.`);
     return clienteResponse.id;
 }
 
@@ -277,6 +277,9 @@ interface OpcoesContrato {
     id_filial: string;
     id_carteira_cobranca: string;
     bloqueio_automatico: string;
+    base_geracao_tipo_doc?: string;
+    tipo_doc_opc?: string;
+    tipo_doc_opc2?: string;
 }
 
 async function criarContrato(
@@ -287,7 +290,7 @@ async function criarContrato(
     options: OpcoesContrato = { id_filial: '3', id_carteira_cobranca: '11', bloqueio_automatico: 'S' }
 ): Promise<string> {
     
-    console.log("Iniciando Etapa 2: Criação do Contrato...");
+    //console.log("Iniciando Etapa 2: Criação do Contrato...");
     const today = dataCadastro.split(' ')[0];
     const idTipoContrato = getTipoContratoPorVencimento(clientData.data_vencimento);
     const idModelo = getModeloPlano(clientData.id_plano_ixc);
@@ -315,7 +318,11 @@ async function criarContrato(
         
         'id_filial': options.id_filial,                     
         'id_carteira_cobranca': options.id_carteira_cobranca, 
-        'bloqueio_automatico': options.bloqueio_automatico,   
+        'bloqueio_automatico': options.bloqueio_automatico,
+        'base_geracao_tipo_doc': options.base_geracao_tipo_doc || 'P',
+        'tipo_doc_opc': options.tipo_doc_opc || '',
+        'tipo_doc_opc2': options.tipo_doc_opc2 || '',
+
 
         'data_assinatura': today,
         'data': getIxcDateDMY(),
@@ -330,7 +337,6 @@ async function criarContrato(
         'cc_previsao': 'P',
         'tipo_cobranca': 'P',
         'renovacao_automatica': 'S',
-        'base_geracao_tipo_doc': 'P',
         'aviso_atraso': 'S',
         'fidelidade': '12',
         'ultima_atualizacao': dataCadastro,
@@ -349,13 +355,13 @@ async function criarContrato(
 
     //console.log("Contrato Payload (Etapa 2):", JSON.stringify(contratoPayload, null, 2));
     const contratoResponse = await makeIxcRequest('POST', '/cliente_contrato', contratoPayload);
-    console.log("Resposta da API IXC (Etapa 2):", contratoResponse);
+    //console.log("Resposta da API IXC (Etapa 2):", contratoResponse);
 
     if (!contratoResponse || !contratoResponse.id) {
         const errorMessage = contratoResponse.message || contratoResponse.msg || 'Resposta inválida do IXC.';
         throw new Error(`Falha ao criar contrato: ${errorMessage}`);
     }
-    console.log(`Etapa 2 OK: Contrato ID ${contratoResponse.id} criado.`);
+    //console.log(`Etapa 2 OK: Contrato ID ${contratoResponse.id} criado.`);
     return contratoResponse.id;
 }
 
@@ -440,7 +446,7 @@ async function criarLogin(novoClienteId: string, novoContratoId: string, clientD
         const login = `${novoClienteId}${loginSufixo}`;
         const senha = `ivp@${novoClienteId}`;
 
-        console.log(`Iniciando Etapa 3 (Tentativa ${tentativa}): Criação do Login PPPoE '${login}'...`);
+        //console.log(`Iniciando Etapa 3 (Tentativa ${tentativa}): Criação do Login PPPoE '${login}'...`);
 
         const loginPayload = {
             'id_cliente': novoClienteId,
@@ -474,17 +480,17 @@ async function criarLogin(novoClienteId: string, novoContratoId: string, clientD
 
         try {
             const loginResponse = await makeIxcRequest('POST', '/radusuarios', loginPayload);
-            console.log("Resposta da API IXC (Etapa 3):", loginResponse);
+            //console.log("Resposta da API IXC (Etapa 3):", loginResponse);
 
             if (loginResponse && loginResponse.id) {
-                console.log(`Etapa 3 OK: Login PPPoE ID ${loginResponse.id} criado com o login '${login}'.`);
+                //console.log(`Etapa 3 OK: Login PPPoE ID ${loginResponse.id} criado com o login '${login}'.`);
                 return loginResponse.id;
             }
 
             const errorMessage = (loginResponse.message || loginResponse.msg || 'Resposta inválida do IXC.').replace(/<br \/>/g, ' ');
             
             if (errorMessage.includes("Login já existe!")) {
-                console.log(`Login '${login}' já existe. Tentando próximo...`);
+                //console.log(`Login '${login}' já existe. Tentando próximo...`);
             } else {
                 throw new Error(`Falha ao criar login PPPoE: ${errorMessage}`);
             }
@@ -531,7 +537,7 @@ ENDEREÇO: ${enderecoCompleto}
 };
 
 async function abrirAtendimentoOS(novoClienteId: string, clientData: any, nomePlano: string, novoLoginId:string, novoContratoId:string): Promise<string> {
-    console.log("Iniciando Etapa 4: Abertura de Atendimento/OS Unificado...");
+    //console.log("Iniciando Etapa 4: Abertura de Atendimento/OS Unificado...");
     
     const mensagem_padrao = buildMensagemAtendimento(clientData, nomePlano);
 
@@ -559,7 +565,7 @@ async function abrirAtendimentoOS(novoClienteId: string, clientData: any, nomePl
     
     const atendimentoResponse = await makeIxcRequest('POST', '/su_ticket', atendimentoPayload, 'incluir');
 
-    console.log("Resposta da API IXC (Etapa 4):", atendimentoResponse);
+    //console.log("Resposta da API IXC (Etapa 4):", atendimentoResponse);
 
     const ticketId = atendimentoResponse.id || atendimentoResponse.id_su_ticket;
 
@@ -568,7 +574,7 @@ async function abrirAtendimentoOS(novoClienteId: string, clientData: any, nomePl
         throw new Error(`Falha ao abrir atendimento/OS unificado: ${errorMessage}`);
     }
 
-    console.log(`Etapa 4 OK: Atendimento/OS ID ${ticketId} criado.`);
+    //console.log(`Etapa 4 OK: Atendimento/OS ID ${ticketId} criado.`);
     return ticketId.toString(); 
 }
 
@@ -582,14 +588,14 @@ async function obterIdFuncionarioIxc(usuario_intranet: string): Promise<string> 
                 [usuario_intranet],
                 (err: any, results: any[]) => {
                     if (err) {
-                        console.error("Erro ao executar query de id_funcionario_ixc:", err);
+                        //console.error("Erro ao executar query de id_funcionario_ixc:", err);
                         return resolve("138");
                     }
                     
                     if (results && results.length > 0 && results[0].id_funcionario_ixc) {
                         resolve(results[0].id_funcionario_ixc.toString());
                     } else {
-                        console.warn(`Usuário '${usuario_intranet}' não encontrado ou inativo no banco local. Usando ID padrão.`);
+                        //console.warn(`Usuário '${usuario_intranet}' não encontrado ou inativo no banco local. Usando ID padrão.`);
                         resolve("138");
                     }
                 }
@@ -603,7 +609,7 @@ async function obterIdFuncionarioIxc(usuario_intranet: string): Promise<string> 
 }
 
 async function fecharTarefaOS(ticketId: string, idWflTarefaProxima: string, mensagem: string, idTecnico: string) {
-    console.log(`Buscando OS aberta no ticket ${ticketId}...`);
+    //console.log(`Buscando OS aberta no ticket ${ticketId}...`);
     
     const osResponse = await makeIxcRequest('POST', '/su_oss_chamado', {
         qtype: 'su_oss_chamado.id_ticket', query: ticketId, oper: '=', rp: '20', sortname: 'su_oss_chamado.id', sortorder: 'desc'
@@ -615,11 +621,11 @@ async function fecharTarefaOS(ticketId: string, idWflTarefaProxima: string, mens
 
     const osAberta = osResponse.registros.find((os: any) => os.status === 'A' || os.status === 'EN');
     if (!osAberta) {
-        console.log(`Aviso: Nenhuma OS aberta encontrada no ticket ${ticketId}. O fluxo já pode ter avançado.`);
+        //console.log(`Aviso: Nenhuma OS aberta encontrada no ticket ${ticketId}. O fluxo já pode ter avançado.`);
         return;
     }
 
-    console.log(`Finalizando OS ${osAberta.id} via su_oss_chamado_fechar e engatilhando próxima tarefa ID ${idWflTarefaProxima}...`);
+    //console.log(`Finalizando OS ${osAberta.id} via su_oss_chamado_fechar e engatilhando próxima tarefa ID ${idWflTarefaProxima}...`);
     
     const payloadFechamento = {
         "id_chamado": osAberta.id, 
@@ -656,13 +662,13 @@ async function fecharTarefaOS(ticketId: string, idWflTarefaProxima: string, mens
         throw new Error(`Erro no motor WFL ao avançar OS ${osAberta.id}: ${resp.message.replace(/<br \/>/g, ' - ')}`);
     }
 
-    console.log(`Motor WFL disparado! OS ${osAberta.id} finalizada e próxima tarefa gerada com sucesso!`);
+    //console.log(`Motor WFL disparado! OS ${osAberta.id} finalizada e próxima tarefa gerada com sucesso!`);
     
     await new Promise(resolve => setTimeout(resolve, 3000));
 }
 
-async function abrirTicketProcesso46(clienteId: string, contratoId: string, loginId: string, isNovoCliente: boolean, nomePlano: string, clientData: any, dadosTransferencia: any, idFuncionarioIxc: string) {
-    console.log(`Abrindo ticket Proc 46 para o cliente ${clienteId} (${isNovoCliente ? 'NOVO' : 'ANTIGO'})...`);
+async function abrirTicketProcesso46(clienteId: string, contratoId: string, loginId: string, isNovoCliente: boolean, nomePlano: string, clientData: any, dadosTransferencia: any, idFuncionarioIxc: string, isTransferenciaParcial: boolean = false) {
+    //console.log(`Abrindo ticket Proc 46 para o cliente ${clienteId} (${isNovoCliente ? 'NOVO' : 'ANTIGO'})...`);
     
     let mensagem_padrao = '';
 
@@ -697,27 +703,33 @@ async function abrirTicketProcesso46(clienteId: string, contratoId: string, logi
         throw new Error(`Falha ao abrir ticket: ${response.message || 'ID não retornado.'}`);
     }
 
-    console.log(`Ticket Processo 46 criado: ${ticketId}. Aguardando OS inicial nascer...`);
+    //console.log(`Ticket Processo 46 criado: ${ticketId}. Aguardando OS inicial nascer...`);
     await new Promise(resolve => setTimeout(resolve, 3000)); 
 
     if (!isNovoCliente) {
-        console.log(`Avançando OSs do Cliente ANTIGO (Ticket ${ticketId})...`);
+        //console.log(`Avançando OSs do Cliente ANTIGO (Ticket ${ticketId})...`);
         await fecharTarefaOS(ticketId, '398', 'Processo iniciado pela Intranet.', idFuncionarioIxc);
         await fecharTarefaOS(ticketId, '399', 'Alteração efetuada com sucesso.', idFuncionarioIxc);
-        await fecharTarefaOS(ticketId, '402', 'Login transferido para a nova titularidade. Aguardando conferência de cancelamento pelo Financeiro.', idFuncionarioIxc);
-        console.log(`>>> Fluxo Cliente Antigo posicionado com sucesso no Financeiro (Tarefa 402) <<<`);
+        
+        if (isTransferenciaParcial) {
+            await fecharTarefaOS(ticketId, '403', 'Transferência PARCIAL de login efetuada. Contrato mantido ativo. Aguardando Retorno CRI.', idFuncionarioIxc);
+            //console.log(`>>> Fluxo Cliente Antigo (Parcial) posicionado com sucesso no CRI (Tarefa 403) <<<`);
+        } else {
+            await fecharTarefaOS(ticketId, '402', 'Login transferido para a nova titularidade. Aguardando conferência de cancelamento pelo Financeiro.', idFuncionarioIxc);
+            //console.log(`>>> Fluxo Cliente Antigo posicionado com sucesso no Financeiro (Tarefa 402) <<<`);
+        }
     } else {
-        console.log(`Avançando OSs do Cliente NOVO (Ticket ${ticketId})...`);
+        //console.log(`Avançando OSs do Cliente NOVO (Ticket ${ticketId})...`);
         await fecharTarefaOS(ticketId, '460', 'Processo iniciado pela Intranet.', idFuncionarioIxc);
-        await fecharTarefaOS(ticketId, '403', 'Contrato e Login gerados automaticamente. Aguardando Retorno CRI.', idFuncionarioIxc);
-        console.log(`>>> Fluxo Cliente Novo posicionado com sucesso no CRI (Tarefa 403) <<<`);
+        //await fecharTarefaOS(ticketId, '403', 'Contrato e Login gerados automaticamente. Aguardando Retorno CRI.', idFuncionarioIxc);
+        //console.log(`>>> Fluxo Cliente Novo posicionado com sucesso no CRI (Tarefa 403) <<<`);
     }
 
     return ticketId;
 }
 
 async function abrirChamadoSuporteInterno(mensagemErro: string): Promise<string | null> {
-    console.log("Tentando abrir chamado de suporte automático/manual...");
+    //console.log("Tentando abrir chamado de suporte automático/manual...");
 
     const suportePayload = {
         "tipo": "E",
@@ -748,7 +760,7 @@ async function abrirChamadoSuporteInterno(mensagemErro: string): Promise<string 
         const ticketId = response.id || response.id_su_ticket;
         if (!ticketId) throw new Error("ID do ticket não retornado.");
 
-        console.log(`Chamado de suporte aberto com sucesso. ID: ${ticketId}`);
+        //console.log(`Chamado de suporte aberto com sucesso. ID: ${ticketId}`);
         return ticketId;
     } catch (error: any) {
         console.error("ALERTA CRÍTICO: Falha ao abrir chamado de suporte automático:", error.message);
@@ -757,7 +769,7 @@ async function abrirChamadoSuporteInterno(mensagemErro: string): Promise<string 
 }
 
 async function abrirChamadoNocCadastro(nomeNovoCondominio: string, clientData: any, clienteId: string): Promise<void> {
-    console.log("Abrindo chamado para o NOC - Cadastro de Condomínio...");
+    //console.log("Abrindo chamado para o NOC - Cadastro de Condomínio...");
 
     const mensagem = `
 SOLICITAÇÃO DE CADASTRO DE NOVO CONDOMÍNIO/LOCALIDADE
@@ -810,7 +822,7 @@ Complemento: ${clientData.complemento}
 }
 
 async function atualizarCliente(clientId: string, clientData: any, dataCadastro: string): Promise<void> {
-    console.log(`Iniciando Etapa 1.5: Atualização (PUT) do Cliente ID ${clientId}...`);
+    //console.log(`Iniciando Etapa 1.5: Atualização (PUT) do Cliente ID ${clientId}...`);
     const today = dataCadastro.split(' ')[0];
 
     const usaEnderecoCliente = clientData.cep_cliente && clientData.cep_cliente !== '';
@@ -865,7 +877,7 @@ async function atualizarCliente(clientId: string, clientData: any, dataCadastro:
 
     console.log("Resposta da API IXC (Etapa 1.5 - Update):", updateResponse);
     if (!updateResponse || (updateResponse.message && !updateResponse.message.includes('sucesso'))) {
-        console.warn(`Aviso na Etapa 1.5: ${updateResponse.message || 'Resposta inesperada.'}`);
+        //console.warn(`Aviso na Etapa 1.5: ${updateResponse.message || 'Resposta inesperada.'}`);
     }
     
     console.log(`Etapa 1.5 OK: Cliente ID ${clientId} atualizado.`);
@@ -903,7 +915,7 @@ async function ajustarFinanceiroContrato(contratoId: string, valorAcordadoStr: s
         const produtosResponse = await makeIxcRequest('POST', '/vd_contratos_produtos', produtosPayload);
 
         if (!produtosResponse || !produtosResponse.registros || produtosResponse.registros.length === 0) {
-            console.warn(`Nenhum produto encontrado no modelo do plano ${idPlano}.`);
+            //console.warn(`Nenhum produto encontrado no modelo do plano ${idPlano}.`);
             return;
         }
 
@@ -985,11 +997,11 @@ router.post('/cliente', async (req, res) => {
         }
 
         if (existingClientId) {
-            console.log(`Cliente ID ${existingClientId} fornecido. Pulando Etapa 1.`);
+            //console.log(`Cliente ID ${existingClientId} fornecido. Pulando Etapa 1.`);
             novoClienteId = existingClientId;
             await atualizarCliente(novoClienteId, clientData, dataCadastro);
         } else {
-            console.log("Nenhum Cliente ID fornecido. Executando Etapa 1 (Cadastro de Cliente)...");
+            //console.log("Nenhum Cliente ID fornecido. Executando Etapa 1 (Cadastro de Cliente)...");
             novoClienteId = await cadastrarCliente(clientData, dataCadastro);
         }
         
@@ -1053,7 +1065,10 @@ router.post('/cliente-corporativo', async (req, res) => {
     const OPCOES_CONTRATO_CORP = {
         id_filial: '1',
         id_carteira_cobranca: '10',
-        bloqueio_automatico: 'N'
+        bloqueio_automatico: 'N',
+        base_geracao_tipo_doc: 'OPC',
+        tipo_doc_opc: '11',
+        tipo_doc_opc2: '6'
     };
 
     try {
@@ -1154,16 +1169,16 @@ router.post('/consultar-cliente', async (req, res) => {
             sortorder: "asc"
         };
         
-        console.log("Consultando cliente:", clientePayload);
+        //console.log("Consultando cliente:", clientePayload);
         const clienteResponse = await makeIxcRequest('POST', '/cliente', clientePayload);
 
         if (!clienteResponse || clienteResponse.total === 0 || clienteResponse.total === "0") {
-            console.log("Cliente não encontrado.");
+            //console.log("Cliente não encontrado.");
             return res.json({ cliente: null, contratos: [], contratosComAtraso: [] });
         }
 
         const cliente = clienteResponse.registros[0];
-        console.log(`Cliente encontrado: ID ${cliente.id}`);
+        //console.log(`Cliente encontrado: ID ${cliente.id}`);
 
         const contratoPayload = {
             qtype: "cliente_contrato.id_cliente",
@@ -1175,10 +1190,10 @@ router.post('/consultar-cliente', async (req, res) => {
             sortorder: "desc"
         };
         
-        console.log("Consultando contratos:", contratoPayload);
+        //console.log("Consultando contratos:", contratoPayload);
         const contratoResponse = await makeIxcRequest('POST', '/cliente_contrato', contratoPayload);
         const contratos = (contratoResponse && contratoResponse.registros) ? contratoResponse.registros : [];
-        console.log(`Encontrados ${contratos.length} contratos.`);
+        //console.log(`Encontrados ${contratos.length} contratos.`);
         
         const financeiroPayload = {
             "qtype": "fn_areceber.id_cliente",
@@ -1194,7 +1209,7 @@ router.post('/consultar-cliente', async (req, res) => {
             ])
         };
 
-        console.log("Consultando financeiro:", financeiroPayload);
+        //console.log("Consultando financeiro:", financeiroPayload);
         const financeiroResponse = await makeIxcRequest('POST', '/fn_areceber', financeiroPayload);
         
         const contratosComAtraso = new Set<string>();
@@ -1209,7 +1224,7 @@ router.post('/consultar-cliente', async (req, res) => {
                 }
             });
         }
-        console.log(`Contratos com atraso: ${Array.from(contratosComAtraso)}`);
+        //console.log(`Contratos com atraso: ${Array.from(contratosComAtraso)}`);
 
         res.json({ 
             cliente, 
@@ -1251,7 +1266,7 @@ router.post('/consultar-endereco', async (req, res) => {
         const response = await makeIxcRequest('POST', '/cliente', payload);
 
         if (response && response.registros && response.registros.length > 0) {
-            
+            //console.log(`Encontrados ${response.registros.length} clientes.`);
             const clientesComStatus = await Promise.all(
                 response.registros.map(async (cliente: any) => {
                     const temAtraso = await getFinancialStatus(cliente.id);
@@ -1344,8 +1359,19 @@ router.get('/ufs', async (req, res) => {
     }
 });
 
-async function buscarDetalhesContratoELoginAntigo(contratoId: string) {
-    console.log(`Buscando detalhes do contrato antigo ID: ${contratoId}`);
+router.get('/logins-contrato/:id', async (req, res) => {
+    try {
+        const response = await makeIxcRequest('POST', '/radusuarios', {
+            qtype: 'radusuarios.id_contrato', query: req.params.id, oper: '=', rp: '100'
+        });
+        res.json(response.registros || []);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+async function buscarDetalhesContratoELoginAntigo(contratoId: string, loginSelecionadoId?: string) {
+    //console.log(`Buscando detalhes do contrato antigo ID: ${contratoId}`);
     
     const contratoOldResponse = await makeIxcRequest('POST', '/cliente_contrato', { qtype: 'cliente_contrato.id', query: contratoId, oper: '=' });
     if (!contratoOldResponse || !contratoOldResponse.registros || contratoOldResponse.registros.length === 0) {
@@ -1353,9 +1379,14 @@ async function buscarDetalhesContratoELoginAntigo(contratoId: string) {
     }
     const contratoAntigo = contratoOldResponse.registros[0];
 
-    const loginOldResponse = await makeIxcRequest('POST', '/radusuarios', { qtype: 'radusuarios.id_contrato', query: contratoId, oper: '=' });
+    let queryLogin = { qtype: 'radusuarios.id_contrato', query: contratoId, oper: '=' };
+    if (loginSelecionadoId) {
+        queryLogin = { qtype: 'radusuarios.id', query: loginSelecionadoId, oper: '=' };
+    }
+
+    const loginOldResponse = await makeIxcRequest('POST', '/radusuarios', queryLogin);
     if (!loginOldResponse || !loginOldResponse.registros || loginOldResponse.registros.length === 0) {
-        throw new Error("Login PPPoE não encontrado no contrato antigo.");
+        throw new Error("Login PPPoE não encontrado.");
     }
     const loginAntigo = loginOldResponse.registros[0];
 
@@ -1373,7 +1404,7 @@ async function transferirLoginPPPoE(
     const loginAntigoString = loginAntigo.login;
     let macAntigo = loginAntigo.mac;
 
-    console.log(`Iniciando transferência do Login PPPoE: ${loginAntigoString}`);
+    //console.log(`Iniciando transferência do Login PPPoE: ${loginAntigoString}`);
 
     const novoNomeAntigo = `${loginAntigoString}-para-${novoClienteId}`;
     
@@ -1411,19 +1442,19 @@ async function transferirLoginPPPoE(
         "id_condominio": clientData.id_condominio
     };
     
-    console.log(`Enviando comando para renomear login para: ${novoNomeAntigo}...`);
+    //console.log(`Enviando comando para renomear login para: ${novoNomeAntigo}...`);
     const responsePut = await makeIxcRequest('PUT', `/radusuarios/${loginAntigo.id}`, payloadRenomear, 'alterar');
     
     if (responsePut && responsePut.type === 'error') {
         throw new Error(`Erro ao renomear login antigo no IXC: ${responsePut.message}`);
     }
     
-    console.log(`Comando PUT executado com sucesso no IXC. Novo nome: ${novoNomeAntigo}.`);
+    //console.log(`Comando PUT executado com sucesso no IXC. Novo nome: ${novoNomeAntigo}.`);
 
-    console.log("Aguardando 3 segundos para o cache do banco de dados do IXC...");
+    //console.log("Aguardando 3 segundos para o cache do banco de dados do IXC...");
     await new Promise(resolve => setTimeout(resolve, 3000));
 
-    console.log(`Criando novo login PPPoE: '${loginAntigoString}' no contrato ${novoContratoId}`);
+    //console.log(`Criando novo login PPPoE: '${loginAntigoString}' no contrato ${novoContratoId}`);
 
     const loginPayload = {
         'id_cliente': novoClienteId,
@@ -1467,7 +1498,7 @@ async function transferirLoginPPPoE(
     }
     
     if (loginResponse && loginResponse.id) {
-        console.log(`Novo login criado com sucesso. ID: ${loginResponse.id} | Nome: ${loginAntigoString}`);
+        //console.log(`Novo login criado com sucesso. ID: ${loginResponse.id} | Nome: ${loginAntigoString}`);
         return loginResponse.id;
     }
 
@@ -1475,17 +1506,17 @@ async function transferirLoginPPPoE(
 }
 
 async function desconectarLoginPPPoE(loginId: string) {
-    console.log(`Enviando comando de desconexão (Kick) para o login ID: ${loginId}`);
+    //console.log(`Enviando comando de desconexão (Kick) para o login ID: ${loginId}`);
     try {
         await makeIxcRequest('POST', '/desconectar_clientes', { id: loginId });
-        console.log(`Comando de desconexão executado com sucesso para o login ${loginId}.`);
+        //console.log(`Comando de desconexão executado com sucesso para o login ${loginId}.`);
     } catch (error: any) {
         console.warn(`Aviso: Falha ao enviar comando de desconexão para o login ${loginId}. (O cliente pode já estar offline). Erro: ${error.message}`);
     }
 }
 
 async function transferirOnuFibra(loginAntigoId: string, novoLoginId: string, novoContratoId: string) {
-    console.log(`Verificando existência de ONU (Fibra) atrelada ao login antigo (ID: ${loginAntigoId})...`);
+    //console.log(`Verificando existência de ONU (Fibra) atrelada ao login antigo (ID: ${loginAntigoId})...`);
 
     try {
         const fibraResp = await makeIxcRequest('POST', '/radpop_radio_cliente_fibra', {
@@ -1497,7 +1528,7 @@ async function transferirOnuFibra(loginAntigoId: string, novoLoginId: string, no
 
         if (fibraResp && fibraResp.registros && fibraResp.registros.length > 0) {
             const fibra = fibraResp.registros[0];
-            console.log(`ONU encontrada (ID Fibra: ${fibra.id}). Transferindo para o novo login (ID: ${novoLoginId}) e contrato (ID: ${novoContratoId})...`);
+            //console.log(`ONU encontrada (ID Fibra: ${fibra.id}). Transferindo para o novo login (ID: ${novoLoginId}) e contrato (ID: ${novoContratoId})...`);
 
             const payloadFibra = {
                 ...fibra, 
@@ -1511,9 +1542,9 @@ async function transferirOnuFibra(loginAntigoId: string, novoLoginId: string, no
                 throw new Error(`IXC recusou a transferência da ONU: ${putResp.message}`);
             }
 
-            console.log(`ONU transferida com sucesso! Agora a fibra está vinculada ao novo login e contrato.`);
+            //console.log(`ONU transferida com sucesso! Agora a fibra está vinculada ao novo login e contrato.`);
         } else {
-            console.log(`Nenhuma ONU de fibra encontrada para o login antigo.`);
+            //console.log(`Nenhuma ONU de fibra encontrada para o login antigo.`);
         }
     } catch (error: any) {
         console.error(`Erro ao transferir vínculo da ONU de fibra: ${error.message}`);
@@ -1521,7 +1552,7 @@ async function transferirOnuFibra(loginAntigoId: string, novoLoginId: string, no
 }
 
 async function ativarContrato(contratoId: string) {
-    console.log(`Enviando comando para ativar o contrato ID: ${contratoId}...`);
+    //console.log(`Enviando comando para ativar o contrato ID: ${contratoId}...`);
     try {
         const resp = await makeIxcRequest('POST', '/cliente_contrato_ativar_cliente', { id_contrato: contratoId });
         
@@ -1529,14 +1560,14 @@ async function ativarContrato(contratoId: string) {
             throw new Error(resp.message);
         }
         
-        console.log(`Contrato ${contratoId} ativado com sucesso!`);
+        //console.log(`Contrato ${contratoId} ativado com sucesso!`);
     } catch (error: any) {
         console.error(`Falha ao ativar o contrato ${contratoId}: ${error.message}`);
     }
 }
 
 async function cancelarContratoAntigo(contratoId: string) {
-    console.log(`Cancelando contrato antigo ID: ${contratoId}`);
+    //console.log(`Cancelando contrato antigo ID: ${contratoId}`);
     const payloadCancelamento = {
         status: 'C',
         status_internet: 'D',
@@ -1545,17 +1576,17 @@ async function cancelarContratoAntigo(contratoId: string) {
     };
 
     await makeIxcRequest('PUT', `/cliente_contrato/${contratoId}`, payloadCancelamento, 'alterar');
-    console.log(`Contrato ${contratoId} cancelado com sucesso.`);
+    //console.log(`Contrato ${contratoId} cancelado com sucesso.`);
 }
 
 router.post('/mudanca-titularidade', async (req, res) => {
-    const { contratoAntigoId, existingClientId, ...clientData } = req.body;
+    const { contratoAntigoId, existingClientId, loginSelecionadoId, isTransferenciaParcial, ...clientData } = req.body;
     const dataCadastro = getIxcDate();
 
     try {
-        const { contratoAntigo, loginAntigo } = await buscarDetalhesContratoELoginAntigo(contratoAntigoId);
+        const { contratoAntigo, loginAntigo } = await buscarDetalhesContratoELoginAntigo(contratoAntigoId, loginSelecionadoId);
 
-        console.log(`Buscando dados do cliente antigo ID: ${contratoAntigo.id_cliente}...`);
+        //console.log(`Buscando dados do cliente antigo ID: ${contratoAntigo.id_cliente}...`);
         const clienteOldResponse = await makeIxcRequest('POST', '/cliente', { qtype: 'cliente.id', query: contratoAntigo.id_cliente, oper: '=' });
         let clienteAntigo: any = {};
         if (clienteOldResponse && clienteOldResponse.registros && clienteOldResponse.registros.length > 0) {
@@ -1604,11 +1635,11 @@ router.post('/mudanca-titularidade', async (req, res) => {
         let novoClienteId: string;
 
         if (existingClientId) {
-            console.log(`Mudança Titularidade: Atualizando Cliente existente ID ${existingClientId}`);
+            //console.log(`Mudança Titularidade: Atualizando Cliente existente ID ${existingClientId}`);
             novoClienteId = existingClientId;
             await atualizarCliente(novoClienteId, clientData, dataCadastro);
         } else {
-            console.log(`Mudança Titularidade: Cadastrando Novo Cliente`);
+            //console.log(`Mudança Titularidade: Cadastrando Novo Cliente`);
             novoClienteId = await cadastrarCliente(clientData, dataCadastro);
         }
 
@@ -1626,13 +1657,13 @@ router.post('/mudanca-titularidade', async (req, res) => {
 
         await transferirOnuFibra(loginAntigo.id, novoLoginId, novoContratoId);
         
-        console.log(`Contrato antigo (ID: ${contratoAntigoId}) mantido. O Financeiro fará a validação de cancelamento via WFL.`);
+        //console.log(`Contrato antigo (ID: ${contratoAntigoId}) mantido. O Financeiro fará a validação de cancelamento via WFL.`);
 
         if (contratoAntigo.status === 'A') {
-            console.log(`O contrato antigo era 'Ativo'. Engatilhando ativação do novo contrato...`);
+            //console.log(`O contrato antigo era 'Ativo'. Engatilhando ativação do novo contrato...`);
             await ativarContrato(novoContratoId);
         } else {
-            console.log(`O contrato antigo possuía status '${contratoAntigo.status}'. O novo permanecerá como Pré-contrato (P).`);
+            //console.log(`O contrato antigo possuía status '${contratoAntigo.status}'. O novo permanecerá como Pré-contrato (P).`);
         }
 
         const telefonesNovos = (clientData.whatsapp && clientData.whatsapp !== clientData.telefone_celular)
@@ -1648,17 +1679,17 @@ router.post('/mudanca-titularidade', async (req, res) => {
         };
 
         const idFuncionarioIxc = await obterIdFuncionarioIxc(clientData.usuario_intranet);
-        console.log(`Usuário logado: ${clientData.usuario_intranet || 'Desconhecido'} | ID Funcionário IXC mapeado: ${idFuncionarioIxc}`);
+        //console.log(`Usuário logado: ${clientData.usuario_intranet || 'Desconhecido'} | ID Funcionário IXC mapeado: ${idFuncionarioIxc}`);
 
         const ticketAntigoId = await abrirTicketProcesso46(
-            loginAntigo.id_cliente, contratoAntigoId, loginAntigo.id, false, nomePlano, clientData, dadosTransferencia, idFuncionarioIxc
+        loginAntigo.id_cliente, contratoAntigoId, loginAntigo.id, false, nomePlano, clientData, dadosTransferencia, idFuncionarioIxc, isTransferenciaParcial
         );
         
         const ticketNovoId = await abrirTicketProcesso46(
             novoClienteId, novoContratoId, novoLoginId, true, nomePlano, clientData, dadosTransferencia, idFuncionarioIxc
         );
 
-        console.log("Iniciando rotina de desconexão forçada dos logins...");
+        //console.log("Iniciando rotina de desconexão forçada dos logins...");
         await desconectarLoginPPPoE(loginAntigo.id);
         await desconectarLoginPPPoE(novoLoginId);
 
