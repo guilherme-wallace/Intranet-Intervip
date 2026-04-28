@@ -411,21 +411,30 @@ async function consultarClientePorDocumento() {
                         enderecoContrato = [clienteConsultado.endereco, clienteConsultado.numero, clienteConsultado.bairro, clienteConsultado.complemento].filter(Boolean).join(', ');
                     }
                     
-                    const isDesativado = contrato.status_internet === 'D' || contrato.status_internet === 'C';
+                    const isElegivelMudanca = (contrato.status_internet === 'A' || contrato.status_internet === 'AA') && !temAtraso;
+                    const isDisabled = !isElegivelMudanca;
+                    
+                    let motivoBloqueio = '';
+                    if (temAtraso) {
+                        motivoBloqueio = 'Transferência bloqueada por Inadimplência';
+                    } else if (contrato.status_internet !== 'A' && contrato.status_internet !== 'AA') {
+                        motivoBloqueio = `Status (${statusText}) não permite mudança`;
+                    }
 
                     listaContratos.append(`
-                        <li class="list-group-item d-flex justify-content-between align-items-center ${classeAtraso} ${isDesativado ? 'disabled' : ''}">
+                        <li class="list-group-item d-flex justify-content-between align-items-center ${classeAtraso} ${isDisabled ? 'disabled' : ''}">
                             <div class="d-flex align-items-center">
-                                <input class="form-check-input me-3 radio-contrato" type="radio" name="contratoSelecionado" value="${contrato.id}" ${isDesativado ? 'disabled' : ''}>
+                                <input class="form-check-input me-3 radio-contrato" type="radio" name="contratoSelecionado" value="${contrato.id}" ${isDisabled ? 'disabled' : ''}>
                                 <div>
                                     <strong>Contrato:</strong> ${contrato.contrato} (ID: ${contrato.id})<br>
-                                    <small>Ativado em: ${contrato.data_ativacao}</small><br>
+                                    <small>Ativado em: ${contrato.data_ativacao || 'N/A'}</small><br>
                                     <small class="text-muted"><i class="bi bi-geo-alt-fill me-1"></i>${enderecoContrato}</small>
+                                    ${isDisabled ? `<br><small class="text-danger fw-bold"><i class="bi bi-x-circle-fill me-1"></i>${motivoBloqueio}</small>` : ''}
                                 </div>
                             </div>
                             <div>
                                 <span class="badge ${statusClass} rounded-pill">${statusText}</span>
-                                ${temAtraso ? '<span class="badge bg-danger rounded-pill ms-1" title="Possui faturas em atraso"><i class="bi bi-cash-coin"></i> Contrato com financeiro em atraso</span>' : ''}
+                                ${temAtraso ? '<span class="badge bg-danger rounded-pill ms-1" title="Possui faturas em atraso"><i class="bi bi-cash-coin"></i> Financeiro em atraso</span>' : ''}
                             </div>
                         </li>
                     `);
