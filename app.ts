@@ -32,6 +32,7 @@ import rede_neutraRoutes from './routes/api/v5/rede_neutra';
 import analise_de_riscoRoutes from './routes/api/v5/analise-de-risco';
 import abertura_OSRoutes from './routes/api/v5/abertura-OS';
 import agendamentoRoutes from './routes/api/v5/agendamento';
+import painel_logisticaRoutes from './routes/api/v5/painel-logistica';
 
 import * as jwt from 'jsonwebtoken';
 
@@ -215,10 +216,11 @@ const PERMISSOES_SISTEMA = {
     'card-analise-de-risco': ['NOC','TecnicoFibra','TecnicoLogistica','Fibra','Logistica','Diretoria'],
     'card-abertura-OS': ['NOC'],
     'card-agendamento': ['NOC'],
+    'card-painel-logistica': ['NOC'],
 
     'card-cadastro-bandaLarga': ['NOC','Comercial','Almoxarifado','Corporativo','Diretoria','Fibra','Financeiro','Helpdesk','CRI','Logistica','Qualidade'],
     'card-cadastro-corporativo': ['NOC','Corporativo','Diretoria','Financeiro'],
-    'card-cadastro-redeNeutra': ['NOC','conectmais','conectja','seliga','nv7','netplanety'],
+    'card-cadastro-redeNeutra': ['NOC','conectmais','conectja','seliga','nv7','netplanety','villaggionet','Corporativo','Financeiro'],
     'card-demo-redeNeutra': ['NOC'],
 };
 
@@ -324,6 +326,10 @@ APP.get('/agendamento', verificarAcessoPagina('agendamento'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'agendamento.html'));
 });
 
+APP.get('/painel-logistica', verificarAcessoPagina('painel-logistica'), (req, res) => {
+    res.sendFile(Path.join(__dirname, 'views', 'painel-logistica.html'));
+});
+
 APP.get('/cadastro-bandaLarga', verificarAcessoPagina('cadastro-bandaLarga'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'cadastro-bandaLarga.html'));
 });
@@ -401,7 +407,7 @@ function gerarSessaoEToken(req: any, res: any, username: string, group: string) 
     req.session.group = group;
 
     const gruposParceiros = [
-        'villaggionet', 'ultracom', 'seliga', 'infinity', 'inova.telecom', 'RedeNeutra'
+        'ultracom', 'seliga', 'infinity', 'inova.telecom', 'RedeNeutra'
     ];
 
     let redirectUrl = gruposParceiros.includes(group) ? '/viabilidade-intervip' : '/main';
@@ -457,6 +463,7 @@ APP.use('/api/v5/rede_neutra', protectApi, rede_neutraRoutes);
 APP.use('/api/v5/analise-de-risco', protectApi, analise_de_riscoRoutes);
 APP.use('/api/v5/abertura-OS', protectApi, abertura_OSRoutes);
 APP.use('/api/v5/agendamento', protectApi, agendamentoRoutes);
+APP.use('/api/v5/painel-logistica', protectApi, painel_logisticaRoutes);
 
 
 
@@ -487,6 +494,7 @@ APP.use('/equipamentos', protectRoutes, ROUTES);
 APP.use('/looking-glass', protectRoutes, ROUTES);
 APP.use('/clientes-online', protectRoutes, ROUTES);
 APP.use('/demo-redeNeutra', protectRoutes, ROUTES);
+APP.use('/painel-logistica', protectRoutes, ROUTES);
 APP.use('/analise-de-risco', protectRoutes, ROUTES);
 APP.use('/teste-de-lentidao', protectRoutes, ROUTES);
 APP.use('/problemas-com-VPN', protectRoutes, ROUTES);
