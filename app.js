@@ -64,6 +64,7 @@ var rede_neutra_1 = require("./routes/api/v5/rede_neutra");
 var analise_de_risco_1 = require("./routes/api/v5/analise-de-risco");
 var abertura_OS_1 = require("./routes/api/v5/abertura-OS");
 var agendamento_1 = require("./routes/api/v5/agendamento");
+var painel_logistica_1 = require("./routes/api/v5/painel-logistica");
 var jwt = require("jsonwebtoken");
 process.on('uncaughtException', function (error) {
     console.error('--- ERRO NÃO CAPTURADO (Uncaught Exception) ---');
@@ -203,6 +204,7 @@ var PERMISSOES_SISTEMA = {
     'card-analise-de-risco': ['NOC', 'TecnicoFibra', 'TecnicoLogistica', 'Fibra', 'Logistica', 'Diretoria'],
     'card-abertura-OS': ['NOC'],
     'card-agendamento': ['NOC'],
+    'card-painel-logistica': ['NOC'],
     'card-cadastro-bandaLarga': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Logistica', 'Qualidade'],
     'card-cadastro-corporativo': ['NOC', 'Corporativo', 'Diretoria', 'Financeiro'],
     'card-cadastro-redeNeutra': ['NOC', 'conectmais', 'conectja', 'seliga', 'nv7', 'netplanety'],
@@ -284,6 +286,9 @@ APP.get('/abertura-OS', verificarAcessoPagina('abertura-OS'), function (req, res
 });
 APP.get('/agendamento', verificarAcessoPagina('agendamento'), function (req, res) {
     res.sendFile(Path.join(__dirname, 'views', 'agendamento.html'));
+});
+APP.get('/painel-logistica', verificarAcessoPagina('painel-logistica'), function (req, res) {
+    res.sendFile(Path.join(__dirname, 'views', 'painel-logistica.html'));
 });
 APP.get('/cadastro-bandaLarga', verificarAcessoPagina('cadastro-bandaLarga'), function (req, res) {
     res.sendFile(Path.join(__dirname, 'views', 'cadastro-bandaLarga.html'));
@@ -428,6 +433,7 @@ APP.use('/api/v5/rede_neutra', protectApi, rede_neutra_1.default);
 APP.use('/api/v5/analise-de-risco', protectApi, analise_de_risco_1.default);
 APP.use('/api/v5/abertura-OS', protectApi, abertura_OS_1.default);
 APP.use('/api/v5/agendamento', protectApi, agendamento_1.default);
+APP.use('/api/v5/painel-logistica', protectApi, painel_logistica_1.default);
 APP.get('/api/username', protectApi, function (req, res) {
     if (req.user) {
         return res.json({ username: req.user.username, group: req.user.group });
@@ -452,6 +458,7 @@ APP.use('/equipamentos', protectRoutes, index_1.default);
 APP.use('/looking-glass', protectRoutes, index_1.default);
 APP.use('/clientes-online', protectRoutes, index_1.default);
 APP.use('/demo-redeNeutra', protectRoutes, index_1.default);
+APP.use('/painel-logistica', protectRoutes, index_1.default);
 APP.use('/analise-de-risco', protectRoutes, index_1.default);
 APP.use('/teste-de-lentidao', protectRoutes, index_1.default);
 APP.use('/problemas-com-VPN', protectRoutes, index_1.default);
