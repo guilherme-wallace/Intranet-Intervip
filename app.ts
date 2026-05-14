@@ -193,7 +193,7 @@ const ad = new ActiveDirectory(config);
 const PERMISSOES_SISTEMA = {
     'card-Avisos': ['NOC','Comercial','Almoxarifado','Corporativo','Diretoria','Fibra','Financeiro','Helpdesk','CRI','Logistica','Qualidade'],
     
-    'card-viabilidade-intervip': ['NOC','Comercial','Almoxarifado','Corporativo','Diretoria','Fibra','Financeiro','Helpdesk','CRI','Logistica','Qualidade','villaggionet','ultracom','seliga','nv7','nwt','netplanety','infinity','inova.telecom','conectmais','conectja','RedeNeutra'],
+    'card-viabilidade-intervip': ['NOC','Comercial','Almoxarifado','Corporativo','Diretoria','Fibra','Financeiro','Helpdesk','CRI','Logistica','Qualidade','villaggionet','ultracom','seliga','nv7','nwt','netplanety','infinity','inova.telecom','conectmais','conectja','supernet','RedeNeutra'],
     'card-clientes-online': ['NOC','Almoxarifado','Corporativo','Diretoria','Fibra','Financeiro','Helpdesk','CRI','Logistica','Qualidade'],
     'card-lead-Venda': ['NOC','Comercial','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
     'card-cadastro-de-vendas': ['NOC','Comercial','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
@@ -220,7 +220,7 @@ const PERMISSOES_SISTEMA = {
 
     'card-cadastro-bandaLarga': ['NOC','Comercial','Almoxarifado','Corporativo','Diretoria','Fibra','Financeiro','Helpdesk','CRI','Logistica','Qualidade'],
     'card-cadastro-corporativo': ['NOC','Corporativo','Diretoria','Financeiro'],
-    'card-cadastro-redeNeutra': ['NOC','conectmais','conectja','seliga','nv7','netplanety','villaggionet','Corporativo','Financeiro'],
+    'card-cadastro-redeNeutra': ['NOC','conectmais','conectja','seliga','nv7','netplanety','villaggionet','supernet','Corporativo','Financeiro'],
     'card-demo-redeNeutra': ['NOC'],
 };
 

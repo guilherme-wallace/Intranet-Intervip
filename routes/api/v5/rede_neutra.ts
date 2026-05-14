@@ -280,7 +280,8 @@ const MAPA_PARCEIROS: Record<string, { nome: string, perfil: string }> = {
     'infinity': { nome: 'MARCOS VIEIRA KRUGER', perfil: 'RN - MARCOS KRUGER - PF' },
     'inova.telecom': { nome: 'MAICON DE FRANCA CHAVES', perfil: 'RN - MAICON DE FRANCA' },
     'conectmais': { nome: 'CONECTMAIS COMUNICACOES LTDA', perfil: 'RN - CONECTMAIS' },
-    'conectja': { nome: 'CONECTJA TELECOMUNICACOES LTDA', perfil: 'RN - Conectja' }
+    'conectja': { nome: 'CONECTJA TELECOMUNICACOES LTDA', perfil: 'RN - Conectja' },
+    'supernet': { nome: 'HENRIQUE LEAO RODRIGUES COELHO', perfil: 'RN - Supernet' }
 };
 
 router.get('/clientes/:parceiroId', async (req, res) => {
