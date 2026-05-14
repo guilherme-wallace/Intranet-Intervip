@@ -486,7 +486,7 @@ function renderizarTabela() {
     const mostrarCancelados = document.getElementById('chk-mostrar-cancelados').checked;
     
     let filtrados = todosClientesCache.filter(item => {
-        const isCancelado = item.descricao_produto && item.descricao_produto.includes('(C)');
+        const isCancelado = item.descricao_produto && (item.descricao_produto.includes('(C)') || item.descricao_produto.includes('(c)'));
         if (!mostrarCancelados && isCancelado) return false;
 
         const textoBusca = `${item.descricao_produto} ${item.login_pppoe} ${item.token} ${item.endereco} ${item.bairro}`.toLowerCase();
@@ -535,7 +535,7 @@ dadosPagina.forEach(item => {
         const tr = document.createElement('tr');
         
         let descricaoVisual = item.descricao_produto || '---';
-        const isCancelado = descricaoVisual.includes('(C)');
+        const isCancelado = descricaoVisual.includes('(C)') || descricaoVisual.includes('(c)');
         
         if (item.token) {
             descricaoVisual = descricaoVisual.replace(new RegExp('^\\(C\\)\\s*'), '').replace(new RegExp('^' + item.token + '-?'), '');
@@ -951,7 +951,7 @@ async function abrirModalEditar(cliente) {
     document.getElementById('edit-login-id-ixc').value = cliente.ixc_login_id || '';
     document.getElementById('edit-mac-atual').value = cliente.onu_mac || '';
 
-    const isCancelado = (cliente.descricao_produto && cliente.descricao_produto.includes('(C)'));
+    const isCancelado = (cliente.descricao_produto && (cliente.descricao_produto.includes('(C)') || cliente.descricao_produto.includes('(c)')));
     
     const btnCancelar = document.getElementById('btn-cancelar-cliente');
     const badgeAviso = document.getElementById('badge-cancelado-aviso');
