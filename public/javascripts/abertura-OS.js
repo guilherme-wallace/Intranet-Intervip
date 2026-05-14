@@ -1,4 +1,4 @@
-// javascripts/agenda.js
+// javascripts/abertura-OS.js
 let clienteAtual = null;
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -17,13 +17,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
 async function realizarBusca(termo) {
     if (!termo) return;
+
+    termo = termo.trim();
+
+    if (/[a-zA-Z]/.test(termo)) {
+        alert("Busca inválida! Digite apenas o Código do cliente, CPF ou CNPJ.");
+        document.getElementById('input-busca-cliente').value = '';
+        return;
+    }
     
     const btn = document.getElementById('btn-buscar-cliente');
     btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
     btn.disabled = true;
 
     try {
-        const response = await fetch(`/api/v5/agenda/triagem/busca-cliente/${termo}`);
+        const response = await fetch(`/api/v5/abertura-OS/busca-cliente/${termo}`);
         const data = await response.json();
 
         if (!response.ok) throw new Error(data.error);
@@ -98,6 +106,41 @@ function atualizarChecklist(e) {
         `;
     });
 }
+
+document.getElementById('btn-gerar-os').addEventListener('click', async function() {
+    if (!clienteAtual) return alert("Busque e selecione um cliente primeiro.");
+
+    const btn = this;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Gerando...';
+    btn.disabled = true;
+
+    const payload = {
+        cliente_id: clienteAtual.id,
+        contrato_id: document.getElementById('select-contrato').value,
+        motivo: document.getElementById('select-motivo').value,
+        observacao: document.getElementById('obs-triagem').value
+    };
+
+    try {
+        const response = await fetch('/api/v5/abertura-os/gerar-os', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) throw new Error(data.error);
+
+        window.location.href = `/agendamento?os=${data.id_ticket}&origem=suporte`;
+
+    } catch (error) {
+        alert("Erro ao criar OS: " + error.message);
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+});
 
 function initializeThemeAndUserInfo() {
     const currentTheme = localStorage.getItem('theme') || 'light';

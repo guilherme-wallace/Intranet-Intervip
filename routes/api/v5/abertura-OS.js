@@ -39,18 +39,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 // routes/api/v5/abertura-OS.ts
 var Express = require("express");
 var axios_1 = require("axios");
-var database_1 = require("../../../api/database");
 var router = Express.Router();
-var executeDb = function (query, params) {
-    if (params === void 0) { params = []; }
-    return new Promise(function (resolve, reject) {
-        database_1.LOCALHOST.query(query, params, function (err, results) {
-            if (err)
-                return reject(err);
-            resolve(results);
-        });
-    });
-};
 var makeIxcRequest = function (method, endpoint, data) {
     if (data === void 0) { data = null; }
     return __awaiter(void 0, void 0, void 0, function () {
@@ -85,4 +74,102 @@ var makeIxcRequest = function (method, endpoint, data) {
         });
     });
 };
+// Rota 1: Buscar o cliente para a Triagem
+router.get('/busca-cliente/:termo', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var termo, payloadBusca, cliResp, cliente, contratoResp, chamadosPendentes, osAbertas, error_2;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                termo = req.params.termo;
+                _a.label = 1;
+            case 1:
+                _a.trys.push([1, 5, , 6]);
+                payloadBusca = {
+                    qtype: isNaN(Number(termo)) ? "cliente.razao" : "cliente.cnpj_cpf",
+                    query: termo,
+                    oper: isNaN(Number(termo)) ? "L" : "=",
+                    page: "1",
+                    rp: "5"
+                };
+                return [4 /*yield*/, makeIxcRequest('POST', '/cliente', payloadBusca)];
+            case 2:
+                cliResp = _a.sent();
+                if (!cliResp.registros || cliResp.registros.length === 0) {
+                    return [2 /*return*/, res.status(404).json({ error: "Cliente não encontrado no IXC." })];
+                }
+                cliente = cliResp.registros[0];
+                return [4 /*yield*/, makeIxcRequest('POST', '/cliente_contrato', {
+                        qtype: "cliente_contrato.id_cliente", query: cliente.id, oper: "=", page: "1", rp: "10"
+                    })];
+            case 3:
+                contratoResp = _a.sent();
+                return [4 /*yield*/, makeIxcRequest('POST', '/suporte', {
+                        qtype: "suporte.id_cliente", query: cliente.id, oper: "=", page: "1", rp: "10"
+                    })];
+            case 4:
+                chamadosPendentes = _a.sent();
+                osAbertas = (chamadosPendentes.registros || []).filter(function (os) { return os.status === 'A' || os.status === 'EN'; });
+                res.json({
+                    cliente: {
+                        id: cliente.id,
+                        nome: cliente.razao,
+                        documento: cliente.cnpj_cpf,
+                        endereco: cliente.endereco,
+                        numero: cliente.numero,
+                        bairro: cliente.bairro,
+                        cidade: cliente.cidade
+                    },
+                    contratos: contratoResp.registros || [],
+                    os_abertas: osAbertas
+                });
+                return [3 /*break*/, 6];
+            case 5:
+                error_2 = _a.sent();
+                res.status(500).json({ error: error_2.message });
+                return [3 /*break*/, 6];
+            case 6: return [2 /*return*/];
+        }
+    });
+}); });
+// Rota 2: Gerar o Ticket de Suporte no IXC
+router.post('/gerar-os', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var _a, cliente_id, contrato_id, motivo, observacao, payloadTicket, ixcResp, error_3;
+    return __generator(this, function (_b) {
+        switch (_b.label) {
+            case 0:
+                _a = req.body, cliente_id = _a.cliente_id, contrato_id = _a.contrato_id, motivo = _a.motivo, observacao = _a.observacao;
+                if (!cliente_id || !motivo) {
+                    return [2 /*return*/, res.status(400).json({ error: "Dados incompletos para abrir o chamado." })];
+                }
+                _b.label = 1;
+            case 1:
+                _b.trys.push([1, 3, , 4]);
+                payloadTicket = {
+                    id_cliente: cliente_id,
+                    id_contrato: contrato_id || "",
+                    id_assunto: "1",
+                    id_departamento: "1",
+                    menssagem: "Motivo: ".concat(motivo, "\n\nObserva\u00E7\u00F5es da Triagem:\n").concat(observacao),
+                    status: "A",
+                    su_ticket_origem: "I",
+                    origem_endereco: "C" // "C" = Endereço do Cliente
+                };
+                return [4 /*yield*/, makeIxcRequest('POST', '/su_ticket', payloadTicket)];
+            case 2:
+                ixcResp = _b.sent();
+                if (ixcResp.type === 'error') {
+                    throw new Error(ixcResp.message);
+                }
+                // Retorna o ID gerado pelo IXC para o Frontend redirecionar
+                res.json({ success: true, id_ticket: ixcResp.id });
+                return [3 /*break*/, 4];
+            case 3:
+                error_3 = _b.sent();
+                console.error("Erro ao gerar OS:", error_3.message);
+                res.status(500).json({ error: "Falha ao gerar OS no IXC." });
+                return [3 /*break*/, 4];
+            case 4: return [2 /*return*/];
+        }
+    });
+}); });
 exports.default = router;
