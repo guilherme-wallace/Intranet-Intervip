@@ -8,73 +8,46 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __generator = (this && this.__generator) || function (thisArg, body) {
-    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g;
-    return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
-    function verb(n) { return function (v) { return step([n, v]); }; }
-    function step(op) {
-        if (f) throw new TypeError("Generator is already executing.");
-        while (g && (g = 0, op[0] && (_ = 0)), _) try {
-            if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
-            if (y = 0, t) op = [op[0] & 2, t.value];
-            switch (op[0]) {
-                case 0: case 1: t = op; break;
-                case 4: _.label++; return { value: op[1], done: false };
-                case 5: _.label++; y = op[1]; op = [0]; continue;
-                case 7: op = _.ops.pop(); _.trys.pop(); continue;
-                default:
-                    if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
-                    if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
-                    if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
-                    if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
-                    if (t[2]) _.ops.pop();
-                    _.trys.pop(); continue;
-            }
-            op = body.call(thisArg, _);
-        } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
-        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
-    }
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-var dotenv = require("dotenv");
+const dotenv = require("dotenv");
 dotenv.config();
-var Favicon = require("serve-favicon");
-var Express = require("express");
-var Path = require("path");
-var fs = require("fs");
-var bodyParser = require("body-parser");
-var ActiveDirectory = require("activedirectory2");
-var session = require("express-session");
-var bcrypt = require("bcrypt");
-var usuariosConfig_1 = require("./src/controllers/usuariosConfig");
-var helmet_1 = require("helmet");
-var express_rate_limit_1 = require("express-rate-limit");
-var index_1 = require("./routes/index");
-var index_2 = require("./routes/api/index");
-var emailRoutes_1 = require("./src/routes/emailRoutes");
-var scriptAddCondominiumsBDRoute_1 = require("./src/routes/scriptAddCondominiumsBDRoute");
-var scriptmigraOnusRoute_1 = require("./src/routes/scriptmigraOnusRoute");
-var geospatial_1 = require("./routes/api/v5/geospatial");
-var ixc_1 = require("./routes/api/v5/ixc");
-var loginConfig_1 = require("./src/configs/loginConfig");
-var soc_1 = require("./routes/api/v5/soc");
-var monitoramento_de_falhas_1 = require("./routes/api/v5/monitoramento-de-falhas");
-var looking_glass_1 = require("./routes/api/v5/looking-glass");
-var rede_neutra_1 = require("./routes/api/v5/rede_neutra");
-var analise_de_risco_1 = require("./routes/api/v5/analise-de-risco");
-var abertura_OS_1 = require("./routes/api/v5/abertura-OS");
-var agendamento_1 = require("./routes/api/v5/agendamento");
-var painel_logistica_1 = require("./routes/api/v5/painel-logistica");
-var jwt = require("jsonwebtoken");
-process.on('uncaughtException', function (error) {
+const Favicon = require("serve-favicon");
+const Express = require("express");
+const Path = require("path");
+const fs = require("fs");
+const bodyParser = require("body-parser");
+const ActiveDirectory = require("activedirectory2");
+const session = require("express-session");
+const bcrypt = require("bcrypt");
+const usuariosConfig_1 = require("./src/controllers/usuariosConfig");
+const helmet_1 = require("helmet");
+const express_rate_limit_1 = require("express-rate-limit");
+const index_1 = require("./routes/index");
+const index_2 = require("./routes/api/index");
+const emailRoutes_1 = require("./src/routes/emailRoutes");
+const scriptAddCondominiumsBDRoute_1 = require("./src/routes/scriptAddCondominiumsBDRoute");
+const scriptmigraOnusRoute_1 = require("./src/routes/scriptmigraOnusRoute");
+const geospatial_1 = require("./routes/api/v5/geospatial");
+const ixc_1 = require("./routes/api/v5/ixc");
+const loginConfig_1 = require("./src/configs/loginConfig");
+const soc_1 = require("./routes/api/v5/soc");
+const monitoramento_de_falhas_1 = require("./routes/api/v5/monitoramento-de-falhas");
+const looking_glass_1 = require("./routes/api/v5/looking-glass");
+const rede_neutra_1 = require("./routes/api/v5/rede_neutra");
+const analise_de_risco_1 = require("./routes/api/v5/analise-de-risco");
+const abertura_OS_1 = require("./routes/api/v5/abertura-OS");
+const agendamento_1 = require("./routes/api/v5/agendamento");
+const painel_logistica_1 = require("./routes/api/v5/painel-logistica");
+const jwt = require("jsonwebtoken");
+process.on('uncaughtException', (error) => {
     console.error('--- ERRO NÃO CAPTURADO (Uncaught Exception) ---');
     console.error(error);
 });
-process.on('unhandledRejection', function (reason, promise) {
+process.on('unhandledRejection', (reason, promise) => {
     console.error('--- REJEIÇÃO DE PROMISE NÃO CAPTURADA (Unhandled Rejection) ---');
     console.error('Razão:', reason);
 });
-var APP = Express();
+const APP = Express();
 // =======================================================
 // --- CONFIGURAÇÃO DOS MIDDLEWARES DE SEGURANÇA ---
 // =======================================================
@@ -96,7 +69,7 @@ APP.use((0, helmet_1.default)({
         },
     },
 }));
-var limiter = (0, express_rate_limit_1.default)({
+const limiter = (0, express_rate_limit_1.default)({
     windowMs: 15 * 60 * 1000,
     max: 300000,
     standardHeaders: true,
@@ -136,11 +109,11 @@ const isApiAuthenticated = (req: express.Request, res: express.Response, next: e
     }
 };
 */
-var protectApi = function (req, res, next) {
-    var authHeader = req.headers['authorization'];
-    var token = authHeader && authHeader.split(' ')[1];
+const protectApi = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
     if (token) {
-        jwt.verify(token, process.env.JWT_SECRET, function (err, user) {
+        jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
             if (err) {
                 return res.status(403).json({ error: 'Token inválido ou expirado.' });
             }
@@ -157,9 +130,9 @@ var protectApi = function (req, res, next) {
         });
     }
 };
-var protectRoutes = function (req, res, next) {
-    var group = req.session.group;
-    var requestedUrl = req.originalUrl;
+const protectRoutes = (req, res, next) => {
+    const group = req.session.group;
+    const requestedUrl = req.originalUrl;
     if (!group) {
         return res.redirect('/');
     }
@@ -174,222 +147,193 @@ var protectRoutes = function (req, res, next) {
 // =======================================================
 // --- CONFIGURAÇÃO DO ACTIVE DIRECTORY ---
 // =======================================================
-var config = {
+const config = {
     url: loginConfig_1.config_login.url,
     baseDN: loginConfig_1.config_login.baseDN,
     username: loginConfig_1.config_login.username,
     password: loginConfig_1.config_login.password
 };
-var ad = new ActiveDirectory(config);
+const ad = new ActiveDirectory(config);
 // ======================= PERMISSÕES ======================
-var PERMISSOES_SISTEMA = {
-    'card-Avisos': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Logistica', 'Qualidade'],
-    'card-viabilidade-intervip': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Logistica', 'Qualidade', 'villaggionet', 'ultracom', 'seliga', 'nv7', 'nwt', 'netplanety', 'infinity', 'inova.telecom', 'conectmais', 'conectja', 'RedeNeutra'],
-    'card-clientes-online': ['NOC', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Logistica', 'Qualidade'],
-    'card-lead-Venda': ['NOC', 'Comercial', 'Corporativo', 'Diretoria', 'Financeiro', 'Helpdesk', 'CRI', 'Qualidade'],
-    'card-cadastro-de-vendas': ['NOC', 'Comercial', 'Corporativo', 'Diretoria', 'Financeiro', 'Helpdesk', 'CRI', 'Qualidade'],
-    'card-equipamentos': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Logistica', 'Qualidade', 'TecnicoFibra', 'TecnicoLogistica'],
-    'card-teste-de-lentidao': ['NOC', 'Corporativo', 'Diretoria', 'Financeiro', 'Helpdesk', 'CRI', 'Qualidade'],
-    'card-problemas-com-VPN': ['NOC', 'Corporativo', 'Diretoria', 'Financeiro', 'Helpdesk', 'CRI', 'Qualidade'],
-    'card-problemas-sites-e-APP': ['NOC', 'Corporativo', 'Diretoria', 'Financeiro', 'Helpdesk', 'CRI', 'Qualidade'],
-    'card-pedidos-linha-telefonica': ['NOC', 'Corporativo', 'Diretoria', 'Financeiro', 'Helpdesk', 'CRI', 'Qualidade'],
-    'card-pedidos-linha-telefonica-URA': ['NOC', 'Corporativo', 'Diretoria', 'Financeiro', 'Helpdesk', 'CRI', 'Qualidade'],
-    'card-problemas-linha-telefonica': ['NOC', 'Corporativo', 'Diretoria', 'Financeiro', 'Helpdesk', 'CRI', 'Qualidade'],
-    'card-e-mails': ['NOC', 'Diretoria'],
-    'card-migra-onu': ['NOC', 'Diretoria'],
-    'card-cadastro-de-blocos': ['NOC', 'Diretoria'],
-    'card-soc-report': ['NOC', 'Diretoria'],
-    'card-monitoramento-de-falhas': ['NOC', 'Diretoria'],
-    'card-looking-glass': ['NOC', 'Diretoria'],
-    'card-analise-de-risco': ['NOC', 'TecnicoFibra', 'TecnicoLogistica', 'Fibra', 'Logistica', 'Diretoria'],
-    'card-abertura-OS': ['NOC'],
-    'card-agendamento': ['NOC'],
-    'card-painel-logistica': ['NOC'],
-    'card-cadastro-bandaLarga': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'Diretoria', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Logistica', 'Qualidade'],
-    'card-cadastro-corporativo': ['NOC', 'Corporativo', 'Diretoria', 'Financeiro'],
-    'card-cadastro-redeNeutra': ['NOC', 'conectmais', 'conectja', 'seliga', 'nv7', 'netplanety'],
-    'card-demo-redeNeutra': ['NOC'],
+const PERMISSOES_SISTEMA = {
+    'card-Avisos': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'ADMIN', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Logistica', 'Qualidade'],
+    'card-viabilidade-intervip': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'ADMIN', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Logistica', 'Qualidade', 'villaggionet', 'ultracom', 'seliga', 'nv7', 'nwt', 'netplanety', 'infinity', 'inova.telecom', 'conectmais', 'conectja', 'supernet', 'RedeNeutra'],
+    'card-clientes-online': ['NOC', 'Almoxarifado', 'Corporativo', 'ADMIN', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Logistica', 'Qualidade'],
+    'card-lead-Venda': ['NOC', 'Comercial', 'Corporativo', 'ADMIN', 'Financeiro', 'Helpdesk', 'CRI', 'Qualidade'],
+    'card-cadastro-de-vendas': ['NOC', 'Comercial', 'Corporativo', 'ADMIN', 'Financeiro', 'Helpdesk', 'CRI', 'Qualidade'],
+    'card-equipamentos': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'ADMIN', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Logistica', 'Qualidade', 'TecnicoFibra', 'TecnicoLogistica'],
+    'card-teste-de-lentidao': ['NOC', 'Corporativo', 'ADMIN', 'Financeiro', 'Helpdesk', 'CRI', 'Qualidade'],
+    'card-problemas-com-VPN': ['NOC', 'Corporativo', 'ADMIN', 'Financeiro', 'Helpdesk', 'CRI', 'Qualidade'],
+    'card-problemas-sites-e-APP': ['NOC', 'Corporativo', 'ADMIN', 'Financeiro', 'Helpdesk', 'CRI', 'Qualidade'],
+    'card-pedidos-linha-telefonica': ['NOC', 'Corporativo', 'ADMIN', 'Financeiro', 'Helpdesk', 'CRI', 'Qualidade'],
+    'card-pedidos-linha-telefonica-URA': ['NOC', 'Corporativo', 'ADMIN', 'Financeiro', 'Helpdesk', 'CRI', 'Qualidade'],
+    'card-problemas-linha-telefonica': ['NOC', 'Corporativo', 'ADMIN', 'Financeiro', 'Helpdesk', 'CRI', 'Qualidade'],
+    'card-e-mails': ['NOC', 'ADMIN'],
+    'card-migra-onu': ['NOC', 'ADMIN'],
+    'card-cadastro-de-blocos': ['NOC', 'ADMIN'],
+    'card-soc-report': ['NOC', 'ADMIN'],
+    'card-monitoramento-de-falhas': ['NOC', 'ADMIN'],
+    'card-looking-glass': ['NOC', 'ADMIN'],
+    'card-analise-de-risco': ['NOC', 'TecnicoFibra', 'TecnicoLogistica', 'Fibra', 'Logistica', 'ADMIN'],
+    'card-abertura-OS': ['NOC', 'Fibra', 'Logistica', 'ADMIN'],
+    'card-agendamento': ['NOC', 'Fibra', 'Logistica', 'ADMIN'],
+    'card-painel-logistica': ['NOC', 'Fibra', 'Logistica', 'ADMIN'],
+    'card-cadastro-bandaLarga': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'ADMIN', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Logistica', 'Qualidade'],
+    'card-cadastro-corporativo': ['NOC', 'Corporativo', 'ADMIN', 'Financeiro'],
+    'card-cadastro-redeNeutra': ['NOC', 'conectmais', 'conectja', 'seliga', 'nv7', 'netplanety', 'villaggionet', 'supernet', 'Corporativo', 'Financeiro', 'ADMIN'],
+    'card-demo-redeNeutra': ['NOC', 'ADMIN'],
 };
-APP.get('/api/permissoes-usuario', function (req, res) {
-    var userGroup = req.session.group || 'Sem grupo';
-    var acessosPermitidos = Object.keys(PERMISSOES_SISTEMA).filter(function (id) {
-        return PERMISSOES_SISTEMA[id].includes(userGroup) || userGroup === 'Diretoria';
+APP.get('/api/permissoes-usuario', (req, res) => {
+    const userGroup = req.session.group || 'Sem grupo';
+    const acessosPermitidos = Object.keys(PERMISSOES_SISTEMA).filter(id => {
+        return PERMISSOES_SISTEMA[id].includes(userGroup) || userGroup === 'ADMIN';
     });
     res.json({ idsPermitidos: acessosPermitidos });
 });
 function verificarAcessoPagina(pagina) {
-    return function (req, res, next) {
-        var userGroup = req.session.group || 'Sem grupo';
-        var permissao = PERMISSOES_SISTEMA["card-".concat(pagina)];
-        if (userGroup === 'Diretoria' || (permissao && permissao.includes(userGroup))) {
+    return (req, res, next) => {
+        const userGroup = req.session.group || 'Sem grupo';
+        const permissao = PERMISSOES_SISTEMA[`card-${pagina}`];
+        if (userGroup === 'ADMIN' || (permissao && permissao.includes(userGroup))) {
             return next();
         }
         res.redirect('/main');
     };
 }
-APP.get('/viabilidade-intervip', verificarAcessoPagina('viabilidade-intervip'), function (req, res) {
+APP.get('/viabilidade-intervip', verificarAcessoPagina('viabilidade-intervip'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'viabilidade-intervip.html'));
 });
-APP.get('/clientes-online', verificarAcessoPagina('clientes-online'), function (req, res) {
+APP.get('/clientes-online', verificarAcessoPagina('clientes-online'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'clientes-online.html'));
 });
-APP.get('/lead-Venda', verificarAcessoPagina('lead-Venda'), function (req, res) {
+APP.get('/lead-Venda', verificarAcessoPagina('lead-Venda'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'lead-Venda.html'));
 });
-APP.get('/cadastro-de-vendas', verificarAcessoPagina('cadastro-de-vendas'), function (req, res) {
+APP.get('/cadastro-de-vendas', verificarAcessoPagina('cadastro-de-vendas'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'cadastro-de-vendas.html'));
 });
-APP.get('/equipamentos', verificarAcessoPagina('equipamentos'), function (req, res) {
+APP.get('/equipamentos', verificarAcessoPagina('equipamentos'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'equipamentos.html'));
 });
-APP.get('/teste-de-lentidao', verificarAcessoPagina('teste-de-lentidao'), function (req, res) {
+APP.get('/teste-de-lentidao', verificarAcessoPagina('teste-de-lentidao'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'teste-de-lentidao.html'));
 });
-APP.get('/problemas-com-VPN', verificarAcessoPagina('problemas-com-VPN'), function (req, res) {
+APP.get('/problemas-com-VPN', verificarAcessoPagina('problemas-com-VPN'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'problemas-com-VPN.html'));
 });
-APP.get('/problemas-sites-e-APP', verificarAcessoPagina('problemas-sites-e-APP'), function (req, res) {
+APP.get('/problemas-sites-e-APP', verificarAcessoPagina('problemas-sites-e-APP'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'problemas-sites-e-APP.html'));
 });
-APP.get('/pedidos-linha-telefonica', verificarAcessoPagina('pedidos-linha-telefonica'), function (req, res) {
+APP.get('/pedidos-linha-telefonica', verificarAcessoPagina('pedidos-linha-telefonica'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'pedidos-linha-telefonica.html'));
 });
-APP.get('/pedidos-linha-telefonica-URA', verificarAcessoPagina('pedidos-linha-telefonica-URA'), function (req, res) {
+APP.get('/pedidos-linha-telefonica-URA', verificarAcessoPagina('pedidos-linha-telefonica-URA'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'pedidos-linha-telefonica-URA.html'));
 });
-APP.get('/problemas-linha-telefonica', verificarAcessoPagina('problemas-linha-telefonica'), function (req, res) {
+APP.get('/problemas-linha-telefonica', verificarAcessoPagina('problemas-linha-telefonica'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'problemas-linha-telefonica.html'));
 });
-APP.get('/e-mails', verificarAcessoPagina('e-mails'), function (req, res) {
+APP.get('/e-mails', verificarAcessoPagina('e-mails'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'e-mails.html'));
 });
-APP.get('/migra-onu', verificarAcessoPagina('migra-onu'), function (req, res) {
+APP.get('/migra-onu', verificarAcessoPagina('migra-onu'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'migra-onu.html'));
 });
-APP.get('/cadastro-de-blocos', verificarAcessoPagina('cadastro-de-blocos'), function (req, res) {
+APP.get('/cadastro-de-blocos', verificarAcessoPagina('cadastro-de-blocos'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'cadastro-de-blocos.html'));
 });
-APP.get('/soc-report', verificarAcessoPagina('soc-report'), function (req, res) {
+APP.get('/soc-report', verificarAcessoPagina('soc-report'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'soc-report.html'));
 });
-APP.get('/monitoramento-de-falhas', verificarAcessoPagina('monitoramento-de-falhas'), function (req, res) {
+APP.get('/monitoramento-de-falhas', verificarAcessoPagina('monitoramento-de-falhas'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'monitoramento-de-falhas.html'));
 });
-APP.get('/looking-glass', verificarAcessoPagina('looking-glass'), function (req, res) {
+APP.get('/looking-glass', verificarAcessoPagina('looking-glass'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'looking-glass.html'));
 });
-APP.get('/analise-de-risco', verificarAcessoPagina('analise-de-risco'), function (req, res) {
+APP.get('/analise-de-risco', verificarAcessoPagina('analise-de-risco'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'analise-de-risco.html'));
 });
-APP.get('/abertura-OS', verificarAcessoPagina('abertura-OS'), function (req, res) {
+APP.get('/abertura-OS', verificarAcessoPagina('abertura-OS'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'abertura-OS.html'));
 });
-APP.get('/agendamento', verificarAcessoPagina('agendamento'), function (req, res) {
+APP.get('/agendamento', verificarAcessoPagina('agendamento'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'agendamento.html'));
 });
-APP.get('/painel-logistica', verificarAcessoPagina('painel-logistica'), function (req, res) {
+APP.get('/painel-logistica', verificarAcessoPagina('painel-logistica'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'painel-logistica.html'));
 });
-APP.get('/cadastro-bandaLarga', verificarAcessoPagina('cadastro-bandaLarga'), function (req, res) {
+APP.get('/cadastro-bandaLarga', verificarAcessoPagina('cadastro-bandaLarga'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'cadastro-bandaLarga.html'));
 });
-APP.get('/cadastro-corporativo', verificarAcessoPagina('cadastro-corporativo'), function (req, res) {
+APP.get('/cadastro-corporativo', verificarAcessoPagina('cadastro-corporativo'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'cadastro-corporativo.html'));
 });
-APP.get('/cadastro-redeNeutra', verificarAcessoPagina('cadastro-redeNeutra'), function (req, res) {
+APP.get('/cadastro-redeNeutra', verificarAcessoPagina('cadastro-redeNeutra'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'cadastro-redeNeutra.html'));
 });
-APP.get('/demo-redeNeutra', verificarAcessoPagina('demo-redeNeutra'), function (req, res) {
+APP.get('/demo-redeNeutra', verificarAcessoPagina('demo-redeNeutra'), (req, res) => {
     res.sendFile(Path.join(__dirname, 'views', 'demo-redeNeutra.html'));
 });
 // ======================= USERLOGIN ======================
-APP.post('/login', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var _a, username, password, userPrincipalName;
-    return __generator(this, function (_b) {
-        _a = req.body, username = _a.username, password = _a.password;
-        userPrincipalName = "".concat(username, "@ivp.net.br");
-        ad.authenticate(userPrincipalName, password, function (err, auth) { return __awaiter(void 0, void 0, void 0, function () {
-            var usuarioLocal, senhaValida, ixcErr_1, dbErr_1;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        if (!auth) return [3 /*break*/, 1];
-                        ad.findUser(userPrincipalName, function (err, user) { return __awaiter(void 0, void 0, void 0, function () {
-                            var group, textUserGroup, userGroupRegex, userGroupMatch, dbErr_2;
-                            return __generator(this, function (_a) {
-                                switch (_a.label) {
-                                    case 0:
-                                        if (err || !user)
-                                            return [2 /*return*/, res.json({ success: false, message: 'Erro ao obter detalhes do AD' })];
-                                        group = 'Comum';
-                                        textUserGroup = user.distinguishedName;
-                                        userGroupRegex = new RegExp('OU=([^,]+)');
-                                        userGroupMatch = userGroupRegex.exec(textUserGroup);
-                                        group = userGroupMatch && userGroupMatch[1] === 'Helpdesk'
-                                            ? 'CRI'
-                                            : (userGroupMatch ? userGroupMatch[1] : 'Sem grupo');
-                                        _a.label = 1;
-                                    case 1:
-                                        _a.trys.push([1, 4, , 5]);
-                                        return [4 /*yield*/, usuariosConfig_1.UsuariosDB.sincronizarUsuarioAD(user.displayName || username, username, password, group)];
-                                    case 2:
-                                        _a.sent();
-                                        return [4 /*yield*/, usuariosConfig_1.UsuariosDB.sincronizarIXC(username)];
-                                    case 3:
-                                        _a.sent();
-                                        return [3 /*break*/, 5];
-                                    case 4:
-                                        dbErr_2 = _a.sent();
-                                        console.error("Erro na sincronização AD/IXC:", dbErr_2);
-                                        return [3 /*break*/, 5];
-                                    case 5: return [2 /*return*/, gerarSessaoEToken(req, res, username, group)];
-                                }
-                            });
-                        }); });
-                        return [3 /*break*/, 10];
-                    case 1:
-                        _a.trys.push([1, 9, , 10]);
-                        return [4 /*yield*/, usuariosConfig_1.UsuariosDB.buscarPorUsuario(username)];
-                    case 2:
-                        usuarioLocal = _a.sent();
-                        if (!usuarioLocal) return [3 /*break*/, 8];
-                        return [4 /*yield*/, bcrypt.compare(password, usuarioLocal.senha)];
-                    case 3:
-                        senhaValida = _a.sent();
-                        if (!senhaValida) return [3 /*break*/, 8];
-                        _a.label = 4;
-                    case 4:
-                        _a.trys.push([4, 6, , 7]);
-                        return [4 /*yield*/, usuariosConfig_1.UsuariosDB.sincronizarIXC(usuarioLocal.usuario)];
-                    case 5:
-                        _a.sent();
-                        return [3 /*break*/, 7];
-                    case 6:
-                        ixcErr_1 = _a.sent();
-                        console.error("Erro na sincronização com IXC (Local):", ixcErr_1);
-                        return [3 /*break*/, 7];
-                    case 7: return [2 /*return*/, gerarSessaoEToken(req, res, usuarioLocal.usuario, usuarioLocal.grupo)];
-                    case 8: return [2 /*return*/, res.json({ success: false, message: 'Usuário ou senha inválidos' })];
-                    case 9:
-                        dbErr_1 = _a.sent();
-                        return [2 /*return*/, res.json({ success: false, message: 'Erro no banco local' })];
-                    case 10: return [2 /*return*/];
+APP.post('/login', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { username, password } = req.body;
+    const userPrincipalName = `${username}@ivp.net.br`;
+    ad.authenticate(userPrincipalName, password, (err, auth) => __awaiter(void 0, void 0, void 0, function* () {
+        if (auth) {
+            ad.findUser(userPrincipalName, (err, user) => __awaiter(void 0, void 0, void 0, function* () {
+                if (err || !user)
+                    return res.json({ success: false, message: 'Erro ao obter detalhes do AD' });
+                let group = 'Comum';
+                const textUserGroup = user.distinguishedName;
+                const userGroupRegex = new RegExp('OU=([^,]+)');
+                const userGroupMatch = userGroupRegex.exec(textUserGroup);
+                group = userGroupMatch && userGroupMatch[1] === 'Helpdesk'
+                    ? 'CRI'
+                    : (userGroupMatch ? userGroupMatch[1] : 'Sem grupo');
+                try {
+                    yield usuariosConfig_1.UsuariosDB.sincronizarUsuarioAD(user.displayName || username, username, password, group);
+                    yield usuariosConfig_1.UsuariosDB.sincronizarIXC(username);
                 }
-            });
-        }); });
-        return [2 /*return*/];
-    });
-}); });
+                catch (dbErr) {
+                    console.error("Erro na sincronização AD/IXC:", dbErr);
+                }
+                return gerarSessaoEToken(req, res, username, group);
+            }));
+        }
+        else {
+            try {
+                const usuarioLocal = yield usuariosConfig_1.UsuariosDB.buscarPorUsuario(username);
+                if (usuarioLocal) {
+                    const senhaValida = yield bcrypt.compare(password, usuarioLocal.senha);
+                    if (senhaValida) {
+                        try {
+                            yield usuariosConfig_1.UsuariosDB.sincronizarIXC(usuarioLocal.usuario);
+                        }
+                        catch (ixcErr) {
+                            console.error("Erro na sincronização com IXC (Local):", ixcErr);
+                        }
+                        return gerarSessaoEToken(req, res, usuarioLocal.usuario, usuarioLocal.grupo);
+                    }
+                }
+                return res.json({ success: false, message: 'Usuário ou senha inválidos' });
+            }
+            catch (dbErr) {
+                return res.json({ success: false, message: 'Erro no banco local' });
+            }
+        }
+    }));
+}));
 function gerarSessaoEToken(req, res, username, group) {
     req.session.username = username;
     req.session.group = group;
-    var gruposParceiros = [
-        'villaggionet', 'ultracom', 'seliga', 'infinity', 'inova.telecom', 'RedeNeutra'
+    const gruposParceiros = [
+        'ultracom', 'seliga', 'infinity', 'inova.telecom', 'RedeNeutra'
     ];
-    var redirectUrl = gruposParceiros.includes(group) ? '/viabilidade-intervip' : '/main';
+    let redirectUrl = gruposParceiros.includes(group) ? '/viabilidade-intervip' : '/main';
     //let redirectUrl = gruposParceiros.includes(group) ? '/viabilidade-intervip' : '/main';
-    var payload = { username: username, group: group };
-    var token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '8h' });
+    const payload = { username, group };
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '8h' });
     return res.json({
         success: true,
         redirectUrl: redirectUrl,
@@ -397,8 +341,8 @@ function gerarSessaoEToken(req, res, username, group) {
         token: token
     });
 }
-APP.get('/logout', function (req, res) {
-    req.session.destroy(function (err) {
+APP.get('/logout', (req, res) => {
+    req.session.destroy((err) => {
         if (err) {
             console.error("Erro ao fazer logout:", err);
             return res.redirect('/main');
@@ -434,14 +378,14 @@ APP.use('/api/v5/analise-de-risco', protectApi, analise_de_risco_1.default);
 APP.use('/api/v5/abertura-OS', protectApi, abertura_OS_1.default);
 APP.use('/api/v5/agendamento', protectApi, agendamento_1.default);
 APP.use('/api/v5/painel-logistica', protectApi, painel_logistica_1.default);
-APP.get('/api/username', protectApi, function (req, res) {
+APP.get('/api/username', protectApi, (req, res) => {
     if (req.user) {
         return res.json({ username: req.user.username, group: req.user.group });
     }
     else {
-        var username = req.session.username || 'Visitante';
-        var group = req.session.group || 'Sem grupo';
-        return res.json({ username: username, group: group });
+        const username = req.session.username || 'Visitante';
+        const group = req.session.group || 'Sem grupo';
+        return res.json({ username, group });
     }
 });
 // ======================================================
@@ -477,31 +421,31 @@ APP.use('/pedidos-linha-telefonica-URA', protectRoutes, index_1.default);
 // =======================================================
 // --- ROTINAS INTERNAS E SERVIÇOS ESTÁTICOS ---
 // =======================================================
-var initializeMarkdownFiles = function () {
-    var files = [
+const initializeMarkdownFiles = () => {
+    const files = [
         { path: observacoesPath, defaultContent: '' },
         { path: escalaSobreAvisoPath, defaultContent: '' },
         { path: localEmFalhaPath, defaultContent: '' }
     ];
-    files.forEach(function (file) {
+    files.forEach(file => {
         if (!fs.existsSync(file.path)) {
             fs.writeFileSync(file.path, file.defaultContent, 'utf8');
-            console.log("Arquivo ".concat(file.path, " criado com sucesso."));
+            console.log(`Arquivo ${file.path} criado com sucesso.`);
         }
     });
 };
-var observacoesPath = Path.join(__dirname, 'public/savedFiles/observacoes.md');
-APP.get('/api/observacoes', function (req, res) {
-    fs.readFile(observacoesPath, 'utf8', function (err, data) {
+const observacoesPath = Path.join(__dirname, 'public/savedFiles/observacoes.md');
+APP.get('/api/observacoes', (req, res) => {
+    fs.readFile(observacoesPath, 'utf8', (err, data) => {
         if (err) {
             if (err.code === 'ENOENT') {
-                var defaultContent_1 = '';
-                fs.writeFile(observacoesPath, defaultContent_1, 'utf8', function (err) {
+                const defaultContent = '';
+                fs.writeFile(observacoesPath, defaultContent, 'utf8', (err) => {
                     if (err) {
                         console.error('Erro ao criar arquivo de observações:', err);
                         return res.status(500).json({ error: 'Erro ao criar arquivo' });
                     }
-                    return res.json({ observacoes: defaultContent_1 });
+                    return res.json({ observacoes: defaultContent });
                 });
             }
             else {
@@ -510,23 +454,23 @@ APP.get('/api/observacoes', function (req, res) {
             }
         }
         else {
-            var content = data;
+            let content = data;
             if (!content.startsWith('#') && content.trim() !== '') {
-                content = "".concat(content);
+                content = `${content}`;
             }
             res.json({ observacoes: content });
         }
     });
 });
-APP.post('/api/salvar-observacoes', function (req, res) {
-    var observacoes = req.body.observacoes;
+APP.post('/api/salvar-observacoes', (req, res) => {
+    const { observacoes } = req.body;
     if (observacoes) {
-        var contentToSave = observacoes;
+        let contentToSave = observacoes;
         if (!contentToSave.startsWith('#')) {
             contentToSave = '' + contentToSave;
         }
         contentToSave = contentToSave.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n');
-        fs.writeFile(observacoesPath, contentToSave, 'utf8', function (err) {
+        fs.writeFile(observacoesPath, contentToSave, 'utf8', (err) => {
             if (err) {
                 console.error('Erro ao salvar as observações:', err);
                 return res.status(500).send('Erro ao salvar observações');
@@ -538,18 +482,18 @@ APP.post('/api/salvar-observacoes', function (req, res) {
         res.status(400).send('Observações inválidas');
     }
 });
-var escalaSobreAvisoPath = Path.join(__dirname, 'public/savedFiles/escalaSobreAviso.md');
-APP.get('/api/escalaSobreAviso', function (req, res) {
-    fs.readFile(escalaSobreAvisoPath, 'utf8', function (err, data) {
+const escalaSobreAvisoPath = Path.join(__dirname, 'public/savedFiles/escalaSobreAviso.md');
+APP.get('/api/escalaSobreAviso', (req, res) => {
+    fs.readFile(escalaSobreAvisoPath, 'utf8', (err, data) => {
         if (err) {
             if (err.code === 'ENOENT') {
-                var defaultContent_2 = '';
-                fs.writeFile(escalaSobreAvisoPath, defaultContent_2, 'utf8', function (err) {
+                const defaultContent = '';
+                fs.writeFile(escalaSobreAvisoPath, defaultContent, 'utf8', (err) => {
                     if (err) {
                         console.error('Erro ao criar arquivo de escalaSobreAviso:', err);
                         return res.status(500).json({ error: 'Erro ao criar arquivo' });
                     }
-                    return res.json({ escalaSobreAviso: defaultContent_2 });
+                    return res.json({ escalaSobreAviso: defaultContent });
                 });
             }
             else {
@@ -562,15 +506,15 @@ APP.get('/api/escalaSobreAviso', function (req, res) {
         }
     });
 });
-APP.post('/api/salvar-escalaSobreAviso', function (req, res) {
-    var escalaSobreAviso = req.body.escalaSobreAviso;
+APP.post('/api/salvar-escalaSobreAviso', (req, res) => {
+    const { escalaSobreAviso } = req.body;
     if (escalaSobreAviso) {
-        var contentToSave = escalaSobreAviso;
+        let contentToSave = escalaSobreAviso;
         if (!contentToSave.startsWith('#')) {
             contentToSave = '' + contentToSave;
         }
         contentToSave = contentToSave.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n');
-        fs.writeFile(escalaSobreAvisoPath, contentToSave, 'utf8', function (err) {
+        fs.writeFile(escalaSobreAvisoPath, contentToSave, 'utf8', (err) => {
             if (err) {
                 console.error('Erro ao salvar as EscalaSobreAviso:', err);
                 return res.status(500).send('Erro ao salvar EscalaSobreAviso');
@@ -582,18 +526,18 @@ APP.post('/api/salvar-escalaSobreAviso', function (req, res) {
         res.status(400).send('EscalaSobreAviso inválidas');
     }
 });
-var localEmFalhaPath = Path.join(__dirname, 'public/savedFiles/localEmFalha.md');
-APP.get('/api/localEmFalha', function (req, res) {
-    fs.readFile(localEmFalhaPath, 'utf8', function (err, data) {
+const localEmFalhaPath = Path.join(__dirname, 'public/savedFiles/localEmFalha.md');
+APP.get('/api/localEmFalha', (req, res) => {
+    fs.readFile(localEmFalhaPath, 'utf8', (err, data) => {
         if (err) {
             if (err.code === 'ENOENT') {
-                var defaultContent_3 = '';
-                fs.writeFile(localEmFalhaPath, defaultContent_3, 'utf8', function (err) {
+                const defaultContent = '';
+                fs.writeFile(localEmFalhaPath, defaultContent, 'utf8', (err) => {
                     if (err) {
                         console.error('Erro ao criar arquivo de localEmFalha:', err);
                         return res.status(500).json({ error: 'Erro ao criar arquivo' });
                     }
-                    return res.json({ localEmFalha: defaultContent_3 });
+                    return res.json({ localEmFalha: defaultContent });
                 });
             }
             else {
@@ -606,15 +550,15 @@ APP.get('/api/localEmFalha', function (req, res) {
         }
     });
 });
-APP.post('/api/salvar-localEmFalha', function (req, res) {
-    var localEmFalha = req.body.localEmFalha;
+APP.post('/api/salvar-localEmFalha', (req, res) => {
+    const { localEmFalha } = req.body;
     if (localEmFalha) {
-        var contentToSave = localEmFalha;
+        let contentToSave = localEmFalha;
         if (!contentToSave.startsWith('#')) {
             contentToSave = '' + contentToSave;
         }
         contentToSave = contentToSave.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n');
-        fs.writeFile(localEmFalhaPath, contentToSave, 'utf8', function (err) {
+        fs.writeFile(localEmFalhaPath, contentToSave, 'utf8', (err) => {
             if (err) {
                 console.error('Erro ao salvar as localEmFalha:', err);
                 return res.status(500).send('Erro ao salvar localEmFalha');
@@ -626,9 +570,9 @@ APP.post('/api/salvar-localEmFalha', function (req, res) {
         res.status(400).send('localEmFalha inválidas');
     }
 });
-var autorizaONUPath = Path.join(__dirname, 'public/scriptsPy/migraOnus/src/autorizaONU.txt');
-APP.get('/api/autorizaONU', function (req, res) {
-    fs.readFile(autorizaONUPath, 'utf8', function (err, data) {
+const autorizaONUPath = Path.join(__dirname, 'public/scriptsPy/migraOnus/src/autorizaONU.txt');
+APP.get('/api/autorizaONU', (req, res) => {
+    fs.readFile(autorizaONUPath, 'utf8', (err, data) => {
         if (err) {
             console.error('Erro ao ler o arquivo de autorizaONU.txt:', err);
             return res.status(500).json({ error: 'Erro ao carregar autorizaONU.txt' });
@@ -636,9 +580,9 @@ APP.get('/api/autorizaONU', function (req, res) {
         res.json({ autorizaONU: data });
     });
 });
-var autorizaONUExcecaoPath = Path.join(__dirname, 'public/scriptsPy/migraOnus/src/autorizaONUExcecao.txt');
-APP.get('/api/autorizaONUExcecao', function (req, res) {
-    fs.readFile(autorizaONUExcecaoPath, 'utf8', function (err, data) {
+const autorizaONUExcecaoPath = Path.join(__dirname, 'public/scriptsPy/migraOnus/src/autorizaONUExcecao.txt');
+APP.get('/api/autorizaONUExcecao', (req, res) => {
+    fs.readFile(autorizaONUExcecaoPath, 'utf8', (err, data) => {
         if (err) {
             console.error('Erro ao ler o arquivo de autorizaONUExcecao.txt:', err);
             return res.status(500).json({ error: 'Erro ao carregar autorizaONUExcecao.txt' });
@@ -646,9 +590,9 @@ APP.get('/api/autorizaONUExcecao', function (req, res) {
         res.json({ autorizaONUExcecao: data });
     });
 });
-var ontDeletePath = Path.join(__dirname, 'public/scriptsPy/migraOnus/src/ontDelete.txt');
-APP.get('/api/ontDelete', function (req, res) {
-    fs.readFile(ontDeletePath, 'utf8', function (err, data) {
+const ontDeletePath = Path.join(__dirname, 'public/scriptsPy/migraOnus/src/ontDelete.txt');
+APP.get('/api/ontDelete', (req, res) => {
+    fs.readFile(ontDeletePath, 'utf8', (err, data) => {
         if (err) {
             console.error('Erro ao ler o arquivo de ontDelete.txt:', err);
             return res.status(500).json({ error: 'Erro ao carregar ontDelete.txt' });
@@ -656,9 +600,9 @@ APP.get('/api/ontDelete', function (req, res) {
         res.json({ ontDelete: data });
     });
 });
-var ontDeleteExcecaoPath = Path.join(__dirname, 'public/scriptsPy/migraOnus/src/ontDeleteExcecao.txt');
-APP.get('/api/ontDeleteExcecao', function (req, res) {
-    fs.readFile(ontDeleteExcecaoPath, 'utf8', function (err, data) {
+const ontDeleteExcecaoPath = Path.join(__dirname, 'public/scriptsPy/migraOnus/src/ontDeleteExcecao.txt');
+APP.get('/api/ontDeleteExcecao', (req, res) => {
+    fs.readFile(ontDeleteExcecaoPath, 'utf8', (err, data) => {
         if (err) {
             console.error('Erro ao ler o arquivo de ontDeleteExcecao.txt:', err);
             return res.status(500).json({ error: 'Erro ao carregar ontDeleteExcecao.txt' });
@@ -669,12 +613,12 @@ APP.get('/api/ontDeleteExcecao', function (req, res) {
 APP.set('views', Path.join(__dirname, 'views'));
 APP.use(Express.static(Path.join(__dirname, 'public')));
 APP.use(Favicon(Path.join(__dirname, 'public', 'images', 'favicon.ico')));
-APP.use(function (_request, _response, next) {
+APP.use((_request, _response, next) => {
     var e = new Error('Not Found');
     e['status'] = 404;
     next(e);
 });
-APP.use(function (e, _req, res, _next) {
+APP.use((e, _req, res, _next) => {
     if (e.status == 404) {
         res.status(e.status || 500);
         res.sendFile('not-found.html', { root: 'views' });
@@ -684,7 +628,7 @@ APP.use(function (e, _req, res, _next) {
         res.sendFile('internal-error.html', { root: 'views' });
     }
 });
-var server = APP.listen(8080, '127.0.0.1', function () {
+const server = APP.listen(8080, '127.0.0.1', function () {
     initializeMarkdownFiles();
-    console.log("Express server listening on localhost:".concat(server.address().port));
+    console.log(`Express server listening on localhost:${server.address().port}`);
 });

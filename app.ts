@@ -191,44 +191,44 @@ const ad = new ActiveDirectory(config);
 
 // ======================= PERMISSÕES ======================
 const PERMISSOES_SISTEMA = {
-    'card-Avisos': ['NOC','Comercial','Almoxarifado','Corporativo','Diretoria','Fibra','Financeiro','Helpdesk','CRI','Logistica','Qualidade'],
+    'card-Avisos': ['NOC','Comercial','Almoxarifado','Corporativo','ADMIN','Fibra','Financeiro','Helpdesk','CRI','Logistica','Qualidade'],
     
-    'card-viabilidade-intervip': ['NOC','Comercial','Almoxarifado','Corporativo','Diretoria','Fibra','Financeiro','Helpdesk','CRI','Logistica','Qualidade','villaggionet','ultracom','seliga','nv7','nwt','netplanety','infinity','inova.telecom','conectmais','conectja','supernet','RedeNeutra'],
-    'card-clientes-online': ['NOC','Almoxarifado','Corporativo','Diretoria','Fibra','Financeiro','Helpdesk','CRI','Logistica','Qualidade'],
-    'card-lead-Venda': ['NOC','Comercial','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
-    'card-cadastro-de-vendas': ['NOC','Comercial','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
-    'card-equipamentos': ['NOC','Comercial','Almoxarifado','Corporativo','Diretoria','Fibra','Financeiro','Helpdesk','CRI','Logistica','Qualidade','TecnicoFibra','TecnicoLogistica'],
-    'card-teste-de-lentidao': ['NOC','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
-    'card-problemas-com-VPN': ['NOC','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
-    'card-problemas-sites-e-APP': ['NOC','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
+    'card-viabilidade-intervip': ['NOC','Comercial','Almoxarifado','Corporativo','ADMIN','Fibra','Financeiro','Helpdesk','CRI','Logistica','Qualidade','villaggionet','ultracom','seliga','nv7','nwt','netplanety','infinity','inova.telecom','conectmais','conectja','supernet','RedeNeutra'],
+    'card-clientes-online': ['NOC','Almoxarifado','Corporativo','ADMIN','Fibra','Financeiro','Helpdesk','CRI','Logistica','Qualidade'],
+    'card-lead-Venda': ['NOC','Comercial','Corporativo','ADMIN','Financeiro','Helpdesk','CRI','Qualidade'],
+    'card-cadastro-de-vendas': ['NOC','Comercial','Corporativo','ADMIN','Financeiro','Helpdesk','CRI','Qualidade'],
+    'card-equipamentos': ['NOC','Comercial','Almoxarifado','Corporativo','ADMIN','Fibra','Financeiro','Helpdesk','CRI','Logistica','Qualidade','TecnicoFibra','TecnicoLogistica'],
+    'card-teste-de-lentidao': ['NOC','Corporativo','ADMIN','Financeiro','Helpdesk','CRI','Qualidade'],
+    'card-problemas-com-VPN': ['NOC','Corporativo','ADMIN','Financeiro','Helpdesk','CRI','Qualidade'],
+    'card-problemas-sites-e-APP': ['NOC','Corporativo','ADMIN','Financeiro','Helpdesk','CRI','Qualidade'],
 
-    'card-pedidos-linha-telefonica': ['NOC','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
-    'card-pedidos-linha-telefonica-URA': ['NOC','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
-    'card-problemas-linha-telefonica': ['NOC','Corporativo','Diretoria','Financeiro','Helpdesk','CRI','Qualidade'],
+    'card-pedidos-linha-telefonica': ['NOC','Corporativo','ADMIN','Financeiro','Helpdesk','CRI','Qualidade'],
+    'card-pedidos-linha-telefonica-URA': ['NOC','Corporativo','ADMIN','Financeiro','Helpdesk','CRI','Qualidade'],
+    'card-problemas-linha-telefonica': ['NOC','Corporativo','ADMIN','Financeiro','Helpdesk','CRI','Qualidade'],
 
-    'card-e-mails': ['NOC','Diretoria'],
-    'card-migra-onu': ['NOC','Diretoria'],
-    'card-cadastro-de-blocos': ['NOC','Diretoria'],
-    'card-soc-report': ['NOC','Diretoria'],
-    'card-monitoramento-de-falhas': ['NOC','Diretoria'],
-    'card-looking-glass': ['NOC','Diretoria'],
+    'card-e-mails': ['NOC','ADMIN'],
+    'card-migra-onu': ['NOC','ADMIN'],
+    'card-cadastro-de-blocos': ['NOC','ADMIN'],
+    'card-soc-report': ['NOC','ADMIN'],
+    'card-monitoramento-de-falhas': ['NOC','ADMIN'],
+    'card-looking-glass': ['NOC','ADMIN'],
   
-    'card-analise-de-risco': ['NOC','TecnicoFibra','TecnicoLogistica','Fibra','Logistica','Diretoria'],
-    'card-abertura-OS': ['NOC'],
-    'card-agendamento': ['NOC'],
-    'card-painel-logistica': ['NOC'],
+    'card-analise-de-risco': ['NOC','TecnicoFibra','TecnicoLogistica','Fibra','Logistica','ADMIN'],
+    'card-abertura-OS': ['NOC','Fibra','Logistica','ADMIN'],
+    'card-agendamento': ['NOC','Fibra','Logistica','ADMIN'],
+    'card-painel-logistica': ['NOC','Fibra','Logistica','ADMIN'],
 
-    'card-cadastro-bandaLarga': ['NOC','Comercial','Almoxarifado','Corporativo','Diretoria','Fibra','Financeiro','Helpdesk','CRI','Logistica','Qualidade'],
-    'card-cadastro-corporativo': ['NOC','Corporativo','Diretoria','Financeiro'],
-    'card-cadastro-redeNeutra': ['NOC','conectmais','conectja','seliga','nv7','netplanety','villaggionet','supernet','Corporativo','Financeiro'],
-    'card-demo-redeNeutra': ['NOC'],
+    'card-cadastro-bandaLarga': ['NOC','Comercial','Almoxarifado','Corporativo','ADMIN','Fibra','Financeiro','Helpdesk','CRI','Logistica','Qualidade'],
+    'card-cadastro-corporativo': ['NOC','Corporativo','ADMIN','Financeiro'],
+    'card-cadastro-redeNeutra': ['NOC','conectmais','conectja','seliga','nv7','netplanety','villaggionet','supernet','Corporativo','Financeiro','ADMIN'],
+    'card-demo-redeNeutra': ['NOC','ADMIN'],
 };
 
 APP.get('/api/permissoes-usuario', (req, res) => {
     const userGroup = req.session.group || 'Sem grupo';
     
     const acessosPermitidos = Object.keys(PERMISSOES_SISTEMA).filter(id => {
-        return PERMISSOES_SISTEMA[id].includes(userGroup) || userGroup === 'Diretoria';
+        return PERMISSOES_SISTEMA[id].includes(userGroup) || userGroup === 'ADMIN';
     });
 
     res.json({ idsPermitidos: acessosPermitidos });
@@ -239,7 +239,7 @@ function verificarAcessoPagina(pagina: string) {
         const userGroup = req.session.group || 'Sem grupo';
         const permissao = PERMISSOES_SISTEMA[`card-${pagina}`]; 
 
-        if (userGroup === 'Diretoria' || (permissao && permissao.includes(userGroup))) {
+        if (userGroup === 'ADMIN' || (permissao && permissao.includes(userGroup))) {
             return next();
         }
         res.redirect('/main');
