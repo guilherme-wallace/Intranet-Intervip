@@ -19,16 +19,15 @@
             </div>
             <h1 class="header-title fs-4 fw-semibold text-white m-0">Painel de Logística</h1>
             <div class="d-flex align-items-center">
-                
                 <div class="user-info text-end me-4">
-                    <p class="m-0 small text-white-80">Acessando como: <span class="fw-medium">{username}</span></p>
-                    <p class="m-0 small text-white-80">Setor: <span class="fw-medium">{group}</span></p>
+                    <p class="m-0 small text-white-50">Acessando como: <span class="fw-medium text-white">{username}</span></p>
+                    <p class="m-0 small text-white-50">Setor: <span class="fw-medium text-white">{group}</span></p>
                 </div>
-                <button id="theme-toggle" class="btn btn-sm btn-outline-dark rounded-pill px-3">
+                <button class="btn btn-outline-light btn-sm me-3" id="theme-toggle" title="Alternar Tema Escuro">
                     <i class="bi bi-moon-stars"></i>
                 </button>
-                <button id="btnLogout" class="btn btn-sm btn-outline-danger rounded-pill px-3 ms-2">
-                    <i class="bi bi-box-arrow-right"></i>
+                <button class="btn btn-danger btn-sm" id="btnLogout" title="Sair do Sistema">
+                    <i class="bi bi-box-arrow-right"></i> Sair
                 </button>
             </div>
         </div>
@@ -39,73 +38,155 @@
             <div class="row g-3 align-items-end">
                 <div class="col-md-3">
                     <label class="form-label fw-bold">Data da Agenda</label>
-                    <input type="date" id="filtro-data" class="form-control form-control-lg">
+                    <input type="date" id="filtro-data" class="form-control">
                 </div>
                 <div class="col-md-3">
                     <label class="form-label fw-bold">Município / Região</label>
-                    <select id="filtro-municipio" class="form-select form-select-lg">
+                    <select id="filtro-municipio" class="form-select">
                         <option value="TODOS">Todas as Regiões</option>
                         <option value="SERRA">Serra</option>
                         <option value="VILA VELHA">Vila Velha</option>
                         <option value="VITORIA">Vitória</option>
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <button class="btn btn-primary btn-lg w-100" id="btn-carregar-agenda">
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Exibição de Status</label>
+                    <select id="filtro-status" class="form-select">
+                        <option value="OCULTAR_CONCLUIDOS" selected>Ocultar Concluídas</option>
+                        <option value="TODOS">Mostrar Todas</option>
+                        <option value="PENDENTES">Apenas Pendentes</option>
+                        <option value="FALHAS">Apenas Falhas / Reagendar</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-primary w-100" id="btn-carregar-agenda">
                         <i class="bi bi-arrow-clockwise me-2"></i>Carregar
                     </button>
                 </div>
             </div>
         </div>
 
-        <div class="row g-4 flex-nowrap overflow-auto pb-3" id="kanban-board" style="min-height: 60vh;">
-            
-            <div class="col-12 col-md-4 col-lg-3">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h5 class="fw-bold text-danger m-0"><i class="bi bi-inbox-fill me-2"></i>Aguardando</h5>
-                    <span class="badge bg-danger rounded-pill" id="count-aguardando">0</span>
+        <div id="area-admin-logistica" class="mb-3 text-end d-none">
+            <button id="btn-abrir-escala" class="btn btn-outline-primary">
+                <i class="bi bi-people-fill me-2"></i>Gerenciar Técnicos do Dia
+            </button>
+        </div>
+
+        <div class="board-container mt-2" id="kanban-board">
+            <div class="kanban-column">
+                <div class="column-header">
+                    <div class="column-title">
+                        Aguardando Logística <span class="task-count" id="count-aguardando">0</span>
+                    </div>
+                    <i class="bi bi-three-dots text-muted"></i>
                 </div>
-                <div class="kanban-col border border-danger border-opacity-25" id="col-aguardando" data-status="AGUARDANDO_LOGISTICA" ondragover="allowDrop(event)" ondrop="drop(event)">
+                <div class="column-body" id="col-aguardando" data-status="AGUARDANDO_LOGISTICA">
                     </div>
             </div>
-
-            <div class="col-12 col-md-4 col-lg-3">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h5 class="fw-bold text-primary m-0"><i class="bi bi-person-workspace me-2"></i>Wesley</h5>
-                    <span class="badge bg-primary rounded-pill" id="count-tec-1">0</span>
-                </div>
-                <div class="kanban-col border border-primary border-opacity-25" id="col-tec-1" data-tecnico-id="1" ondragover="allowDrop(event)" ondrop="drop(event)">
-                </div>
-            </div>
-
-            <div class="col-12 col-md-4 col-lg-3">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h5 class="fw-bold text-success m-0"><i class="bi bi-person-workspace me-2"></i>Solimar</h5>
-                    <span class="badge bg-success rounded-pill" id="count-tec-2">0</span>
-                </div>
-                <div class="kanban-col border border-success border-opacity-25" id="col-tec-2" data-tecnico-id="2" ondragover="allowDrop(event)" ondrop="drop(event)">
-                </div>
-            </div>
-
-            </div>
+        </div>
     </main>
-    
-    <footer class="ivp-footer">
-         <div class="container-fluid py-3">
-            <div class="text-center">
-                <img src="images/logo.png" alt="Logo Intervip" width="100">
-                <p class="ivp-footer-text">
-                    © 2026 Gerência Intervip | Desenvolvido por 
-                    <a href="https://github.com/guilherme-wallace" target="_blank">Guilherme Wallace</a>
-                </p>
+
+    <div class="modal fade modal-soc-style" id="modalDetalhesOS" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl"> <div class="modal-content">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title fw-bold" id="detalhe-os-titulo">Carregando OS...</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    
+                    <div class="row" id="loading-detalhes-os">
+                        <div class="col-12 text-center py-5">
+                            <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;"></div>
+                            <p class="mt-3 text-muted fw-bold">Consultando banco de dados no IXC...</p>
+                        </div>
+                    </div>
+
+                    <div class="row" id="conteudo-detalhes-os" style="display: none;">
+                        <div class="col-md-8 border-end pe-4">
+                            
+                            <h6 class="text-muted fw-bold small text-uppercase mb-2"><i class="bi bi-person-vcard me-2"></i>Cliente e Serviços</h6>
+                            <p class="mb-1 fw-bold text-dark fs-5" id="det-cliente-nome">---</p>
+                            <p class="mb-3 small text-primary fw-bold"><i class="bi bi-telephone-fill me-1"></i><span id="det-cliente-fone">---</span></p>
+
+                            <div class="d-flex flex-wrap gap-2 mb-4">
+                                <div class="bg-light px-3 py-2 rounded border small fw-medium">
+                                    <i class="bi bi-file-earmark-text text-secondary me-1"></i><span id="det-contrato">---</span>
+                                </div>
+                                <div class="bg-light px-3 py-2 rounded border small fw-medium">
+                                    <i class="bi bi-router text-success me-1"></i><span id="det-login">---</span>
+                                </div>
+                            </div>
+
+                            <h6 class="text-muted fw-bold small text-uppercase mb-2"><i class="bi bi-geo-alt-fill me-2"></i>Endereço Completo</h6>
+                            <p class="mb-1 text-dark fw-medium" id="det-endereco">---</p>
+                            <p class="mb-4 text-muted small"><i class="bi bi-geo me-1"></i>Ref: <span id="det-referencia">---</span></p>
+
+                            <h6 class="text-muted fw-bold small text-uppercase mb-2"><i class="bi bi-clipboard-data me-2"></i>Sintoma / Descrição da O.S.</h6>
+                            <div class="bg-light p-3 rounded border" style="max-height: 200px; overflow-y: auto;">
+                                <p class="mb-0 small fw-medium text-dark" id="det-sintoma" style="white-space: pre-wrap; word-break: break-word;">---</p>
+                            </div>
+
+                        </div>
+                        
+                        <div class="col-md-4 ps-4" id="area-acoes-os">
+                            <h6 class="text-muted fw-bold small text-uppercase mb-3"><i class="bi bi-gear-fill me-2"></i>Ações da Logística</h6>
+                            
+                            <ul class="nav nav-tabs" id="myTab" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active py-2 fw-medium" data-bs-toggle="tab" data-bs-target="#tab-reagendar" type="button">Reagendar</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link py-2 fw-medium text-danger" data-bs-toggle="tab" data-bs-target="#tab-fechar" type="button">Fechar OS</button>
+                                </li>
+                            </ul>
+                            
+                            <div class="tab-content border border-top-0 p-3 rounded-bottom bg-light" id="myTabContent">
+                                <div class="tab-pane fade show active" id="tab-reagendar">
+                                    <input type="hidden" id="action-os-id">
+                                    <input type="hidden" id="action-agenda-local-id">
+                                    <label class="form-label small fw-bold">Nova Data</label>
+                                    <input type="date" class="form-control mb-3" id="action-nova-data">
+                                    <label class="form-label small fw-bold">Novo Turno</label>
+                                    <select class="form-select mb-4" id="action-novo-turno">
+                                        <option value="MATUTINO">Matutino (Manhã)</option>
+                                        <option value="VESPERTINO">Vespertino (Tarde)</option>
+                                    </select>
+                                    <button class="btn btn-warning w-100 fw-bold shadow-sm" id="btn-action-reagendar"><i class="bi bi-calendar-event me-2"></i>Reagendar Visita</button>
+                                </div>
+                                <div class="tab-pane fade" id="tab-fechar">
+                                    <label class="form-label small fw-bold">Mensagem de Fechamento</label>
+                                    <textarea class="form-control mb-4" id="action-msg-fechar" rows="4" placeholder="Descreva a solução do problema..."></textarea>
+                                    <button class="btn btn-danger w-100 fw-bold shadow-sm" id="btn-action-fechar"><i class="bi bi-check-circle-fill me-2"></i>Finalizar OS</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-    </footer>
+    </div>
+
+    <div class="modal fade modal-soc-style" id="modalEscala" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-calendar-week me-2"></i>Escala: <span id="display-data-escala" class="text-primary"></span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">Selecione quais técnicos estarão em campo neste dia.</p>
+                    <div id="lista-checkbox-tecnicos" class="row g-2" style="max-height: 300px; overflow-y: auto;"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-success" id="btn-salvar-escala">Salvar Escala</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="javascripts/jquery.js"></script>
     <script src="javascripts/bootstrap.bundle.min.js"></script>
-    <script src="javascripts/bootstrap-autocomplete.min.js"></script> 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.inputmask/5.0.9/jquery.inputmask.min.js"></script>
     <script src="javascripts/painel-logistica.js"></script>
 </body>
 </html>
