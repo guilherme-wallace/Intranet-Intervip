@@ -8,100 +8,65 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __generator = (this && this.__generator) || function (thisArg, body) {
-    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g;
-    return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
-    function verb(n) { return function (v) { return step([n, v]); }; }
-    function step(op) {
-        if (f) throw new TypeError("Generator is already executing.");
-        while (g && (g = 0, op[0] && (_ = 0)), _) try {
-            if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
-            if (y = 0, t) op = [op[0] & 2, t.value];
-            switch (op[0]) {
-                case 0: case 1: t = op; break;
-                case 4: _.label++; return { value: op[1], done: false };
-                case 5: _.label++; y = op[1]; op = [0]; continue;
-                case 7: op = _.ops.pop(); _.trys.pop(); continue;
-                default:
-                    if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
-                    if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
-                    if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
-                    if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
-                    if (t[2]) _.ops.pop();
-                    _.trys.pop(); continue;
-            }
-            op = body.call(thisArg, _);
-        } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
-        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
-    }
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.postPostalCode = exports.postAddress = exports.getAddress = void 0;
-var ViaCepErrors_1 = require("../../errors/ViaCepErrors");
-var mysql_1 = require("mysql");
-var axios_1 = require("axios");
+const ViaCepErrors_1 = require("../../errors/ViaCepErrors");
+const mysql_1 = require("mysql");
+const axios_1 = require("axios");
 function getAddress(MySQL, addressId) {
-    return __awaiter(this, void 0, void 0, function () {
-        var QUERY;
-        return __generator(this, function (_a) {
-            QUERY = "SELECT * FROM saleAddress JOIN postalCode\n        ON saleAddress.postalCodeId = postalCode.postalCodeId\n        WHERE saleAddress.addressId = ".concat((0, mysql_1.escape)(addressId), ";");
-            return [2 /*return*/, new Promise(function (resolve, reject) {
-                    MySQL.query(QUERY, function (error, response) {
-                        if (error)
-                            return reject(error);
-                        return resolve(response[0]);
-                    });
-                })];
+    return __awaiter(this, void 0, void 0, function* () {
+        const QUERY = `SELECT * FROM saleAddress JOIN postalCode
+        ON saleAddress.postalCodeId = postalCode.postalCodeId
+        WHERE saleAddress.addressId = ${(0, mysql_1.escape)(addressId)};`;
+        return new Promise((resolve, reject) => {
+            MySQL.query(QUERY, (error, response) => {
+                if (error)
+                    return reject(error);
+                return resolve(response[0]);
+            });
         });
     });
 }
 exports.getAddress = getAddress;
 function postAddress(MySQL, address) {
-    return __awaiter(this, void 0, void 0, function () {
-        var QUERY;
-        return __generator(this, function (_a) {
-            QUERY = "INSERT INTO saleAddress (postalCodeId,\n        number, complement) VALUES (".concat((0, mysql_1.escape)(address.postalCodeId), ",\n        ").concat((0, mysql_1.escape)(address.number), ", ").concat((0, mysql_1.escape)(address.complement), ");");
-            return [2 /*return*/, new Promise(function (resolve, reject) {
-                    MySQL.query(QUERY, function (error, response) {
-                        if (error)
-                            return reject(error);
-                        return resolve(response);
-                    });
-                })];
+    return __awaiter(this, void 0, void 0, function* () {
+        const QUERY = `INSERT INTO saleAddress (postalCodeId,
+        number, complement) VALUES (${(0, mysql_1.escape)(address.postalCodeId)},
+        ${(0, mysql_1.escape)(address.number)}, ${(0, mysql_1.escape)(address.complement)});`;
+        return new Promise((resolve, reject) => {
+            MySQL.query(QUERY, (error, response) => {
+                if (error)
+                    return reject(error);
+                return resolve(response);
+            });
         });
     });
 }
 exports.postAddress = postAddress;
 function postPostalCode(MySQL, postalCode) {
-    return __awaiter(this, void 0, void 0, function () {
-        var url, response, postalCodeData, QUERY_1, error_1;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    _a.trys.push([0, 2, , 3]);
-                    url = "https://viacep.com.br/ws/".concat(postalCode, "/json/");
-                    return [4 /*yield*/, axios_1.default.get(url)];
-                case 1:
-                    response = _a.sent();
-                    if (response.data.erro) {
-                        throw new ViaCepErrors_1.ViaCEPNotFoundError("CEP não encontrado");
-                    }
-                    postalCodeData = response.data;
-                    QUERY_1 = "INSERT INTO postalCode (postalCodeId, address, neighbourhood, city, state) VALUES\n            (".concat((0, mysql_1.escape)(postalCodeData.cep.slice(0, 5) + postalCodeData.cep.slice(6)), ", ").concat((0, mysql_1.escape)(postalCodeData.logradouro), ", \n            ").concat((0, mysql_1.escape)(postalCodeData.bairro), ", ").concat((0, mysql_1.escape)(postalCodeData.localidade), ", ").concat((0, mysql_1.escape)(postalCodeData.uf), ");");
-                    return [2 /*return*/, new Promise(function (resolve, reject) {
-                            MySQL.query(QUERY_1, function (error, dbResponse) {
-                                if (error)
-                                    return reject(error);
-                                return resolve(dbResponse);
-                            });
-                        })];
-                case 2:
-                    error_1 = _a.sent();
-                    console.error("Erro ao processar o CEP:", error_1);
-                    throw error_1;
-                case 3: return [2 /*return*/];
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            const url = `https://viacep.com.br/ws/${postalCode}/json/`;
+            const response = yield axios_1.default.get(url);
+            if (response.data.erro) {
+                throw new ViaCepErrors_1.ViaCEPNotFoundError("CEP não encontrado");
             }
-        });
+            const postalCodeData = response.data;
+            const QUERY = `INSERT INTO postalCode (postalCodeId, address, neighbourhood, city, state) VALUES
+            (${(0, mysql_1.escape)(postalCodeData.cep.slice(0, 5) + postalCodeData.cep.slice(6))}, ${(0, mysql_1.escape)(postalCodeData.logradouro)}, 
+            ${(0, mysql_1.escape)(postalCodeData.bairro)}, ${(0, mysql_1.escape)(postalCodeData.localidade)}, ${(0, mysql_1.escape)(postalCodeData.uf)});`;
+            return new Promise((resolve, reject) => {
+                MySQL.query(QUERY, (error, dbResponse) => {
+                    if (error)
+                        return reject(error);
+                    return resolve(dbResponse);
+                });
+            });
+        }
+        catch (error) {
+            console.error("Erro ao processar o CEP:", error);
+            throw error;
+        }
     });
 }
 exports.postPostalCode = postPostalCode;

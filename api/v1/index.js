@@ -1,18 +1,18 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DeleteEquipamento = exports.PutEquipamento = exports.PostEquipamento = exports.GetEquipamentos = exports.GetTiposEquipamento = exports.PostContract = exports.PostPostalCode = exports.PostAddress = exports.GetSalespeople = exports.GetTechnologies = exports.GetResearchAnswers = exports.GetResearch = exports.PostSale = exports.GetSalesperson = exports.GetSalesByContract = exports.GetSalesByClient = exports.GetContracts = exports.GetPlans = exports.GetCondominioAddress = exports.PostCondominio = exports.GetCondominio = exports.GetCondominios = exports.GetClientAuth = exports.GetClient = exports.GetClients = exports.GetStructures = exports.PostViabilitys = exports.PostBlocks = exports.DeleteBlocks = exports.PutBlock = exports.GetBlocks = exports.GetTypes = void 0;
-var Salespeople = require("./salesperson");
-var Technologies = require("./technology");
-var Viabilitys = require("./viability");
-var Researches = require("./research");
-var Contracts = require("./contract");
-var Addresses = require("./address");
-var Clients = require("./client");
-var Blocks = require("./block");
-var Condominios = require("./condominio");
-var Sails = require("./sale");
-var Equipamentos = require("./equipamentosAPI");
-var database_1 = require("../database");
+const Salespeople = require("./salesperson");
+const Technologies = require("./technology");
+const Viabilitys = require("./viability");
+const Researches = require("./research");
+const Contracts = require("./contract");
+const Addresses = require("./address");
+const Clients = require("./client");
+const Blocks = require("./block");
+const Condominios = require("./condominio");
+const Sails = require("./sale");
+const Equipamentos = require("./equipamentosAPI");
+const database_1 = require("../database");
 function GetTypes() {
     return Blocks.getTypes(database_1.LOCALHOST);
 }
