@@ -33,8 +33,8 @@ function formatarNomePlano(nomeOriginal) {
     let tecnologia = '';
     if (nomeUpper.includes('FTTH'))
         tecnologia = 'FTTH';
-    else if (nomeUpper.includes('FTTA'))
-        tecnologia = 'FTTA';
+    else if (nomeUpper.includes('FTTB'))
+        tecnologia = 'FTTB';
     else if (nomeUpper.includes('AIRMAX') || nomeUpper.includes('RADIO') || nomeUpper.includes('RÁDIO'))
         tecnologia = 'Rádio';
     else if (nomeUpper.includes('PAC'))
@@ -497,7 +497,7 @@ const buildMensagemAtendimento = (data, planoNome) => {
         data.referencia ? `(Ref: ${data.referencia})` : ''
     ].filter(Boolean).join(' - ');
     const cpfLimpo = data.cnpj_cpf ? data.cnpj_cpf.replace(/\D/g, '') : '';
-    const planoNomeFormatado = formatarNomePlano(data.plano_nome);
+    const planoNomeFormatado = formatarNomePlano(data.nome_plano || data.plano || planoNome || `Plano ID ${data.id_plano_ixc}`);
     return `
 OBS: ${data.obs || 'Não informado'}
 
@@ -991,6 +991,7 @@ router.post('/cliente-corporativo', (req, res) => __awaiter(void 0, void 0, void
         catch (e) {
             console.warn(`Aviso: erro ao buscar plano.`);
         }
+        clientData.nome_plano = nomePlano;
         if (existingClientId) {
             novoClienteId = existingClientId;
             yield atualizarCliente(novoClienteId, clientData, dataCadastro);
@@ -1480,6 +1481,7 @@ router.post('/mudanca-titularidade', (req, res) => __awaiter(void 0, void 0, voi
         catch (e) {
             console.warn(`Aviso: erro ao buscar plano.`);
         }
+        clientData.nome_plano = nomePlano;
         let novoClienteId;
         if (existingClientId) {
             //console.log(`Mudança Titularidade: Atualizando Cliente existente ID ${existingClientId}`);
