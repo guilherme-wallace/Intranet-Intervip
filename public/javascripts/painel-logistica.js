@@ -1,6 +1,9 @@
 let listaTecnicos = [];
 let usuarioPodeEditar = false; 
 let todosAgendamentosGlobais = [];
+let mapaTecnicoColuna = {};
+let allTechsGlobal = [];
+let duplaCounter = 0;
 
 document.addEventListener('DOMContentLoaded', async () => {
     try {
@@ -12,13 +15,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     await verificarPermissoes();
 
     document.getElementById('filtro-data').value = new Date().toISOString().split('T')[0];
+
+    const btnVerOnu = document.getElementById('btn-ver-onu');
+    if (btnVerOnu) btnVerOnu.addEventListener('click', abrirModalONU);
+
+    const filtroSetor = document.getElementById('filtro-setor');
+    if (filtroSetor) filtroSetor.addEventListener('change', renderizarQuadro);
+
+    const filtroMunicipio = document.getElementById('filtro-municipio');
+    if (filtroMunicipio) filtroMunicipio.addEventListener('change', renderizarQuadro);
     
-    // Adicionando eventos com segurança (verificando se o botão existe)
     const btnCarregar = document.getElementById('btn-carregar-agenda');
     if (btnCarregar) btnCarregar.addEventListener('click', carregarAgenda);
 
     const btnSalvarEscala = document.getElementById('btn-salvar-escala');
     if (btnSalvarEscala) btnSalvarEscala.addEventListener('click', salvarEscala);
+
+    const btnAddDupla = document.getElementById('btn-add-dupla');
+    if (btnAddDupla) btnAddDupla.addEventListener('click', () => adicionarLinhaDupla());
 
     const btnAbrirEscala = document.getElementById('btn-abrir-escala');
     if (btnAbrirEscala) btnAbrirEscala.addEventListener('click', abrirModalEscala);
@@ -32,7 +46,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnFechar = document.getElementById('btn-action-fechar');
     if (btnFechar) btnFechar.addEventListener('click', enviarFechamentoOS);
 
-    // DELEGAÇÃO DE EVENTOS DE DRAG & DROP PARA O QUADRO KANBAN
     const kanbanBoard = document.getElementById('kanban-board');
     if (kanbanBoard) {
         kanbanBoard.addEventListener('dragover', allowDrop);
@@ -40,7 +53,60 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     carregarAgenda();
+
+    setInterval(autoRefreshSilencioso, 45000); // Recarrega a tela a cada 45 segundos
+    setInterval(atualizarTimers, 1000); // Atualiza os timers a cada segundo
 });
+
+function getPrimeiroUltimoNome(nomeCompleto) {
+    if (!nomeCompleto) return 'Técnico';
+    const partes = nomeCompleto.trim().split(' ');
+    return partes.length > 1 ? `${partes[0]} ${partes[partes.length - 1]}` : partes[0];
+}
+
+function atualizarFiltroSetor() {
+    const selectSetor = document.getElementById('filtro-setor');
+    const valorAtual = selectSetor.value;
+    
+    selectSetor.innerHTML = '<option value="TODOS">Todos os Setores</option>';
+    
+    const setoresUnicos = [...new Set(todosAgendamentosGlobais.map(os => os.nome_setor).filter(s => s))].sort();
+    
+    setoresUnicos.forEach(setor => {
+        const option = document.createElement('option');
+        option.value = setor;
+        option.textContent = setor;
+        selectSetor.appendChild(option);
+    });
+
+    if (setoresUnicos.includes(valorAtual)) {
+        selectSetor.value = valorAtual;
+    } else {
+        selectSetor.value = 'TODOS';
+    }
+}
+
+function atualizarFiltroMunicipio() {
+    const selectMun = document.getElementById('filtro-municipio');
+    const valorAtual = selectMun.value;
+    
+    selectMun.innerHTML = '<option value="TODOS">Todas as Regiões</option>';
+    
+    const municipiosUnicos = [...new Set(todosAgendamentosGlobais.map(os => os.cidade_real).filter(s => s))].sort();
+    
+    municipiosUnicos.forEach(mun => {
+        const option = document.createElement('option');
+        option.value = mun;
+        option.textContent = mun;
+        selectMun.appendChild(option);
+    });
+
+    if (municipiosUnicos.includes(valorAtual)) {
+        selectMun.value = valorAtual;
+    } else {
+        selectMun.value = 'TODOS';
+    }
+}
 
 async function verificarPermissoes() {
     try {
@@ -72,6 +138,8 @@ async function carregarAgenda() {
         const response = await fetch(`/api/v5/painel-logistica/agendamentos?data=${data}&municipio=${municipio}`);
         todosAgendamentosGlobais = await response.json();
         
+        atualizarFiltroSetor();
+        atualizarFiltroMunicipio();
         renderizarQuadro();
 
     } catch (error) {
@@ -81,12 +149,17 @@ async function carregarAgenda() {
 
 function renderizarQuadro() {
     document.getElementById('col-aguardando').innerHTML = '';
-    listaTecnicos.forEach(t => {
-        const col = document.getElementById(`col-tec-${t.id}`);
-        if(col) col.innerHTML = '';
+    
+    document.querySelectorAll('.column-body').forEach(col => {
+        if (col.id !== 'col-aguardando') {
+            col.innerHTML = '';
+        }
     });
 
     const statusFiltro = document.getElementById('filtro-status').value;
+    const setorFiltro = document.getElementById('filtro-setor').value;
+    const munFiltro = document.getElementById('filtro-municipio').value;
+
     let countAguardando = 0;
     let contadoresTecnicos = {};
 
@@ -99,6 +172,9 @@ function renderizarQuadro() {
         if (statusFiltro === 'PENDENTES' && (isConcluido || isFalha)) return;
         if (statusFiltro === 'FALHAS' && !isFalha) return;
 
+        if (setorFiltro !== 'TODOS' && os.nome_setor !== setorFiltro) return;
+        if (munFiltro !== 'TODOS' && os.cidade_real !== munFiltro) return;
+
         const card = criarCardOS(os);
         card.addEventListener('click', () => abrirModalDetalhes(os));
         
@@ -106,7 +182,8 @@ function renderizarQuadro() {
             document.getElementById('col-aguardando').appendChild(card);
             countAguardando++;
         } else {
-            let colTecnico = document.getElementById(`col-tec-${os.ixc_tecnico_id}`);
+            let targetDivId = mapaTecnicoColuna[os.ixc_tecnico_id] || `col-extra-${os.ixc_tecnico_id}`;
+            let colTecnico = document.getElementById(targetDivId);
             
             if (!colTecnico) {
                 const board = document.getElementById('kanban-board');
@@ -122,14 +199,38 @@ function renderizarQuadro() {
                                 <span class="task-count" id="count-tec-${os.ixc_tecnico_id}">0</span>
                             </div>
                         </div>
-                        <div class="column-body" id="col-tec-${os.ixc_tecnico_id}" data-tecnico-id="${os.ixc_tecnico_id}"></div>
+                        <div class="column-body" id="${targetDivId}" data-tecnico-id="${os.ixc_tecnico_id}"></div>
                     </div>`;
                 board.insertAdjacentHTML('beforeend', colHTML);
-                colTecnico = document.getElementById(`col-tec-${os.ixc_tecnico_id}`);
+                colTecnico = document.getElementById(targetDivId);
             }
 
             colTecnico.appendChild(card);
             contadoresTecnicos[os.ixc_tecnico_id] = (contadoresTecnicos[os.ixc_tecnico_id] || 0) + 1;
+        }
+    });
+
+    const isFiltroSetorAtivo = setorFiltro !== 'TODOS';
+    
+    const filtroUpper = setorFiltro.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+
+    document.querySelectorAll('.kanban-column').forEach(col => {
+        if (col.querySelector('#col-aguardando')) return;
+        
+        const body = col.querySelector('.column-body');
+        const hasCards = body.children.length > 0;
+        const equipeDaColuna = col.getAttribute('data-equipe');
+        
+        let pertenceAoFiltro = false;
+        if (isFiltroSetorAtivo && equipeDaColuna) {
+            if (filtroUpper.includes('INSTALAC') && equipeDaColuna === 'INSTALACAO') pertenceAoFiltro = true;
+            if (filtroUpper.includes('MANUTENC') && equipeDaColuna === 'MANUTENCAO') pertenceAoFiltro = true;
+        }
+
+        if (isFiltroSetorAtivo && !hasCards && !pertenceAoFiltro) {
+            col.style.display = 'none';
+        } else {
+            col.style.display = 'flex';
         }
     });
 
@@ -151,36 +252,64 @@ async function construirColunasTecnicos(data) {
     try {
         const response = await fetch(`/api/v5/painel-logistica/tecnicos?data=${data}`);
         listaTecnicos = await response.json();
+        mapaTecnicoColuna = {};
 
         const board = document.getElementById('kanban-board');
         while (board.children.length > 1) {
             board.removeChild(board.lastChild);
         }
 
-        if (listaTecnicos.length === 0) {
-            const msg = document.createElement('div');
-            msg.className = 'text-muted p-4 fst-italic';
-            msg.innerHTML = '<i class="bi bi-info-circle me-2"></i>Nenhum técnico escalado para este dia.';
-            board.appendChild(msg);
-            return;
-        }
+        if (listaTecnicos.length === 0) return;
 
+        let colunasMap = new Map();
         listaTecnicos.forEach(tec => {
-            const nomeCompleto = (tec.nome || 'Técnico').trim();
-            const partesNome = nomeCompleto.split(' ');
-            const nomeExibicao = partesNome.length > 1 ? `${partesNome[0]} ${partesNome[partesNome.length - 1]}` : partesNome[0];
+            const isDupla = tec.dupla_id && tec.dupla_id.trim() !== '';
+            const key = isDupla ? `DUPLA_${tec.dupla_id}` : `TEC_${tec.id}`;
 
-            // Sem os eventos ondrop/ondragover aqui (Resolvido pela delegação de eventos no topo)
+            if (!colunasMap.has(key)) {
+                colunasMap.set(key, {
+                    id: key,
+                    ids_tecnicos: [tec.id],
+                    nomes: [getPrimeiroUltimoNome(tec.nome)],
+                    equipe: tec.equipe || 'MANUTENCAO'
+                });
+            } else {
+                const col = colunasMap.get(key);
+                col.ids_tecnicos.push(tec.id);
+                col.nomes.push(getPrimeiroUltimoNome(tec.nome));
+            }
+        });
+
+        let colunasProntas = Array.from(colunasMap.values());
+        colunasProntas.sort((a, b) => {
+            if (a.equipe !== b.equipe) return a.equipe === 'MANUTENCAO' ? -1 : 1;
+            return a.nomes[0].localeCompare(b.nomes[0]);
+        });
+
+        colunasProntas.forEach(col => {
+            const divId = `col-board-${col.id}`;
+            const tituloVisual = col.nomes.join(' | ');
+            const equipeLabel = col.equipe === 'MANUTENCAO' ? 'Manutenção' : 'Instalação';
+            const iconeCor = col.equipe === 'MANUTENCAO' ? 'text-primary' : 'text-success';
+
+            col.ids_tecnicos.forEach(tid => {
+                mapaTecnicoColuna[tid] = divId;
+            });
+
             const colHTML = `
-                <div class="kanban-column">
-                    <div class="column-header">
-                        <div class="column-title">
-                            <i class="bi bi-person-circle me-2 text-primary"></i> ${nomeExibicao} 
-                            <span class="task-count" id="count-tec-${tec.id}">0</span>
+                <div class="kanban-column border-top border-3 ${col.equipe === 'MANUTENCAO' ? 'border-primary' : 'border-success'}" data-equipe="${col.equipe}">
+                    <div class="column-header d-flex flex-column align-items-center pb-2 text-center bg-white border-bottom mb-2">
+                        <div class="text-uppercase fw-bold mb-1" style="font-size: 0.75rem; letter-spacing: 0.5px; color: #6c757d;">
+                            <i class="bi bi-briefcase-fill me-1 ${iconeCor}"></i>${equipeLabel}
+                        </div>
+                        <div class="fw-bold text-dark mb-2 w-100 px-2" style="font-size: 0.9rem; word-wrap: break-word;">
+                            ${tituloVisual}
+                        </div>
+                        <div class="badge bg-secondary rounded-pill px-3 py-1 mt-auto">
+                            <span class="task-count" id="count-tec-${col.ids_tecnicos[0]}">0</span> OS
                         </div>
                     </div>
-                    <div class="column-body" id="col-tec-${tec.id}" data-tecnico-id="${tec.id}">
-                    </div>
+                    <div class="column-body" id="${divId}" data-tecnico-id="${col.ids_tecnicos[0]}"></div>
                 </div>
             `;
             board.insertAdjacentHTML('beforeend', colHTML);
@@ -211,6 +340,9 @@ function criarCardOS(os) {
     } else if (statusIxc === 'EX') { 
         corBorda = 'border-left: 4px solid #0dcaf0;';
         badgeStatus = `<span class="asana-badge" style="background-color: #cff4fc; color: #055160;"><i class="bi bi-tools me-1"></i>Executando</span>`;
+        if (os.data_hora_execucao) {
+            badgeStatus += `<span class="timer-execucao ms-2 badge bg-info text-dark" data-inicio="${os.data_hora_execucao}">⏱️ Calculando...</span>`;
+        }
     } else if (statusIxc === 'F') { 
         corBorda = 'border-left: 4px solid #198754;';
         badgeStatus = `<span class="asana-badge" style="background-color: #d1e7dd; color: #0f5132;"><i class="bi bi-check-circle-fill me-1"></i>Concluído</span>`;
@@ -223,22 +355,45 @@ function criarCardOS(os) {
 
     card.style = corBorda;
 
-    let badgesHtml = badgeStatus;
+    let badgesHtml = '';
+    if (os.horario_agendado) {
+        badgesHtml += `<span class="asana-badge bg-dark text-white"><i class="bi bi-clock me-1"></i>${os.horario_agendado}</span>`;
+    }
+    
+    badgesHtml += badgeStatus;
+
     if (os.tipo_servico === 'INSTALACAO') badgesHtml += `<span class="asana-badge badge-instalacao">Instalação</span>`;
     else badgesHtml += `<span class="asana-badge badge-suporte">Suporte</span>`;
 
     if (os.aceita_encaixe) badgesHtml += `<span class="asana-badge badge-encaixe"><i class="bi bi-lightning-fill"></i> Encaixe</span>`;
 
+    if (os.nome_setor && os.nome_setor !== 'Não Informado') {
+        badgesHtml += `<span class="asana-badge" style="background-color: #f1f3f4; color: #3c4043;"><i class="bi bi-briefcase-fill me-1"></i>${os.nome_setor}</span>`;
+    }
+    
+    if (os.is_rede_neutra) {
+        badgesHtml += `<span class="asana-badge" style="background-color: #e2e3e5; color: #383d41;"><i class="bi bi-diagram-3-fill me-1"></i>Rede Neutra</span>`;
+    }
+
     const sintoma = os.sintoma_relatado || 'Agendado via intranet.';
     const sintomaTruncado = sintoma.length > 50 ? sintoma.substring(0, 50) + '...' : sintoma;
 
+    const condNome = os.nome_condominio || 'S/C';
+    let turnoLabel = 'Manhã';
+    if (os.turno === 'VESPERTINO') turnoLabel = 'Tarde';
+    else if (os.turno === 'NOTURNO') turnoLabel = 'Noite';
+    
+    const tituloExibicao = `${os.ixc_cliente_id} - ${condNome} - ${turnoLabel} - ${os.tipo_imovel}`;
+
     card.innerHTML = `
         <div class="mb-2">${badgesHtml}</div>
-        <div class="os-title">OS #${os.ixc_os_id} - ${os.tipo_imovel}</div>
-        <div class="text-muted small mb-3" title="${sintoma}">${sintomaTruncado}</div>
-        <div class="os-meta d-flex justify-content-between">
-            <span><i class="bi bi-geo-alt me-1 text-danger"></i>${os.municipio_base}</span>
-            <span class="fw-bold"><i class="bi bi-clock me-1"></i>${os.turno === 'MATUTINO' ? 'Manhã' : 'Tarde'}</span>
+        <div class="os-title" style="font-size:0.85rem; line-height: 1.4; font-weight: bold; color: #212529;">
+            ${tituloExibicao}
+        </div>
+        <div class="text-muted small mb-3 mt-2 border-top pt-2" title="${sintoma}">${sintomaTruncado}</div>
+        <div class="os-meta d-flex justify-content-between align-items-center">
+            <span class="text-truncate" style="max-width: 70%;"><i class="bi bi-geo-alt me-1 text-danger"></i>${os.municipio_base}</span>
+            <span class="text-muted small">#${os.ixc_os_id}</span>
         </div>
     `;
 
@@ -249,7 +404,6 @@ function criarCardOS(os) {
     return card;
 }
 
-// --- DRAG AND DROP (AGORA VIA DELEGAÇÃO DE EVENTOS) ---
 let draggedCard = null;
 
 function dragStart(e) { draggedCard = this; setTimeout(() => this.style.opacity = '0.5', 0); }
@@ -260,7 +414,6 @@ async function drop(e) {
     e.preventDefault();
     if (!draggedCard || !usuarioPodeEditar) return;
 
-    // Busca a coluna mais próxima onde o cartão foi solto
     let column = e.target.closest('.column-body');
     if (column) {
         column.appendChild(draggedCard);
@@ -283,39 +436,119 @@ async function drop(e) {
     }
 }
 
-// --- FUNÇÕES DOS MODAIS ---
 async function abrirModalEscala() {
     $('#modalEscala').modal('show');
     const data = document.getElementById('filtro-data').value;
-    const dataFormatada = data.split('-').reverse().join('/');
-    document.getElementById('display-data-escala').textContent = dataFormatada;
+    document.getElementById('display-data-escala').textContent = data.split('-').reverse().join('/');
 
-    const container = document.getElementById('lista-checkbox-tecnicos');
-    container.innerHTML = '<div class="text-center mt-3"><div class="spinner-border text-primary"></div><p>Buscando técnicos...</p></div>';
+    const containerIndiv = document.getElementById('lista-checkbox-tecnicos');
+    const containerDuplas = document.getElementById('container-duplas');
+    containerIndiv.innerHTML = '<div class="text-center mt-3"><div class="spinner-border text-primary"></div></div>';
+    containerDuplas.innerHTML = '';
 
     try {
         const response = await fetch('/api/v5/painel-logistica/todos-tecnicos');
-        const todos = await response.json();
-        container.innerHTML = '';
-        todos.forEach(tec => {
-            const estaEscalado = listaTecnicos.some(t => t.id === tec.id) ? 'checked' : '';
-            container.innerHTML += `
-                <div class="col-md-6">
-                    <div class="form-check border rounded p-2 bg-light">
-                        <input class="form-check-input ms-1 me-2 chk-escala" type="checkbox" value="${tec.id}" id="chk-tec-${tec.id}" ${estaEscalado}>
-                        <label class="form-check-label text-dark fw-medium" style="cursor:pointer;" for="chk-tec-${tec.id}">${tec.nome}</label>
+        allTechsGlobal = await response.json();
+        containerIndiv.innerHTML = '';
+        
+        const duplasSalvas = {};
+        const individuaisSalvos = [];
+
+        listaTecnicos.forEach(t => {
+            if (t.dupla_id && t.dupla_id.trim() !== '') {
+                if (!duplasSalvas[t.dupla_id]) duplasSalvas[t.dupla_id] = { equipe: t.equipe, techs: [] };
+                duplasSalvas[t.dupla_id].techs.push(t.id);
+            } else {
+                individuaisSalvos.push(t);
+            }
+        });
+
+        Object.keys(duplasSalvas).forEach(dId => {
+            const arr = duplasSalvas[dId].techs;
+            adicionarLinhaDupla(arr[0] || '', arr[1] || '', duplasSalvas[dId].equipe);
+        });
+
+        allTechsGlobal.forEach(tec => {
+            const indivObj = individuaisSalvos.find(t => t.id === tec.id);
+            const isChecked = indivObj ? 'checked' : '';
+            const equipe = indivObj ? indivObj.equipe : 'MANUTENCAO';
+
+            containerIndiv.innerHTML += `
+                <div class="col-md-6 mb-2">
+                    <div class="p-2 border rounded bg-light d-flex align-items-center justify-content-between">
+                        <div class="form-check text-truncate me-2" style="max-width: 60%;" title="${tec.nome}">
+                            <input class="form-check-input chk-escala" type="checkbox" value="${tec.id}" id="chk-tec-${tec.id}" ${isChecked}>
+                            <label class="form-check-label fw-bold text-dark" for="chk-tec-${tec.id}" style="font-size: 0.85rem;">${getPrimeiroUltimoNome(tec.nome)}</label>
+                        </div>
+                        <select class="form-select form-select-sm w-auto sel-equipe" id="equipe-${tec.id}">
+                            <option value="MANUTENCAO" ${equipe === 'MANUTENCAO' ? 'selected' : ''}>Manut</option>
+                            <option value="INSTALACAO" ${equipe === 'INSTALACAO' ? 'selected' : ''}>Instal</option>
+                        </select>
                     </div>
                 </div>`;
         });
     } catch (e) {
-        container.innerHTML = '<div class="text-danger mt-3">Erro ao carregar técnicos.</div>';
+        containerIndiv.innerHTML = '<div class="text-danger mt-3">Erro ao carregar técnicos.</div>';
     }
+}
+
+function adicionarLinhaDupla(tec1 = '', tec2 = '', equipe = 'MANUTENCAO') {
+    duplaCounter++;
+    const div = document.createElement('div');
+    div.className = 'd-flex align-items-center gap-2 mb-2 p-2 border rounded bg-light dupla-row shadow-sm';
+    div.dataset.id = duplaCounter;
+
+    let options = `<option value="">Selecione...</option>`;
+    allTechsGlobal.forEach(t => {
+        options += `<option value="${t.id}">${getPrimeiroUltimoNome(t.nome)}</option>`;
+    });
+
+    div.innerHTML = `
+        <select class="form-select form-select-sm sel-equipe-dupla border-primary fw-bold" style="width: 130px; color: #0d6efd;">
+            <option value="MANUTENCAO" ${equipe === 'MANUTENCAO' ? 'selected' : ''}>Manutenção</option>
+            <option value="INSTALACAO" ${equipe === 'INSTALACAO' ? 'selected' : ''}>Instalação</option>
+        </select>
+        <select class="form-select form-select-sm sel-tec1-dupla flex-grow-1 border-secondary">${options}</select>
+        <span class="text-muted fw-bold">|</span>
+        <select class="form-select form-select-sm sel-tec2-dupla flex-grow-1 border-secondary">${options}</select>
+        <button type="button" class="btn btn-sm btn-outline-danger btn-rm-dupla" title="Remover Dupla"><i class="bi bi-trash"></i></button>
+    `;
+
+    div.querySelector('.sel-tec1-dupla').value = tec1;
+    div.querySelector('.sel-tec2-dupla').value = tec2;
+    div.querySelector('.btn-rm-dupla').addEventListener('click', () => div.remove());
+
+    document.getElementById('container-duplas').appendChild(div);
 }
 
 async function salvarEscala() {
     const data = document.getElementById('filtro-data').value;
-    const checkboxes = document.querySelectorAll('.chk-escala:checked');
-    const tecnicosIds = Array.from(checkboxes).map(c => c.value);
+    const tecnicosArr = [];
+    const idsUsados = new Set();
+
+    document.querySelectorAll('.dupla-row').forEach((row, index) => {
+        const equipe = row.querySelector('.sel-equipe-dupla').value;
+        const t1 = row.querySelector('.sel-tec1-dupla').value;
+        const t2 = row.querySelector('.sel-tec2-dupla').value;
+        const duplaId = `D_DYN_${index + 1}`;
+
+        if (t1) {
+            tecnicosArr.push({ id: t1, equipe, dupla_id: duplaId });
+            idsUsados.add(t1);
+        }
+        if (t2 && t2 !== t1) {
+            tecnicosArr.push({ id: t2, equipe, dupla_id: duplaId });
+            idsUsados.add(t2);
+        }
+    });
+
+    document.querySelectorAll('.chk-escala:checked').forEach(chk => {
+        const id = chk.value;
+        if (!idsUsados.has(id)) {
+            const equipe = document.getElementById(`equipe-${id}`).value;
+            tecnicosArr.push({ id, equipe, dupla_id: null });
+        }
+    });
 
     const btn = document.getElementById('btn-salvar-escala');
     btn.innerHTML = 'Salvando...';
@@ -325,7 +558,7 @@ async function salvarEscala() {
         await fetch('/api/v5/painel-logistica/salvar-escala', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ data: data, tecnicos_ids: tecnicosIds })
+            body: JSON.stringify({ data: data, tecnicos: tecnicosArr })
         });
         $('#modalEscala').modal('hide');
         carregarAgenda();
@@ -358,13 +591,24 @@ async function abrirModalDetalhes(os) {
 
         if (!response.ok) throw new Error(data.error);
 
-        document.getElementById('detalhe-os-titulo').textContent = `OS #${os.ixc_os_id} - ${os.turno} (${os.tipo_imovel})`;
+        const turnoLabel = os.turno === 'MATUTINO' ? 'Manhã' : (os.turno === 'VESPERTINO' ? 'Tarde' : 'Noite');
+        document.getElementById('detalhe-os-titulo').textContent = `OS #${os.ixc_os_id} - ${turnoLabel} (${os.tipo_imovel})`;
         
         document.getElementById('det-cliente-nome').textContent = data.cliente.nome || 'Cliente não encontrado';
         document.getElementById('det-cliente-fone').textContent = data.cliente.telefones || 'Sem telefone';
         
         document.getElementById('det-contrato').textContent = data.contrato.descricao || 'Sem contrato vinculado';
-        document.getElementById('det-login').textContent = data.login.usuario || 'Sem login PPPoE';
+        
+        if (data.login && data.login.login) {
+            document.getElementById('det-login').textContent = `Login PPPOE: ${data.login.login}`;
+            document.getElementById('btn-ver-onu').style.display = 'inline-block';
+            
+            window.loginAtualData = data.login;
+            window.onuAtualData = data.onu;
+        } else {
+            document.getElementById('det-login').textContent = 'Sem login PPPoE vinculado';
+            document.getElementById('btn-ver-onu').style.display = 'none';
+        }
 
         const osData = data.os;
         let endCompleto = `${osData.endereco || ''}, ${osData.numero || 'S/N'} - ${osData.bairro || ''}`;
@@ -383,6 +627,94 @@ async function abrirModalDetalhes(os) {
         alert("Não foi possível carregar os detalhes do IXC.");
         $('#modalDetalhesOS').modal('hide');
     }
+}
+
+function abrirModalONU() {
+    const login = window.loginAtualData;
+    const onu = window.onuAtualData;
+
+    if (!login) return;
+
+    document.getElementById('det-onu-login').textContent = login.login || 'N/A';
+    document.getElementById('det-onu-senha').textContent = login.senha || 'N/A';
+    document.getElementById('det-onu-mac-login').textContent = login.mac || 'N/A';
+    document.getElementById('det-onu-ip').textContent = login.ip || 'N/A';
+
+    const hist = login.historico;
+    if (hist) {
+        document.getElementById('det-onu-queda-data').textContent = hist.acctstoptime ? hist.acctstoptime : 'Cliente Online no Momento';
+        document.getElementById('det-onu-queda-motivo').textContent = hist.acctterminatecause || (hist.acctstoptime ? 'Desconhecido' : 'Sessão Ativa');
+        
+        let tempoFormatado = 'N/A';
+        if (hist.acctsessiontime) {
+            const horas = Math.floor(hist.acctsessiontime / 3600);
+            const minutos = Math.floor((hist.acctsessiontime % 3600) / 60);
+            tempoFormatado = `${horas}h ${minutos}m`;
+        }
+        document.getElementById('det-onu-uptime').textContent = tempoFormatado;
+    } else {
+        document.getElementById('det-onu-queda-data').textContent = 'Sem registros recentes';
+        document.getElementById('det-onu-queda-motivo').textContent = '---';
+        document.getElementById('det-onu-uptime').textContent = '---';
+    }
+
+    if (onu) {
+        document.getElementById('det-onu-nao-encontrada').style.display = 'none';
+        document.getElementById('det-onu-dados').style.display = 'block';
+        
+        atualizarLayoutOnu(onu);
+
+        document.getElementById('loading-sinal-olt').style.display = 'inline-block';
+        fetch('/api/v5/painel-logistica/onu-realtime', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_fibra: onu.id })
+        })
+        .then(res => res.json())
+        .then(onuLive => {
+            document.getElementById('loading-sinal-olt').style.display = 'none';
+            if(onuLive) atualizarLayoutOnu(onuLive);
+        }).catch(e => {
+            console.error("Falha ao atualizar ONU", e);
+            document.getElementById('loading-sinal-olt').style.display = 'none';
+        });
+        
+    } else {
+        document.getElementById('det-onu-nao-encontrada').style.display = 'block';
+        document.getElementById('det-onu-dados').style.display = 'none';
+        document.getElementById('loading-sinal-olt').style.display = 'none';
+    }
+
+    $('#modalDetalhesONU').modal('show');
+}
+
+function atualizarLayoutOnu(onu) {
+    document.getElementById('det-onu-mac').textContent = onu.mac || 'N/A';
+    document.getElementById('det-onu-distancia').textContent = onu.distancia ? `${onu.distancia} metros` : 'N/A';
+
+    // RX
+    const rxInfo = parseFloat(onu.sinal_rx);
+    let corRx = 'text-dark';
+    if (rxInfo) {
+        if (rxInfo < -26 || rxInfo > -10) corRx = 'text-danger fw-bold'; // Sinal ruim
+        else if (rxInfo <= -10 && rxInfo >= -26) corRx = 'text-success fw-bold'; // Sinal bom
+    }
+    document.getElementById('det-onu-sinal').innerHTML = onu.sinal_rx ? `<span class="${corRx}">${onu.sinal_rx} dBm</span>` : 'N/A';
+
+    // TX
+    const txInfo = parseFloat(onu.sinal_tx);
+    let corTx = 'text-dark';
+    if (txInfo) {
+        if (txInfo < 0 || txInfo > 5) corTx = 'text-warning fw-bold'; 
+        else corTx = 'text-success fw-bold'; 
+    }
+    document.getElementById('det-onu-sinal-tx').innerHTML = onu.sinal_tx ? `<span class="${corTx}">${onu.sinal_tx} dBm</span>` : 'N/A';
+
+    // Status
+    let statusOnu = onu.status;
+    if (statusOnu === 'A') statusOnu = '<span class="badge bg-success">Online</span>';
+    else if (statusOnu === 'I') statusOnu = '<span class="badge bg-danger">Offline / LOS</span>';
+    document.getElementById('det-onu-status').innerHTML = statusOnu || 'Desconhecido';
 }
 
 async function enviarReagendamento() {
@@ -439,6 +771,55 @@ async function enviarFechamentoOS() {
         btn.innerHTML = 'Finalizar OS';
         btn.disabled = false;
     }
+}
+
+async function autoRefreshSilencioso() {
+    const modalDetalhes = document.getElementById('modalDetalhesOS');
+    const modalEscala = document.getElementById('modalEscala');
+    
+    if (draggedCard || (modalDetalhes && modalDetalhes.classList.contains('show')) || (modalEscala && modalEscala.classList.contains('show'))) {
+        return; 
+    }
+
+    const data = document.getElementById('filtro-data').value;
+    const municipio = document.getElementById('filtro-municipio').value;
+    if (!data) return;
+
+    try {
+        const response = await fetch(`/api/v5/painel-logistica/agendamentos?data=${data}&municipio=TODOS`);
+        todosAgendamentosGlobais = await response.json();
+        renderizarQuadro();
+    } catch (e) {
+        console.error("Erro no auto-refresh:", e);
+    }
+}
+
+function atualizarTimers() {
+    document.querySelectorAll('.timer-execucao').forEach(el => {
+        const inicioStr = el.dataset.inicio;
+        if (!inicioStr) return;
+        
+        const p = inicioStr.split(/[- :]/);
+        if (p.length < 6) return;
+        
+        const dataInicio = new Date(p[0], p[1]-1, p[2], p[3], p[4], p[5]);
+        const diffSegundos = Math.floor((new Date() - dataInicio) / 1000);
+        
+        if (diffSegundos < 0) return;
+
+        const horas = Math.floor(diffSegundos / 3600);
+        const mins = Math.floor((diffSegundos % 3600) / 60);
+        const secs = diffSegundos % 60;
+
+        el.textContent = `⏱️ ${String(horas).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+
+        if (diffSegundos > 5400) {
+            el.className = 'timer-execucao ms-2 badge bg-roxo text-white';
+            el.title = "Atenção: Atendimento longo!";
+        } else {
+            el.className = 'timer-execucao ms-2 badge bg-info text-dark';
+        }
+    });
 }
 
 function initializeThemeAndUserInfo() {

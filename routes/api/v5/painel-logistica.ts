@@ -14,17 +14,27 @@ const executeDb = (query: string, params: any[] = []) => {
     });
 };
 
-const makeIxcRequest = async (method: Method, endpoint: string, data: any = null) => {
+const makeIxcRequest = async (
+    method: Method, 
+    endpoint: string, 
+    data: any = null, 
+    operationType: 'listar' | 'incluir' | 'alterar' | 'integracao' | null = null
+) => {
     const url = `${process.env.IXC_API_URL}/webservice/v1${endpoint}`;
     const token = process.env.IXC_API_TOKEN; 
+    
     const headers: any = {
         'Authorization': `Basic ${token}`,
         'Content-Type': 'application/json'
     };
-    if (data && data.qtype) {
+
+    if (operationType) {
+        headers['ixcsoft'] = operationType;
+    } else if (data && data.qtype) {
         headers['ixcsoft'] = 'listar';
         method = 'POST'; 
     }
+
     try {
         const response = await axios({ method, url, headers, data });
         return response.data;
@@ -34,11 +44,65 @@ const makeIxcRequest = async (method: Method, endpoint: string, data: any = null
     }
 };
 
+const getDistanciasBairros = async (bairrosMunicipios: {bairro: string, municipio: string}[]) => {
+    const SEDE_INTERVIP = "Rua dos Uirapurus, S29, Morada de Laranjeiras, Serra, ES, 29166-710";
+    const mapaDistancias = new Map();
+    const bairrosDesconhecidos = [];
+
+    for (const local of bairrosMunicipios) {
+        if (!local.bairro) continue;
+        const bairroLimpo = local.bairro.replace('(IXC)', '').trim();
+        const municipioLimpo = local.municipio === 'Importado' ? 'Serra' : local.municipio.trim();
+
+        const registros = await executeDb(
+            `SELECT distancia_metros FROM ivp_distancia_bairros WHERE municipio = ? AND bairro = ?`,
+            [municipioLimpo, bairroLimpo]
+        );
+
+        if (registros.length > 0) {
+            mapaDistancias.set(`${municipioLimpo}-${bairroLimpo}`, registros[0].distancia_metros);
+        } else {
+            bairrosDesconhecidos.push({ municipio: municipioLimpo, bairro: bairroLimpo });
+        }
+    }
+
+    if (bairrosDesconhecidos.length > 0) {
+        const GOOGLE_KEY = process.env.GOOGLE_MAPS_API_KEY;
+        if (GOOGLE_KEY) {
+            for (const local of bairrosDesconhecidos) {
+                try {
+                    const destination = `${local.bairro}, ${local.municipio}, ES, Brasil`;
+                    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(SEDE_INTERVIP)}&destinations=${encodeURIComponent(destination)}&key=${GOOGLE_KEY}`;
+                    
+                    const response = await axios.get(url);
+                    const row = response.data.rows[0].elements[0];
+
+                    if (row.status === 'OK') {
+                        const distMetros = row.distance.value;
+                        const tempoSegundos = row.duration.value;
+
+                        await executeDb(
+                            `INSERT IGNORE INTO ivp_distancia_bairros (municipio, bairro, distancia_metros, tempo_segundos) VALUES (?, ?, ?, ?)`,
+                            [local.municipio, local.bairro, distMetros, tempoSegundos]
+                        );
+                        
+                        mapaDistancias.set(`${local.municipio}-${local.bairro}`, distMetros);
+                    }
+                } catch (err: any) {
+                    console.error(`Erro ao buscar distancia do Google para ${local.bairro}:`, err.message);
+                }
+            }
+        }
+    }
+
+    return mapaDistancias;
+};
+
 router.get('/tecnicos', async (req, res) => {
     const { data } = req.query;
     try {
         const query = `
-            SELECT u.id_funcionario_ixc as id, u.nome 
+            SELECT u.id_funcionario_ixc as id, u.nome, e.equipe, e.dupla_id 
             FROM usuarios_intranet u
             INNER JOIN ivp_agenda_escala e ON u.id_funcionario_ixc = e.id_funcionario_ixc
             WHERE u.ativo = 1 AND e.data_escala = ?
@@ -67,15 +131,15 @@ router.get('/todos-tecnicos', async (req, res) => {
 });
 
 router.post('/salvar-escala', async (req, res) => {
-    const { data, tecnicos_ids } = req.body;
+    const { data, tecnicos } = req.body;
     try {
         await executeDb(`DELETE FROM ivp_agenda_escala WHERE data_escala = ?`, [data]);
         
-        if (tecnicos_ids && tecnicos_ids.length > 0) {
-            for (let id of tecnicos_ids) {
+        if (tecnicos && tecnicos.length > 0) {
+            for (let tec of tecnicos) {
                 await executeDb(
-                    `INSERT INTO ivp_agenda_escala (data_escala, id_funcionario_ixc) VALUES (?, ?)`, 
-                    [data, id]
+                    `INSERT INTO ivp_agenda_escala (data_escala, id_funcionario_ixc, equipe, dupla_id) VALUES (?, ?, ?, ?)`, 
+                    [data, tec.id, tec.equipe, tec.dupla_id || null]
                 );
             }
         }
@@ -101,8 +165,14 @@ router.get('/agendamentos', async (req, res) => {
         queryLocal += ` ORDER BY turno ASC, aceita_encaixe DESC, created_at ASC`;
 
         const agendamentosLocais = await executeDb(queryLocal, params);
-        const mapLocais = new Map();
-        agendamentosLocais.forEach((os: any) => mapLocais.set(String(os.ixc_os_id), os));
+        
+        const listaFinal: any[] = agendamentosLocais.map((os: any) => ({
+            ...os,
+            horario_agendado: os.turno === 'MATUTINO' ? '08:00' : '13:00',
+            bairro_real: os.municipio_base, 
+            cidade_real: os.municipio_base,
+            nome_setor: os.tipo_servico === 'INSTALACAO' ? 'Instalação' : 'Manutenção'
+        }));
 
         const payloadIxc = {
             qtype: 'su_oss_chamado.data_agenda',
@@ -140,39 +210,160 @@ router.get('/agendamentos', async (req, res) => {
 
         agendamentosIxc = agendamentosIxc.filter((os: any) => validTechIds.has(String(os.id_tecnico)));
 
-        const listaFinal = [...agendamentosLocais];
+        const allEstruturaIds = agendamentosIxc.map((os: any) => os.id_estrutura).filter((id: any) => id && id !== '0');
+        const uniqueEstruturaIds = allEstruturaIds.filter((id: any, index: number) => allEstruturaIds.indexOf(id) === index);
+        const mapaEstruturas = new Map();
+
+        if (uniqueEstruturaIds.length > 0) {
+            await Promise.all(uniqueEstruturaIds.map(async (idEst: any) => {
+                try {
+                    const resp = await makeIxcRequest('POST', '/estrutura', {
+                        qtype: 'estrutura.id', query: idEst, oper: '=', rp: '1'
+                    });
+                    if (resp.registros && resp.registros.length > 0) {
+                        mapaEstruturas.set(String(idEst), resp.registros[0].id_cidade);
+                    }
+                } catch(e) {}
+            }));
+        }
+
+        const allCityIds = agendamentosIxc.map((os: any) => {
+            if (os.id_cidade && os.id_cidade !== '0') return os.id_cidade;
+            if (os.id_estrutura && os.id_estrutura !== '0') return mapaEstruturas.get(String(os.id_estrutura));
+            return null;
+        }).filter((id: any) => id);
+        
+        const uniqueCityIds = allCityIds.filter((id: any, index: number) => allCityIds.indexOf(id) === index);
+        const mapaCidades = new Map();
+
+        if (uniqueCityIds.length > 0) {
+            await Promise.all(uniqueCityIds.map(async (idCid: any) => {
+                try {
+                    const resp = await makeIxcRequest('POST', '/cidade', {
+                        qtype: 'cidade.id', query: idCid, oper: '=', rp: '1'
+                    });
+                    if (resp.registros && resp.registros.length > 0) {
+                        mapaCidades.set(String(idCid), resp.registros[0].nome);
+                    }
+                } catch(e) {}
+            }));
+        }
+
+        const allCondIds = agendamentosIxc.map((os: any) => os.id_condominio).filter((id: any) => id && id !== '0');
+        const uniqueCondIds = allCondIds.filter((id: any, index: number) => allCondIds.indexOf(id) === index);
+        const mapaCondominios = new Map();
+
+        if (uniqueCondIds.length > 0) {
+            await Promise.all(uniqueCondIds.map(async (idCond: any) => {
+                try {
+                    const resp = await makeIxcRequest('POST', '/cliente_condominio', {
+                        qtype: 'cliente_condominio.id', query: idCond, oper: '=', rp: '1'
+                    });
+                    if (resp.registros && resp.registros.length > 0) {
+                        mapaCondominios.set(String(idCond), resp.registros[0].condominio);
+                    }
+                } catch(e) {}
+            }));
+        }
+
+        const allSetorIds = agendamentosIxc.map((os: any) => os.setor).filter((id: any) => id && id !== '0');
+        const uniqueSetorIds = allSetorIds.filter((id: any, index: number) => allSetorIds.indexOf(id) === index);
+        const mapaSetores = new Map();
+
+        if (uniqueSetorIds.length > 0) {
+            await Promise.all(uniqueSetorIds.map(async (idSetor: any) => {
+                try {
+                    const resp = await makeIxcRequest('POST', '/empresa_setor', {
+                        qtype: 'empresa_setor.id', query: idSetor, oper: '=', rp: '1'
+                    });
+                    if (resp.registros && resp.registros.length > 0) {
+                        mapaSetores.set(String(idSetor), resp.registros[0].setor);
+                    }
+                } catch(e) {}
+            }));
+        }
 
         for (const osIxc of agendamentosIxc) {
-            if (mapLocais.has(String(osIxc.id))) {
-                const localOs = mapLocais.get(String(osIxc.id));
-                if (String(localOs.ixc_tecnico_id) !== String(osIxc.id_tecnico)) {
-                    localOs.ixc_tecnico_id = osIxc.id_tecnico;
-                    localOs.status_interno = 'ATRIBUIDO';
-                }
-                localOs.ixc_status = osIxc.status; 
+            let horarioExtraido = '12:00';
+            if (osIxc.data_agenda && osIxc.data_agenda.includes(' ')) {
+                horarioExtraido = osIxc.data_agenda.split(' ')[1].substring(0, 5);
+            }
+
+            let tipoImovel = 'CASA';
+            let isRedeNeutra = false;
+            let nomeCondominio = mapaCondominios.get(String(osIxc.id_condominio)) || '';
+            let isCorp = false;
+
+            const nomeSetor = mapaSetores.get(String(osIxc.setor)) || 'Não Informado';
+            const mensagemUpper = (osIxc.mensagem || '').toUpperCase();
+            const setorUpper = nomeSetor.toUpperCase();
+
+            if (mensagemUpper.includes('CORPORATIVO') || mensagemUpper.includes('PROVEDOR') || setorUpper.includes('CORPORATIVO')) {
+                isCorp = true;
+                tipoImovel = 'CORPORATIVO';
+            } 
+            else if (nomeCondominio) {
+                const upperCond = nomeCondominio.toUpperCase();
+                const prefixosCasa = ['SEA', 'VTA', 'VVA', 'CCA', 'GRI'];
+                
+                const isCasa = prefixosCasa.some(prefix => upperCond.startsWith(prefix));
+                tipoImovel = isCasa ? 'CASA' : 'PRÉDIO';
+                
+                if (upperCond.includes('RDNT')) isRedeNeutra = true;
+            } else {
+                tipoImovel = (osIxc.apartamento || osIxc.bloco) ? 'PRÉDIO' : 'CASA';
+            }
+
+            let idCidBusca = osIxc.id_cidade;
+            if ((!idCidBusca || idCidBusca === '0') && osIxc.id_estrutura) {
+                idCidBusca = mapaEstruturas.get(String(osIxc.id_estrutura));
+            }
+            const cidadeCorreta = mapaCidades.get(String(idCidBusca)) || 'Serra';
+
+            const indexLocal = listaFinal.findIndex(item => String(item.ixc_os_id) === String(osIxc.id));
+
+            if (indexLocal > -1) {
+                listaFinal[indexLocal].ixc_tecnico_id = osIxc.id_tecnico;
+                listaFinal[indexLocal].status_interno = 'ATRIBUIDO';
+                listaFinal[indexLocal].ixc_status = osIxc.status;
+                listaFinal[indexLocal].horario_agendado = horarioExtraido;
+                listaFinal[indexLocal].data_hora_execucao = osIxc.data_hora_execucao; 
+                listaFinal[indexLocal].nome_setor = nomeSetor;
+                listaFinal[indexLocal].nome_condominio = nomeCondominio;
+                listaFinal[indexLocal].tipo_imovel = tipoImovel;
             } else {
                 let turnoInferred = 'MATUTINO';
-                const horario = (osIxc.melhor_horario_agenda || '').toUpperCase();
-                if (horario === 'T' || horario === 'N') turnoInferred = 'VESPERTINO';
+                
+                if (horarioExtraido >= '12:00' && horarioExtraido < '18:00') {
+                    turnoInferred = 'VESPERTINO';
+                } else if (horarioExtraido >= '18:00' || horarioExtraido < '06:00') {
+                    turnoInferred = 'NOTURNO';
+                }
 
-                const isPredio = (osIxc.apartamento || osIxc.id_condominio || osIxc.bloco) ? 'PRÉDIO' : 'CASA';
                 let msg = osIxc.mensagem || 'Agendado pelo IXC';
-                msg = msg.replace(/(<([^>]+)>)/gi, ""); 
+                msg = msg.replace(/(<([^>]+)>)/gi, "");
 
                 listaFinal.push({
                     id: `ixc-${osIxc.id}`, 
                     ixc_os_id: osIxc.id,
                     ixc_cliente_id: osIxc.id_cliente,
                     tipo_servico: 'IXC', 
-                    tipo_imovel: isPredio,
-                    municipio_base: osIxc.bairro ? `${osIxc.bairro} (IXC)` : 'Importado', 
+                    tipo_imovel: tipoImovel,
+                    is_rede_neutra: isRedeNeutra,
+                    municipio_base: osIxc.bairro ? `${osIxc.bairro} (${cidadeCorreta})` : cidadeCorreta, 
                     aceita_encaixe: 0,
                     data_agendamento: data,
                     turno: turnoInferred,
                     status_interno: 'ATRIBUIDO',
                     ixc_tecnico_id: osIxc.id_tecnico,
                     sintoma_relatado: msg,
-                    ixc_status: osIxc.status
+                    ixc_status: osIxc.status,
+                    horario_agendado: horarioExtraido,
+                    data_hora_execucao: osIxc.data_hora_execucao, 
+                    bairro_real: osIxc.bairro || '', 
+                    cidade_real: cidadeCorreta,
+                    nome_setor: nomeSetor,
+                    nome_condominio: nomeCondominio
                 });
             }
         }
@@ -181,6 +372,36 @@ router.get('/agendamentos', async (req, res) => {
             if (os.ixc_tecnico_id) {
                 os.nome_tecnico = techNamesMap.get(String(os.ixc_tecnico_id)) || `Técnico ${os.ixc_tecnico_id}`;
             }
+        });
+
+        const locaisUnicos: { municipio: string, bairro: string }[] = [];
+        const locaisVistos = new Set();
+        listaFinal.forEach(os => {
+            const bairro = (os.bairro_real || '').trim();
+            const municipio = (os.cidade_real || 'Serra').trim();
+            const chave = `${municipio}-${bairro}`;
+            if (bairro && !locaisVistos.has(chave)) {
+                locaisVistos.add(chave);
+                locaisUnicos.push({ municipio, bairro });
+            }
+        });
+
+        const mapaDistancias = await getDistanciasBairros(locaisUnicos);
+
+        listaFinal.forEach(os => {
+            const bairro = (os.bairro_real || '').trim();
+            const municipio = (os.cidade_real || 'Serra').trim();
+            os.distancia_sede = mapaDistancias.get(`${municipio}-${bairro}`) || 999999;
+        });
+
+        listaFinal.sort((a, b) => {
+            const priorityA = (a.ixc_status === 'EX' || a.ixc_status === 'DS') ? 0 : 1;
+            const priorityB = (b.ixc_status === 'EX' || b.ixc_status === 'DS') ? 0 : 1;
+            if (priorityA !== priorityB) return priorityA - priorityB;
+
+            if (a.turno !== b.turno) return (a.turno || '').localeCompare(b.turno || '');
+            
+            return a.distancia_sede - b.distancia_sede;
         });
 
         res.json(listaFinal);
@@ -273,20 +494,30 @@ router.get('/os-detalhes/:id', async (req, res) => {
         }
         const osData = osDataResp.registros[0];
 
-        let clienteName = 'N/A';
+        let clienteData = null;
         let telefones = 'N/A';
-        let contratoName = 'N/A';
-        let loginName = 'N/A';
+        let contratoData = null;
+        let loginData = null;
+        let onuData = null;
 
         if (osData.id_cliente) {
             const cliResp = await makeIxcRequest('POST', '/cliente', {
                 qtype: 'cliente.id', query: osData.id_cliente, oper: '=', page: '1', rp: '1'
             });
             if (cliResp.registros && cliResp.registros.length > 0) {
-                clienteName = cliResp.registros[0].razao;
-                const foneCel = cliResp.registros[0].telefone_celular || '';
-                const foneRes = cliResp.registros[0].telefone_comercial || '';
-                telefones = [foneCel, foneRes].filter(f => f).join(' / ') || 'Sem telefone cadastrado';
+                clienteData = cliResp.registros[0];
+                
+                const fones = [
+                    clienteData.telefone_celular, 
+                    clienteData.telefone_celular_2, 
+                    clienteData.telefone_comercial, 
+                    clienteData.telefone_residencial, 
+                    clienteData.telefone,
+                    clienteData.whatsapp
+                ];
+                
+                const fonesLimpos = [...new Set(fones.map(f => (f || '').trim()).filter(f => f !== ''))];
+                telefones = fonesLimpos.join(' / ') || 'Sem telefone cadastrado';
             }
         }
 
@@ -295,28 +526,95 @@ router.get('/os-detalhes/:id', async (req, res) => {
                 qtype: 'cliente_contrato.id', query: osData.id_contrato_kit, oper: '=', page: '1', rp: '1'
             });
             if (conResp.registros && conResp.registros.length > 0) {
-                contratoName = `Contrato #${osData.id_contrato_kit} (${conResp.registros[0].status || 'Ativo'})`;
+                contratoData = conResp.registros[0];
             }
         }
+
+        let enderecoFinal = {
+            endereco: osData.endereco || '',
+            numero: osData.numero || '',
+            bairro: osData.bairro || '',
+            complemento: osData.complemento || '',
+            referencia: osData.referencia || ''
+        };
+
+        if (!enderecoFinal.endereco || enderecoFinal.endereco.trim() === '') {
+            if (contratoData && contratoData.endereco) {
+                enderecoFinal.endereco = contratoData.endereco;
+                enderecoFinal.numero = contratoData.numero;
+                enderecoFinal.bairro = contratoData.bairro;
+                enderecoFinal.complemento = contratoData.complemento;
+                enderecoFinal.referencia = contratoData.referencia;
+            } else if (clienteData && clienteData.endereco) {
+                enderecoFinal.endereco = clienteData.endereco;
+                enderecoFinal.numero = clienteData.numero;
+                enderecoFinal.bairro = clienteData.bairro;
+                enderecoFinal.complemento = clienteData.complemento;
+                enderecoFinal.referencia = clienteData.referencia;
+            }
+        }
+
+        let historicoPppoe = null;
 
         if (osData.id_login) {
             const logResp = await makeIxcRequest('POST', '/radusuarios', {
                 qtype: 'radusuarios.id', query: osData.id_login, oper: '=', page: '1', rp: '1'
             });
             if (logResp.registros && logResp.registros.length > 0) {
-                loginName = logResp.registros[0].login;
+                loginData = logResp.registros[0];
+
+                if (loginData.login) {
+                    const acctResp = await makeIxcRequest('POST', '/radacct', {
+                        qtype: 'radacct.username', query: loginData.login, oper: '=', page: '1', rp: '1', sortname: 'radacctid', sortorder: 'desc'
+                    });
+                    if (acctResp.registros && acctResp.registros.length > 0) {
+                        historicoPppoe = acctResp.registros[0];
+                    }
+                }
+
+                const reqOnuId = await makeIxcRequest('POST', '/radpop_radio_cliente_fibra', {
+                    qtype: 'radpop_radio_cliente_fibra.id_login', query: String(loginData.id), oper: '=', page: '1', rp: '1'
+                });
+
+                if (reqOnuId.registros && reqOnuId.registros.length > 0) {
+                    onuData = reqOnuId.registros[0];
+                } else if (loginData.mac) {
+                    const reqOnuMac = await makeIxcRequest('POST', '/radpop_radio_cliente_fibra', {
+                        qtype: 'radpop_radio_cliente_fibra.mac', query: String(loginData.mac), oper: '=', page: '1', rp: '1'
+                    });
+                    if (reqOnuMac.registros && reqOnuMac.registros.length > 0) {
+                        onuData = reqOnuMac.registros[0];
+                    }
+                }
             }
         }
 
         res.json({
-            os: osData,
-            cliente: { nome: clienteName, telefones },
-            contrato: { descricao: contratoName },
-            login: { usuario: loginName }
+            os: { ...osData, ...enderecoFinal },
+            cliente: { nome: clienteData ? clienteData.razao : 'N/A', telefones },
+            contrato: { descricao: contratoData ? `Contrato #${contratoData.id} (${contratoData.status || 'Ativo'})` : 'Sem contrato vinculado' },
+            login: { ...loginData, historico: historicoPppoe },
+            onu: onuData
         });
 
     } catch (error: any) {
         console.error("Erro ao buscar detalhes completos da OS:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/onu-realtime', async (req, res) => {
+    const { id_fibra } = req.body;
+    try {
+        await makeIxcRequest('POST', '/radpop_radio_cliente_fibra', { id_registro: id_fibra }, 'integracao');
+        
+        const onuResp = await makeIxcRequest('POST', '/radpop_radio_cliente_fibra', {
+            qtype: 'radpop_radio_cliente_fibra.id', query: String(id_fibra), oper: '=', page: '1', rp: '1'
+        });
+        
+        res.json(onuResp.registros ? onuResp.registros[0] : null);
+    } catch (error: any) {
+        console.error("Erro ao atualizar ONU na OLT:", error.message);
         res.status(500).json({ error: error.message });
     }
 });

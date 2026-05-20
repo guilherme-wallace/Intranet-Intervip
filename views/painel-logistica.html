@@ -36,7 +36,7 @@
     <main class="container-fluid py-4">
         <div class="ivp-card mb-4 p-3">
             <div class="row g-3 align-items-end">
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label fw-bold">Data da Agenda</label>
                     <input type="date" id="filtro-data" class="form-control">
                 </div>
@@ -44,13 +44,16 @@
                     <label class="form-label fw-bold">Município / Região</label>
                     <select id="filtro-municipio" class="form-select">
                         <option value="TODOS">Todas as Regiões</option>
-                        <option value="SERRA">Serra</option>
-                        <option value="VILA VELHA">Vila Velha</option>
-                        <option value="VITORIA">Vitória</option>
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-bold">Exibição de Status</label>
+                    <label class="form-label fw-bold">Equipe / Setor</label>
+                    <select id="filtro-setor" class="form-select">
+                        <option value="TODOS">Todos os Setores</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold">Status</label>
                     <select id="filtro-status" class="form-select">
                         <option value="OCULTAR_CONCLUIDOS" selected>Ocultar Concluídas</option>
                         <option value="TODOS">Mostrar Todas</option>
@@ -58,7 +61,7 @@
                         <option value="FALHAS">Apenas Falhas / Reagendar</option>
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <button class="btn btn-primary w-100" id="btn-carregar-agenda">
                         <i class="bi bi-arrow-clockwise me-2"></i>Carregar
                     </button>
@@ -104,7 +107,7 @@
                     <div class="row" id="conteudo-detalhes-os" style="display: none;">
                         <div class="col-md-8 border-end pe-4">
                             
-                            <h6 class="text-muted fw-bold small text-uppercase mb-2"><i class="bi bi-person-vcard me-2"></i>Cliente e Serviços</h6>
+                            <h6 class="text-muted fw-bold small text-uppercase mb-2"><i class="bi bi-person-vcard me-2"></i>Cliente</h6>
                             <p class="mb-1 fw-bold text-dark fs-5" id="det-cliente-nome">---</p>
                             <p class="mb-3 small text-primary fw-bold"><i class="bi bi-telephone-fill me-1"></i><span id="det-cliente-fone">---</span></p>
 
@@ -112,8 +115,9 @@
                                 <div class="bg-light px-3 py-2 rounded border small fw-medium">
                                     <i class="bi bi-file-earmark-text text-secondary me-1"></i><span id="det-contrato">---</span>
                                 </div>
-                                <div class="bg-light px-3 py-2 rounded border small fw-medium">
-                                    <i class="bi bi-router text-success me-1"></i><span id="det-login">---</span>
+                                <div class="bg-light px-3 py-2 rounded border small fw-medium d-flex justify-content-between align-items-center">
+                                    <div><i class="bi bi-router text-success me-1"></i><span id="det-login">---</span></div>
+                                    <button class="btn btn-sm btn-outline-success ms-2 py-0 px-2" id="btn-ver-onu" style="display: none; font-size: 0.75rem;">Detalhes</button>
                                 </div>
                             </div>
 
@@ -167,19 +171,70 @@
     </div>
 
     <div class="modal fade modal-soc-style" id="modalEscala" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title fw-bold"><i class="bi bi-calendar-week me-2"></i>Escala: <span id="display-data-escala" class="text-primary"></span></h5>
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-calendar-week me-2 text-primary"></i>Escala do Dia: <span id="display-data-escala" class="text-dark"></span></h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
-                    <p class="text-muted small mb-3">Selecione quais técnicos estarão em campo neste dia.</p>
-                    <div id="lista-checkbox-tecnicos" class="row g-2" style="max-height: 300px; overflow-y: auto;"></div>
+                <div class="modal-body bg-white p-4">
+                    
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="fw-bold m-0 text-dark"><i class="bi bi-people-fill me-2 text-primary"></i>Duplas Dinâmicas</h6>
+                        <button type="button" class="btn btn-sm btn-primary fw-bold shadow-sm" id="btn-add-dupla">
+                            <i class="bi bi-plus-lg me-1"></i>Criar Dupla
+                        </button>
+                    </div>
+                    <div id="container-duplas" class="mb-4">
+                        </div>
+
+                    <h6 class="fw-bold mb-3 border-top pt-4 text-dark"><i class="bi bi-person-fill me-2 text-success"></i>Técnicos Individuais</h6>
+                    <div id="lista-checkbox-tecnicos" class="row g-2" style="max-height: 250px; overflow-y: auto;">
+                        </div>
+
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-success" id="btn-salvar-escala">Salvar Escala</button>
+                <div class="modal-footer bg-light border-top-0">
+                    <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-success fw-bold shadow-sm" id="btn-salvar-escala"><i class="bi bi-check-circle-fill me-2"></i>Salvar Escala</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade modal-soc-style" id="modalDetalhesONU" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-router-fill me-2 text-success"></i>Detalhes do PPPoE e ONU</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">Conexão Lógica (PPPoE)</h6>
+                    <div class="mb-4 small">
+                        <p class="mb-1"><strong>Login / Senha:</strong> <span id="det-onu-login"></span> / <span id="det-onu-senha"></span></p>
+                        <p class="mb-1"><strong>IP Atual:</strong> <span id="det-onu-ip"></span></p>
+                        <p class="mb-1"><strong>MAC Autorizado:</strong> <span id="det-onu-mac-login"></span></p>
+                        <div class="mt-2 p-2 bg-light border rounded">
+                            <p class="mb-1 text-danger fw-bold"><i class="bi bi-clock-history me-1"></i>Última Queda: <span id="det-onu-queda-data" class="text-dark">---</span></p>
+                            <p class="mb-1 text-muted"><strong>Motivo:</strong> <span id="det-onu-queda-motivo">---</span></p>
+                            <p class="mb-0 text-muted"><strong>Tempo da última sessão:</strong> <span id="det-onu-uptime">---</span></p>
+                        </div>
+                    </div>
+
+                    <h6 class="fw-bold text-dark border-bottom pb-2 mb-3 d-flex align-items-center justify-content-between">
+                        Física (Sinal da OLT)
+                        <span id="loading-sinal-olt" class="spinner-border spinner-border-sm text-primary" style="display: none;" title="Buscando na OLT..."></span>
+                    </h6>
+                    <div class="small" id="area-onu-info">
+                        <p class="text-muted fst-italic" id="det-onu-nao-encontrada" style="display: none;">Nenhuma ONU vinculada a este login.</p>
+                        <div id="det-onu-dados">
+                            <p class="mb-1"><strong>MAC Equipamento:</strong> <span id="det-onu-mac"></span></p>
+                            <p class="mb-1"><strong>Sinal RX (Recebido):</strong> <span id="det-onu-sinal"></span></p>
+                            <p class="mb-1"><strong>Sinal TX (Enviado):</strong> <span id="det-onu-sinal-tx"></span></p>
+                            <p class="mb-1"><strong>Distância OLT:</strong> <span id="det-onu-distancia"></span></p>
+                            <p class="mb-1"><strong>Status Físico:</strong> <span id="det-onu-status"></span></p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
