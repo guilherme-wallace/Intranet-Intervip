@@ -696,8 +696,8 @@ function atualizarLayoutOnu(onu) {
     const rxInfo = parseFloat(onu.sinal_rx);
     let corRx = 'text-dark';
     if (rxInfo) {
-        if (rxInfo < -26 || rxInfo > -10) corRx = 'text-danger fw-bold'; // Sinal ruim
-        else if (rxInfo <= -10 && rxInfo >= -26) corRx = 'text-success fw-bold'; // Sinal bom
+        if (rxInfo < -26 || rxInfo > -10) corRx = 'text-danger fw-bold';
+        else if (rxInfo <= -10 && rxInfo >= -26) corRx = 'text-success fw-bold';
     }
     document.getElementById('det-onu-sinal').innerHTML = onu.sinal_rx ? `<span class="${corRx}">${onu.sinal_rx} dBm</span>` : 'N/A';
 
