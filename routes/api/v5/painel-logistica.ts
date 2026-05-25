@@ -102,7 +102,7 @@ router.get('/tecnicos', async (req, res) => {
     const { data } = req.query;
     try {
         const query = `
-            SELECT u.id_funcionario_ixc as id, u.nome, e.equipe, e.dupla_id 
+            SELECT u.id_funcionario_ixc as id, u.nome, e.equipe, e.dupla_id, e.regiao, e.turno_escala, e.tipo_imovel 
             FROM usuarios_intranet u
             INNER JOIN ivp_agenda_escala e ON u.id_funcionario_ixc = e.id_funcionario_ixc
             WHERE u.ativo = 1 AND e.data_escala = ?
@@ -130,22 +130,56 @@ router.get('/todos-tecnicos', async (req, res) => {
     }
 });
 
-router.post('/salvar-escala', async (req, res) => {
-    const { data, tecnicos } = req.body;
+router.get('/capacidade-dia', async (req, res) => {
     try {
-        await executeDb(`DELETE FROM ivp_agenda_escala WHERE data_escala = ?`, [data]);
-        
-        if (tecnicos && tecnicos.length > 0) {
-            for (let tec of tecnicos) {
-                await executeDb(
-                    `INSERT INTO ivp_agenda_escala (data_escala, id_funcionario_ixc, equipe, dupla_id) VALUES (?, ?, ?, ?)`, 
-                    [data, tec.id, tec.equipe, tec.dupla_id || null]
-                );
-            }
+        const { data } = req.query;
+        const result = await executeDb('SELECT * FROM ivp_agenda_capacidade WHERE data = ?', [data]);
+        if (result && result.length > 0) {
+            res.json({ encontrado: true, ...result[0] });
+        } else {
+            res.json({ encontrado: false });
         }
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+router.post('/salvar-configuracoes', async (req, res) => {
+    const { data, tecnicos, capacidades } = req.body;
+    
+    //console.log(`[DEBUG] Salvando escala para: ${data}`);
+    
+    try {
+        await executeDb('DELETE FROM ivp_agenda_escala WHERE data_escala = ?', [data]);
+        
+        for (const tec of tecnicos) {
+            await executeDb(
+                'INSERT INTO ivp_agenda_escala (data_escala, id_funcionario_ixc, equipe, dupla_id, regiao, turno_escala, tipo_imovel) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [data, tec.id, tec.equipe, tec.dupla_id || null, tec.regiao, tec.turno, tec.tipo_imovel]
+            );
+        }
+
+        if (capacidades) {
+            await executeDb('DELETE FROM ivp_agenda_capacidade WHERE data = ?', [data]);
+            await executeDb(
+                `INSERT INTO ivp_agenda_capacidade 
+                (data, casa_m, casa_t, predio_serra_m, predio_serra_t, predio_outros_m, predio_outros_t, inst_serra_m, inst_serra_t, inst_outros_m, inst_outros_t)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    data, 
+                    capacidades.casa_m, capacidades.casa_t, 
+                    capacidades.predio_serra_m, capacidades.predio_serra_t, 
+                    capacidades.predio_outros_m, capacidades.predio_outros_t, 
+                    capacidades.inst_serra_m, capacidades.inst_serra_t, 
+                    capacidades.inst_outros_m, capacidades.inst_outros_t
+                ]
+            );
+        }
+
         res.json({ success: true });
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
+    } catch (e: any) {
+        console.error("Erro ao salvar configurações:", e);
+        res.status(500).json({ error: e.message });
     }
 });
 
@@ -179,15 +213,25 @@ router.get('/agendamentos', async (req, res) => {
             query: `${data} 00:00:00`,
             oper: '>=',
             page: '1',
-            rp: '1500' 
+            rp: '10000'
         };
 
+        //console.log("Payload enviado ao IXC para a data " + data + ":", JSON.stringify(payloadIxc));
         const ixcResp = await makeIxcRequest('POST', '/su_oss_chamado', payloadIxc);
+        //console.log("=== [DEBUG IXC] Total de registros retornados:", ixcResp.total);
+        if(ixcResp.registros && ixcResp.registros.length > 0) {
+            //console.log("=== [DEBUG IXC] Exemplo de registro:", JSON.stringify(ixcResp.registros[0]));
+        } else {
+            //console.log("=== [DEBUG IXC] Nenhum registro encontrado com esses filtros.");
+        }
 
         let agendamentosIxc = (ixcResp.registros || []).filter((os: any) => {
-            const idTec = String(os.id_tecnico).trim();
+            const idTec = os.id_tecnico ? String(os.id_tecnico).trim() : '';
+            const tecnicoValido = idTec !== '' && idTec !== '0';
+            
             const ehDoDiaExato = os.data_agenda && os.data_agenda.startsWith(data);
-            return idTec !== '' && idTec !== '0' && ehDoDiaExato;
+            
+            return tecnicoValido && ehDoDiaExato;
         });
 
         const idsExtraidos = agendamentosIxc.map((os: any) => os.id_tecnico).filter((id: any) => id);

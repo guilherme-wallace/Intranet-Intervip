@@ -28,14 +28,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnCarregar = document.getElementById('btn-carregar-agenda');
     if (btnCarregar) btnCarregar.addEventListener('click', carregarAgenda);
 
-    const btnSalvarEscala = document.getElementById('btn-salvar-escala');
-    if (btnSalvarEscala) btnSalvarEscala.addEventListener('click', salvarEscala);
+    const btnAbrirConfig = document.getElementById('btn-abrir-config');
+    if (btnAbrirConfig) btnAbrirConfig.addEventListener('click', abrirModalConfiguracoes);
+
+    const btnSalvarConfig = document.getElementById('btn-salvar-config');
+    if (btnSalvarConfig) btnSalvarConfig.addEventListener('click', salvarConfiguracoes);
 
     const btnAddDupla = document.getElementById('btn-add-dupla');
     if (btnAddDupla) btnAddDupla.addEventListener('click', () => adicionarLinhaDupla());
-
-    const btnAbrirEscala = document.getElementById('btn-abrir-escala');
-    if (btnAbrirEscala) btnAbrirEscala.addEventListener('click', abrirModalEscala);
 
     const filtroStatus = document.getElementById('filtro-status');
     if (filtroStatus) filtroStatus.addEventListener('change', renderizarQuadro);
@@ -46,10 +46,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnFechar = document.getElementById('btn-action-fechar');
     if (btnFechar) btnFechar.addEventListener('click', enviarFechamentoOS);
 
-    const kanbanBoard = document.getElementById('kanban-board');
-    if (kanbanBoard) {
-        kanbanBoard.addEventListener('dragover', allowDrop);
-        kanbanBoard.addEventListener('drop', drop);
+    const boardManut = document.getElementById('board-manutencao');
+    if (boardManut) {
+        boardManut.addEventListener('dragover', allowDrop);
+        boardManut.addEventListener('drop', drop);
+    }
+    const boardInst = document.getElementById('board-instalacao');
+    if (boardInst) {
+        boardInst.addEventListener('dragover', allowDrop);
+        boardInst.addEventListener('drop', drop);
     }
 
     carregarAgenda();
@@ -62,6 +67,45 @@ function getPrimeiroUltimoNome(nomeCompleto) {
     if (!nomeCompleto) return 'Técnico';
     const partes = nomeCompleto.trim().split(' ');
     return partes.length > 1 ? `${partes[0]} ${partes[partes.length - 1]}` : partes[0];
+}
+
+function showModalNativo(modalId) {
+    const el = document.getElementById(modalId);
+    if (!el) return;
+    
+    el.removeAttribute('aria-hidden'); 
+    
+    let m;
+    if (bootstrap.Modal.getOrCreateInstance) {
+        m = bootstrap.Modal.getOrCreateInstance(el);
+    } 
+    else if (bootstrap.Modal.getInstance) {
+        m = bootstrap.Modal.getInstance(el);
+        if (!m) m = new bootstrap.Modal(el);
+    } 
+    else {
+        m = new bootstrap.Modal(el);
+    }
+    
+    m.show();
+}
+
+function hideModalNativo(modalId) {
+    const el = document.getElementById(modalId);
+    if (!el) return;
+    
+    let m;
+    if (bootstrap.Modal.getInstance) {
+        m = bootstrap.Modal.getInstance(el);
+    }
+    
+    if (m) {
+        m.hide();
+    } else {
+        if (typeof $ !== 'undefined') {
+            $('#' + modalId).modal('hide');
+        }
+    }
 }
 
 function atualizarFiltroSetor() {
@@ -132,36 +176,44 @@ async function carregarAgenda() {
 
     await construirColunasTecnicos(data);
 
-    document.getElementById('col-aguardando').innerHTML = '<div class="text-center text-muted mt-5"><div class="spinner-border spinner-border-sm"></div> Buscando...</div>';
+    const colManut = document.getElementById('col-inbox-manutencao');
+    const colInst = document.getElementById('col-inbox-instalacao');
+    const inboxes = [
+        'col-inbox-manut-casa', 'col-inbox-manut-predio-serra', 'col-inbox-manut-predio-outros',
+        'col-inbox-inst-serra', 'col-inbox-inst-outros'
+    ];
+    inboxes.forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.innerHTML = '<div class="text-muted text-center small p-2">Carregando...</div>';
+    });
 
     try {
         const response = await fetch(`/api/v5/painel-logistica/agendamentos?data=${data}&municipio=${municipio}`);
         todosAgendamentosGlobais = await response.json();
         
-        atualizarFiltroSetor();
-        atualizarFiltroMunicipio();
-        renderizarQuadro();
+        if (todosAgendamentosGlobais.length === 0) {
+            colManut.innerHTML = '<div class="alert alert-warning small">Nenhuma OS encontrada para esta data/setores.</div>';
+            colInst.innerHTML = '<div class="alert alert-warning small">Nenhuma OS encontrada para esta data/setores.</div>';
+        } else {
+            atualizarFiltroSetor();
+            atualizarFiltroMunicipio();
+            renderizarQuadro();
+        }
 
     } catch (error) {
         console.error("Erro ao carregar agenda:", error);
+        colManut.innerHTML = '<div class="alert alert-danger small">Erro ao carregar.</div>';
     }
 }
 
 function renderizarQuadro() {
-    document.getElementById('col-aguardando').innerHTML = '';
-    
     document.querySelectorAll('.column-body').forEach(col => {
-        if (col.id !== 'col-aguardando') {
-            col.innerHTML = '';
-        }
+        col.innerHTML = '';
     });
 
     const statusFiltro = document.getElementById('filtro-status').value;
     const setorFiltro = document.getElementById('filtro-setor').value;
     const munFiltro = document.getElementById('filtro-municipio').value;
-
-    let countAguardando = 0;
-    let contadoresTecnicos = {};
 
     todosAgendamentosGlobais.forEach(os => {
         const statusIxc = os.ixc_status || 'A';
@@ -178,44 +230,77 @@ function renderizarQuadro() {
         const card = criarCardOS(os);
         card.addEventListener('click', () => abrirModalDetalhes(os));
         
-        if (!os.ixc_tecnico_id || os.status_interno === 'AGUARDANDO_LOGISTICA') {
-            document.getElementById('col-aguardando').appendChild(card);
-            countAguardando++;
-        } else {
-            let targetDivId = mapaTecnicoColuna[os.ixc_tecnico_id] || `col-extra-${os.ixc_tecnico_id}`;
-            let colTecnico = document.getElementById(targetDivId);
+        const tecnicoId = os.ixc_tecnico_id;
+        const isInstalacao = (os.tipo_servico === 'INSTALACAO') || 
+                             (os.nome_setor && os.nome_setor.toUpperCase().includes('INSTALA')) || 
+                             (os.setor === '5');
+
+        if (!tecnicoId || os.status_interno === 'AGUARDANDO_LOGISTICA') {
+            const cidadeUpper = (os.cidade_real || '').toUpperCase();
+            const isSerra = cidadeUpper.includes('SERRA');
             
-            if (!colTecnico) {
-                const board = document.getElementById('kanban-board');
-                const nomeCompleto = (os.nome_tecnico || 'Desconhecido').trim();
-                const partesNome = nomeCompleto.split(' ');
-                const nomeExibicao = partesNome.length > 1 ? `${partesNome[0]} ${partesNome[partesNome.length - 1]}` : partesNome[0];
+            if (isInstalacao) {
+                if (isSerra) {
+                    document.getElementById('col-inbox-inst-serra').appendChild(card);
+                } else {
+                    document.getElementById('col-inbox-inst-outros').appendChild(card);
+                }
+            } else {
+                if (os.tipo_imovel === 'CASA' || os.tipo_imovel === 'CORPORATIVO') {
+                    document.getElementById('col-inbox-manut-casa').appendChild(card);
+                } else {
+                    if (isSerra) {
+                        document.getElementById('col-inbox-manut-predio-serra').appendChild(card);
+                    } else {
+                        document.getElementById('col-inbox-manut-predio-outros').appendChild(card);
+                    }
+                }
+            }
+        } else {
+            let targetDivId = mapaTecnicoColuna[tecnicoId];
+
+            if (!targetDivId) {
+                targetDivId = `col-extra-${tecnicoId}`;
+                let colTecnico = document.getElementById(targetDivId);
                 
-                const colHTML = `
-                    <div class="kanban-column" style="border: 2px dashed #ffc107; background-color: #fffdf5;">
-                        <div class="column-header">
-                            <div class="column-title" title="Agendado no IXC, mas fora da Escala Intranet">
-                                <i class="bi bi-exclamation-triangle-fill me-2 text-warning"></i> ${nomeExibicao} 
-                                <span class="task-count" id="count-tec-${os.ixc_tecnico_id}">0</span>
+                if (!colTecnico) {
+                    const nomeExibicao = getPrimeiroUltimoNome(os.nome_tecnico);
+                    
+                    const colHTML = `
+                        <div class="kanban-column" style="border: 2px dashed #ffc107; background-color: #fffdf5;" data-equipe="${isInstalacao ? 'INSTALACAO' : 'MANUTENCAO'}">
+                            <div class="column-header d-flex flex-column align-items-center pb-2 text-center border-bottom mb-2">
+                                <div class="text-uppercase fw-bold text-warning mb-1" style="font-size: 0.70rem;" title="Fora da Escala">
+                                    <i class="bi bi-exclamation-triangle-fill me-1"></i>Atenção
+                                </div>
+                                <div class="fw-bold text-dark mb-1 w-100 px-1" style="font-size: 0.85rem;">${nomeExibicao}</div>
+                                <div class="small fw-bold text-muted mb-1">Fora da Escala</div>
+                                <div class="badge bg-secondary rounded-pill px-3 py-1 mt-auto">
+                                    <span class="task-count" id="count-${targetDivId}">0</span> OS
+                                </div>
                             </div>
-                        </div>
-                        <div class="column-body" id="${targetDivId}" data-tecnico-id="${os.ixc_tecnico_id}"></div>
-                    </div>`;
-                board.insertAdjacentHTML('beforeend', colHTML);
-                colTecnico = document.getElementById(targetDivId);
+                            <div class="column-body" id="${targetDivId}" data-tecnico-id="${tecnicoId}"></div>
+                        </div>`;
+                    
+                    document.getElementById(isInstalacao ? 'board-instalacao' : 'board-manutencao').insertAdjacentHTML('beforeend', colHTML);
+                }
             }
 
-            colTecnico.appendChild(card);
-            contadoresTecnicos[os.ixc_tecnico_id] = (contadoresTecnicos[os.ixc_tecnico_id] || 0) + 1;
+            const colBody = document.getElementById(targetDivId);
+            if (colBody) colBody.appendChild(card);
         }
     });
 
+    document.querySelectorAll('.kanban-column').forEach(col => {
+        const body = col.querySelector('.column-body');
+        const spanCount = col.querySelector('.task-count');
+        if (body && spanCount) spanCount.textContent = body.children.length;
+    });
+
     const isFiltroSetorAtivo = setorFiltro !== 'TODOS';
-    
     const filtroUpper = setorFiltro.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
 
     document.querySelectorAll('.kanban-column').forEach(col => {
-        if (col.querySelector('#col-aguardando')) return;
+        if (col.getAttribute('data-inbox') === 'true') return;
         
         const body = col.querySelector('.column-body');
         const hasCards = body.children.length > 0;
@@ -230,21 +315,24 @@ function renderizarQuadro() {
         if (isFiltroSetorAtivo && !hasCards && !pertenceAoFiltro) {
             col.style.display = 'none';
         } else {
-            col.style.display = 'flex';
+            col.style.display = 'flex'; 
         }
     });
 
-    document.getElementById('count-aguardando').textContent = countAguardando;
-    listaTecnicos.forEach(t => {
-        const badge = document.getElementById(`count-tec-${t.id}`);
-        if (badge) badge.textContent = contadoresTecnicos[t.id] || 0;
-    });
-    
-    todosAgendamentosGlobais.forEach(os => {
-       if (os.ixc_tecnico_id && !listaTecnicos.some(t => String(t.id) === String(os.ixc_tecnico_id))) {
-           const badge = document.getElementById(`count-tec-${os.ixc_tecnico_id}`);
-           if (badge) badge.textContent = contadoresTecnicos[os.ixc_tecnico_id] || 0;
-       }
+    document.querySelectorAll('.kanban-column').forEach(col => {
+        const body = col.querySelector('.column-body');
+        const spanCount = col.querySelector('.task-count');
+        const totalCards = body ? body.children.length : 0;
+        
+        if (spanCount) spanCount.textContent = totalCards;
+
+        if (col.getAttribute('data-inbox') === 'true') {
+            if (totalCards === 0) {
+                col.classList.add('inbox-vazio');
+            } else {
+                col.classList.remove('inbox-vazio');
+            }
+        }
     });
 }
 
@@ -254,9 +342,14 @@ async function construirColunasTecnicos(data) {
         listaTecnicos = await response.json();
         mapaTecnicoColuna = {};
 
-        const board = document.getElementById('kanban-board');
-        while (board.children.length > 1) {
-            board.removeChild(board.lastChild);
+        const boardManut = document.getElementById('board-manutencao');
+        if (boardManut) {
+            boardManut.querySelectorAll('.kanban-column:not([data-inbox="true"])').forEach(col => col.remove());
+        }
+        
+        const boardInst = document.getElementById('board-instalacao');
+        if (boardInst) {
+            boardInst.querySelectorAll('.kanban-column:not([data-inbox="true"])').forEach(col => col.remove());
         }
 
         if (listaTecnicos.length === 0) return;
@@ -271,7 +364,10 @@ async function construirColunasTecnicos(data) {
                     id: key,
                     ids_tecnicos: [tec.id],
                     nomes: [getPrimeiroUltimoNome(tec.nome)],
-                    equipe: tec.equipe || 'MANUTENCAO'
+                    equipe: tec.equipe || 'MANUTENCAO',
+                    regiao: tec.regiao || 'SERRA',
+                    turno: tec.turno_escala || 'INTEGRAL',
+                    tipo_imovel: tec.tipo_imovel || 'AMBOS'
                 });
             } else {
                 const col = colunasMap.get(key);
@@ -296,23 +392,32 @@ async function construirColunasTecnicos(data) {
                 mapaTecnicoColuna[tid] = divId;
             });
 
+            const regiaoLabel = col.regiao === 'VV_VIX_CAR' ? 'VV/VIX/CAR' : 'Serra';
+            const turnoLabel = col.turno === 'INTEGRAL' ? 'Int.' : (col.turno === 'MANHA' ? 'Manhã' : 'Tarde');
+            const imovelLabel = col.tipo_imovel === 'CASA' ? 'Casa' : (col.tipo_imovel === 'PREDIO' ? 'Prédio' : 'Casa/Préd.');
+
             const colHTML = `
                 <div class="kanban-column border-top border-3 ${col.equipe === 'MANUTENCAO' ? 'border-primary' : 'border-success'}" data-equipe="${col.equipe}">
                     <div class="column-header d-flex flex-column align-items-center pb-2 text-center bg-white border-bottom mb-2">
-                        <div class="text-uppercase fw-bold mb-1" style="font-size: 0.75rem; letter-spacing: 0.5px; color: #6c757d;">
+                        <div class="text-uppercase fw-bold mb-1" style="font-size: 0.70rem; color: #6c757d;">
                             <i class="bi bi-briefcase-fill me-1 ${iconeCor}"></i>${equipeLabel}
                         </div>
-                        <div class="fw-bold text-dark mb-2 w-100 px-2" style="font-size: 0.9rem; word-wrap: break-word;">
-                            ${tituloVisual}
-                        </div>
+                        <div class="fw-bold text-dark mb-1 w-100 px-1" style="font-size: 0.85rem;">${tituloVisual}</div>
+                        
+                        <div class="small fw-bold text-primary mb-1">${regiaoLabel} • ${turnoLabel} • ${imovelLabel}</div>
+                        
                         <div class="badge bg-secondary rounded-pill px-3 py-1 mt-auto">
-                            <span class="task-count" id="count-tec-${col.ids_tecnicos[0]}">0</span> OS
+                            <span class="task-count" id="count-${divId}">0</span> OS
                         </div>
                     </div>
                     <div class="column-body" id="${divId}" data-tecnico-id="${col.ids_tecnicos[0]}"></div>
                 </div>
             `;
-            board.insertAdjacentHTML('beforeend', colHTML);
+            if (col.equipe === 'MANUTENCAO') {
+                document.getElementById('board-manutencao').insertAdjacentHTML('beforeend', colHTML);
+            } else {
+                document.getElementById('board-instalacao').insertAdjacentHTML('beforeend', colHTML);
+            }
         });
     } catch (error) {
         console.error("Erro ao buscar colunas:", error);
@@ -436,8 +541,8 @@ async function drop(e) {
     }
 }
 
-async function abrirModalEscala() {
-    $('#modalEscala').modal('show');
+async function abrirModalConfiguracoes() {
+    showModalNativo('modalConfiguracoes');
     const data = document.getElementById('filtro-data').value;
     document.getElementById('display-data-escala').textContent = data.split('-').reverse().join('/');
 
@@ -471,60 +576,106 @@ async function abrirModalEscala() {
         allTechsGlobal.forEach(tec => {
             const indivObj = individuaisSalvos.find(t => t.id === tec.id);
             const isChecked = indivObj ? 'checked' : '';
+            
             const equipe = indivObj ? indivObj.equipe : 'MANUTENCAO';
+            const regiao = indivObj ? (indivObj.regiao || 'SERRA') : 'SERRA';
+            const turno = indivObj ? (indivObj.turno || 'INTEGRAL') : 'INTEGRAL';
+            const imovel = indivObj ? (indivObj.tipo_imovel || 'AMBOS') : 'AMBOS';
 
             containerIndiv.innerHTML += `
-                <div class="col-md-6 mb-2">
-                    <div class="p-2 border rounded bg-light d-flex align-items-center justify-content-between">
-                        <div class="form-check text-truncate me-2" style="max-width: 60%;" title="${tec.nome}">
+                <div class="col-12 mb-2">
+                    <div class="p-2 border rounded bg-light d-flex align-items-center gap-2">
+                        <div class="form-check me-2" style="width: 140px;">
                             <input class="form-check-input chk-escala" type="checkbox" value="${tec.id}" id="chk-tec-${tec.id}" ${isChecked}>
-                            <label class="form-check-label fw-bold text-dark" for="chk-tec-${tec.id}" style="font-size: 0.85rem;">${getPrimeiroUltimoNome(tec.nome)}</label>
+                            <label class="form-check-label fw-bold text-truncate w-100" for="chk-tec-${tec.id}">${getPrimeiroUltimoNome(tec.nome)}</label>
                         </div>
-                        <select class="form-select form-select-sm w-auto sel-equipe" id="equipe-${tec.id}">
+                        <select class="form-select form-select-sm sel-equipe" id="equipe-${tec.id}" style="width: 100px;">
                             <option value="MANUTENCAO" ${equipe === 'MANUTENCAO' ? 'selected' : ''}>Manut</option>
                             <option value="INSTALACAO" ${equipe === 'INSTALACAO' ? 'selected' : ''}>Instal</option>
+                        </select>
+                        <select class="form-select form-select-sm sel-regiao" id="regiao-${tec.id}" style="width: 100px;">
+                            <option value="SERRA" ${regiao === 'SERRA' ? 'selected' : ''}>Serra</option>
+                            <option value="VV_VIX_CAR" ${regiao === 'VV_VIX_CAR' ? 'selected' : ''}>VV/VIX/CAR</option>
+                        </select>
+                        <select class="form-select form-select-sm sel-turno" id="turno-${tec.id}" style="width: 90px;">
+                            <option value="INTEGRAL" ${turno === 'INTEGRAL' ? 'selected' : ''}>Int.</option>
+                            <option value="MANHA" ${turno === 'MANHA' ? 'selected' : ''}>Manhã</option>
+                            <option value="TARDE" ${turno === 'TARDE' ? 'selected' : ''}>Tarde</option>
+                        </select>
+                        <select class="form-select form-select-sm sel-imovel" id="imovel-${tec.id}" style="width: 90px;">
+                            <option value="AMBOS" ${imovel === 'AMBOS' ? 'selected' : ''}>Ambos</option>
+                            <option value="CASA" ${imovel === 'CASA' ? 'selected' : ''}>Casa</option>
+                            <option value="PREDIO" ${imovel === 'PREDIO' ? 'selected' : ''}>Prédio</option>
                         </select>
                     </div>
                 </div>`;
         });
+
+        const resCap = await fetch(`/api/v5/painel-logistica/capacidade-dia?data=${data}`);
+        const capData = await resCap.json();
+        
+        if (capData && capData.encontrado) {
+            document.getElementById('cap-casa-m').value = capData.casa_m;
+            document.getElementById('cap-casa-t').value = capData.casa_t;
+            document.getElementById('cap-predio-serra-m').value = capData.predio_serra_m;
+            document.getElementById('cap-predio-serra-t').value = capData.predio_serra_t;
+            document.getElementById('cap-predio-outros-m').value = capData.predio_outros_m;
+            document.getElementById('cap-predio-outros-t').value = capData.predio_outros_t;
+            document.getElementById('cap-inst-serra-m').value = capData.inst_serra_m;
+            document.getElementById('cap-inst-serra-t').value = capData.inst_serra_t;
+            document.getElementById('cap-inst-outros-m').value = capData.inst_outros_m;
+            document.getElementById('cap-inst-outros-t').value = capData.inst_outros_t;
+        }
+
     } catch (e) {
-        containerIndiv.innerHTML = '<div class="text-danger mt-3">Erro ao carregar técnicos.</div>';
+        containerIndiv.innerHTML = '<div class="text-danger mt-3">Erro ao carregar dados.</div>';
     }
 }
 
-function adicionarLinhaDupla(tec1 = '', tec2 = '', equipe = 'MANUTENCAO') {
+function adicionarLinhaDupla(tec1 = '', tec2 = '', equipe = 'MANUTENCAO', regiao = 'SERRA', turno = 'INTEGRAL', imovel = 'AMBOS') {
     duplaCounter++;
     const div = document.createElement('div');
     div.className = 'd-flex align-items-center gap-2 mb-2 p-2 border rounded bg-light dupla-row shadow-sm';
     div.dataset.id = duplaCounter;
 
     let options = `<option value="">Selecione...</option>`;
-    allTechsGlobal.forEach(t => {
-        options += `<option value="${t.id}">${getPrimeiroUltimoNome(t.nome)}</option>`;
-    });
+    allTechsGlobal.forEach(t => { options += `<option value="${t.id}">${getPrimeiroUltimoNome(t.nome)}</option>`; });
 
     div.innerHTML = `
-        <select class="form-select form-select-sm sel-equipe-dupla border-primary fw-bold" style="width: 130px; color: #0d6efd;">
-            <option value="MANUTENCAO" ${equipe === 'MANUTENCAO' ? 'selected' : ''}>Manutenção</option>
-            <option value="INSTALACAO" ${equipe === 'INSTALACAO' ? 'selected' : ''}>Instalação</option>
+        <select class="form-select form-select-sm sel-equipe-dupla border-primary fw-bold" style="width: 100px;">
+            <option value="MANUTENCAO" ${equipe === 'MANUTENCAO' ? 'selected' : ''}>Manut</option>
+            <option value="INSTALACAO" ${equipe === 'INSTALACAO' ? 'selected' : ''}>Instal</option>
         </select>
-        <select class="form-select form-select-sm sel-tec1-dupla flex-grow-1 border-secondary">${options}</select>
-        <span class="text-muted fw-bold">|</span>
-        <select class="form-select form-select-sm sel-tec2-dupla flex-grow-1 border-secondary">${options}</select>
-        <button type="button" class="btn btn-sm btn-outline-danger btn-rm-dupla" title="Remover Dupla"><i class="bi bi-trash"></i></button>
+        <select class="form-select form-select-sm sel-regiao border-secondary" style="width: 100px;">
+            <option value="SERRA" ${regiao === 'SERRA' ? 'selected' : ''}>Serra</option>
+            <option value="VV_VIX_CAR" ${regiao === 'VV_VIX_CAR' ? 'selected' : ''}>VV/VIX/CAR</option>
+        </select>
+        <select class="form-select form-select-sm sel-turno border-secondary" style="width: 90px;">
+            <option value="INTEGRAL" ${turno === 'INTEGRAL' ? 'selected' : ''}>Int.</option>
+            <option value="MANHA" ${turno === 'MANHA' ? 'selected' : ''}>Manhã</option>
+            <option value="TARDE" ${turno === 'TARDE' ? 'selected' : ''}>Tarde</option>
+        </select>
+        <select class="form-select form-select-sm sel-imovel border-secondary" style="width: 90px;">
+            <option value="AMBOS" ${imovel === 'AMBOS' ? 'selected' : ''}>Ambos</option>
+            <option value="CASA" ${imovel === 'CASA' ? 'selected' : ''}>Casa</option>
+            <option value="PREDIO" ${imovel === 'PREDIO' ? 'selected' : ''}>Prédio</option>
+        </select>
+        <select class="form-select form-select-sm sel-tec1-dupla flex-grow-1">${options}</select>
+        <select class="form-select form-select-sm sel-tec2-dupla flex-grow-1">${options}</select>
+        <button type="button" class="btn btn-sm btn-outline-danger btn-rm-dupla"><i class="bi bi-trash"></i></button>
     `;
 
     div.querySelector('.sel-tec1-dupla').value = tec1;
     div.querySelector('.sel-tec2-dupla').value = tec2;
-    div.querySelector('.btn-rm-dupla').addEventListener('click', () => div.remove());
 
+    div.querySelector('.btn-rm-dupla').addEventListener('click', () => div.remove());
     document.getElementById('container-duplas').appendChild(div);
 }
 
-async function salvarEscala() {
+async function salvarConfiguracoes() {
     const data = document.getElementById('filtro-data').value;
     const tecnicosArr = [];
-    const idsUsados = new Set();
+    const idsUsados = new Set(); 
 
     document.querySelectorAll('.dupla-row').forEach((row, index) => {
         const equipe = row.querySelector('.sel-equipe-dupla').value;
@@ -532,40 +683,67 @@ async function salvarEscala() {
         const t2 = row.querySelector('.sel-tec2-dupla').value;
         const duplaId = `D_DYN_${index + 1}`;
 
-        if (t1) {
-            tecnicosArr.push({ id: t1, equipe, dupla_id: duplaId });
-            idsUsados.add(t1);
-        }
-        if (t2 && t2 !== t1) {
-            tecnicosArr.push({ id: t2, equipe, dupla_id: duplaId });
-            idsUsados.add(t2);
-        }
+        if (t1) { tecnicosArr.push({ 
+            id: row.querySelector('.sel-tec1-dupla').value, 
+            equipe: row.querySelector('.sel-equipe-dupla').value,
+            regiao: row.querySelector('.sel-regiao').value,
+            turno: row.querySelector('.sel-turno').value,
+            tipo_imovel: row.querySelector('.sel-imovel').value,
+            dupla_id: `D_DYN_${index + 1}` 
+        }); idsUsados.add(t1); }
+        if (t2 && t2 !== t1) { tecnicosArr.push({ 
+            id: row.querySelector('.sel-tec2-dupla').value, 
+            equipe: row.querySelector('.sel-equipe-dupla').value,
+            regiao: row.querySelector('.sel-regiao').value,
+            turno: row.querySelector('.sel-turno').value,
+            tipo_imovel: row.querySelector('.sel-imovel').value,
+            dupla_id: `D_DYN_${index + 1}` 
+        });idsUsados.add(t2); }
     });
 
     document.querySelectorAll('.chk-escala:checked').forEach(chk => {
         const id = chk.value;
         if (!idsUsados.has(id)) {
-            const equipe = document.getElementById(`equipe-${id}`).value;
-            tecnicosArr.push({ id, equipe, dupla_id: null });
+            tecnicosArr.push({ 
+                id: id, 
+                equipe: document.getElementById(`equipe-${id}`).value,
+                regiao: document.getElementById(`regiao-${id}`).value,
+                turno: document.getElementById(`turno-${id}`).value,
+                tipo_imovel: document.getElementById(`imovel-${id}`).value,
+                dupla_id: null 
+            });
         }
     });
 
-    const btn = document.getElementById('btn-salvar-escala');
+    const capacidades = {
+        casa_m: document.getElementById('cap-casa-m').value,
+        casa_t: document.getElementById('cap-casa-t').value,
+        predio_serra_m: document.getElementById('cap-predio-serra-m').value,
+        predio_serra_t: document.getElementById('cap-predio-serra-t').value,
+        predio_outros_m: document.getElementById('cap-predio-outros-m').value,
+        predio_outros_t: document.getElementById('cap-predio-outros-t').value,
+        inst_serra_m: document.getElementById('cap-inst-serra-m').value,
+        inst_serra_t: document.getElementById('cap-inst-serra-t').value,
+        inst_outros_m: document.getElementById('cap-inst-outros-m').value,
+        inst_outros_t: document.getElementById('cap-inst-outros-t').value
+    };
+
+    const btn = document.getElementById('btn-salvar-config');
     btn.innerHTML = 'Salvando...';
     btn.disabled = true;
 
     try {
-        await fetch('/api/v5/painel-logistica/salvar-escala', {
+        await fetch('/api/v5/painel-logistica/salvar-configuracoes', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ data: data, tecnicos: tecnicosArr })
+            body: JSON.stringify({ data: data, tecnicos: tecnicosArr, capacidades: capacidades })
         });
-        $('#modalEscala').modal('hide');
+        hideModalNativo('modalConfiguracoes');
         carregarAgenda();
     } catch (e) {
-        alert("Erro ao salvar escala.");
+        alert("Erro ao salvar as configurações.");
     } finally {
-        btn.innerHTML = 'Salvar Escala';
+        btn.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Salvar Tudo';
         btn.disabled = false;
     }
 }
@@ -583,7 +761,7 @@ async function abrirModalDetalhes(os) {
     document.getElementById('loading-detalhes-os').style.display = 'flex';
     document.getElementById('conteudo-detalhes-os').style.display = 'none';
 
-    $('#modalDetalhesOS').modal('show');
+    showModalNativo('modalDetalhesOS');
 
     try {
         const response = await fetch(`/api/v5/painel-logistica/os-detalhes/${os.ixc_os_id}`);
@@ -625,7 +803,7 @@ async function abrirModalDetalhes(os) {
 
     } catch (e) {
         alert("Não foi possível carregar os detalhes do IXC.");
-        $('#modalDetalhesOS').modal('hide');
+        hideModalNativo('modalDetalhesOS');
     }
 }
 
@@ -685,7 +863,7 @@ function abrirModalONU() {
         document.getElementById('loading-sinal-olt').style.display = 'none';
     }
 
-    $('#modalDetalhesONU').modal('show');
+    showModalNativo('modalDetalhesONU');
 }
 
 function atualizarLayoutOnu(onu) {
@@ -736,7 +914,7 @@ async function enviarReagendamento() {
             body: JSON.stringify({ ixc_os_id, id_agenda_local, nova_data, novo_turno })
         });
         
-        $('#modalDetalhesOS').modal('hide');
+        hideModalNativo('modalDetalhesOS');
         carregarAgenda(); 
     } catch (e) {
         alert("Erro ao reagendar: " + e.message);
@@ -763,7 +941,7 @@ async function enviarFechamentoOS() {
             body: JSON.stringify({ ixc_os_id, mensagem_resposta })
         });
         
-        $('#modalDetalhesOS').modal('hide');
+        hideModalNativo('modalDetalhesOS');
         carregarAgenda(); 
     } catch (e) {
         alert("Erro ao fechar: " + e.message);
@@ -775,9 +953,9 @@ async function enviarFechamentoOS() {
 
 async function autoRefreshSilencioso() {
     const modalDetalhes = document.getElementById('modalDetalhesOS');
-    const modalEscala = document.getElementById('modalEscala');
+    const modalConfig = document.getElementById('modalConfiguracoes');
     
-    if (draggedCard || (modalDetalhes && modalDetalhes.classList.contains('show')) || (modalEscala && modalEscala.classList.contains('show'))) {
+    if (draggedCard || (modalDetalhes && modalDetalhes.classList.contains('show')) || (modalConfig && modalConfig.classList.contains('show'))) {
         return; 
     }
 

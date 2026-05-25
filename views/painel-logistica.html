@@ -70,21 +70,77 @@
         </div>
 
         <div id="area-admin-logistica" class="mb-3 text-end d-none">
-            <button id="btn-abrir-escala" class="btn btn-outline-primary">
-                <i class="bi bi-people-fill me-2"></i>Gerenciar Técnicos do Dia
+            <button id="btn-abrir-config" class="btn btn-outline-primary">
+                <i class="bi bi-people-fill me-2"></i>Configurações do Dia
             </button>
         </div>
 
-        <div class="board-container mt-2" id="kanban-board">
-            <div class="kanban-column">
-                <div class="column-header">
-                    <div class="column-title">
-                        Aguardando Logística <span class="task-count" id="count-aguardando">0</span>
+        <div class="swimlane-container mb-4">
+            <h5 class="fw-bold text-primary mb-3 border-bottom pb-2"><i class="bi bi-tools me-2"></i>Equipes de Manutenção</h5>
+            <div id="board-manutencao" class="d-flex align-items-start overflow-x-auto gap-3 pb-2" style="min-height: 350px;">
+                
+                <div class="kanban-column border-top border-3 border-secondary" style="background-color: #f1f3f5; min-width: 280px;" data-inbox="true">
+                    <div class="column-header d-flex flex-column align-items-center pb-2 text-center border-bottom mb-2">
+                        <div class="text-uppercase fw-bold text-muted mb-1" style="font-size: 0.70rem;">
+                            <i class="bi bi-house-door-fill me-1"></i><span class="hide-on-collapse">Casas</span>
+                        </div>
+                        <div class="fw-bold text-dark mb-1 w-100 px-1 hide-on-collapse" style="font-size: 0.85rem;">Aguardando Técnico</div>
+                        <div class="badge bg-secondary rounded-pill px-3 py-1 mt-auto hide-on-collapse"><span class="task-count" id="count-inbox-manut-casa">0</span> OS</div>
                     </div>
-                    <i class="bi bi-three-dots text-muted"></i>
+                    <div class="column-body" id="col-inbox-manut-casa" data-tecnico-id="AGUARDANDO"></div>
                 </div>
-                <div class="column-body" id="col-aguardando" data-status="AGUARDANDO_LOGISTICA">
+
+                <div class="kanban-column border-top border-3 border-secondary" style="background-color: #f1f3f5; min-width: 280px;" data-inbox="true">
+                    <div class="column-header d-flex flex-column align-items-center pb-2 text-center border-bottom mb-2">
+                        <div class="text-uppercase fw-bold text-muted mb-1" style="font-size: 0.70rem;">
+                            <i class="bi bi-building me-1"></i><span class="hide-on-collapse">Prédios - Serra</span>
+                        </div>
+                        <div class="fw-bold text-dark mb-1 w-100 px-1 hide-on-collapse" style="font-size: 0.85rem;">Aguardando Técnico</div>
+                        <div class="badge bg-secondary rounded-pill px-3 py-1 mt-auto hide-on-collapse"><span class="task-count" id="count-inbox-manut-predio-serra">0</span> OS</div>
                     </div>
+                    <div class="column-body" id="col-inbox-manut-predio-serra" data-tecnico-id="AGUARDANDO"></div>
+                </div>
+                
+                <div class="kanban-column border-top border-3 border-secondary" style="background-color: #f1f3f5; min-width: 280px;" data-inbox="true">
+                    <div class="column-header d-flex flex-column align-items-center pb-2 text-center border-bottom mb-2">
+                        <div class="text-uppercase fw-bold text-muted mb-1" style="font-size: 0.70rem;">
+                            <i class="bi bi-building me-1"></i><span class="hide-on-collapse">Prédios - VV/VIX/CAR</span>
+                        </div>
+                        <div class="fw-bold text-dark mb-1 w-100 px-1 hide-on-collapse" style="font-size: 0.85rem;">Aguardando Técnico</div>
+                        <div class="badge bg-secondary rounded-pill px-3 py-1 mt-auto hide-on-collapse"><span class="task-count" id="count-inbox-manut-predio-outros">0</span> OS</div>
+                    </div>
+                    <div class="column-body" id="col-inbox-manut-predio-outros" data-tecnico-id="AGUARDANDO"></div>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="swimlane-container">
+            <h5 class="fw-bold text-success mb-3 border-bottom pb-2"><i class="bi bi-router-fill me-2"></i>Equipes de Instalação</h5>
+            <div id="board-instalacao" class="d-flex align-items-start overflow-x-auto gap-3 pb-2" style="min-height: 350px;">
+                
+                <div class="kanban-column border-top border-3 border-secondary" style="background-color: #f1f3f5; min-width: 280px;" data-inbox="true">
+                    <div class="column-header d-flex flex-column align-items-center pb-2 text-center border-bottom mb-2">
+                        <div class="text-uppercase fw-bold text-muted mb-1" style="font-size: 0.70rem;">
+                            <i class="bi bi-geo-alt-fill me-1"></i><span class="hide-on-collapse">Instalação - Serra</span>
+                        </div>
+                        <div class="fw-bold text-dark mb-1 w-100 px-1 hide-on-collapse" style="font-size: 0.85rem;">Aguardando Técnico</div>
+                        <div class="badge bg-secondary rounded-pill px-3 py-1 mt-auto hide-on-collapse"><span class="task-count" id="count-inbox-inst-serra">0</span> OS</div>
+                    </div>
+                    <div class="column-body" id="col-inbox-inst-serra" data-tecnico-id="AGUARDANDO"></div>
+                </div>
+
+                <div class="kanban-column border-top border-3 border-secondary" style="background-color: #f1f3f5; min-width: 280px;" data-inbox="true">
+                    <div class="column-header d-flex flex-column align-items-center pb-2 text-center border-bottom mb-2">
+                        <div class="text-uppercase fw-bold text-muted mb-1" style="font-size: 0.70rem;">
+                            <i class="bi bi-geo-alt-fill me-1"></i><span class="hide-on-collapse">Instal - VV/VIX/CAR</span>
+                        </div>
+                        <div class="fw-bold text-dark mb-1 w-100 px-1 hide-on-collapse" style="font-size: 0.85rem;">Aguardando Técnico</div>
+                        <div class="badge bg-secondary rounded-pill px-3 py-1 mt-auto hide-on-collapse"><span class="task-count" id="count-inbox-inst-outros">0</span> OS</div>
+                    </div>
+                    <div class="column-body" id="col-inbox-inst-outros" data-tecnico-id="AGUARDANDO"></div>
+                </div>
+
             </div>
         </div>
     </main>
@@ -170,32 +226,101 @@
         </div>
     </div>
 
-    <div class="modal fade modal-soc-style" id="modalEscala" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content">
+    <div class="modal fade modal-soc-style" id="modalConfiguracoes" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl"> <div class="modal-content">
                 <div class="modal-header bg-light">
-                    <h5 class="modal-title fw-bold"><i class="bi bi-calendar-week me-2 text-primary"></i>Escala do Dia: <span id="display-data-escala" class="text-dark"></span></h5>
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-gear-fill me-2 text-primary"></i>Configurações do Dia: <span id="display-data-escala" class="text-dark"></span>
+                    </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body bg-white p-4">
+                <div class="modal-body bg-white p-0">
                     
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h6 class="fw-bold m-0 text-dark"><i class="bi bi-people-fill me-2 text-primary"></i>Duplas Dinâmicas</h6>
-                        <button type="button" class="btn btn-sm btn-primary fw-bold shadow-sm" id="btn-add-dupla">
-                            <i class="bi bi-plus-lg me-1"></i>Criar Dupla
-                        </button>
+                    <ul class="nav nav-tabs px-4 pt-3 bg-light" id="configTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active fw-bold text-dark" id="escala-tab" data-bs-toggle="tab" data-bs-target="#escala-panel" type="button" role="tab">
+                                <i class="bi bi-people-fill me-1 text-primary"></i> Escala de Técnicos
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link fw-bold text-dark" id="capacidade-tab" data-bs-toggle="tab" data-bs-target="#capacidade-panel" type="button" role="tab">
+                                <i class="bi bi-speedometer2 me-1 text-success"></i> Capacidade de Agendamentos
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content p-4" id="configTabsContent">
+                        
+                        <div class="tab-pane fade show active" id="escala-panel" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="fw-bold m-0 text-dark">Duplas Configuradas</h6>
+                                <button type="button" class="btn btn-sm btn-primary fw-bold shadow-sm" id="btn-add-dupla">
+                                    <i class="bi bi-plus-lg me-1"></i>Criar Dupla
+                                </button>
+                            </div>
+                            <div id="container-duplas" class="mb-4"></div>
+
+                            <h6 class="fw-bold mb-3 border-top pt-4 text-dark">Técnicos Individuais</h6>
+                            <div id="lista-checkbox-tecnicos" class="row g-2" style="max-height: 250px; overflow-y: auto;"></div>
+                        </div>
+
+                        <div class="tab-pane fade" id="capacidade-panel" role="tabpanel">
+                            <div class="row g-4">
+                                <div class="col-md-6">
+                                    <div class="card border-primary shadow-sm h-100">
+                                        <div class="card-header bg-primary text-white fw-bold"><i class="bi bi-tools me-2"></i>Manutenção (Reparo)</div>
+                                        <div class="card-body small">
+                                            
+                                            <h6 class="fw-bold text-dark border-bottom pb-1">Casas (Geral)</h6>
+                                            <div class="row g-2 mb-3">
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Manhã</label><input type="number" class="form-control form-control-sm" id="cap-casa-m" value="3"></div>
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Tarde</label><input type="number" class="form-control form-control-sm" id="cap-casa-t" value="3"></div>
+                                            </div>
+
+                                            <h6 class="fw-bold text-dark border-bottom pb-1">Prédios - Serra</h6>
+                                            <div class="row g-2 mb-3">
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Manhã</label><input type="number" class="form-control form-control-sm" id="cap-predio-serra-m" value="5"></div>
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Tarde</label><input type="number" class="form-control form-control-sm" id="cap-predio-serra-t" value="5"></div>
+                                            </div>
+
+                                            <h6 class="fw-bold text-dark border-bottom pb-1">Prédios - VV / VIX / CAR</h6>
+                                            <div class="row g-2 mb-1">
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Manhã</label><input type="number" class="form-control form-control-sm" id="cap-predio-outros-m" value="5"></div>
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Tarde</label><input type="number" class="form-control form-control-sm" id="cap-predio-outros-t" value="3"></div>
+                                            </div>
+
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="card border-success shadow-sm h-100">
+                                        <div class="card-header bg-success text-white fw-bold"><i class="bi bi-router-fill me-2"></i>Instalação</div>
+                                        <div class="card-body small">
+                                            
+                                            <h6 class="fw-bold text-dark border-bottom pb-1">Serra</h6>
+                                            <div class="row g-2 mb-3">
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Manhã</label><input type="number" class="form-control form-control-sm" id="cap-inst-serra-m" value="5"></div>
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Tarde</label><input type="number" class="form-control form-control-sm" id="cap-inst-serra-t" value="5"></div>
+                                            </div>
+
+                                            <h6 class="fw-bold text-dark border-bottom pb-1">VV / VIX / CAR</h6>
+                                            <div class="row g-2 mb-1">
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Manhã</label><input type="number" class="form-control form-control-sm" id="cap-inst-outros-m" value="3"></div>
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Tarde</label><input type="number" class="form-control form-control-sm" id="cap-inst-outros-t" value="2"></div>
+                                            </div>
+
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
-                    <div id="container-duplas" class="mb-4">
-                        </div>
-
-                    <h6 class="fw-bold mb-3 border-top pt-4 text-dark"><i class="bi bi-person-fill me-2 text-success"></i>Técnicos Individuais</h6>
-                    <div id="lista-checkbox-tecnicos" class="row g-2" style="max-height: 250px; overflow-y: auto;">
-                        </div>
-
                 </div>
                 <div class="modal-footer bg-light border-top-0">
                     <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-success fw-bold shadow-sm" id="btn-salvar-escala"><i class="bi bi-check-circle-fill me-2"></i>Salvar Escala</button>
+                    <button type="button" class="btn btn-success fw-bold shadow-sm" id="btn-salvar-config"><i class="bi bi-check-circle-fill me-2"></i>Salvar Tudo</button>
                 </div>
             </div>
         </div>
@@ -241,7 +366,7 @@
     </div>
 
     <script src="javascripts/jquery.js"></script>
-    <script src="javascripts/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="javascripts/painel-logistica.js"></script>
 </body>
 </html>

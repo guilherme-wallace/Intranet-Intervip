@@ -337,6 +337,27 @@ body {
     color: #ffffff !important;
 }
 
+.kanban-column[data-inbox="true"] {
+    transition: min-width 0.3s ease, width 0.3s ease;
+}
+.kanban-column.inbox-vazio {
+    min-width: 80px !important;
+    width: 80px !important;
+    cursor: pointer;
+}
+.kanban-column.inbox-vazio:hover {
+    min-width: 280px !important;
+    width: 280px !important;
+}
+.kanban-column.inbox-vazio:not(:hover) .hide-on-collapse {
+    display: none !important;
+}
+.kanban-column.inbox-vazio:not(:hover) .column-header i {
+    font-size: 1.5rem;
+    display: block;
+    margin-bottom: 5px;
+}
+
 /* FOOTER */
 .ivp-footer {
     background-color: var(--footer-bg);
