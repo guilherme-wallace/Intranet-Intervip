@@ -775,6 +775,7 @@ async function abrirChamadoNocCadastro(nomeNovoCondominio: string, clientData: a
 SOLICITAÇÃO DE CADASTRO DE NOVO CONDOMÍNIO/LOCALIDADE
 -----------------------------------------------------
 O vendedor informou um local não cadastrado no sistema.
+VENDEDOR: ${clientData.nome_vendedor || clientData.id_vendedor || 'N/A'}
 
 NOME DO CONDOMÍNIO/BAIRRO INFORMADO:
 >> ${nomeNovoCondominio.toUpperCase()} <<
