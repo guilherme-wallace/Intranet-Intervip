@@ -38,7 +38,7 @@
 
     <main class="ivp-main">
         <div class="container py-4">
-            <h3 class="mb-4 text-primary"><i class="bi bi-headset me-2"></i>Triagem e Abertura de OS</h3>
+            <h3 class="mb-4 text-primary"><i class="bi bi-headset me-2"></i>Triagem e Abertura de Chamados</h3>
 
             <div class="row">
                 <div class="col-lg-4">
@@ -46,7 +46,7 @@
                         <div class="card-body p-4">
                             <label class="form-label fw-bold">Buscar Cliente</label>
                             <div class="input-group mb-3">
-                                <input type="text" id="input-busca-cliente" class="form-control" placeholder="Digite o ID, CPF ou CNPJ...">
+                                <input type="text" id="input-busca-cliente" class="form-control" placeholder="Digite o código, CPF ou CNPJ...">
                                 <button class="btn btn-primary" id="btn-buscar-cliente">
                                     <i class="bi bi-search"></i>
                                 </button>
@@ -77,13 +77,9 @@
                             <form id="form-triagem">
                                 <div class="row g-3">
                                     <div class="col-md-6">
-                                        <label class="form-label fw-bold">Motivo do Contato <span class="text-danger">*</span></label>
-                                        <select class="form-select" id="select-motivo" required>
-                                            <option value="" selected disabled>Selecione...</option>
-                                            <option value="LOS">LOS (Sem Sinal)</option>
-                                            <option value="LENTIDAO">Lentidão / Intermitência</option>
-                                            <option value="ROTEADOR">Falha no Roteador (Wi-Fi)</option>
-                                            <option value="MUDANCA">Mudança de Endereço</option>
+                                        <label class="form-label fw-bold">Processo / Assunto do Atendimento <span class="text-danger">*</span></label>
+                                        <select class="form-select mb-3" id="select-assunto" required>
+                                            <option value="">Carregando processos do IXC...</option>
                                         </select>
                                     </div>
                                     
@@ -117,7 +113,7 @@
                                 
                                 <div class="text-end mt-4">
                                     <button type="button" class="btn btn-success px-4" id="btn-gerar-os">
-                                        <i class="bi bi-file-earmark-plus me-2"></i>Avançar para Agendamento
+                                        <i class="bi bi-file-earmark-plus me-2"></i>Continuar
                                     </button>
                                 </div>
                             </form>
@@ -139,6 +135,32 @@
             </div>
         </div>
     </footer>
+
+    <div class="modal fade" id="modalDecisaoAgendamento" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-check-circle-fill me-2"></i>Atendimento Aberto</h5>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="text-center mb-4">
+                        <p class="fs-5 text-dark m-0">Chamado <strong>#<span id="sucesso-ticket-id"></span></strong> criado no IXC!</p>
+                        <p class="text-muted small">Selecione para onde deseja encaminhar este atendimento:</p>
+                    </div>
+                    
+                    <div id="lista-tarefas-processo" class="d-flex flex-column gap-2 text-start">
+                        <div class="text-center text-muted"><span class="spinner-border spinner-border-sm"></span> Carregando fluxo...</div>
+                    </div>
+                    
+                </div>
+                <div class="modal-footer bg-light p-3">
+                    <button type="button" class="btn btn-primary fw-bold w-100" id="btn-confirmar-tarefa">
+                        Confirmar e Avançar <i class="bi bi-arrow-right-circle ms-1"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
     
     <script src="javascripts/jquery.js"></script>
     <script src="javascripts/bootstrap.bundle.min.js"></script>
