@@ -210,7 +210,7 @@ const PERMISSOES_SISTEMA = {
     'card-migra-onu': ['NOC','ADMIN'],
     'card-cadastro-de-blocos': ['NOC','ADMIN'],
     'card-soc-report': ['NOC','ADMIN'],
-    'card-monitoramento-de-falhas': ['NOC','ADMIN'],
+    'card-monitoramento-de-falhas': ['NOC','ADMIN','Fibra','Logistica'],
     'card-looking-glass': ['NOC','ADMIN'],
   
     'card-analise-de-risco': ['NOC','TecnicoFibra','TecnicoLogistica','Fibra','Logistica','ADMIN'],
