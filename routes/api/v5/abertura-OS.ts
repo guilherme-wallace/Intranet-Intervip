@@ -77,50 +77,141 @@ router.get('/busca-cliente/:termo', async (req, res) => {
 
         if (termoLimpo.length === 11 || termoLimpo.length === 14) {
             let queryFormatada = termoLimpo;
-            
             if (termoLimpo.length === 11) {
                 queryFormatada = termoLimpo.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
             } else {
                 queryFormatada = termoLimpo.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
             }
-
-            const respCpf = await makeIxcRequest('POST', '/cliente', {
-                qtype: "cliente.cnpj_cpf", query: queryFormatada, oper: "=", page: "1", rp: "1"
-            });
-
-            if (respCpf.registros && respCpf.registros.length > 0) {
-                clienteEncontrado = respCpf.registros[0];
-            }
+            const respCpf = await makeIxcRequest('POST', '/cliente', { qtype: "cliente.cnpj_cpf", query: queryFormatada, oper: "=", page: "1", rp: "1" });
+            if (respCpf.registros && respCpf.registros.length > 0) clienteEncontrado = respCpf.registros[0];
         }
 
         if (!clienteEncontrado && termoLimpo.length > 0) {
-            const respId = await makeIxcRequest('POST', '/cliente', {
-                qtype: "cliente.id", query: termoLimpo, oper: "=", page: "1", rp: "1"
-            });
+            const respId = await makeIxcRequest('POST', '/cliente', { qtype: "cliente.id", query: termoLimpo, oper: "=", page: "1", rp: "1" });
+            if (respId.registros && respId.registros.length > 0) clienteEncontrado = respId.registros[0];
+        }
 
-            if (respId.registros && respId.registros.length > 0) {
-                clienteEncontrado = respId.registros[0];
+        if (!clienteEncontrado) return res.status(404).json({ error: "Cliente não encontrado no IXC." });
+
+        const conResp = await makeIxcRequest('POST', '/cliente_contrato', { qtype: 'cliente_contrato.id_cliente', query: String(clienteEncontrado.id), oper: '=', page: '1', rp: '50' });
+        const listaContratos = (conResp.registros || []).filter((c: any) => c.status !== 'C' && c.status !== 'I');
+        
+        const contratosProcessados = await Promise.all(listaContratos.map(async (contrato: any) => {
+            let planoNome = 'Não informado';
+            let nomeCondominio = '';
+            let loginData = null;
+            let onuData = null;
+            let historicoPppoe = null;
+            let valorContrato = contrato.valor_contrato || '0.00';
+
+            let baseEnd = contrato;
+            if (contrato.endereco_padrao_cliente === 'S') {
+                baseEnd = clienteEncontrado;
             }
-        }
 
-        if (!clienteEncontrado) {
-            return res.status(404).json({ error: "Cliente não encontrado no IXC." });
-        }
+            if (baseEnd && baseEnd.id_condominio && baseEnd.id_condominio !== '0') {
+                try {
+                    const condResp = await makeIxcRequest('POST', '/cliente_condominio', { qtype: 'cliente_condominio.id', query: baseEnd.id_condominio, oper: '=', rp: '1' });
+                    if (condResp.registros?.length > 0) nomeCondominio = condResp.registros[0].condominio;
+                } catch(e){}
+            }
 
-        const conResp = await makeIxcRequest('POST', '/cliente_contrato', {
-            qtype: 'cliente_contrato.id_cliente', query: String(clienteEncontrado.id), oper: '=', page: '1', rp: '50'
-        });
+            if (contrato.id_vd_contrato) {
+                try {
+                    const planoResp = await makeIxcRequest('POST', '/vd_contratos', { qtype: 'vd_contratos.id', query: contrato.id_vd_contrato, oper: '=', rp: '1' });
+                    if (planoResp.registros?.length > 0) planoNome = planoResp.registros[0].nome;
+                } catch(e){}
+            }
 
-        const contratosAtivos = (conResp.registros || []).filter((c: any) => c.status !== 'C' && c.status !== 'I');
-        const contratoPrincipal = contratosAtivos.length > 0 ? contratosAtivos[0] : (conResp.registros ? conResp.registros[0] : null);
+            try {
+                const logResp = await makeIxcRequest('POST', '/radusuarios', { qtype: 'radusuarios.id_contrato', query: String(contrato.id), oper: '=', rp: '1' });
+                if (logResp.registros?.length > 0) {
+                    loginData = logResp.registros[0];
+                    
+                    if (loginData.login) {
+                        const acctResp = await makeIxcRequest('POST', '/radacct', { qtype: 'radacct.username', query: loginData.login, oper: '=', page: '1', rp: '1', sortname: 'radacctid', sortorder: 'desc' });
+                        if (acctResp.registros?.length > 0) historicoPppoe = acctResp.registros[0];
+                    }
+
+                    let onuEncontrada = null;
+                    if (loginData.id) {
+                        const reqOnuId = await makeIxcRequest('POST', '/radpop_radio_cliente_fibra', {
+                            qtype: 'id_login', query: String(loginData.id), oper: '=', rp: '1', sortname: 'id', sortorder: 'desc'
+                        });
+                        if (reqOnuId.registros && reqOnuId.registros.length > 0) onuEncontrada = reqOnuId.registros[0];
+                    }
+
+                    if (!onuEncontrada && loginData.mac) {
+                        const reqOnuMac = await makeIxcRequest('POST', '/radpop_radio_cliente_fibra', {
+                            qtype: 'mac', query: String(loginData.mac), oper: '=', rp: '1', sortname: 'id', sortorder: 'desc'
+                        });
+                        if (reqOnuMac.registros && reqOnuMac.registros.length > 0) onuEncontrada = reqOnuMac.registros[0];
+                    }
+                    
+                    if (onuEncontrada) onuData = onuEncontrada;
+                }
+            } catch(e: any) {
+                console.error("[DEBUG] Erro na requisição da ONU do contrato " + contrato.id, e.message);
+            }
+
+            const arrayEnd = [];
+            if (baseEnd.endereco) arrayEnd.push(baseEnd.endereco);
+            if (baseEnd.numero) arrayEnd.push(`Nº ${baseEnd.numero}`);
+            if (baseEnd.bairro) arrayEnd.push(`Bairro: ${baseEnd.bairro}`);
+            if (baseEnd.complemento) arrayEnd.push(`Comp: ${baseEnd.complemento}`);
+            if (baseEnd.bloco) arrayEnd.push(`Bloco: ${baseEnd.bloco}`);
+            if (baseEnd.apartamento) arrayEnd.push(`Apto: ${baseEnd.apartamento}`);
+            if (baseEnd.referencia) arrayEnd.push(`Ref: ${baseEnd.referencia}`);
+            const upperCond = (nomeCondominio || '').toUpperCase();
+            const prefixosCasa = ['SEA', 'VTA', 'VVA', 'CCA'];
+
+            const isRedeNeutra = upperCond.includes('(RDNT-');
+
+            const isCasa = prefixosCasa.some(prefix => upperCond.startsWith(prefix));
+            const isPredio = !isCasa && (!!(nomeCondominio || baseEnd.bloco || baseEnd.apartamento));
+
+            const isCorp = clienteEncontrado.id_tipo_cliente === '7' || clienteEncontrado.id_tipo_cliente === '8';
+
+            return {
+                id: contrato.id,
+                endereco_completo: arrayEnd.join(' | '),
+                condominio: nomeCondominio || null,
+                is_predio: isPredio,
+                is_rede_neutra: isRedeNeutra,
+                is_corp: isCorp,
+                plano: {
+                    nome: planoNome,
+                    valor: valorContrato,
+                    status: contrato.status || 'N/A'
+                },
+                login: loginData ? {
+                    user: loginData.login,
+                    senha: loginData.senha,
+                    mac: loginData.mac,
+                    ip: loginData.ip,
+                    status: historicoPppoe ? (historicoPppoe.acctstoptime ? 'Offline' : 'Online') : 'Desconhecido',
+                    ultima_queda: historicoPppoe?.acctstoptime || '---',
+                    motivo_queda: historicoPppoe?.acctterminatecause || '---',
+                    uptime: historicoPppoe?.acctsessiontime || '0',
+                    id: loginData.id
+                } : null,
+                onu: onuData ? {
+                    id: onuData.id,
+                    mac: onuData.mac,
+                    sinal_rx: onuData.sinal_rx,
+                    sinal_tx: onuData.sinal_tx,
+                    distancia: onuData.distancia,
+                    status: onuData.status === 'A' ? 'Online' : 'Offline / LOS'
+                } : null
+            };
+        }));
 
         res.json({
             id: clienteEncontrado.id,
             nome: clienteEncontrado.razao,
             documento: clienteEncontrado.cnpj_cpf,
-            telefones: [clienteEncontrado.telefone_celular, clienteEncontrado.telefone_residencial].filter(f => f).join(' / ') || 'Sem telefone',
-            contrato_id: contratoPrincipal ? contratoPrincipal.id : null,
-            endereco: contratoPrincipal ? `${contratoPrincipal.endereco}, ${contratoPrincipal.numero} - ${contratoPrincipal.bairro}` : 'Endereço não encontrado'
+            telefones: [clienteEncontrado.telefone_celular, clienteEncontrado.whatsapp, clienteEncontrado.telefone_residencial].filter(f => f).join(' / ') || 'Sem telefone',
+            contratos: contratosProcessados
         });
 
     } catch (error: any) {
@@ -290,6 +381,89 @@ router.post('/avancar-tarefa', async (req, res) => {
 
     } catch (error: any) {
         console.error("Erro ao avançar tarefa:", error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/onu-realtime', async (req, res) => {
+    const { id_fibra } = req.body;
+    try {
+        await makeIxcRequest('POST', '/radpop_radio_cliente_fibra', { id_registro: id_fibra }, 'integracao');
+        
+        const onuResp = await makeIxcRequest('POST', '/radpop_radio_cliente_fibra', {
+            qtype: 'radpop_radio_cliente_fibra.id', query: String(id_fibra), oper: '=', page: '1', rp: '1'
+        });
+        res.json(onuResp.registros ? onuResp.registros[0] : null);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/historico-conexao/:username', async (req, res) => {
+    try {
+        const resp = await makeIxcRequest('POST', '/radacct', {
+            qtype: 'radacct.username', query: req.params.username, oper: '=', page: '1', rp: '5', sortname: 'radacctid', sortorder: 'desc'
+        });
+        res.json(resp.registros || []);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/limpar-mac', async (req, res) => {
+    try {
+        const { id_login } = req.body;
+        await makeIxcRequest('POST', `/radusuarios_${id_login}`, { get_id: "" });
+        res.json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/desconectar', async (req, res) => {
+    try {
+        const { id_login } = req.body;
+        await makeIxcRequest('POST', '/desconectar_clientes', { id: id_login });
+        res.json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/atendimentos-abertos/:id_cliente', async (req, res) => {
+    try {
+        const resp = await makeIxcRequest('POST', '/su_ticket', {
+            qtype: 'su_ticket.id_cliente',
+            query: req.params.id_cliente,
+            oper: '=',
+            page: '1',
+            rp: '100',
+            sortname: 'su_ticket.id',
+            sortorder: 'desc'
+        });
+
+        const atendimentosAbertos = (resp.registros || []).filter((t: any) => t.status !== 'F' && t.status !== 'C');
+
+        res.json(atendimentosAbertos);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/atendimento-oss/:id_ticket', async (req, res) => {
+    try {
+        const resp = await makeIxcRequest('POST', '/su_oss_chamado', {
+            qtype: 'su_oss_chamado.id_ticket',
+            query: req.params.id_ticket,
+            oper: '=',
+            page: '1',
+            rp: '100',
+            sortname: 'su_oss_chamado.id',
+            sortorder: 'desc'
+        });
+        
+        res.json(resp.registros || []);
+    } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
 });
