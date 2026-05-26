@@ -158,7 +158,7 @@ async function verificarPermissoes() {
         const data = await response.json();
         const grupo = (data.group || '').toUpperCase();
         
-        if (grupo.includes('LOGISTICA') || grupo.includes('LOGÍSTICA') || grupo.includes('ADMIN')) {
+        if (grupo.includes('LOGISTICA') || grupo.includes('LOGÍSTICA') || grupo.includes('ADMIN') || grupo.includes('NOC')) {
             usuarioPodeEditar = true;
             const areaAdmin = document.getElementById('area-admin-logistica');
             if (areaAdmin) areaAdmin.classList.remove('d-none');
