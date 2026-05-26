@@ -151,7 +151,7 @@ router.get('/busca-cliente/:termo', async (req, res) => {
                     if (onuEncontrada) onuData = onuEncontrada;
                 }
             } catch(e: any) {
-                console.error("[DEBUG] Erro na requisição da ONU do contrato " + contrato.id, e.message);
+                //console.error("[DEBUG] Erro na requisição da ONU do contrato " + contrato.id, e.message);
             }
 
             const arrayEnd = [];
@@ -223,8 +223,8 @@ router.get('/busca-cliente/:termo', async (req, res) => {
 router.post('/criar-os', async (req, res) => {
     const { cliente_id, contrato_id, id_assunto, id_departamento, id_processo, observacao, titulo } = req.body;
 
-    console.log("\n=== [DEBUG] INICIANDO CRIAÇÃO DE CHAMADO (IXC) ===");
-    console.log("1. Dados brutos recebidos do Frontend:", req.body);
+    //console.log("\n=== [DEBUG] INICIANDO CRIAÇÃO DE CHAMADO (IXC) ===");
+    //console.log("1. Dados brutos recebidos do Frontend:", req.body);
 
     if (!cliente_id || !id_assunto || !observacao || !id_processo) {
         console.error("-> Erro: Dados incompletos. Faltando assunto ou processo.");
@@ -252,21 +252,21 @@ router.post('/criar-os', async (req, res) => {
             payloadTicket.id_contrato = contrato_id;
         }
 
-        console.log("2. Payload final montado:", payloadTicket);
+        //console.log("2. Payload final montado:", payloadTicket);
 
         const ixcResp = await makeIxcRequest('POST', '/su_ticket', payloadTicket, 'incluir');
         
-        console.log("3. Resposta recebida do IXC:", ixcResp);
+        //console.log("3. Resposta recebida do IXC:", ixcResp);
 
         if (ixcResp.type === 'error') {
             throw new Error(ixcResp.message || "Erro desconhecido retornado pelo IXC");
         }
 
         res.json({ success: true, ticket_id: ixcResp.id, message: "Atendimento criado com sucesso no IXC!" });
-        console.log("=== CHAMADO CRIADO COM SUCESSO ===\n");
+        //console.log("=== CHAMADO CRIADO COM SUCESSO ===\n");
 
     } catch (error: any) {
-        console.error("4. [ERRO FATAL] Falha ao criar OS no IXC:");
+        //console.error("4. [ERRO FATAL] Falha ao criar OS no IXC:");
         console.error(error.message);
         res.status(500).json({ error: error.message });
     }
@@ -319,7 +319,7 @@ router.post('/avancar-tarefa', async (req, res) => {
     const { ticket_id, id_tarefa, usuario_intranet } = req.body; 
     
     try {
-        console.log(`\n=== AVANÇANDO TAREFA DO TICKET ${ticket_id} ===`);
+        //console.log(`\n=== AVANÇANDO TAREFA DO TICKET ${ticket_id} ===`);
         
         const idTecnicoIxc = await obterIdFuncionarioIxc(usuario_intranet);
 
@@ -336,7 +336,7 @@ router.post('/avancar-tarefa', async (req, res) => {
             throw new Error(`Nenhuma OS aberta foi encontrada no ticket ${ticket_id}.`);
         }
 
-        console.log(`-> Fechando OS ${osAberta.id} com o Técnico ID: ${idTecnicoIxc}`);
+        //console.log(`-> Fechando OS ${osAberta.id} com o Técnico ID: ${idTecnicoIxc}`);
 
         const dataHoraAtual = getIxcDate();
         const dataAtual = dataHoraAtual.split(' ')[0];
@@ -376,7 +376,7 @@ router.post('/avancar-tarefa', async (req, res) => {
             throw new Error(`Erro no motor do IXC: ${respWfl.message.replace(/<br \/>/g, ' - ')}`);
         }
 
-        console.log(`=== SUCESSO: OS MOVIDA PARA A PRÓXIMA ETAPA ===\n`);
+        //console.log(`=== SUCESSO: OS MOVIDA PARA A PRÓXIMA ETAPA ===\n`);
         res.json({ success: true });
 
     } catch (error: any) {
