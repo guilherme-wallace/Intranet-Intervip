@@ -217,123 +217,125 @@ router.get('/agendamentos', async (req, res) => {
             nome_setor: os.tipo_servico === 'INSTALACAO' ? 'Instalação' : 'Manutenção'
         }));
 
-        const payloadIxc = {
-            qtype: 'su_oss_chamado.data_agenda',
-            query: `${data} 00:00:00`,
-            oper: '>=',
-            page: '1',
-            rp: '10000'
-        };
+        const dataFiltro = String(data);
 
-        //console.log("Payload enviado ao IXC para a data " + data + ":", JSON.stringify(payloadIxc));
-        const ixcResp = await makeIxcRequest('POST', '/su_oss_chamado', payloadIxc);
-        //console.log("=== [DEBUG IXC] Total de registros retornados:", ixcResp.total);
-        if(ixcResp.registros && ixcResp.registros.length > 0) {
-            //console.log("=== [DEBUG IXC] Exemplo de registro:", JSON.stringify(ixcResp.registros[0]));
-        } else {
-            //console.log("=== [DEBUG IXC] Nenhum registro encontrado com esses filtros.");
-        }
+        const osLocalResult = await executeDb(
+            `SELECT * FROM ivp_agenda_os 
+             WHERE data_agendamento = ? 
+             OR (solicita_prioridade = 1 AND data_agendamento > ? AND status_interno != 'FINALIZADO' AND status_interno != 'CANCELADO')`,
+            [dataFiltro, dataFiltro]
+        );
 
-        let agendamentosIxc = (ixcResp.registros || []).filter((os: any) => {
-            const idTec = os.id_tecnico ? String(os.id_tecnico).trim() : '';
-            const tecnicoValido = idTec !== '' && idTec !== '0';
-            
-            const ehDoDiaExato = os.data_agenda && os.data_agenda.startsWith(data);
-            
-            return tecnicoValido && ehDoDiaExato;
+        const priorityIds = osLocalResult
+            .filter((o: any) => o.solicita_prioridade === 1 && String(o.data_agendamento).split('T')[0] > dataFiltro)
+            .map((o: any) => String(o.ixc_os_id));
+
+        const ixcRespGeral = await makeIxcRequest('POST', '/su_oss_chamado', {
+            qtype: 'su_oss_chamado.data_agenda', query: dataFiltro, oper: '>=', page: '1', rp: '2000'
         });
 
-        const idsExtraidos = agendamentosIxc.map((os: any) => os.id_tecnico).filter((id: any) => id);
-        const idsParaChecar = idsExtraidos.filter((id: any, index: number) => idsExtraidos.indexOf(id) === index);
+        const setoresPermitidos = ['5', '9', '19'];
 
-        let validTechIds = new Set();
-        let techNamesMap = new Map();
+        let agendamentosIxc = (ixcRespGeral.registros || []).filter((os: any) => {
+            const ehDoDia = os.data_agenda && os.data_agenda.startsWith(dataFiltro);
+            const ehSetorLogistica = setoresPermitidos.includes(String(os.setor));
+            return ehDoDia && ehSetorLogistica;
+        });
 
-        if (idsParaChecar.length > 0) {
-            const techs = await executeDb(
-                `SELECT id_funcionario_ixc, nome FROM usuarios_intranet 
-                 WHERE id_funcionario_ixc IN (${idsParaChecar.join(',')}) 
-                 AND id_grupo_ixc = 31 AND ativo = 1`
-            );
-            techs.forEach((t: any) => {
-                validTechIds.add(String(t.id_funcionario_ixc));
-                techNamesMap.set(String(t.id_funcionario_ixc), t.nome);
-            });
+        if (priorityIds.length > 0) {
+            for (const pId of priorityIds) {
+                if (!agendamentosIxc.some((x: any) => String(x.id) === String(pId))) {
+                    try {
+                        const pResp = await makeIxcRequest('POST', '/su_oss_chamado', {
+                            qtype: 'su_oss_chamado.id', query: pId, oper: '=', page: '1', rp: '1'
+                        });
+                        if (pResp.registros && pResp.registros.length > 0) {
+                            const osPrio = pResp.registros[0];
+                            if (setoresPermitidos.includes(String(osPrio.setor))) {
+                                agendamentosIxc.push(osPrio);
+                            }
+                        }
+                    } catch(e) {}
+                }
+            }
         }
 
-        agendamentosIxc = agendamentosIxc.filter((os: any) => validTechIds.has(String(os.id_tecnico)));
-
-        const allEstruturaIds = agendamentosIxc.map((os: any) => os.id_estrutura).filter((id: any) => id && id !== '0');
-        const uniqueEstruturaIds = allEstruturaIds.filter((id: any, index: number) => allEstruturaIds.indexOf(id) === index);
-        const mapaEstruturas = new Map();
-
-        if (uniqueEstruturaIds.length > 0) {
-            await Promise.all(uniqueEstruturaIds.map(async (idEst: any) => {
-                try {
-                    const resp = await makeIxcRequest('POST', '/estrutura', {
-                        qtype: 'estrutura.id', query: idEst, oper: '=', rp: '1'
-                    });
-                    if (resp.registros && resp.registros.length > 0) {
-                        mapaEstruturas.set(String(idEst), resp.registros[0].id_cidade);
-                    }
-                } catch(e) {}
-            }));
-        }
-
-        const allCityIds = agendamentosIxc.map((os: any) => {
-            if (os.id_cidade && os.id_cidade !== '0') return os.id_cidade;
-            if (os.id_estrutura && os.id_estrutura !== '0') return mapaEstruturas.get(String(os.id_estrutura));
-            return null;
-        }).filter((id: any) => id);
+        const idCidades = [...new Set(agendamentosIxc.map((o: any) => o.id_cidade).filter(Boolean))];
+        const idEstruturas = [...new Set(agendamentosIxc.map((o: any) => o.id_estrutura).filter(Boolean))];
+        const idSetores = [...new Set(agendamentosIxc.map((o: any) => o.setor).filter(Boolean))];
         
-        const uniqueCityIds = allCityIds.filter((id: any, index: number) => allCityIds.indexOf(id) === index);
-        const mapaCidades = new Map();
+        const idClientes = [...new Set([
+            ...agendamentosIxc.map((o: any) => o.id_cliente),
+            ...listaFinal.map((o: any) => o.ixc_cliente_id)
+        ].filter(Boolean))];
+        
+        const idContratos = [...new Set([
+            ...agendamentosIxc.map((o: any) => o.id_contrato_kit || o.id_contrato),
+            ...listaFinal.map((o: any) => o.ixc_contrato_id)
+        ].filter((c: any) => c && c !== '0'))];
 
-        if (uniqueCityIds.length > 0) {
-            await Promise.all(uniqueCityIds.map(async (idCid: any) => {
-                try {
-                    const resp = await makeIxcRequest('POST', '/cidade', {
-                        qtype: 'cidade.id', query: idCid, oper: '=', rp: '1'
-                    });
-                    if (resp.registros && resp.registros.length > 0) {
-                        mapaCidades.set(String(idCid), resp.registros[0].nome);
-                    }
-                } catch(e) {}
-            }));
+        const mapaCidades = new Map<string, string>();
+        if (idCidades.length > 0) {
+            const cidResp = await makeIxcRequest('POST', '/cidade', { qtype: 'cidade.id', query: idCidades.join(','), oper: 'in', rp: '2000' });
+            if (cidResp.registros) cidResp.registros.forEach((c: any) => mapaCidades.set(String(c.id), c.nome));
         }
 
-        const allCondIds = agendamentosIxc.map((os: any) => os.id_condominio).filter((id: any) => id && id !== '0');
-        const uniqueCondIds = allCondIds.filter((id: any, index: number) => allCondIds.indexOf(id) === index);
-        const mapaCondominios = new Map();
-
-        if (uniqueCondIds.length > 0) {
-            await Promise.all(uniqueCondIds.map(async (idCond: any) => {
-                try {
-                    const resp = await makeIxcRequest('POST', '/cliente_condominio', {
-                        qtype: 'cliente_condominio.id', query: idCond, oper: '=', rp: '1'
-                    });
-                    if (resp.registros && resp.registros.length > 0) {
-                        mapaCondominios.set(String(idCond), resp.registros[0].condominio);
-                    }
-                } catch(e) {}
-            }));
+        const mapaEstruturas = new Map<string, string>();
+        if (idEstruturas.length > 0) {
+            const estResp = await makeIxcRequest('POST', '/su_oss_estrutura', { qtype: 'su_oss_estrutura.id', query: idEstruturas.join(','), oper: 'in', rp: '2000' });
+            if (estResp.registros) estResp.registros.forEach((e: any) => mapaEstruturas.set(String(e.id), e.id_cidade));
         }
 
-        const allSetorIds = agendamentosIxc.map((os: any) => os.setor).filter((id: any) => id && id !== '0');
-        const uniqueSetorIds = allSetorIds.filter((id: any, index: number) => allSetorIds.indexOf(id) === index);
-        const mapaSetores = new Map();
+        const mapaSetores = new Map<string, string>();
+        if (idSetores.length > 0) {
+            const setResp = await makeIxcRequest('POST', '/su_ticket_setor', { qtype: 'su_ticket_setor.id', query: idSetores.join(','), oper: 'in', rp: '2000' });
+            if (setResp.registros) setResp.registros.forEach((s: any) => mapaSetores.set(String(s.id), s.setor));
+        }
 
-        if (uniqueSetorIds.length > 0) {
-            await Promise.all(uniqueSetorIds.map(async (idSetor: any) => {
+        const mapaClienteCond = new Map<string, string>();
+        if (idClientes.length > 0) {
+            for (const idCli of idClientes) {
                 try {
-                    const resp = await makeIxcRequest('POST', '/empresa_setor', {
-                        qtype: 'empresa_setor.id', query: idSetor, oper: '=', rp: '1'
+                    const cliResp = await makeIxcRequest('POST', '/cliente', { 
+                        qtype: 'cliente.id', query: String(idCli), oper: '=', rp: '1' 
                     });
-                    if (resp.registros && resp.registros.length > 0) {
-                        mapaSetores.set(String(idSetor), resp.registros[0].setor);
+                    if (cliResp.registros && cliResp.registros.length > 0) {
+                        const c = cliResp.registros[0];
+                        if (c.id_condominio && c.id_condominio !== '0') {
+                            mapaClienteCond.set(String(c.id), c.id_condominio);
+                        }
                     }
                 } catch(e) {}
-            }));
+            }
+        }
+
+        const mapaContratoCond = new Map<string, string>();
+        if (idContratos.length > 0) {
+            for (const idCont of idContratos) {
+                try {
+                    const conResp = await makeIxcRequest('POST', '/cliente_contrato', { 
+                        qtype: 'cliente_contrato.id', query: String(idCont), oper: '=', rp: '1' 
+                    });
+                    if (conResp.registros && conResp.registros.length > 0) {
+                        const c = conResp.registros[0];
+                        if (c.endereco_padrao_cliente === 'S') {
+                            mapaContratoCond.set(String(c.id), 'USE_CLIENT');
+                        } else if (c.id_condominio && c.id_condominio !== '0') {
+                            mapaContratoCond.set(String(c.id), c.id_condominio);
+                        }
+                    }
+                } catch(e) {}
+            }
+        }
+
+        const mapaCondominios = new Map<string, string>();
+        try {
+            const condResp = await executeDb('SELECT condominioId, condominio FROM condominio');
+            if (condResp && condResp.length > 0) {
+                condResp.forEach((c: any) => mapaCondominios.set(String(c.condominioId), c.condominio));
+            }
+        } catch(e) { 
+            console.error("Erro ao buscar tabela local de condominios:", e); 
         }
 
         for (const osIxc of agendamentosIxc) {
@@ -342,9 +344,34 @@ router.get('/agendamentos', async (req, res) => {
                 horarioExtraido = osIxc.data_agenda.split(' ')[1].substring(0, 5);
             }
 
+            const indexLocal = listaFinal.findIndex(item => 
+                String(item.ixc_os_id) === String(osIxc.id) || 
+                String(item.ixc_os_id) === String(osIxc.id_ticket)
+            );
+            
+            const contratoLocal = indexLocal > -1 ? listaFinal[indexLocal].ixc_contrato_id : '0';
+
+            let idCondBusca = osIxc.id_condominio;
+            if (!idCondBusca || idCondBusca === '0') {
+                
+                let idContUsado = (contratoLocal && contratoLocal !== '0') ? contratoLocal : 
+                                  (osIxc.id_contrato_kit && osIxc.id_contrato_kit !== '0' ? osIxc.id_contrato_kit : osIxc.id_contrato);
+
+                let condDoContrato = mapaContratoCond.get(String(idContUsado));
+                
+                if (condDoContrato === 'USE_CLIENT') {
+                    idCondBusca = mapaClienteCond.get(String(osIxc.id_cliente)) || '';
+                } else {
+                    idCondBusca = condDoContrato || mapaClienteCond.get(String(osIxc.id_cliente)) || '';
+                }
+                
+                //console.log(`[DEBUG LOGISTICA - OS #${osIxc.id}] C.Local: ${contratoLocal} | Contrato Eleito: ${idContUsado} | Condominio Contrato: ${condDoContrato} | Final: ${idCondBusca}`);
+            }
+            
+            let nomeCondominio = mapaCondominios.get(String(idCondBusca)) || '';
+
             let tipoImovel = 'CASA';
             let isRedeNeutra = false;
-            let nomeCondominio = mapaCondominios.get(String(osIxc.id_condominio)) || '';
             let isCorp = false;
 
             const nomeSetor = mapaSetores.get(String(osIxc.setor)) || 'Não Informado';
@@ -354,14 +381,11 @@ router.get('/agendamentos', async (req, res) => {
             if (mensagemUpper.includes('CORPORATIVO') || mensagemUpper.includes('PROVEDOR') || setorUpper.includes('CORPORATIVO')) {
                 isCorp = true;
                 tipoImovel = 'CORPORATIVO';
-            } 
-            else if (nomeCondominio) {
+            } else if (nomeCondominio) {
                 const upperCond = nomeCondominio.toUpperCase();
                 const prefixosCasa = ['SEA', 'VTA', 'VVA', 'CCA', 'GRI'];
-                
                 const isCasa = prefixosCasa.some(prefix => upperCond.startsWith(prefix));
                 tipoImovel = isCasa ? 'CASA' : 'PRÉDIO';
-                
                 if (upperCond.includes('RDNT')) isRedeNeutra = true;
             } else {
                 tipoImovel = (osIxc.apartamento || osIxc.bloco) ? 'PRÉDIO' : 'CASA';
@@ -373,46 +397,49 @@ router.get('/agendamentos', async (req, res) => {
             }
             const cidadeCorreta = mapaCidades.get(String(idCidBusca)) || 'Serra';
 
-            const indexLocal = listaFinal.findIndex(item => String(item.ixc_os_id) === String(osIxc.id));
+            const isFuturoPrioridade = priorityIds.includes(String(osIxc.id));
 
             if (indexLocal > -1) {
-                listaFinal[indexLocal].ixc_tecnico_id = osIxc.id_tecnico;
-                listaFinal[indexLocal].status_interno = 'ATRIBUIDO';
+                const novoStatus = (osIxc.id_tecnico && osIxc.id_tecnico !== '0') ? 'ATRIBUIDO' : 'AGUARDANDO_LOGISTICA';
+                const idTecUpdate = (osIxc.id_tecnico && osIxc.id_tecnico !== '0') ? osIxc.id_tecnico : null;
+
+                listaFinal[indexLocal].ixc_tecnico_id = idTecUpdate;
+                listaFinal[indexLocal].status_interno = novoStatus;
                 listaFinal[indexLocal].ixc_status = osIxc.status;
                 listaFinal[indexLocal].horario_agendado = horarioExtraido;
                 listaFinal[indexLocal].data_hora_execucao = osIxc.data_hora_execucao; 
                 listaFinal[indexLocal].nome_setor = nomeSetor;
                 listaFinal[indexLocal].nome_condominio = nomeCondominio;
                 listaFinal[indexLocal].tipo_imovel = tipoImovel;
+                listaFinal[indexLocal].is_futuro_prioridade = isFuturoPrioridade;
+                listaFinal[indexLocal].data_agendamento_original = listaFinal[indexLocal].data_agendamento;
 
                 executeDb(
-                    `UPDATE ivp_agenda_os SET ixc_tecnico_id = ?, status_interno = 'ATRIBUIDO' WHERE id = ?`,
-                    [osIxc.id_tecnico, listaFinal[indexLocal].id]
+                    `UPDATE ivp_agenda_os SET ixc_tecnico_id = ?, status_interno = ? WHERE id = ?`,
+                    [idTecUpdate, novoStatus, listaFinal[indexLocal].id]
                 ).catch(()=>{});
 
-            } else {
+            } 
+            else {
                 let turnoInferred = 'MATUTINO';
-                
-                if (horarioExtraido >= '12:00' && horarioExtraido < '18:00') {
-                    turnoInferred = 'VESPERTINO';
-                } else if (horarioExtraido >= '18:00' || horarioExtraido < '06:00') {
-                    turnoInferred = 'NOTURNO';
-                }
+                if (horarioExtraido >= '12:00' && horarioExtraido < '18:00') turnoInferred = 'VESPERTINO';
+                else if (horarioExtraido >= '18:00' || horarioExtraido < '06:00') turnoInferred = 'NOTURNO';
 
                 let msg = osIxc.mensagem || 'Agendado pelo IXC';
                 msg = msg.replace(/(<([^>]+)>)/gi, "");
 
                 let tipoServicoSinc = 'SUPORTE';
-                if (setorUpper.includes('INSTALA') || osIxc.setor === '5') {
-                    tipoServicoSinc = 'INSTALACAO';
-                }
+                if (setorUpper.includes('INSTALA') || osIxc.setor === '5') tipoServicoSinc = 'INSTALACAO';
+
+                const novoStatus = (osIxc.id_tecnico && osIxc.id_tecnico !== '0') ? 'ATRIBUIDO' : 'AGUARDANDO_LOGISTICA';
+                const idTecnicoInsert = (osIxc.id_tecnico && osIxc.id_tecnico !== '0') ? osIxc.id_tecnico : null;
 
                 try {
                     const insertRes = await executeDb(
                         `INSERT INTO ivp_agenda_os 
                         (ixc_os_id, ixc_cliente_id, ixc_contrato_id, tipo_servico, tipo_imovel, municipio_base, aceita_encaixe, solicita_prioridade, data_agendamento, turno, ixc_tecnico_id, status_interno, criado_por)
-                        VALUES (?, ?, 0, ?, ?, ?, 0, 0, ?, ?, ?, 'ATRIBUIDO', 'SINC_IXC')`,
-                        [osIxc.id, osIxc.id_cliente, tipoServicoSinc, tipoImovel, cidadeCorreta, data, turnoInferred, osIxc.id_tecnico]
+                        VALUES (?, ?, 0, ?, ?, ?, 0, 0, ?, ?, ?, ?, 'SINC_IXC')`,
+                        [osIxc.id, osIxc.id_cliente, tipoServicoSinc, tipoImovel, cidadeCorreta, data, turnoInferred, idTecnicoInsert, novoStatus]
                     );
 
                     listaFinal.push({
@@ -424,10 +451,11 @@ router.get('/agendamentos', async (req, res) => {
                         is_rede_neutra: isRedeNeutra,
                         municipio_base: osIxc.bairro ? `${osIxc.bairro} (${cidadeCorreta})` : cidadeCorreta, 
                         aceita_encaixe: 0,
+                        solicita_prioridade: 0,
                         data_agendamento: data,
                         turno: turnoInferred,
-                        status_interno: 'ATRIBUIDO',
-                        ixc_tecnico_id: osIxc.id_tecnico,
+                        status_interno: novoStatus,
+                        ixc_tecnico_id: idTecnicoInsert,
                         sintoma_relatado: msg,
                         ixc_status: osIxc.status,
                         horario_agendado: horarioExtraido,
@@ -444,7 +472,45 @@ router.get('/agendamentos', async (req, res) => {
         }
 
         listaFinal.forEach(os => {
-            if (os.ixc_tecnico_id) {
+            if (!os.nome_condominio || os.nome_condominio === '') {
+                const condDoContrato = mapaContratoCond.get(String(os.ixc_contrato_id));
+                let idCondBusca = '';
+                
+                if (condDoContrato === 'USE_CLIENT') {
+                    idCondBusca = mapaClienteCond.get(String(os.ixc_cliente_id)) || '';
+                } else {
+                    idCondBusca = condDoContrato || mapaClienteCond.get(String(os.ixc_cliente_id)) || '';
+                }
+                
+                os.nome_condominio = mapaCondominios.get(String(idCondBusca)) || '';
+                
+                //console.log(`[DEBUG LOGISTICA - OS LOCAL #${os.ixc_os_id}] Contrato: ${os.ixc_contrato_id} -> Retorno: ${condDoContrato || 'VAZIO'} | Cliente: ${os.ixc_cliente_id} -> Retorno: ${mapaClienteCond.get(String(os.ixc_cliente_id)) || 'VAZIO'} | ID Eleito: ${idCondBusca} -> Nome Final: ${os.nome_condominio || 'NÃO ACHOU NO BANCO LOCAL'}`);
+            }
+        });
+
+        const idsTecnicos = [...new Set(listaFinal.map(o => o.ixc_tecnico_id).filter(id => id && id !== '0'))];
+        const techNamesMap = new Map<string, string>();
+        
+        if (idsTecnicos.length > 0) {
+            try {
+                const uResp = await makeIxcRequest('POST', '/usuarios', { 
+                    qtype: 'usuarios.id', query: '0', oper: '>', rp: '2000' 
+                });
+                
+                if (uResp.registros && uResp.registros.length > 0) {
+                    uResp.registros.forEach((u: any) => {
+                        if (u.funcionario && u.funcionario !== '0') {
+                            techNamesMap.set(String(u.funcionario), u.nome);
+                        }
+                    });
+                }
+            } catch(e: any) {
+                console.log(`[DEBUG LOGISTICA] Falha ao buscar lista geral de usuarios:`, e.message);
+            }
+        }
+
+        listaFinal.forEach(os => {
+            if (os.ixc_tecnico_id && os.ixc_tecnico_id !== '0') {
                 os.nome_tecnico = techNamesMap.get(String(os.ixc_tecnico_id)) || `Técnico ${os.ixc_tecnico_id}`;
             }
         });
@@ -473,6 +539,10 @@ router.get('/agendamentos', async (req, res) => {
             const priorityA = (a.ixc_status === 'EX' || a.ixc_status === 'DS') ? 0 : 1;
             const priorityB = (b.ixc_status === 'EX' || b.ixc_status === 'DS') ? 0 : 1;
             if (priorityA !== priorityB) return priorityA - priorityB;
+
+            const urgA = a.solicita_prioridade ? 0 : 1;
+            const urgB = b.solicita_prioridade ? 0 : 1;
+            if (urgA !== urgB) return urgA - urgB;
 
             if (a.turno !== b.turno) return (a.turno || '').localeCompare(b.turno || '');
             
@@ -598,6 +668,18 @@ router.get('/os-detalhes/:id', async (req, res) => {
         }
         const osData = osDataResp.registros[0];
 
+        let ticketData = null;
+        if (osData.id_ticket) {
+            try {
+                const ticketResp = await makeIxcRequest('POST', '/su_ticket', {
+                    qtype: 'su_ticket.id', query: osData.id_ticket, oper: '=', page: '1', rp: '1'
+                });
+                if (ticketResp.registros && ticketResp.registros.length > 0) {
+                    ticketData = ticketResp.registros[0];
+                }
+            } catch(e) { }
+        }
+
         let clienteData = null;
         let telefones = 'N/A';
         let contratoData = null;
@@ -625,9 +707,10 @@ router.get('/os-detalhes/:id', async (req, res) => {
             }
         }
 
-        if (osData.id_contrato_kit) {
+        const idContratoBusca = (osData.id_contrato_kit && osData.id_contrato_kit !== '0') ? osData.id_contrato_kit : osData.id_contrato;
+        if (idContratoBusca && idContratoBusca !== '0') {
             const conResp = await makeIxcRequest('POST', '/cliente_contrato', {
-                qtype: 'cliente_contrato.id', query: osData.id_contrato_kit, oper: '=', page: '1', rp: '1'
+                qtype: 'cliente_contrato.id', query: idContratoBusca, oper: '=', page: '1', rp: '1'
             });
             if (conResp.registros && conResp.registros.length > 0) {
                 contratoData = conResp.registros[0];
@@ -635,66 +718,69 @@ router.get('/os-detalhes/:id', async (req, res) => {
         }
 
         let enderecoFinal = {
-            endereco: osData.endereco || '',
-            numero: osData.numero || '',
-            bairro: osData.bairro || '',
-            complemento: osData.complemento || '',
-            referencia: osData.referencia || ''
+            endereco: osData.endereco || '', numero: osData.numero || '', bairro: osData.bairro || '',
+            complemento: osData.complemento || '', referencia: osData.referencia || ''
         };
 
         if (!enderecoFinal.endereco || enderecoFinal.endereco.trim() === '') {
             if (contratoData && contratoData.endereco) {
-                enderecoFinal.endereco = contratoData.endereco;
-                enderecoFinal.numero = contratoData.numero;
-                enderecoFinal.bairro = contratoData.bairro;
-                enderecoFinal.complemento = contratoData.complemento;
+                enderecoFinal.endereco = contratoData.endereco; enderecoFinal.numero = contratoData.numero;
+                enderecoFinal.bairro = contratoData.bairro; enderecoFinal.complemento = contratoData.complemento;
                 enderecoFinal.referencia = contratoData.referencia;
             } else if (clienteData && clienteData.endereco) {
-                enderecoFinal.endereco = clienteData.endereco;
-                enderecoFinal.numero = clienteData.numero;
-                enderecoFinal.bairro = clienteData.bairro;
-                enderecoFinal.complemento = clienteData.complemento;
+                enderecoFinal.endereco = clienteData.endereco; enderecoFinal.numero = clienteData.numero;
+                enderecoFinal.bairro = clienteData.bairro; enderecoFinal.complemento = clienteData.complemento;
                 enderecoFinal.referencia = clienteData.referencia;
             }
         }
 
         let historicoPppoe = null;
+        let idLoginBusca = osData.id_login;
 
-        if (osData.id_login) {
+        if ((!idLoginBusca || idLoginBusca === '0') && contratoData && contratoData.id) {
             const logResp = await makeIxcRequest('POST', '/radusuarios', {
-                qtype: 'radusuarios.id', query: osData.id_login, oper: '=', page: '1', rp: '1'
+                qtype: 'radusuarios.id_contrato', query: String(contratoData.id), oper: '=', page: '1', rp: '1'
             });
             if (logResp.registros && logResp.registros.length > 0) {
                 loginData = logResp.registros[0];
+            }
+        } else if (idLoginBusca && idLoginBusca !== '0') {
+            const logResp = await makeIxcRequest('POST', '/radusuarios', {
+                qtype: 'radusuarios.id', query: idLoginBusca, oper: '=', page: '1', rp: '1'
+            });
+            if (logResp.registros && logResp.registros.length > 0) {
+                loginData = logResp.registros[0];
+            }
+        }
 
-                if (loginData.login) {
-                    const acctResp = await makeIxcRequest('POST', '/radacct', {
-                        qtype: 'radacct.username', query: loginData.login, oper: '=', page: '1', rp: '1', sortname: 'radacctid', sortorder: 'desc'
-                    });
-                    if (acctResp.registros && acctResp.registros.length > 0) {
-                        historicoPppoe = acctResp.registros[0];
-                    }
-                }
-
-                const reqOnuId = await makeIxcRequest('POST', '/radpop_radio_cliente_fibra', {
-                    qtype: 'radpop_radio_cliente_fibra.id_login', query: String(loginData.id), oper: '=', page: '1', rp: '1'
+        if (loginData) {
+            if (loginData.login) {
+                const acctResp = await makeIxcRequest('POST', '/radacct', {
+                    qtype: 'radacct.username', query: loginData.login, oper: '=', page: '1', rp: '1', sortname: 'radacctid', sortorder: 'desc'
                 });
+                if (acctResp.registros && acctResp.registros.length > 0) historicoPppoe = acctResp.registros[0];
+            }
 
-                if (reqOnuId.registros && reqOnuId.registros.length > 0) {
-                    onuData = reqOnuId.registros[0];
-                } else if (loginData.mac) {
-                    const reqOnuMac = await makeIxcRequest('POST', '/radpop_radio_cliente_fibra', {
-                        qtype: 'radpop_radio_cliente_fibra.mac', query: String(loginData.mac), oper: '=', page: '1', rp: '1'
-                    });
-                    if (reqOnuMac.registros && reqOnuMac.registros.length > 0) {
-                        onuData = reqOnuMac.registros[0];
-                    }
-                }
+            const reqOnuId = await makeIxcRequest('POST', '/radpop_radio_cliente_fibra', {
+                qtype: 'radpop_radio_cliente_fibra.id_login', query: String(loginData.id), oper: '=', page: '1', rp: '1'
+            });
+
+            if (reqOnuId.registros && reqOnuId.registros.length > 0) {
+                onuData = reqOnuId.registros[0];
+            } else if (loginData.mac) {
+                const reqOnuMac = await makeIxcRequest('POST', '/radpop_radio_cliente_fibra', {
+                    qtype: 'radpop_radio_cliente_fibra.mac', query: String(loginData.mac), oper: '=', page: '1', rp: '1'
+                });
+                if (reqOnuMac.registros && reqOnuMac.registros.length > 0) onuData = reqOnuMac.registros[0];
             }
         }
 
         res.json({
-            os: { ...osData, ...enderecoFinal },
+            os: { 
+                ...osData, 
+                ...enderecoFinal,
+                relato_ticket: ticketData ? (ticketData.menssagem || ticketData.mensagem || '') : ''
+            },
             cliente: { nome: clienteData ? clienteData.razao : 'N/A', telefones },
             contrato: { descricao: contratoData ? `Contrato #${contratoData.id} (${contratoData.status || 'Ativo'})` : 'Sem contrato vinculado' },
             login: { ...loginData, historico: historicoPppoe },
@@ -719,6 +805,32 @@ router.post('/onu-realtime', async (req, res) => {
         res.json(onuResp.registros ? onuResp.registros[0] : null);
     } catch (error: any) {
         console.error("Erro ao atualizar ONU na OLT:", error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/tratar-prioridade', async (req, res) => {
+    const { id_local, acao, ixc_os_id, data_hoje } = req.body;
+    try {
+        if (acao === 'aceitar') {
+            await executeDb('UPDATE ivp_agenda_os SET data_agendamento = ?, solicita_prioridade = 0 WHERE id = ?', [data_hoje, id_local]);
+            
+            const localData = await executeDb('SELECT turno FROM ivp_agenda_os WHERE id = ?', [id_local]);
+            const turno = localData[0]?.turno || 'MATUTINO';
+            const hora = turno === 'MATUTINO' ? '08:00:00' : '13:00:00';
+            
+            await makeIxcRequest('PUT', `/su_oss_chamado/${ixc_os_id}`, {
+                data_agenda: `${data_hoje} ${hora}`,
+                mensagem_resposta: `A Logística ACEITOU o pedido de prioridade e antecipou o agendamento para HOJE (${data_hoje.split('-').reverse().join('/')}).`
+            });
+        } else {
+            await executeDb('UPDATE ivp_agenda_os SET solicita_prioridade = 0 WHERE id = ?', [id_local]);
+            await makeIxcRequest('PUT', `/su_oss_chamado/${ixc_os_id}`, {
+                mensagem_resposta: `A Logística RECUSOU o pedido de prioridade (Sem viabilidade). O agendamento foi mantido na data original.`
+            });
+        }
+        res.json({ success: true });
+    } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
 });

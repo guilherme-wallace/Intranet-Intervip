@@ -32,6 +32,7 @@ async function carregarDadosOS(id_ticket, origem) {
         document.getElementById('conteudo-agendamento').style.display = 'block';
 
         document.getElementById('badge-tipo-os').textContent = data.tipo_servico;
+        document.getElementById('form-agendamento').dataset.contratoId = data.contrato_id;
         document.getElementById('os-cliente-nome').textContent = data.nome;
         document.getElementById('os-ticket-id').textContent = `Ticket IXC: #${data.id_ticket}`;
         document.getElementById('os-endereco').textContent = data.endereco;
@@ -128,11 +129,16 @@ function renderCalendarGrid(weekData) {
         const dayNum = String(curr.getDate()).padStart(2, '0');
         const isPast = dateStr < todayStr;
         const isToday = dateStr === todayStr;
+        
+        const currentHour = new Date().getHours();
+
+        const matutinoPassado = isPast || (isToday && currentHour >= 12);
+        const vespertinoPassado = isPast || (isToday && currentHour >= 18);
 
         const dayData = weekData[dateStr] || { matutino: { disponivel: false, msg: 'Fechada'}, vespertino: { disponivel: false, msg: 'Fechada'} };
 
-        let matHtml = renderSlot(dateStr, 'MATUTINO', dayData.matutino, isPast);
-        let vespHtml = renderSlot(dateStr, 'VESPERTINO', dayData.vespertino, isPast);
+        let matHtml = renderSlot(dateStr, 'MATUTINO', dayData.matutino, matutinoPassado);
+        let vespHtml = renderSlot(dateStr, 'VESPERTINO', dayData.vespertino, vespertinoPassado);
 
         const col = document.createElement('div');
         col.className = 'border rounded d-flex flex-column bg-white shadow-sm flex-grow-1';
@@ -223,6 +229,7 @@ async function confirmarAgendamento(event) {
     const payload = {
         id_ticket: document.getElementById('hidden-os-id').value,
         cliente_id: document.getElementById('form-agendamento').dataset.clienteId,
+        contrato_id: document.getElementById('form-agendamento').dataset.contratoId,
         municipio: document.getElementById('hidden-municipio').value,
         tipo_servico: document.getElementById('hidden-tipo-servico').value,
         tipo_imovel: document.getElementById('form-agendamento').dataset.tipoImovel,
@@ -231,6 +238,8 @@ async function confirmarAgendamento(event) {
         aceita_encaixe: aceitaEncaixe,
         solicita_prioridade: solicitaPrioridade
     };
+
+    console.log("[DEBUG FRONTEND] Preparando envio. Payload completo:", payload);
 
     try {
         const response = await fetch('/api/v5/agendamento/confirmar', {
@@ -248,7 +257,7 @@ async function confirmarAgendamento(event) {
                 <i class="bi bi-check-circle-fill display-4 d-block mb-3"></i>
                 <h4 class="alert-heading fw-bold">Agendamento Realizado!</h4>
                 <p class="mb-0">A OS foi enviada para o painel da Logística.</p>
-                <a href="/painel-logistica" class="btn btn-outline-success mt-3">Voltar ao Início</a>
+                <a href="/painel-logistica" class="btn btn-outline-success mt-3">Ir para a agenda!</a>
             </div>
         `;
 

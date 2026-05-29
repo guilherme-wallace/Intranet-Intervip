@@ -212,6 +212,15 @@
                                 <p class="mb-0 small fw-medium text-dark" id="det-sintoma" style="white-space: pre-wrap; word-break: break-word;">---</p>
                             </div>
 
+                            <div id="alerta-prioridade-futura" class="alert alert-danger d-none shadow-sm border-danger border-2 mt-3 mb-2">
+                                <h6 class="fw-bold text-danger"><i class="bi bi-exclamation-octagon-fill me-2"></i>Prioridade Puxada do Futuro (<span id="data-prioridade-original"></span>)</h6>
+                                <p class="small mb-2 text-dark">O suporte solicitou urgência máxima. Esta O.S. está agendada para outro dia, mas apareceu aqui para sua análise. O que fazer?</p>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-sm btn-success fw-bold flex-grow-1" id="btn-aceitar-prioridade"><i class="bi bi-check-circle me-1"></i>Aceitar p/ Hoje</button>
+                                    <button class="btn btn-sm btn-outline-danger fw-bold flex-grow-1 bg-white" id="btn-recusar-prioridade"><i class="bi bi-x-circle me-1"></i>Recusar (Manter Data)</button>
+                                </div>
+                            </div>
+
                         </div>
                         
                         <div class="col-md-4 ps-4" id="area-acoes-os">

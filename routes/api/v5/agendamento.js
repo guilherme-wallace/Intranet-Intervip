@@ -156,11 +156,14 @@ router.get('/detalhes-os/:id_ticket', (req, res) => __awaiter(void 0, void 0, vo
         let nomeCondominio = '';
         if (idCondominio && idCondominio !== '0') {
             try {
-                const condResp = yield makeIxcRequest('POST', '/cliente_condominio', { qtype: 'cliente_condominio.id', query: idCondominio, oper: '=', rp: '1' });
-                if (condResp.registros && condResp.registros.length > 0)
-                    nomeCondominio = condResp.registros[0].condominio;
+                const condResp = yield executeDb('SELECT condominio FROM condominio WHERE condominioId = ?', [idCondominio]);
+                if (condResp && condResp.length > 0) {
+                    nomeCondominio = condResp[0].condominio;
+                }
             }
-            catch (e) { }
+            catch (e) {
+                console.error("Erro ao buscar condominio local no agendamento:", e);
+            }
         }
         const isCorp = cliente.id_tipo_cliente === '7' || cliente.id_tipo_cliente === '8';
         const upperCond = nomeCondominio.toUpperCase();
@@ -194,6 +197,7 @@ router.get('/detalhes-os/:id_ticket', (req, res) => __awaiter(void 0, void 0, vo
         res.json({
             id_ticket: osAberta ? osAberta.id : (ticket ? ticket.id : id_ticket),
             cliente_id: cliente.id,
+            contrato_id: idContrato || 0,
             nome: cliente.razao,
             endereco: endCompleto,
             cidade: nomeCidade,
@@ -207,8 +211,13 @@ router.get('/detalhes-os/:id_ticket', (req, res) => __awaiter(void 0, void 0, vo
     }
 }));
 router.post('/confirmar', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const { id_ticket, cliente_id, municipio, tipo_servico, tipo_imovel, data_agendamento, turno, aceita_encaixe, solicita_prioridade } = req.body;
+    const { id_ticket, cliente_id, contrato_id, municipio, tipo_servico, tipo_imovel, data_agendamento, turno, aceita_encaixe, solicita_prioridade } = req.body;
+    console.log(`[DEBUG HUB AGENDAMENTO] Nova O.S. -> Ticket: ${id_ticket} | Contrato Capturado: ${contrato_id || 'VAZIO'} | Serviço: ${tipo_servico}`);
     try {
+        let tipoServicoDb = 'SUPORTE';
+        if (String(tipo_servico).toUpperCase().includes('INSTALA')) {
+            tipoServicoDb = 'INSTALACAO';
+        }
         let ixc_os_id = id_ticket;
         const osResp = yield makeIxcRequest('POST', '/su_oss_chamado', {
             qtype: 'su_oss_chamado.id_ticket', query: id_ticket, oper: '=', rp: '1'
@@ -218,7 +227,7 @@ router.post('/confirmar', (req, res) => __awaiter(void 0, void 0, void 0, functi
         }
         yield executeDb(`INSERT INTO ivp_agenda_os 
             (ixc_os_id, ixc_cliente_id, ixc_contrato_id, tipo_servico, tipo_imovel, municipio_base, aceita_encaixe, solicita_prioridade, data_agendamento, turno, status_interno, criado_por)
-            VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?, ?, 'AGUARDANDO_ATRIBUICAO', 'ATENDIMENTO')`, [ixc_os_id, cliente_id, tipo_servico, tipo_imovel, municipio, aceita_encaixe ? 1 : 0, solicita_prioridade ? 1 : 0, data_agendamento, turno]);
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'AGUARDANDO_ATRIBUICAO', 'ATENDIMENTO')`, [ixc_os_id, cliente_id, contrato_id || 0, tipoServicoDb, tipo_imovel, municipio, aceita_encaixe ? 1 : 0, solicita_prioridade ? 1 : 0, data_agendamento, turno]);
         const horaIXC = turno === 'MATUTINO' ? '08:00:00' : '13:00:00';
         const dataFormatada = data_agendamento.split('-').reverse().join('/');
         const msgInteracao = `AGENDADO VIA INTRANET\nData: ${dataFormatada}\nTurno: ${turno}\nAceita Encaixe: ${aceita_encaixe ? 'SIM' : 'NÃO'}\nPrioridade: ${solicita_prioridade ? 'ALTA URGÊNCIA' : 'NORMAL'}`;
@@ -246,20 +255,24 @@ router.get('/vagas-semana', (req, res) => __awaiter(void 0, void 0, void 0, func
             const offset = d.getTimezoneOffset() * 60000;
             return new Date(d.getTime() - offset).toISOString().split('T')[0];
         };
+        const isPredioStr = (str) => {
+            const s = String(str).toUpperCase();
+            return s.includes('PRÉDIO') || s.includes('PREDIO');
+        };
         let countFilter = (os) => false;
         if (isInstalacao) {
             countFilter = isSerra
-                ? (os) => os.tipo_servico.includes('INSTALA') && os.municipio_base.includes('SERRA')
-                : (os) => os.tipo_servico.includes('INSTALA') && !os.municipio_base.includes('SERRA');
+                ? (os) => String(os.tipo_servico).toUpperCase().includes('INSTALA') && String(os.municipio_base).toUpperCase().includes('SERRA')
+                : (os) => String(os.tipo_servico).toUpperCase().includes('INSTALA') && !String(os.municipio_base).toUpperCase().includes('SERRA');
         }
         else {
             if (!isPredio) {
-                countFilter = (os) => !os.tipo_servico.includes('INSTALA') && (os.tipo_imovel === 'CASA' || os.tipo_imovel === 'CORPORATIVO');
+                countFilter = (os) => !String(os.tipo_servico).toUpperCase().includes('INSTALA') && !isPredioStr(os.tipo_imovel);
             }
             else {
                 countFilter = isSerra
-                    ? (os) => !os.tipo_servico.includes('INSTALA') && os.tipo_imovel === 'PRÉDIO' && os.municipio_base.includes('SERRA')
-                    : (os) => !os.tipo_servico.includes('INSTALA') && os.tipo_imovel === 'PRÉDIO' && !os.municipio_base.includes('SERRA');
+                    ? (os) => !String(os.tipo_servico).toUpperCase().includes('INSTALA') && isPredioStr(os.tipo_imovel) && String(os.municipio_base).toUpperCase().includes('SERRA')
+                    : (os) => !String(os.tipo_servico).toUpperCase().includes('INSTALA') && isPredioStr(os.tipo_imovel) && !String(os.municipio_base).toUpperCase().includes('SERRA');
             }
         }
         const result = {};

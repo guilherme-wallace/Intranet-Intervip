@@ -33,6 +33,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (btnAddDupla) btnAddDupla.addEventListener('click', () => adicionarLinhaDupla());
     const btnReagendar = document.getElementById('btn-action-reagendar');
     if (btnReagendar) btnReagendar.addEventListener('click', enviarReagendamento);
+    const btnAceitarPrio = document.getElementById('btn-aceitar-prioridade');
+    if (btnAceitarPrio) btnAceitarPrio.addEventListener('click', () => tratarPrioridade('aceitar'));
+    const btnRecusarPrio = document.getElementById('btn-recusar-prioridade');
+    if (btnRecusarPrio) btnRecusarPrio.addEventListener('click', () => tratarPrioridade('recusar'));
 
     carregarAgenda();
     setInterval(autoRefreshSilencioso, 45000); // 45s
@@ -181,6 +185,7 @@ function renderizarQuadro() {
         if (filtroMun === 'VV_VIX_CCA' && isSerra) return;
 
         const card = criarCardOS(os);
+        //console.log(`tecnico ${os.nome_tecnico || 'N/A'}`);
         const isInstalacao = (os.tipo_servico === 'INSTALACAO') || (os.nome_setor && os.nome_setor.toUpperCase().includes('INSTALA')) || (os.setor === '5');
 
         let turnoId = os.turno === 'MATUTINO' ? 'matutino' : 'vespertino';
@@ -297,7 +302,9 @@ async function construirColunasTecnicos(data) {
 
 function criarCardOS(os) {
     const card = document.createElement('div');
-    card.className = `asana-card`;
+    
+    let cardClass = os.status_interno === 'ATRIBUIDO' ? 'card-os-atribuida' : 'card-os-pendente';
+    card.className = `asana-card ${cardClass}`;
     card.id = `os-${os.id}`;
 
     let corBorda = 'border-left: 4px solid #6c757d;'; 
@@ -322,13 +329,22 @@ function criarCardOS(os) {
         badgeStatus = `<span class="asana-badge" style="background-color: #f8d7da; color: #842029;"><i class="bi bi-x-circle-fill me-1"></i>Reagendar</span>`; 
     }
 
-    card.style = corBorda;
+    card.style.cssText = corBorda + (os.is_futuro_prioridade ? ' background-color: #fff0f0 !important; border: 2px solid #dc3545 !important;' : '');
 
     let badgesHtml = os.horario_agendado ? `<span class="asana-badge bg-dark text-white"><i class="bi bi-clock me-1"></i>${os.horario_agendado}</span>` : '';
     badgesHtml += badgeStatus;
     badgesHtml += os.aceita_encaixe ? `<span class="asana-badge badge-encaixe"><i class="bi bi-lightning-fill"></i> Encaixe</span>` : '';
+
+    badgesHtml += os.solicita_prioridade ? `<span class="asana-badge bg-danger text-white border border-danger shadow-sm ms-1"><i class="bi bi-exclamation-triangle-fill me-1"></i>Prioridade</span>` : '';
     
     const tituloExibicao = `${os.ixc_cliente_id} - ${os.nome_condominio || 'S/C'} - ${os.tipo_imovel}`;
+
+    if (os.is_futuro_prioridade) {
+        const dataBR = String(os.data_agendamento_original).split('T')[0].split('-').reverse().join('/');
+        badgesHtml += `<span class="asana-badge bg-danger text-white border border-danger shadow-sm ms-1"><i class="bi bi-calendar-x me-1"></i>Vindo do dia ${dataBR}</span>`;
+    } else if (os.solicita_prioridade) {
+        badgesHtml += `<span class="asana-badge bg-danger text-white border border-danger shadow-sm ms-1"><i class="bi bi-exclamation-triangle-fill me-1"></i>Prioridade</span>`;
+    }
 
     let optionsHtml = '';
     window.opcoesEscala.forEach(op => {
@@ -356,7 +372,7 @@ function criarCardOS(os) {
             <span class="text-muted small fw-bold">#${os.ixc_os_id}</span>
         </div>
         <div class="mt-3 border-top pt-2">
-            <select class="form-select form-select-sm border-secondary fw-bold" style="background-color: #f8f9fa;" onchange="atribuirTecnicoOS('${os.id}', this.value, '${os.ixc_os_id}')" ${!usuarioPodeEditar ? 'disabled' : ''}>
+            <select class="form-select form-select-sm border-secondary fw-bold select-atribuir-tecnico" style="background-color: #f8f9fa;" data-id-agenda="${os.id}" data-ixc-os-id="${os.ixc_os_id}" ${!usuarioPodeEditar ? 'disabled' : ''}>
                 <option value="">👤 Atribuir Técnico...</option>
                 ${optionsHtml}
             </select>
@@ -668,10 +684,29 @@ async function abrirModalDetalhes(os) {
         document.getElementById('det-referencia').textContent = osData.referencia || 'Sem ponto de referência.';
         
         let msgSintoma = osData.mensagem || os.sintoma_relatado || 'Sem descrição cadastrada.';
+        
+        if (osData.relato_ticket) {
+            const relatoLimpo = osData.relato_ticket.replace(/(<([^>]+)>)/gi, "").trim();
+            if (relatoLimpo && !msgSintoma.includes(relatoLimpo)) {
+                msgSintoma = `🔸 RELATO INICIAL DO CLIENTE:\n${relatoLimpo}\n\n🔸 STATUS DA ETAPA ATUAL:\n${msgSintoma}`;
+            }
+        }
+
         document.getElementById('det-sintoma').innerHTML = msgSintoma.replace(/\n/g, "<br>");
 
         document.getElementById('loading-detalhes-os').style.display = 'none';
         document.getElementById('conteudo-detalhes-os').style.display = 'flex';
+
+        const alertaPrioridade = document.getElementById('alerta-prioridade-futura');
+        if (os.is_futuro_prioridade) {
+            const dataBR = String(os.data_agendamento_original).split('T')[0].split('-').reverse().join('/');
+            document.getElementById('data-prioridade-original').textContent = dataBR;
+            alertaPrioridade.classList.remove('d-none');
+            window.osPrioridadeAtual = os;
+        } else {
+            alertaPrioridade.classList.add('d-none');
+            window.osPrioridadeAtual = null;
+        }
 
         window.osAtualParaFechar = {
             ixc_os_id: os.ixc_os_id,
@@ -964,6 +999,49 @@ document.addEventListener('click', (e) => {
         const el = document.getElementById(targetId);
         if (el) el.classList.toggle('d-none');
         return;
+    }
+});
+
+window.tratarPrioridade = async function(acao) {
+    if (!window.osPrioridadeAtual) return;
+    
+    const msgConfirma = acao === 'aceitar' 
+        ? 'Tem certeza que deseja PUXAR este agendamento para HOJE?' 
+        : 'Tem certeza que deseja RECUSAR a prioridade?';
+        
+    if (!confirm(msgConfirma)) return;
+
+    try {
+        const response = await fetch('/api/v5/painel-logistica/tratar-prioridade', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id_local: window.osPrioridadeAtual.id,
+                ixc_os_id: window.osPrioridadeAtual.ixc_os_id,
+                acao: acao,
+                data_hoje: document.getElementById('filtro-data').value
+            })
+        });
+        
+        if (!response.ok) throw new Error('Falha na comunicação com o servidor');
+        
+        const modal = bootstrap.Modal.getInstance(document.getElementById('modalDetalhesOS'));
+        if (modal) modal.hide();
+        
+        carregarAgenda();
+    } catch (error) {
+        alert('Erro ao processar a prioridade: ' + error.message);
+    }
+};
+
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('select-atribuir-tecnico')) {
+        const id_agenda = e.target.getAttribute('data-id-agenda');
+        const ixc_os_id = e.target.getAttribute('data-ixc-os-id');
+        const id_tecnico = e.target.value;
+        if (typeof window.atribuirTecnicoOS === 'function') {
+            window.atribuirTecnicoOS(id_agenda, id_tecnico, ixc_os_id);
+        }
     }
 });
 
