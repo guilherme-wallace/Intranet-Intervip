@@ -151,7 +151,7 @@ router.get('/busca-cliente/:termo', (req, res) => __awaiter(void 0, void 0, void
                 }
             }
             catch (e) {
-                console.error("[DEBUG] Erro na requisição da ONU do contrato " + contrato.id, e.message);
+                //console.error("[DEBUG] Erro na requisição da ONU do contrato " + contrato.id, e.message);
             }
             const arrayEnd = [];
             if (baseEnd.endereco)
@@ -222,8 +222,8 @@ router.get('/busca-cliente/:termo', (req, res) => __awaiter(void 0, void 0, void
 }));
 router.post('/criar-os', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { cliente_id, contrato_id, id_assunto, id_departamento, id_processo, observacao, titulo } = req.body;
-    console.log("\n=== [DEBUG] INICIANDO CRIAÇÃO DE CHAMADO (IXC) ===");
-    console.log("1. Dados brutos recebidos do Frontend:", req.body);
+    //console.log("\n=== [DEBUG] INICIANDO CRIAÇÃO DE CHAMADO (IXC) ===");
+    //console.log("1. Dados brutos recebidos do Frontend:", req.body);
     if (!cliente_id || !id_assunto || !observacao || !id_processo) {
         console.error("-> Erro: Dados incompletos. Faltando assunto ou processo.");
         return res.status(400).json({ error: "Dados incompletos. Verifique se o assunto possui um processo vinculado no IXC." });
@@ -247,17 +247,17 @@ router.post('/criar-os', (req, res) => __awaiter(void 0, void 0, void 0, functio
         if (contrato_id && String(contrato_id).trim() !== "") {
             payloadTicket.id_contrato = contrato_id;
         }
-        console.log("2. Payload final montado:", payloadTicket);
+        //console.log("2. Payload final montado:", payloadTicket);
         const ixcResp = yield makeIxcRequest('POST', '/su_ticket', payloadTicket, 'incluir');
-        console.log("3. Resposta recebida do IXC:", ixcResp);
+        //console.log("3. Resposta recebida do IXC:", ixcResp);
         if (ixcResp.type === 'error') {
             throw new Error(ixcResp.message || "Erro desconhecido retornado pelo IXC");
         }
         res.json({ success: true, ticket_id: ixcResp.id, message: "Atendimento criado com sucesso no IXC!" });
-        console.log("=== CHAMADO CRIADO COM SUCESSO ===\n");
+        //console.log("=== CHAMADO CRIADO COM SUCESSO ===\n");
     }
     catch (error) {
-        console.error("4. [ERRO FATAL] Falha ao criar OS no IXC:");
+        //console.error("4. [ERRO FATAL] Falha ao criar OS no IXC:");
         console.error(error.message);
         res.status(500).json({ error: error.message });
     }
@@ -281,51 +281,87 @@ router.get('/assuntos', (req, res) => __awaiter(void 0, void 0, void 0, function
         res.status(500).json({ error: error.message });
     }
 }));
-router.get('/tarefas/:id_processo', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+router.get('/tarefas/:id_processo/:id_tarefa_atual', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { id_processo } = req.params;
+        const { id_processo, id_tarefa_atual } = req.params;
+        let realIdProcesso = id_processo;
+        let proximaSequencia = 2;
+        if (id_tarefa_atual && id_tarefa_atual !== 'undefined' && id_tarefa_atual !== 'null' && id_tarefa_atual !== '0') {
+            const tarefaAtualResp = yield makeIxcRequest('POST', '/wfl_tarefa', {
+                qtype: 'wfl_tarefa.id',
+                query: id_tarefa_atual,
+                oper: '=',
+                page: '1',
+                rp: '1'
+            });
+            if (tarefaAtualResp.registros && tarefaAtualResp.registros.length > 0) {
+                const tarefaAtual = tarefaAtualResp.registros[0];
+                realIdProcesso = tarefaAtual.id_processo;
+                proximaSequencia = Number(tarefaAtual.sequencia) + 1;
+            }
+        }
         const resp = yield makeIxcRequest('POST', '/wfl_tarefa', {
             qtype: 'wfl_tarefa.id_processo',
-            query: id_processo,
+            query: realIdProcesso,
             oper: '=',
             page: '1',
-            rp: '1000',
-            sortname: 'wfl_tarefa.id',
+            rp: '100',
+            sortname: 'wfl_tarefa.sequencia',
             sortorder: 'asc'
         });
-        const tarefasSeq2 = (resp.registros || []).filter((t) => t.sequencia === '2' && t.ativo === 'S');
-        res.json(tarefasSeq2);
+        const todasTarefas = resp.registros || [];
+        if (!id_tarefa_atual || id_tarefa_atual === 'undefined' || id_tarefa_atual === 'null' || id_tarefa_atual === '0') {
+            if (todasTarefas.length > 0) {
+                const menorSequencia = Math.min(...todasTarefas.map((t) => Number(t.sequencia)));
+                proximaSequencia = menorSequencia + 1;
+            }
+        }
+        const tarefasCorretas = todasTarefas.filter((t) => Number(t.sequencia) === proximaSequencia && t.ativo === 'S');
+        //console.log(`[DEBUG WFL] Proc: ${realIdProcesso} | Seq Alvo: ${proximaSequencia} | Opções Encontradas: ${tarefasCorretas.length}`);
+        res.json(tarefasCorretas);
     }
     catch (error) {
-        console.error("Erro ao buscar tarefas:", error.message);
+        console.error("[DEBUG WFL ERRO]", error.message);
         res.status(500).json({ error: error.message });
     }
 }));
 router.post('/avancar-tarefa', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const { ticket_id, id_tarefa, usuario_intranet } = req.body;
+    const { ticket_id, os_id, id_tarefa, mensagem, usuario_intranet } = req.body;
     try {
-        console.log(`\n=== AVANÇANDO TAREFA DO TICKET ${ticket_id} ===`);
         const idTecnicoIxc = yield obterIdFuncionarioIxc(usuario_intranet);
-        const osResponse = yield makeIxcRequest('POST', '/su_oss_chamado', {
-            qtype: 'su_oss_chamado.id_ticket', query: String(ticket_id), oper: '=', rp: '20', sortname: 'su_oss_chamado.id', sortorder: 'desc'
-        });
-        if (!osResponse || !osResponse.registros || osResponse.registros.length === 0) {
-            throw new Error(`Nenhuma OS encontrada dentro do ticket ${ticket_id}.`);
+        let osAberta = null;
+        let ticketIdRetornado = ticket_id;
+        if (os_id) {
+            const osResponse = yield makeIxcRequest('POST', '/su_oss_chamado', {
+                qtype: 'su_oss_chamado.id', query: String(os_id), oper: '=', rp: '1'
+            });
+            if (osResponse && osResponse.registros && osResponse.registros.length > 0) {
+                osAberta = osResponse.registros[0];
+                ticketIdRetornado = osAberta.id_ticket;
+            }
         }
-        const osAberta = osResponse.registros.find((os) => os.status === 'A' || os.status === 'EN');
+        else if (ticket_id) {
+            const osResponse = yield makeIxcRequest('POST', '/su_oss_chamado', {
+                qtype: 'su_oss_chamado.id_ticket', query: String(ticket_id), oper: '=', rp: '20', sortname: 'su_oss_chamado.id', sortorder: 'desc'
+            });
+            if (osResponse && osResponse.registros) {
+                osAberta = osResponse.registros.find((os) => os.status === 'A' || os.status === 'EN');
+            }
+        }
         if (!osAberta) {
-            throw new Error(`Nenhuma OS aberta foi encontrada no ticket ${ticket_id}.`);
+            throw new Error(`Nenhuma OS aberta foi encontrada no IXC para avançar a tarefa.`);
         }
-        console.log(`-> Fechando OS ${osAberta.id} com o Técnico ID: ${idTecnicoIxc}`);
         const dataHoraAtual = getIxcDate();
         const dataAtual = dataHoraAtual.split(' ')[0];
+        const idProcessoWfl = osAberta.id_wfl_param_os || osAberta.id_wfl_processo || osAberta.id_processo || "";
+        const idTarefaAtualWfl = osAberta.id_wfl_tarefa || osAberta.id_tarefa_atual || osAberta.id_tarefa || "";
         const payloadFechamento = {
             "id_chamado": osAberta.id,
             "gera_comissao_aux": "N",
             "data_inicio": dataHoraAtual,
             "data_final": dataHoraAtual,
             "id_resposta": "",
-            "mensagem": "Atendimento triado e encaminhado via Intranet Hub.",
+            "mensagem": mensagem || "Atendimento triado e encaminhado via Intranet Hub.",
             "id_tecnico": idTecnicoIxc,
             "id_equipe": "",
             "gera_comissao": "N",
@@ -337,8 +373,8 @@ router.post('/avancar-tarefa', (req, res) => __awaiter(void 0, void 0, void 0, f
             "latitude": "",
             "longitude": "",
             "gps_time": "",
-            "id_processo": osAberta.id_wfl_processo,
-            "id_tarefa_atual": osAberta.id_wfl_tarefa,
+            "id_processo": idProcessoWfl,
+            "id_tarefa_atual": idTarefaAtualWfl,
             "eh_tarefa_decisao": "N",
             "sequencia_atual": "",
             "proxima_sequencia_forcada": "",
@@ -351,8 +387,7 @@ router.post('/avancar-tarefa', (req, res) => __awaiter(void 0, void 0, void 0, f
         if (respWfl && respWfl.type === 'error') {
             throw new Error(`Erro no motor do IXC: ${respWfl.message.replace(/<br \/>/g, ' - ')}`);
         }
-        console.log(`=== SUCESSO: OS MOVIDA PARA A PRÓXIMA ETAPA ===\n`);
-        res.json({ success: true });
+        res.json({ success: true, ticket_id_retornado: ticketIdRetornado });
     }
     catch (error) {
         console.error("Erro ao avançar tarefa:", error.message);
@@ -432,7 +467,21 @@ router.get('/atendimento-oss/:id_ticket', (req, res) => __awaiter(void 0, void 0
             sortname: 'su_oss_chamado.id',
             sortorder: 'desc'
         });
-        res.json(resp.registros || []);
+        const setoresResp = yield makeIxcRequest('POST', '/su_ticket_setor', {
+            qtype: 'id', query: '0', oper: '>', rp: '500'
+        });
+        const setoresMap = {};
+        if (setoresResp.registros) {
+            setoresResp.registros.forEach((s) => {
+                setoresMap[s.id] = s.setor;
+            });
+        }
+        const oss = (resp.registros || []).map((os) => (Object.assign(Object.assign({}, os), { nome_setor: setoresMap[os.setor] || 'Setor Desconhecido' })));
+        //console.log(`\n[DEBUG WFL] OSs encontradas para o ticket ${req.params.id_ticket}:`);
+        oss.forEach((o) => {
+            //console.log(`OS ID: ${o.id} | wfl_param_os: ${o.id_wfl_param_os} | processo_alt: ${o.id_wfl_processo} | status: ${o.status}`);
+        });
+        res.json(oss);
     }
     catch (error) {
         res.status(500).json({ error: error.message });

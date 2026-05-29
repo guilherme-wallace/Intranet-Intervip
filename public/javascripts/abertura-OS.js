@@ -294,7 +294,11 @@ async function gerarOS() {
         if (!response.ok) throw new Error(data.error);
 
         ultimoTicketGerado = data.ticket_id;
-        document.getElementById('sucesso-ticket-id').textContent = ultimoTicketGerado;
+        
+        const spanTicket = document.getElementById('sucesso-ticket-id');
+        if (spanTicket) {
+            spanTicket.textContent = ultimoTicketGerado;
+        }
         
         carregarTarefasProcesso(id_processo);
         
@@ -315,7 +319,7 @@ async function carregarTarefasProcesso(id_processo) {
     container.innerHTML = '<div class="text-center text-muted"><span class="spinner-border spinner-border-sm"></span> Carregando tarefas do fluxo...</div>';
     
     try {
-        const response = await fetch(`/api/v5/abertura-OS/tarefas/${id_processo}`);
+        const response = await fetch('/api/v5/abertura-OS/tarefas/' + id_processo + '/undefined');
         const tarefas = await response.json();
         
         if (tarefas.length === 0) {
@@ -330,9 +334,9 @@ async function carregarTarefasProcesso(id_processo) {
             const checked = index === 0 ? 'checked' : '';
             
             container.innerHTML += `
-                <div class="form-check border rounded p-3 bg-white shadow-sm d-flex align-items-center" style="cursor: pointer; transition: 0.2s;" onclick="document.getElementById('tarefa-${t.id}').checked = true" onmouseover="this.classList.add('bg-light')" onmouseout="this.classList.remove('bg-light')">
-                    <input class="form-check-input ms-1 me-3 fs-5" type="radio" name="radio-tarefa" id="tarefa-${t.id}" value="${t.id}" data-setor="${t.id_setor}" data-nome="${t.descricao}" ${checked}>
-                    <label class="form-check-label w-100 fw-bold text-dark d-flex align-items-center m-0" for="tarefa-${t.id}" style="cursor: pointer;">
+                <div class="form-check border rounded p-3 bg-white shadow-sm d-flex align-items-center mb-2 card-tarefa-wfl" style="cursor: pointer; transition: 0.2s;">
+                    <input class="form-check-input ms-1 me-3 fs-5" type="radio" name="tarefa_wfl" id="tarefa-${t.id}" value="${t.id}" data-setor="${t.id_setor}" data-nome="${t.descricao}" ${checked}>
+                    <label class="form-check-label w-100 fw-bold text-dark d-flex align-items-center m-0" for="tarefa-${t.id}" style="cursor: pointer; pointer-events: none;">
                         <i class="bi ${icon} fs-4 me-3"></i> 
                         <span style="font-size: 0.95rem;">${t.descricao}</span>
                     </label>
@@ -345,39 +349,76 @@ async function carregarTarefasProcesso(id_processo) {
 }
 
 async function processarAvancoTarefa() {
-    const radioSelecionado = document.querySelector('input[name="radio-tarefa"]:checked');
-    if (!radioSelecionado) return alert('Selecione uma tarefa para avançar.');
-    
+    const selectedTarefa = document.querySelector('input[name="tarefa_wfl"]:checked');
+    if (!selectedTarefa) return alert('Selecione uma etapa para avançar!');
+
+    const nomeTarefa = selectedTarefa.getAttribute('data-nome') || '';
+
     const btn = document.getElementById('btn-confirmar-tarefa');
+    const conteudoOriginal = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processando...';
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Movendo Chamado...';
-    
-    const id_tarefa = radioSelecionado.value;
-    const id_setor = radioSelecionado.dataset.setor;
-    const nome_tarefa = radioSelecionado.dataset.nome.toUpperCase();
-    
+
+    let payload = {};
+
+    if (window.osParaTramitar) {
+        let msg = prompt("Digite uma mensagem de encaminhamento/resolução:", "Encaminhado para setor responsável via Intranet");
+        if (msg === null) {
+            btn.innerHTML = conteudoOriginal;
+            btn.disabled = false;
+            return;
+        }
+        
+        payload = {
+            os_id: window.osParaTramitar.id,
+            id_tarefa: selectedTarefa.value,
+            mensagem: msg
+        };
+    }
+    else {
+        payload = {
+            ticket_id: ultimoTicketGerado,
+            id_tarefa: selectedTarefa.value,
+            mensagem: 'Atendimento triado e encaminhado via Intranet Hub'
+        };
+    }
+
     try {
-        await fetch('/api/v5/abertura-OS/avancar-tarefa', {
+        const response = await fetch('/api/v5/abertura-OS/avancar-tarefa', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                ticket_id: ultimoTicketGerado,
-                id_tarefa: id_tarefa,
-                id_setor: id_setor,
-                usuario_intranet: window.usuarioLogado
-            })
+            body: JSON.stringify(payload)
         });
         
-        if (nome_tarefa.includes('VISITA')) {
-            window.location.href = `/agendamento?os=${ultimoTicketGerado}&origem=intranet`;
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+
+        window.osParaTramitar = null;
+        
+        const isVisita = nomeTarefa.toUpperCase().includes('VISITA');
+
+        if (isVisita) {
+            const idReferencia = payload.ticket_id || data.ticket_id_retornado;
+            window.location.href = `/agendamento?os=${idReferencia}&origem=suporte`;
         } else {
-            alert(`Sucesso! Chamado encaminhado para a etapa: ${nome_tarefa}`);
-            window.location.reload(); 
+            alert(`O.S. encaminhada com sucesso para a etapa: ${nomeTarefa}`);
+            window.location.reload();
+            
+            const modalDecisaoEl = document.getElementById('modalDecisaoAgendamento');
+            if (modalDecisaoEl) bootstrap.Modal.getInstance(modalDecisaoEl).hide();
+            
+            if (clienteAtual && clienteAtual.id) {
+                buscarAtendimentosAbertos(clienteAtual.id);
+            }
+            
+            btn.innerHTML = conteudoOriginal;
+            btn.disabled = false;
         }
+        
     } catch (error) {
-        alert('Erro ao mover a tarefa no IXC. Tente novamente.');
+        alert("Erro ao avançar etapa: " + error.message);
+        btn.innerHTML = conteudoOriginal;
         btn.disabled = false;
-        btn.innerHTML = 'Confirmar e Avançar <i class="bi bi-arrow-right-circle ms-1"></i>';
     }
 }
 
@@ -578,17 +619,30 @@ async function abrirModalTicket(ticket) {
             
             let resposta = os.mensagem_resposta || os.mensagem || '---';
             resposta = resposta.replace(/(<([^>]+)>)/gi, " ");
-            const respostaTruncada = resposta.length > 80 ? resposta.substring(0, 80) + '...' : resposta;
+            const respostaTruncada = resposta.length > 60 ? resposta.substring(0, 60) + '...' : resposta;
 
-            const dataAgendada = os.data_agenda ? os.data_agenda.substring(0, 16) : 'N/A';
-            const dataFechamento = os.data_fechamento ? os.data_fechamento.substring(0, 16) : 'N/A';
+            const nomeSetor = os.nome_setor || '---';
+
+            let acoesHtml = '';
+            if (os.status === 'F' || os.status === 'C') {
+                acoesHtml = `<span class="text-muted small fw-bold">Finalizada</span>`;
+            } else {
+                const setoresAgendaveis = ['LOGÍSTICA', 'LOGISTICA', 'MANUTENÇÃO', 'MANUTENCAO', 'INSTALAÇÃO', 'INSTALACAO', 'RECOLHIMENTO'];
+                const upperSetor = nomeSetor.toUpperCase();
+                const podeAgendar = setoresAgendaveis.some(s => upperSetor.includes(s));
+
+                if (podeAgendar) {
+                    acoesHtml = `<button class="btn btn-sm btn-success fw-bold w-100 shadow-sm btn-agendar-direto" data-os-id="${os.id}"><i class="bi bi-calendar-check me-1"></i>Agendar</button>`;
+                } else {
+                    acoesHtml = `<button class="btn btn-sm btn-primary fw-bold w-100 shadow-sm btn-tramitar-agendar" data-os='${JSON.stringify(os).replace(/'/g, "&#39;")}'><i class="bi bi-arrow-right-circle me-1"></i>Tramitar / Agendar</button>`;
+                }
+            }
 
             html += `<tr>
-                <td class="fw-bold text-primary">#${os.id}</td>
-                <td>${statusBadge}</td>
-                <td>${dataAgendada}</td>
-                <td class="${os.status === 'F' ? 'text-success fw-bold' : ''}">${os.status === 'F' ? dataFechamento : '---'}</td>
-                <td title="${resposta}"><span class="d-inline-block text-truncate" style="max-width: 300px;">${respostaTruncada}</span></td>
+                <td class="align-middle fw-bold text-primary">#${os.id}<br><small class="text-muted fw-normal">${nomeSetor}</small></td>
+                <td class="align-middle">${statusBadge}</td>
+                <td class="align-middle small text-truncate" style="max-width: 200px;" title="${resposta}">${respostaTruncada}</td>
+                <td class="align-middle text-center" style="min-width: 160px;">${acoesHtml}</td>
             </tr>`;
         });
         tbody.innerHTML = html;
@@ -596,6 +650,101 @@ async function abrirModalTicket(ticket) {
         tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4">Erro ao carregar o histórico de O.S. do IXC.</td></tr>';
     }
 }
+
+window.abrirTramiteOS = async function(os) {
+    //console.log("[DEBUG TRAMITE] Dados brutos da OS clicada:", os);
+
+    const idProcesso = os.id_wfl_param_os || os.id_wfl_processo || os.id_processo || '0';
+    const idTarefaAtual = os.id_wfl_tarefa || os.id_tarefa_atual || os.id_tarefa || '0';
+
+    if (!idProcesso || idProcesso === '0') {
+        alert('Esta O.S. não possui um fluxo de trabalho (Workflow) configurado no IXC. Não é possível tramitar automaticamente.');
+        return;
+    }
+
+    window.osParaTramitar = {
+        ...os,
+        wfl_processo_real: idProcesso,
+        wfl_tarefa_real: idTarefaAtual
+    };
+
+    const spanTicket = document.getElementById('sucesso-ticket-id');
+        if (spanTicket) {
+            spanTicket.textContent = os.id;
+        }
+    const tituloModal = document.querySelector('#modalDecisaoAgendamento .modal-body p.fs-5');
+    if (tituloModal) tituloModal.innerHTML = `O.S. <strong>#${os.id}</strong> selecionada!`;
+    
+    const listaWfl = document.getElementById('lista-tarefas-processo');
+    listaWfl.innerHTML = '<div class="text-center text-muted"><span class="spinner-border spinner-border-sm"></span> Carregando fluxo...</div>';
+
+    const modalDetalhesEl = document.getElementById('modalDetalhesTicket');
+    if (modalDetalhesEl) bootstrap.Modal.getInstance(modalDetalhesEl).hide();
+    
+    const modalDecisao = new bootstrap.Modal(document.getElementById('modalDecisaoAgendamento'));
+    modalDecisao.show();
+
+    try {
+        const r = await fetch(`/api/v5/abertura-OS/tarefas/${window.osParaTramitar.wfl_processo_real}/${window.osParaTramitar.wfl_tarefa_real}`);
+        const tarefas = await r.json();
+
+        if (tarefas.length > 0) {
+            let html = '';
+            tarefas.forEach((t, index) => {
+                html += `
+                    <div class="form-check p-2 border rounded mb-1 bg-white shadow-sm">
+                        <input class="form-check-input ms-1" type="radio" name="tarefa_wfl" id="tarefa_${t.id}" value="${t.id}" data-nome="${t.descricao}" ${index === 0 ? 'checked' : ''}>
+                        <label class="form-check-label fw-bold ms-2 w-100" style="cursor:pointer;" for="tarefa_${t.id}">
+                            ${t.descricao}
+                        </label>
+                    </div>`;
+            });
+            listaWfl.innerHTML = html;
+        } else {
+            listaWfl.innerHTML = '<span class="text-muted small">Nenhuma etapa subsequente localizada.</span>';
+        }
+    } catch (e) {
+        listaWfl.innerHTML = '<span class="text-danger small">Erro ao carregar etapas.</span>';
+    }
+};
+
+document.addEventListener('click', function(e) {
+    const btnAgendar = e.target.closest('.btn-agendar-direto');
+    if (btnAgendar) {
+        const osId = btnAgendar.getAttribute('data-os-id');
+        window.location.href = `/agendamento?os=${osId}&origem=suporte`;
+        return;
+    }
+
+    const btnTramitar = e.target.closest('.btn-tramitar-agendar');
+    if (btnTramitar) {
+        const osDataStr = btnTramitar.getAttribute('data-os');
+        if (osDataStr) {
+            const osData = JSON.parse(osDataStr);
+            if (typeof window.abrirTramiteOS === 'function') {
+                window.abrirTramiteOS(osData);
+            }
+        }
+        return;
+    }
+
+    const cardTarefa = e.target.closest('.card-tarefa-wfl');
+    if (cardTarefa) {
+        const radio = cardTarefa.querySelector('input[type="radio"]');
+        if (radio) radio.checked = true;
+        return;
+    }
+});
+
+document.addEventListener('mouseover', function(e) {
+    const cardTarefa = e.target.closest('.card-tarefa-wfl');
+    if (cardTarefa) cardTarefa.classList.add('bg-light');
+});
+
+document.addEventListener('mouseout', function(e) {
+    const cardTarefa = e.target.closest('.card-tarefa-wfl');
+    if (cardTarefa) cardTarefa.classList.remove('bg-light');
+});
 
 function redirecionarAgendamento() {
     if (!ultimoTicketGerado) return;

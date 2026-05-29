@@ -293,53 +293,96 @@ router.get('/assuntos', async (req, res) => {
     }
 });
 
-router.get('/tarefas/:id_processo', async (req, res) => {
+router.get('/tarefas/:id_processo/:id_tarefa_atual', async (req, res) => {
     try {
-        const { id_processo } = req.params;
+        const { id_processo, id_tarefa_atual } = req.params;
+        
+        let realIdProcesso = id_processo;
+        let proximaSequencia = 2;
+        
+        if (id_tarefa_atual && id_tarefa_atual !== 'undefined' && id_tarefa_atual !== 'null' && id_tarefa_atual !== '0') {
+            const tarefaAtualResp = await makeIxcRequest('POST', '/wfl_tarefa', {
+                qtype: 'wfl_tarefa.id',
+                query: id_tarefa_atual,
+                oper: '=',
+                page: '1',
+                rp: '1'
+            });
+
+            if (tarefaAtualResp.registros && tarefaAtualResp.registros.length > 0) {
+                const tarefaAtual = tarefaAtualResp.registros[0];
+                realIdProcesso = tarefaAtual.id_processo; 
+                proximaSequencia = Number(tarefaAtual.sequencia) + 1;
+            }
+        }
+
         const resp = await makeIxcRequest('POST', '/wfl_tarefa', {
             qtype: 'wfl_tarefa.id_processo',
-            query: id_processo,
+            query: realIdProcesso,
             oper: '=',
             page: '1',
-            rp: '1000',
-            sortname: 'wfl_tarefa.id',
+            rp: '100',
+            sortname: 'wfl_tarefa.sequencia',
             sortorder: 'asc'
         });
-        
-        const tarefasSeq2 = (resp.registros || []).filter((t: any) => t.sequencia === '2' && t.ativo === 'S');
-        
-        res.json(tarefasSeq2);
+
+        const todasTarefas = resp.registros || [];
+
+        if (!id_tarefa_atual || id_tarefa_atual === 'undefined' || id_tarefa_atual === 'null' || id_tarefa_atual === '0') {
+            if (todasTarefas.length > 0) {
+                const menorSequencia = Math.min(...todasTarefas.map((t: any) => Number(t.sequencia)));
+                proximaSequencia = menorSequencia + 1;
+            }
+        }
+
+        const tarefasCorretas = todasTarefas.filter((t: any) => 
+            Number(t.sequencia) === proximaSequencia && t.ativo === 'S'
+        );
+
+        //console.log(`[DEBUG WFL] Proc: ${realIdProcesso} | Seq Alvo: ${proximaSequencia} | Opções Encontradas: ${tarefasCorretas.length}`);
+
+        res.json(tarefasCorretas);
     } catch (error: any) {
-        console.error("Erro ao buscar tarefas:", error.message);
+        console.error("[DEBUG WFL ERRO]", error.message);
         res.status(500).json({ error: error.message });
     }
 });
 
 router.post('/avancar-tarefa', async (req, res) => {
-    const { ticket_id, id_tarefa, usuario_intranet } = req.body; 
+    const { ticket_id, os_id, id_tarefa, mensagem, usuario_intranet } = req.body; 
     
     try {
-        //console.log(`\n=== AVANÇANDO TAREFA DO TICKET ${ticket_id} ===`);
-        
         const idTecnicoIxc = await obterIdFuncionarioIxc(usuario_intranet);
 
-        const osResponse = await makeIxcRequest('POST', '/su_oss_chamado', {
-            qtype: 'su_oss_chamado.id_ticket', query: String(ticket_id), oper: '=', rp: '20', sortname: 'su_oss_chamado.id', sortorder: 'desc'
-        });
+        let osAberta = null;
+        let ticketIdRetornado = ticket_id;
 
-        if (!osResponse || !osResponse.registros || osResponse.registros.length === 0) {
-            throw new Error(`Nenhuma OS encontrada dentro do ticket ${ticket_id}.`);
+        if (os_id) {
+            const osResponse = await makeIxcRequest('POST', '/su_oss_chamado', {
+                qtype: 'su_oss_chamado.id', query: String(os_id), oper: '=', rp: '1'
+            });
+            if (osResponse && osResponse.registros && osResponse.registros.length > 0) {
+                osAberta = osResponse.registros[0];
+                ticketIdRetornado = osAberta.id_ticket;
+            }
+        } else if (ticket_id) {
+            const osResponse = await makeIxcRequest('POST', '/su_oss_chamado', {
+                qtype: 'su_oss_chamado.id_ticket', query: String(ticket_id), oper: '=', rp: '20', sortname: 'su_oss_chamado.id', sortorder: 'desc'
+            });
+            if (osResponse && osResponse.registros) {
+                osAberta = osResponse.registros.find((os: any) => os.status === 'A' || os.status === 'EN');
+            }
         }
 
-        const osAberta = osResponse.registros.find((os: any) => os.status === 'A' || os.status === 'EN');
         if (!osAberta) {
-            throw new Error(`Nenhuma OS aberta foi encontrada no ticket ${ticket_id}.`);
+            throw new Error(`Nenhuma OS aberta foi encontrada no IXC para avançar a tarefa.`);
         }
-
-        //console.log(`-> Fechando OS ${osAberta.id} com o Técnico ID: ${idTecnicoIxc}`);
 
         const dataHoraAtual = getIxcDate();
         const dataAtual = dataHoraAtual.split(' ')[0];
+
+        const idProcessoWfl = osAberta.id_wfl_param_os || osAberta.id_wfl_processo || osAberta.id_processo || "";
+        const idTarefaAtualWfl = osAberta.id_wfl_tarefa || osAberta.id_tarefa_atual || osAberta.id_tarefa || "";
 
         const payloadFechamento = {
             "id_chamado": osAberta.id, 
@@ -347,7 +390,7 @@ router.post('/avancar-tarefa', async (req, res) => {
             "data_inicio": dataHoraAtual,
             "data_final": dataHoraAtual,
             "id_resposta": "",
-            "mensagem": "Atendimento triado e encaminhado via Intranet Hub.",
+            "mensagem": mensagem || "Atendimento triado e encaminhado via Intranet Hub.",
             "id_tecnico": idTecnicoIxc,
             "id_equipe": "",
             "gera_comissao": "N",
@@ -359,8 +402,8 @@ router.post('/avancar-tarefa', async (req, res) => {
             "latitude": "",
             "longitude": "",
             "gps_time": "",
-            "id_processo": osAberta.id_wfl_processo,
-            "id_tarefa_atual": osAberta.id_wfl_tarefa,
+            "id_processo": idProcessoWfl,
+            "id_tarefa_atual": idTarefaAtualWfl,
             "eh_tarefa_decisao": "N",
             "sequencia_atual": "",
             "proxima_sequencia_forcada": "",
@@ -376,8 +419,7 @@ router.post('/avancar-tarefa', async (req, res) => {
             throw new Error(`Erro no motor do IXC: ${respWfl.message.replace(/<br \/>/g, ' - ')}`);
         }
 
-        //console.log(`=== SUCESSO: OS MOVIDA PARA A PRÓXIMA ETAPA ===\n`);
-        res.json({ success: true });
+        res.json({ success: true, ticket_id_retornado: ticketIdRetornado });
 
     } catch (error: any) {
         console.error("Erro ao avançar tarefa:", error.message);
@@ -455,14 +497,35 @@ router.get('/atendimento-oss/:id_ticket', async (req, res) => {
         const resp = await makeIxcRequest('POST', '/su_oss_chamado', {
             qtype: 'su_oss_chamado.id_ticket',
             query: req.params.id_ticket,
-            oper: '=',
+            oper: '=',  
             page: '1',
             rp: '100',
             sortname: 'su_oss_chamado.id',
             sortorder: 'desc'
         });
+
+        const setoresResp = await makeIxcRequest('POST', '/su_ticket_setor', {
+            qtype: 'id', query: '0', oper: '>', rp: '500'
+        });
         
-        res.json(resp.registros || []);
+        const setoresMap: any = {};
+        if (setoresResp.registros) {
+            setoresResp.registros.forEach((s: any) => {
+                setoresMap[s.id] = s.setor;
+            });
+        }
+
+        const oss = (resp.registros || []).map((os: any) => ({
+            ...os,
+            nome_setor: setoresMap[os.setor] || 'Setor Desconhecido'
+        }));
+        
+        //console.log(`\n[DEBUG WFL] OSs encontradas para o ticket ${req.params.id_ticket}:`);
+        oss.forEach((o: any) => {
+            //console.log(`OS ID: ${o.id} | wfl_param_os: ${o.id_wfl_param_os} | processo_alt: ${o.id_wfl_processo} | status: ${o.status}`);
+        });
+        
+        res.json(oss);
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
