@@ -358,6 +358,15 @@ body {
     margin-bottom: 5px;
 }
 
+@keyframes piscarRoxo { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+.timer-critico-roxo { background-color: #6a1b9a !important; color: white !important; animation: piscarRoxo 1s infinite; }
+.timer-critico-vermelho { background-color: #d32f2f !important; color: white !important; }
+
+.text-roxo-vibrante { color: #8e44ad !important; font-weight: 900 !important; }
+.blink { animation: blinker 1s linear infinite; }
+@keyframes blinker { 50% { opacity: 0; } }
+.cursor-pointer { cursor: pointer; }
+
 /* FOOTER */
 .ivp-footer {
     background-color: var(--footer-bg);

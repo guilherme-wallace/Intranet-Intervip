@@ -6,62 +6,48 @@ let allTechsGlobal = [];
 let duplaCounter = 0;
 
 document.addEventListener('DOMContentLoaded', async () => {
-    try {
-        if (typeof initializeThemeAndUserInfo === 'function') {
-            initializeThemeAndUserInfo(); 
-        }
-    } catch (e) { console.warn("initializeTheme ignorado"); }
-
+    try { if (typeof initializeThemeAndUserInfo === 'function') initializeThemeAndUserInfo(); } catch (e) {}
     await verificarPermissoes();
 
     document.getElementById('filtro-data').value = new Date().toISOString().split('T')[0];
-
-    const btnVerOnu = document.getElementById('btn-ver-onu');
-    if (btnVerOnu) btnVerOnu.addEventListener('click', abrirModalONU);
-
-    const filtroSetor = document.getElementById('filtro-setor');
-    if (filtroSetor) filtroSetor.addEventListener('change', renderizarQuadro);
-
-    const filtroMunicipio = document.getElementById('filtro-municipio');
-    if (filtroMunicipio) filtroMunicipio.addEventListener('change', renderizarQuadro);
     
-    const btnCarregar = document.getElementById('btn-carregar-agenda');
-    if (btnCarregar) btnCarregar.addEventListener('click', carregarAgenda);
+    document.getElementById('filtro-data').addEventListener('change', carregarAgenda);
+    document.getElementById('filtro-municipio').addEventListener('change', carregarAgenda);
+    document.getElementById('filtro-setor').addEventListener('change', renderizarQuadro);
+    document.getElementById('filtro-status').addEventListener('change', renderizarQuadro);
 
-    const btnAbrirConfig = document.getElementById('btn-abrir-config');
-    if (btnAbrirConfig) btnAbrirConfig.addEventListener('click', abrirModalConfiguracoes);
-
-    const btnSalvarConfig = document.getElementById('btn-salvar-config');
-    if (btnSalvarConfig) btnSalvarConfig.addEventListener('click', salvarConfiguracoes);
-
-    const btnAddDupla = document.getElementById('btn-add-dupla');
-    if (btnAddDupla) btnAddDupla.addEventListener('click', () => adicionarLinhaDupla());
-
-    const filtroStatus = document.getElementById('filtro-status');
-    if (filtroStatus) filtroStatus.addEventListener('change', renderizarQuadro);
-
-    const btnReagendar = document.getElementById('btn-action-reagendar');
-    if (btnReagendar) btnReagendar.addEventListener('click', enviarReagendamento);
-
+    const btnFecharTarefa = document.getElementById('btn-confirmar-tarefa-logistica');
+    if (btnFecharTarefa) btnFecharTarefa.addEventListener('click', processarAvancoTarefaLogistica);
+    
     const btnFechar = document.getElementById('btn-action-fechar');
     if (btnFechar) btnFechar.addEventListener('click', enviarFechamentoOS);
 
-    const boardManut = document.getElementById('board-manutencao');
-    if (boardManut) {
-        boardManut.addEventListener('dragover', allowDrop);
-        boardManut.addEventListener('drop', drop);
-    }
-    const boardInst = document.getElementById('board-instalacao');
-    if (boardInst) {
-        boardInst.addEventListener('dragover', allowDrop);
-        boardInst.addEventListener('drop', drop);
-    }
+    const btnVerOnu = document.getElementById('btn-ver-onu');
+    if (btnVerOnu) btnVerOnu.addEventListener('click', abrirModalONU);
+    
+    const btnAbrirConfig = document.getElementById('btn-abrir-config');
+    if (btnAbrirConfig) btnAbrirConfig.addEventListener('click', abrirModalConfiguracoes);
+    const btnSalvarConfig = document.getElementById('btn-salvar-config');
+    if (btnSalvarConfig) btnSalvarConfig.addEventListener('click', salvarConfiguracoes);
+    const btnAddDupla = document.getElementById('btn-add-dupla');
+    if (btnAddDupla) btnAddDupla.addEventListener('click', () => adicionarLinhaDupla());
+    const btnReagendar = document.getElementById('btn-action-reagendar');
+    if (btnReagendar) btnReagendar.addEventListener('click', enviarReagendamento);
 
     carregarAgenda();
-
-    setInterval(autoRefreshSilencioso, 45000); // Recarrega a tela a cada 45 segundos
-    setInterval(atualizarTimers, 1000); // Atualiza os timers a cada segundo
+    setInterval(autoRefreshSilencioso, 45000); // 45s
+    setInterval(atualizarTimers, 30000); // 30s
 });
+
+window.retrairTurno = function(id) {
+    const el = document.getElementById(id);
+    if(el) el.style.display = el.style.display === 'none' ? 'flex' : 'none';
+};
+
+window.retrairColuna = function(bodyId) {
+    const el = document.getElementById(bodyId);
+    if(el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+};
 
 function getPrimeiroUltimoNome(nomeCompleto) {
     if (!nomeCompleto) return 'Técnico';
@@ -130,28 +116,6 @@ function atualizarFiltroSetor() {
     }
 }
 
-function atualizarFiltroMunicipio() {
-    const selectMun = document.getElementById('filtro-municipio');
-    const valorAtual = selectMun.value;
-    
-    selectMun.innerHTML = '<option value="TODOS">Todas as Regiões</option>';
-    
-    const municipiosUnicos = [...new Set(todosAgendamentosGlobais.map(os => os.cidade_real).filter(s => s))].sort();
-    
-    municipiosUnicos.forEach(mun => {
-        const option = document.createElement('option');
-        option.value = mun;
-        option.textContent = mun;
-        selectMun.appendChild(option);
-    });
-
-    if (municipiosUnicos.includes(valorAtual)) {
-        selectMun.value = valorAtual;
-    } else {
-        selectMun.value = 'TODOS';
-    }
-}
-
 async function verificarPermissoes() {
     try {
         const response = await fetch('/api/username');
@@ -172,48 +136,33 @@ async function carregarAgenda() {
     const data = document.getElementById('filtro-data').value;
     const municipio = document.getElementById('filtro-municipio').value;
 
-    if (!data) return alert("Selecione uma data.");
-
+    if (!data) return;
     await construirColunasTecnicos(data);
 
-    const colManut = document.getElementById('col-inbox-manutencao');
-    const colInst = document.getElementById('col-inbox-instalacao');
-    const inboxes = [
-        'col-inbox-manut-casa', 'col-inbox-manut-predio-serra', 'col-inbox-manut-predio-outros',
-        'col-inbox-inst-serra', 'col-inbox-inst-outros'
-    ];
-    inboxes.forEach(id => {
-        const el = document.getElementById(id);
-        if(el) el.innerHTML = '<div class="text-muted text-center small p-2">Carregando...</div>';
+    document.querySelectorAll('.column-body').forEach(el => {
+        el.innerHTML = '<div class="text-muted text-center small p-3"><span class="spinner-border spinner-border-sm mb-1"></span><br>Carregando...</div>';
     });
 
     try {
         const response = await fetch(`/api/v5/painel-logistica/agendamentos?data=${data}&municipio=${municipio}`);
         todosAgendamentosGlobais = await response.json();
         
-        if (todosAgendamentosGlobais.length === 0) {
-            colManut.innerHTML = '<div class="alert alert-warning small">Nenhuma OS encontrada para esta data/setores.</div>';
-            colInst.innerHTML = '<div class="alert alert-warning small">Nenhuma OS encontrada para esta data/setores.</div>';
-        } else {
-            atualizarFiltroSetor();
-            atualizarFiltroMunicipio();
-            renderizarQuadro();
-        }
-
+        atualizarFiltroSetor();
+        renderizarQuadro();
     } catch (error) {
         console.error("Erro ao carregar agenda:", error);
-        colManut.innerHTML = '<div class="alert alert-danger small">Erro ao carregar.</div>';
+        document.querySelectorAll('.column-body').forEach(el => {
+            el.innerHTML = '<div class="alert alert-danger small m-2">Erro.</div>';
+        });
     }
 }
 
 function renderizarQuadro() {
-    document.querySelectorAll('.column-body').forEach(col => {
-        col.innerHTML = '';
-    });
-
+    document.querySelectorAll('.column-body').forEach(col => col.innerHTML = '');
+    
+    const filtroSetor = document.getElementById('filtro-setor').value;
     const statusFiltro = document.getElementById('filtro-status').value;
-    const setorFiltro = document.getElementById('filtro-setor').value;
-    const munFiltro = document.getElementById('filtro-municipio').value;
+    const filtroMun = document.getElementById('filtro-municipio').value;
 
     todosAgendamentosGlobais.forEach(os => {
         const statusIxc = os.ixc_status || 'A';
@@ -223,136 +172,102 @@ function renderizarQuadro() {
         if (statusFiltro === 'OCULTAR_CONCLUIDOS' && isConcluido) return; 
         if (statusFiltro === 'PENDENTES' && (isConcluido || isFalha)) return;
         if (statusFiltro === 'FALHAS' && !isFalha) return;
+        if (filtroSetor !== 'TODOS' && os.nome_setor !== filtroSetor) return;
 
-        if (setorFiltro !== 'TODOS' && os.nome_setor !== setorFiltro) return;
-        if (munFiltro !== 'TODOS' && os.cidade_real !== munFiltro) return;
+        const cidadeUpper = (os.cidade_real || '').toUpperCase();
+        const isSerra = cidadeUpper.includes('SERRA');
+        
+        if (filtroMun === 'SERRA' && !isSerra) return;
+        if (filtroMun === 'VV_VIX_CCA' && isSerra) return;
 
         const card = criarCardOS(os);
-        card.addEventListener('click', () => abrirModalDetalhes(os));
-        
-        const tecnicoId = os.ixc_tecnico_id;
-        const isInstalacao = (os.tipo_servico === 'INSTALACAO') || 
-                             (os.nome_setor && os.nome_setor.toUpperCase().includes('INSTALA')) || 
-                             (os.setor === '5');
+        const isInstalacao = (os.tipo_servico === 'INSTALACAO') || (os.nome_setor && os.nome_setor.toUpperCase().includes('INSTALA')) || (os.setor === '5');
 
-        if (!tecnicoId || os.status_interno === 'AGUARDANDO_LOGISTICA') {
-            const cidadeUpper = (os.cidade_real || '').toUpperCase();
-            const isSerra = cidadeUpper.includes('SERRA');
+        let turnoId = os.turno === 'MATUTINO' ? 'matutino' : 'vespertino';
+        if(os.turno === 'NOTURNO') turnoId = 'vespertino';
+        
+        let baseDivId = '';
+        if (isInstalacao) {
+            baseDivId = isSerra ? `col-inst-serra-${turnoId}` : `col-inst-outros-${turnoId}`;
+        } else {
+            if (os.tipo_imovel === 'CASA' || os.tipo_imovel === 'CORPORATIVO') {
+                baseDivId = `col-manut-casa-${turnoId}`;
+            } else {
+                baseDivId = isSerra ? `col-manut-predio-serra-${turnoId}` : `col-manut-predio-outros-${turnoId}`;
+            }
+        }
+
+        const baseCol = document.getElementById(baseDivId);
+        if (!baseCol) return;
+
+        if (!os.ixc_tecnico_id) {
+            baseCol.appendChild(card);
+        } else {
+            const techColId = `tec-${os.ixc_tecnico_id}-${baseDivId}`;
+            let techCol = document.getElementById(techColId);
+
+            if (!techCol) {
+                techCol = criarColunaTecnico(os.ixc_tecnico_id, os.nome_tecnico, techColId, isInstalacao);
+                baseCol.appendChild(techCol);
+            }
             
-            if (isInstalacao) {
-                if (isSerra) {
-                    document.getElementById('col-inbox-inst-serra').appendChild(card);
-                } else {
-                    document.getElementById('col-inbox-inst-outros').appendChild(card);
-                }
-            } else {
-                if (os.tipo_imovel === 'CASA' || os.tipo_imovel === 'CORPORATIVO') {
-                    document.getElementById('col-inbox-manut-casa').appendChild(card);
-                } else {
-                    if (isSerra) {
-                        document.getElementById('col-inbox-manut-predio-serra').appendChild(card);
-                    } else {
-                        document.getElementById('col-inbox-manut-predio-outros').appendChild(card);
-                    }
-                }
-            }
-        } else {
-            let targetDivId = mapaTecnicoColuna[tecnicoId];
-
-            if (!targetDivId) {
-                targetDivId = `col-extra-${tecnicoId}`;
-                let colTecnico = document.getElementById(targetDivId);
-                
-                if (!colTecnico) {
-                    const nomeExibicao = getPrimeiroUltimoNome(os.nome_tecnico);
-                    
-                    const colHTML = `
-                        <div class="kanban-column" style="border: 2px dashed #ffc107; background-color: #fffdf5;" data-equipe="${isInstalacao ? 'INSTALACAO' : 'MANUTENCAO'}">
-                            <div class="column-header d-flex flex-column align-items-center pb-2 text-center border-bottom mb-2">
-                                <div class="text-uppercase fw-bold text-warning mb-1" style="font-size: 0.70rem;" title="Fora da Escala">
-                                    <i class="bi bi-exclamation-triangle-fill me-1"></i>Atenção
-                                </div>
-                                <div class="fw-bold text-dark mb-1 w-100 px-1" style="font-size: 0.85rem;">${nomeExibicao}</div>
-                                <div class="small fw-bold text-muted mb-1">Fora da Escala</div>
-                                <div class="badge bg-secondary rounded-pill px-3 py-1 mt-auto">
-                                    <span class="task-count" id="count-${targetDivId}">0</span> OS
-                                </div>
-                            </div>
-                            <div class="column-body" id="${targetDivId}" data-tecnico-id="${tecnicoId}"></div>
-                        </div>`;
-                    
-                    document.getElementById(isInstalacao ? 'board-instalacao' : 'board-manutencao').insertAdjacentHTML('beforeend', colHTML);
-                }
-            }
-
-            const colBody = document.getElementById(targetDivId);
-            if (colBody) colBody.appendChild(card);
+            document.getElementById(`body-${techColId}`).appendChild(card);
         }
     });
 
     document.querySelectorAll('.kanban-column').forEach(col => {
-        const body = col.querySelector('.column-body');
         const spanCount = col.querySelector('.task-count');
-        if (body && spanCount) spanCount.textContent = body.children.length;
-    });
-
-    const isFiltroSetorAtivo = setorFiltro !== 'TODOS';
-    const filtroUpper = setorFiltro.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
-
-    document.querySelectorAll('.kanban-column').forEach(col => {
-        if (col.getAttribute('data-inbox') === 'true') return;
-        
-        const body = col.querySelector('.column-body');
-        const hasCards = body.children.length > 0;
-        const equipeDaColuna = col.getAttribute('data-equipe');
-        
-        let pertenceAoFiltro = false;
-        if (isFiltroSetorAtivo && equipeDaColuna) {
-            if (filtroUpper.includes('INSTALAC') && equipeDaColuna === 'INSTALACAO') pertenceAoFiltro = true;
-            if (filtroUpper.includes('MANUTENC') && equipeDaColuna === 'MANUTENCAO') pertenceAoFiltro = true;
-        }
-
-        if (isFiltroSetorAtivo && !hasCards && !pertenceAoFiltro) {
-            col.style.display = 'none';
-        } else {
-            col.style.display = 'flex'; 
-        }
-    });
-
-    document.querySelectorAll('.kanban-column').forEach(col => {
-        const body = col.querySelector('.column-body');
-        const spanCount = col.querySelector('.task-count');
-        const totalCards = body ? body.children.length : 0;
-        
+        const totalCards = col.querySelectorAll('.asana-card').length;
         if (spanCount) spanCount.textContent = totalCards;
+    });
 
-        if (col.getAttribute('data-inbox') === 'true') {
-            if (totalCards === 0) {
-                col.classList.add('inbox-vazio');
+    atualizarTimers();
+
+    ['matutino', 'vespertino'].forEach(turnoId => {
+        const turnoUpper = turnoId === 'matutino' ? 'MATUTINO' : 'VESPERTINO';
+        const osNoTurno = todosAgendamentosGlobais.filter(os => os.turno === turnoUpper);
+        
+        const temPendentes = osNoTurno.some(os => {
+            const st = os.ixc_status || 'A';
+            return st !== 'F' && st !== 'C';
+        });
+
+        const elSwimlane = document.getElementById(`swimlane-${turnoId}`);
+        if (elSwimlane) {
+            if (osNoTurno.length > 0 && !temPendentes) {
+                elSwimlane.classList.add('d-none');
+                elSwimlane.classList.remove('d-flex');
             } else {
-                col.classList.remove('inbox-vazio');
+                elSwimlane.classList.remove('d-none');
+                elSwimlane.classList.add('d-flex');
             }
         }
     });
 }
 
+function criarColunaTecnico(idTecnico, nomeTecnico, techColId, isInstalacao) {
+    const div = document.createElement('div');
+    div.className = 'tec-sub-column mb-3 border border-2 rounded bg-white overflow-hidden shadow-sm';
+    div.id = techColId;
+
+    const headerColor = isInstalacao ? 'bg-success text-white' : 'bg-primary text-white';
+
+    div.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center p-2 click-retrair-coluna ${headerColor}" style="cursor: pointer;" data-target="body-${techColId}" title="Clique para Retrair">
+            <span class="fw-bold" style="font-size: 0.75rem; pointer-events: none;"><i class="bi bi-person-workspace me-1"></i>${nomeTecnico}</span>
+            <i class="bi bi-arrows-collapse small" style="pointer-events: none;"></i>
+        </div>
+        <div class="p-2 bg-white" id="body-${techColId}" style="min-height: 10px;"></div>
+    `;
+    return div;
+}
+
+window.opcoesEscala = [];
+
 async function construirColunasTecnicos(data) {
     try {
         const response = await fetch(`/api/v5/painel-logistica/tecnicos?data=${data}`);
         listaTecnicos = await response.json();
-        mapaTecnicoColuna = {};
-
-        const boardManut = document.getElementById('board-manutencao');
-        if (boardManut) {
-            boardManut.querySelectorAll('.kanban-column:not([data-inbox="true"])').forEach(col => col.remove());
-        }
-        
-        const boardInst = document.getElementById('board-instalacao');
-        if (boardInst) {
-            boardInst.querySelectorAll('.kanban-column:not([data-inbox="true"])').forEach(col => col.remove());
-        }
-
-        if (listaTecnicos.length === 0) return;
 
         let colunasMap = new Map();
         listaTecnicos.forEach(tec => {
@@ -361,185 +276,113 @@ async function construirColunasTecnicos(data) {
 
             if (!colunasMap.has(key)) {
                 colunasMap.set(key, {
-                    id: key,
-                    ids_tecnicos: [tec.id],
+                    id_tecnico: tec.id,
                     nomes: [getPrimeiroUltimoNome(tec.nome)],
-                    equipe: tec.equipe || 'MANUTENCAO',
-                    regiao: tec.regiao || 'SERRA',
-                    turno: tec.turno_escala || 'INTEGRAL',
-                    tipo_imovel: tec.tipo_imovel || 'AMBOS'
+                    turno: tec.turno_escala || 'INTEGRAL'
                 });
             } else {
-                const col = colunasMap.get(key);
-                col.ids_tecnicos.push(tec.id);
-                col.nomes.push(getPrimeiroUltimoNome(tec.nome));
+                colunasMap.get(key).nomes.push(getPrimeiroUltimoNome(tec.nome));
             }
         });
 
-        let colunasProntas = Array.from(colunasMap.values());
-        colunasProntas.sort((a, b) => {
-            if (a.equipe !== b.equipe) return a.equipe === 'MANUTENCAO' ? -1 : 1;
-            return a.nomes[0].localeCompare(b.nomes[0]);
-        });
-
-        colunasProntas.forEach(col => {
-            const divId = `col-board-${col.id}`;
-            const tituloVisual = col.nomes.join(' | ');
-            const equipeLabel = col.equipe === 'MANUTENCAO' ? 'Manutenção' : 'Instalação';
-            const iconeCor = col.equipe === 'MANUTENCAO' ? 'text-primary' : 'text-success';
-
-            col.ids_tecnicos.forEach(tid => {
-                mapaTecnicoColuna[tid] = divId;
-            });
-
-            const regiaoLabel = col.regiao === 'VV_VIX_CAR' ? 'VV/VIX/CAR' : 'Serra';
-            const turnoLabel = col.turno === 'INTEGRAL' ? 'Int.' : (col.turno === 'MANHA' ? 'Manhã' : 'Tarde');
-            const imovelLabel = col.tipo_imovel === 'CASA' ? 'Casa' : (col.tipo_imovel === 'PREDIO' ? 'Prédio' : 'Casa/Préd.');
-
-            const colHTML = `
-                <div class="kanban-column border-top border-3 ${col.equipe === 'MANUTENCAO' ? 'border-primary' : 'border-success'}" data-equipe="${col.equipe}">
-                    <div class="column-header d-flex flex-column align-items-center pb-2 text-center bg-white border-bottom mb-2">
-                        <div class="text-uppercase fw-bold mb-1" style="font-size: 0.70rem; color: #6c757d;">
-                            <i class="bi bi-briefcase-fill me-1 ${iconeCor}"></i>${equipeLabel}
-                        </div>
-                        <div class="fw-bold text-dark mb-1 w-100 px-1" style="font-size: 0.85rem;">${tituloVisual}</div>
-                        
-                        <div class="small fw-bold text-primary mb-1">${regiaoLabel} • ${turnoLabel} • ${imovelLabel}</div>
-                        
-                        <div class="badge bg-secondary rounded-pill px-3 py-1 mt-auto">
-                            <span class="task-count" id="count-${divId}">0</span> OS
-                        </div>
-                    </div>
-                    <div class="column-body" id="${divId}" data-tecnico-id="${col.ids_tecnicos[0]}"></div>
-                </div>
-            `;
-            if (col.equipe === 'MANUTENCAO') {
-                document.getElementById('board-manutencao').insertAdjacentHTML('beforeend', colHTML);
-            } else {
-                document.getElementById('board-instalacao').insertAdjacentHTML('beforeend', colHTML);
-            }
-        });
+        window.opcoesEscala = Array.from(colunasMap.values()).map(col => ({
+            id_tecnico: col.id_tecnico,
+            nome_exibicao: col.nomes.join(' e '),
+            turno: col.turno
+        }));
     } catch (error) {
-        console.error("Erro ao buscar colunas:", error);
+        console.error("Erro ao buscar escala do dia:", error);
     }
 }
 
 function criarCardOS(os) {
     const card = document.createElement('div');
     card.className = `asana-card`;
-    
-    card.draggable = usuarioPodeEditar; 
-    if (!usuarioPodeEditar) card.style.cursor = 'pointer';
-
     card.id = `os-${os.id}`;
-    card.dataset.id = os.id;
-    card.dataset.osIxc = os.ixc_os_id;
 
     let corBorda = 'border-left: 4px solid #6c757d;'; 
-    let badgeStatus = '';
+    let badgeStatus = `<span class="asana-badge badge-turno">Pendente</span>`;
     const statusIxc = os.ixc_status || 'A';
 
     if (statusIxc === 'DS') { 
-        corBorda = 'border-left: 4px solid #ffc107;';
-        badgeStatus = `<span class="asana-badge" style="background-color: #fff3cd; color: #856404;"><i class="bi bi-car-front-fill me-1"></i>A Caminho</span>`;
-    } else if (statusIxc === 'EX') { 
-        corBorda = 'border-left: 4px solid #0dcaf0;';
-        badgeStatus = `<span class="asana-badge" style="background-color: #cff4fc; color: #055160;"><i class="bi bi-tools me-1"></i>Executando</span>`;
-        if (os.data_hora_execucao) {
-            badgeStatus += `<span class="timer-execucao ms-2 badge bg-info text-dark" data-inicio="${os.data_hora_execucao}">⏱️ Calculando...</span>`;
-        }
-    } else if (statusIxc === 'F') { 
-        corBorda = 'border-left: 4px solid #198754;';
-        badgeStatus = `<span class="asana-badge" style="background-color: #d1e7dd; color: #0f5132;"><i class="bi bi-check-circle-fill me-1"></i>Concluído</span>`;
-    } else if (statusIxc === 'RAG') { 
-        corBorda = 'border-left: 4px solid #dc3545;';
-        badgeStatus = `<span class="asana-badge" style="background-color: #f8d7da; color: #842029;"><i class="bi bi-x-circle-fill me-1"></i>Reagendar</span>`;
-    } else { 
-        badgeStatus = `<span class="asana-badge badge-turno">Pendente</span>`;
+        corBorda = 'border-left: 4px solid #ffc107;'; 
+        badgeStatus = `<span class="asana-badge" style="background-color: #fff3cd; color: #856404;"><i class="bi bi-car-front-fill me-1"></i>A Caminho</span>`; 
+    }
+    else if (statusIxc === 'EX') { 
+        corBorda = 'border-left: 4px solid #0dcaf0;'; 
+        const tempoExecStr = os.data_hora_execucao ? `data-inicio="${os.data_hora_execucao}"` : '';
+        badgeStatus = `<span class="asana-badge timer-execucao" style="background-color: #cff4fc; color: #055160;" ${tempoExecStr}><i class="bi bi-tools me-1"></i>0h 0m</span>`; 
+    }
+    else if (statusIxc === 'F') { 
+        corBorda = 'border-left: 4px solid #198754;'; 
+        badgeStatus = `<span class="asana-badge" style="background-color: #d1e7dd; color: #0f5132;"><i class="bi bi-check-circle-fill me-1"></i>Concluído</span>`; 
+    }
+    else if (statusIxc === 'RAG') { 
+        corBorda = 'border-left: 4px solid #dc3545;'; 
+        badgeStatus = `<span class="asana-badge" style="background-color: #f8d7da; color: #842029;"><i class="bi bi-x-circle-fill me-1"></i>Reagendar</span>`; 
     }
 
     card.style = corBorda;
 
-    let badgesHtml = '';
-    if (os.horario_agendado) {
-        badgesHtml += `<span class="asana-badge bg-dark text-white"><i class="bi bi-clock me-1"></i>${os.horario_agendado}</span>`;
-    }
-    
+    let badgesHtml = os.horario_agendado ? `<span class="asana-badge bg-dark text-white"><i class="bi bi-clock me-1"></i>${os.horario_agendado}</span>` : '';
     badgesHtml += badgeStatus;
-
-    if (os.tipo_servico === 'INSTALACAO') badgesHtml += `<span class="asana-badge badge-instalacao">Instalação</span>`;
-    else badgesHtml += `<span class="asana-badge badge-suporte">Suporte</span>`;
-
-    if (os.aceita_encaixe) badgesHtml += `<span class="asana-badge badge-encaixe"><i class="bi bi-lightning-fill"></i> Encaixe</span>`;
-
-    if (os.nome_setor && os.nome_setor !== 'Não Informado') {
-        badgesHtml += `<span class="asana-badge" style="background-color: #f1f3f4; color: #3c4043;"><i class="bi bi-briefcase-fill me-1"></i>${os.nome_setor}</span>`;
-    }
+    badgesHtml += os.aceita_encaixe ? `<span class="asana-badge badge-encaixe"><i class="bi bi-lightning-fill"></i> Encaixe</span>` : '';
     
-    if (os.is_rede_neutra) {
-        badgesHtml += `<span class="asana-badge" style="background-color: #e2e3e5; color: #383d41;"><i class="bi bi-diagram-3-fill me-1"></i>Rede Neutra</span>`;
+    const tituloExibicao = `${os.ixc_cliente_id} - ${os.nome_condominio || 'S/C'} - ${os.tipo_imovel}`;
+
+    let optionsHtml = '';
+    window.opcoesEscala.forEach(op => {
+        if (os.turno === 'MATUTINO' && (op.turno === 'INTEGRAL' || op.turno === 'MANHA')) {
+            const selected = os.ixc_tecnico_id == op.id_tecnico ? 'selected' : '';
+            optionsHtml += `<option value="${op.id_tecnico}" ${selected}>${op.nome_exibicao}</option>`;
+        }
+        else if (os.turno === 'VESPERTINO' && (op.turno === 'INTEGRAL' || op.turno === 'TARDE')) {
+            const selected = os.ixc_tecnico_id == op.id_tecnico ? 'selected' : '';
+            optionsHtml += `<option value="${op.id_tecnico}" ${selected}>${op.nome_exibicao}</option>`;
+        }
+    });
+
+    if (os.ixc_tecnico_id && !optionsHtml.includes(`value="${os.ixc_tecnico_id}"`)) {
+        optionsHtml += `<option value="${os.ixc_tecnico_id}" selected>${os.nome_tecnico} (Fora Escala)</option>`;
     }
-
-    const sintoma = os.sintoma_relatado || 'Agendado via intranet.';
-    const sintomaTruncado = sintoma.length > 50 ? sintoma.substring(0, 50) + '...' : sintoma;
-
-    const condNome = os.nome_condominio || 'S/C';
-    let turnoLabel = 'Manhã';
-    if (os.turno === 'VESPERTINO') turnoLabel = 'Tarde';
-    else if (os.turno === 'NOTURNO') turnoLabel = 'Noite';
-    
-    const tituloExibicao = `${os.ixc_cliente_id} - ${condNome} - ${turnoLabel} - ${os.tipo_imovel}`;
 
     card.innerHTML = `
-        <div class="mb-2">${badgesHtml}</div>
-        <div class="os-title" style="font-size:0.85rem; line-height: 1.4; font-weight: bold; color: #212529;">
+        <div class="mb-2 cursor-pointer click-os-detalhes">${badgesHtml}</div>
+        <div class="os-title cursor-pointer click-os-detalhes" style="font-size:0.85rem; line-height: 1.4; font-weight: bold; color: #212529;">
             ${tituloExibicao}
         </div>
-        <div class="text-muted small mb-3 mt-2 border-top pt-2" title="${sintoma}">${sintomaTruncado}</div>
-        <div class="os-meta d-flex justify-content-between align-items-center">
-            <span class="text-truncate" style="max-width: 70%;"><i class="bi bi-geo-alt me-1 text-danger"></i>${os.municipio_base}</span>
-            <span class="text-muted small">#${os.ixc_os_id}</span>
+        <div class="os-meta d-flex justify-content-between align-items-center mt-2">
+            <span class="text-truncate small"><i class="bi bi-geo-alt me-1 text-danger"></i>${os.municipio_base}</span>
+            <span class="text-muted small fw-bold">#${os.ixc_os_id}</span>
+        </div>
+        <div class="mt-3 border-top pt-2">
+            <select class="form-select form-select-sm border-secondary fw-bold" style="background-color: #f8f9fa;" onchange="atribuirTecnicoOS('${os.id}', this.value, '${os.ixc_os_id}')" ${!usuarioPodeEditar ? 'disabled' : ''}>
+                <option value="">👤 Atribuir Técnico...</option>
+                ${optionsHtml}
+            </select>
         </div>
     `;
 
-    if (usuarioPodeEditar) {
-        card.addEventListener('dragstart', dragStart);
-        card.addEventListener('dragend', dragEnd);
-    }
+    card.querySelectorAll('.click-os-detalhes').forEach(el => {
+        el.addEventListener('click', () => abrirModalDetalhes(os));
+    });
+
     return card;
 }
 
-let draggedCard = null;
-
-function dragStart(e) { draggedCard = this; setTimeout(() => this.style.opacity = '0.5', 0); }
-function dragEnd() { this.style.opacity = '1'; draggedCard = null; }
-function allowDrop(e) { e.preventDefault(); }
-
-async function drop(e) {
-    e.preventDefault();
-    if (!draggedCard || !usuarioPodeEditar) return;
-
-    let column = e.target.closest('.column-body');
-    if (column) {
-        column.appendChild(draggedCard);
-        
-        const idAgenda = draggedCard.dataset.id;
-        const ixcOsId = draggedCard.dataset.osIxc;
-        const tecnicoId = column.dataset.tecnicoId || null;
-        const status = tecnicoId ? 'ATRIBUIDO' : 'AGUARDANDO_LOGISTICA';
-
-        try {
-            await fetch('/api/v5/painel-logistica/atribuir-tecnico', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id_agenda: idAgenda, ixc_tecnico_id: tecnicoId, status: status, ixc_os_id: ixcOsId })
-            });
-            carregarAgenda(); 
-        } catch (error) {
-            alert("Erro ao atribuir: " + error.message);
-        }
+window.atribuirTecnicoOS = async function(id_agenda, id_tecnico, ixc_os_id) {
+    const status = id_tecnico ? 'ATRIBUIDO' : 'AGUARDANDO_LOGISTICA';
+    try {
+        await fetch('/api/v5/painel-logistica/atribuir-tecnico', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_agenda: id_agenda, ixc_tecnico_id: id_tecnico, status: status, ixc_os_id: ixc_os_id })
+        });
+        carregarAgenda();
+    } catch (error) {
+        alert("Erro ao atribuir técnico: " + error.message);
     }
-}
+};
 
 async function abrirModalConfiguracoes() {
     showModalNativo('modalConfiguracoes');
@@ -611,6 +454,9 @@ async function abrirModalConfiguracoes() {
                 </div>`;
         });
 
+        const capCampos = ['cap-casa-m', 'cap-casa-t', 'cap-predio-serra-m', 'cap-predio-serra-t', 'cap-predio-outros-m', 'cap-predio-outros-t', 'cap-inst-serra-m', 'cap-inst-serra-t', 'cap-inst-outros-m', 'cap-inst-outros-t'];
+        capCampos.forEach(id => document.getElementById(id).value = 0);
+
         const resCap = await fetch(`/api/v5/painel-logistica/capacidade-dia?data=${data}`);
         const capData = await resCap.json();
         
@@ -626,6 +472,33 @@ async function abrirModalConfiguracoes() {
             document.getElementById('cap-inst-outros-m').value = capData.inst_outros_m;
             document.getElementById('cap-inst-outros-t').value = capData.inst_outros_t;
         }
+
+        const resTemp = await fetch('/api/v5/painel-logistica/capacidade-templates');
+        window.templatesCapacidade = await resTemp.json();
+        const selectTemp = document.getElementById('select-template-capacidade');
+        selectTemp.innerHTML = '<option value="">Selecione um modelo salvo...</option>';
+        window.templatesCapacidade.forEach(t => {
+            selectTemp.add(new Option(t.nome, t.id));
+        });
+        
+        document.getElementById('btn-aplicar-template').onclick = () => {
+            const idTemp = selectTemp.value;
+            if (!idTemp) return;
+            const t = window.templatesCapacidade.find(x => String(x.id) === String(idTemp));
+            if (t) {
+                document.getElementById('cap-casa-m').value = t.casa_m;
+                document.getElementById('cap-casa-t').value = t.casa_t;
+                document.getElementById('cap-predio-serra-m').value = t.predio_serra_m;
+                document.getElementById('cap-predio-serra-t').value = t.predio_serra_t;
+                document.getElementById('cap-predio-outros-m').value = t.predio_outros_m;
+                document.getElementById('cap-predio-outros-t').value = t.predio_outros_t;
+                document.getElementById('cap-inst-serra-m').value = t.inst_serra_m;
+                document.getElementById('cap-inst-serra-t').value = t.inst_serra_t;
+                document.getElementById('cap-inst-outros-m').value = t.inst_outros_m;
+                document.getElementById('cap-inst-outros-t').value = t.inst_outros_t;
+                alert(`Modelo '${t.nome}' carregado! Clique em 'Salvar Tudo' para aplicar a este dia.`);
+            }
+        };
 
     } catch (e) {
         containerIndiv.innerHTML = '<div class="text-danger mt-3">Erro ao carregar dados.</div>';
@@ -752,7 +625,6 @@ async function abrirModalDetalhes(os) {
     document.getElementById('action-os-id').value = os.ixc_os_id;
     document.getElementById('action-agenda-local-id').value = os.id; 
     document.getElementById('action-nova-data').value = document.getElementById('filtro-data').value;
-    document.getElementById('action-msg-fechar').value = '';
     document.getElementById('detalhe-os-titulo').textContent = `Buscando OS #${os.ixc_os_id}...`;
 
     const areaAcoes = document.getElementById('area-acoes-os');
@@ -800,6 +672,16 @@ async function abrirModalDetalhes(os) {
 
         document.getElementById('loading-detalhes-os').style.display = 'none';
         document.getElementById('conteudo-detalhes-os').style.display = 'flex';
+
+        window.osAtualParaFechar = {
+            ixc_os_id: os.ixc_os_id,
+            id_processo: data.os.id_wfl_processo || data.os.id_processo || null,
+            id_tarefa_atual: data.os.id_wfl_tarefa || data.os.id_tarefa_atual || null,
+            id_tecnico: data.os.id_tecnico
+        };
+
+        const inputMensagem = document.getElementById('input-fechar-mensagem');
+        if (inputMensagem) inputMensagem.value = '';
 
     } catch (e) {
         alert("Não foi possível carregar os detalhes do IXC.");
@@ -924,41 +806,99 @@ async function enviarReagendamento() {
     }
 }
 
-async function enviarFechamentoOS() {
-    const ixc_os_id = document.getElementById('action-os-id').value;
-    const mensagem_resposta = document.getElementById('action-msg-fechar').value;
+function enviarFechamentoOS() {
+    const mensagem = document.getElementById('input-fechar-mensagem').value;
+    if (!mensagem) return alert('Por favor, descreva o que foi feito na mensagem de resolução.');
 
-    if (!mensagem_resposta) return alert("Digite a mensagem de fechamento!");
+    const pId = window.osAtualParaFechar ? window.osAtualParaFechar.id_processo : null;
 
-    const btn = document.getElementById('btn-action-fechar');
-    btn.innerHTML = 'Fechando...';
-    btn.disabled = true;
-
-    try {
-        await fetch('/api/v5/painel-logistica/fechar-os', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ixc_os_id, mensagem_resposta })
-        });
+    if (pId && String(pId).trim() !== '' && String(pId).trim() !== '0') {
         
         hideModalNativo('modalDetalhesOS');
-        carregarAgenda(); 
-    } catch (e) {
-        alert("Erro ao fechar: " + e.message);
-    } finally {
-        btn.innerHTML = 'Finalizar OS';
-        btn.disabled = false;
+        
+        setTimeout(() => {
+            abrirModalDecisaoWFL();
+        }, 500);
+
+    } else {
+        executarFechamentoFinal(mensagem, null);
+    }
+}
+
+function abrirModalDecisaoWFL() {
+    document.getElementById('sucesso-ticket-id').textContent = window.osAtualParaFechar.ixc_os_id;
+    const listaWfl = document.getElementById('lista-tarefas-processo');
+    listaWfl.innerHTML = '<div class="text-center text-muted"><span class="spinner-border spinner-border-sm"></span> Carregando fluxo...</div>';
+
+    showModalNativo('modalDecisaoAgendamento');
+
+    fetch('/api/v5/abertura-OS/tarefas/' + window.osAtualParaFechar.id_processo)
+        .then(r => r.json())
+        .then(tarefas => {
+            if (tarefas.length > 0) {
+                let html = '';
+                tarefas.forEach((t, index) => {
+                    html += `
+                        <div class="form-check p-2 border rounded mb-1 bg-white">
+                            <input class="form-check-input ms-1" type="radio" name="tarefa_wfl" id="tarefa_${t.id}" value="${t.id}" ${index === 0 ? 'checked' : ''}>
+                            <label class="form-check-label fw-bold ms-2 w-100" style="cursor:pointer;" for="tarefa_${t.id}">
+                                ${t.descricao}
+                            </label>
+                        </div>`;
+                });
+                listaWfl.innerHTML = html;
+            } else {
+                listaWfl.innerHTML = '<span class="text-muted small">Nenhuma etapa subsequente localizada.</span>';
+            }
+        })
+        .catch(() => {
+            listaWfl.innerHTML = '<span class="text-danger small">Erro ao carregar etapas.</span>';
+        });
+}
+
+async function processarAvancoTarefaLogistica() {
+    const mensagem = document.getElementById('input-fechar-mensagem').value;
+    const selectedTarefa = document.querySelector('input[name="tarefa_wfl"]:checked');
+    
+    if (!selectedTarefa) return alert('Selecione uma etapa para avançar!');
+
+    const btn = document.getElementById('btn-confirmar-tarefa-logistica');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processando...';
+
+    await executarFechamentoFinal(mensagem, selectedTarefa.value);
+}
+
+async function executarFechamentoFinal(mensagem, id_tarefa_selecionada) {
+    const payload = {
+        ixc_os_id: window.osAtualParaFechar.ixc_os_id,
+        mensagem_resposta: mensagem,
+        id_tecnico: window.osAtualParaFechar.id_tecnico
+    };
+
+    if (window.osAtualParaFechar.id_processo && id_tarefa_selecionada) {
+        payload.id_processo = window.osAtualParaFechar.id_processo;
+        payload.id_tarefa_atual = window.osAtualParaFechar.id_tarefa_atual;
+        payload.id_tarefa = id_tarefa_selecionada;
+    }
+
+    try {
+        const response = await fetch('/api/v5/painel-logistica/fechar-os', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const resData = await response.json();
+        if (!response.ok) throw new Error(resData.error || 'Erro ao fechar OS');
+        
+        alert('OS Finalizada com sucesso!');
+        window.location.reload();
+    } catch (error) {
+        alert("Falha no fechamento: " + error.message);
     }
 }
 
 async function autoRefreshSilencioso() {
-    const modalDetalhes = document.getElementById('modalDetalhesOS');
-    const modalConfig = document.getElementById('modalConfiguracoes');
-    
-    if (draggedCard || (modalDetalhes && modalDetalhes.classList.contains('show')) || (modalConfig && modalConfig.classList.contains('show'))) {
-        return; 
-    }
-
     const data = document.getElementById('filtro-data').value;
     const municipio = document.getElementById('filtro-municipio').value;
     if (!data) return;
@@ -968,37 +908,64 @@ async function autoRefreshSilencioso() {
         todosAgendamentosGlobais = await response.json();
         renderizarQuadro();
     } catch (e) {
-        console.error("Erro no auto-refresh:", e);
+        console.error("Falha no refresh silencioso", e);
     }
 }
 
 function atualizarTimers() {
     document.querySelectorAll('.timer-execucao').forEach(el => {
         const inicioStr = el.dataset.inicio;
-        if (!inicioStr) return;
+        if (!inicioStr || inicioStr === 'null' || inicioStr === 'undefined') {
+            el.innerHTML = '<i class="bi bi-tools me-1"></i>Executando';
+            return;
+        }
         
-        const p = inicioStr.split(/[- :]/);
-        if (p.length < 6) return;
+        const dataInicio = new Date(inicioStr.replace(/-/g, '/')); 
+        if(isNaN(dataInicio)) return;
+
+        const diffMinutos = Math.floor((new Date() - dataInicio) / 60000);
+        const horas = Math.floor(diffMinutos / 60);
+        const mins = diffMinutos % 60;
         
-        const dataInicio = new Date(p[0], p[1]-1, p[2], p[3], p[4], p[5]);
-        const diffSegundos = Math.floor((new Date() - dataInicio) / 1000);
-        
-        if (diffSegundos < 0) return;
+        const textoVisor = horas > 0 ? `${horas}h ${mins}m` : `${mins}m`;
+        el.innerHTML = `<i class="bi bi-tools me-1"></i>${textoVisor}`;
 
-        const horas = Math.floor(diffSegundos / 3600);
-        const mins = Math.floor((diffSegundos % 3600) / 60);
-        const secs = diffSegundos % 60;
+        el.classList.remove('text-success', 'text-danger', 'text-roxo-vibrante', 'blink');
+        el.style.backgroundColor = '';
 
-        el.textContent = `⏱️ ${String(horas).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
-
-        if (diffSegundos > 5400) {
-            el.className = 'timer-execucao ms-2 badge bg-roxo text-white';
-            el.title = "Atenção: Atendimento longo!";
+        if (diffMinutos >= 90) { 
+            el.classList.add('text-roxo-vibrante', 'blink'); 
+            el.style.backgroundColor = '#f3e5f5'; // roxo suave
+        } else if (diffMinutos >= 60) { 
+            el.classList.add('text-danger', 'fw-bold');
+            el.style.backgroundColor = '#f8d7da'; // vermelho suave
         } else {
-            el.className = 'timer-execucao ms-2 badge bg-info text-dark';
+            el.classList.add('text-success', 'fw-bold');
+            el.style.backgroundColor = '#d1e7dd'; // verde suave
         }
     });
 }
+
+document.addEventListener('click', (e) => {
+    const btnTurno = e.target.closest('.btn-retrair-turno');
+    if (btnTurno) {
+        const targetId = btnTurno.getAttribute('data-target');
+        const el = document.getElementById(targetId);
+        if (el) {
+            el.classList.toggle('d-none');
+            el.classList.toggle('d-flex');
+        }
+        return;
+    }
+
+    const btnColuna = e.target.closest('.click-retrair-coluna');
+    if (btnColuna) {
+        const targetId = btnColuna.getAttribute('data-target');
+        const el = document.getElementById(targetId);
+        if (el) el.classList.toggle('d-none');
+        return;
+    }
+});
 
 function initializeThemeAndUserInfo() {
     const currentTheme = localStorage.getItem('theme') || 'light';

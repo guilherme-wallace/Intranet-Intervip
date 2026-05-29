@@ -83,42 +83,45 @@
                                     <input type="hidden" id="hidden-municipio">
                                     <input type="hidden" id="hidden-tipo-servico">
 
-                                    <div class="mb-4">
-                                        <label class="form-label fw-bold">1. Selecione a Data <span class="text-danger">*</span></label>
-                                        <input type="date" class="form-control form-control-lg" id="input-data" required>
-                                    </div>
+                                    <div class="row g-3 mb-4">
+                                        <div class="col-12 mb-4" id="area-selecao-horario">
+                                            <h6 class="text-muted fw-bold small text-uppercase mb-3"><i class="bi bi-calendar-range me-2"></i>Escolha o Dia e Horário (Visão Semanal)</h6>
 
-                                    <div class="mb-4">
-                                        <label class="form-label fw-bold d-flex justify-content-between">
-                                            <span>2. Selecione o Turno <span class="text-danger">*</span></span>
-                                            <span id="loading-vagas" class="spinner-border spinner-border-sm text-primary d-none" role="status"></span>
-                                        </label>
-                                        
-                                        <div class="row g-3">
-                                            <div class="col-md-6">
-                                                <input type="radio" class="btn-check" name="turno" id="turno-matutino" value="MATUTINO" autocomplete="off" disabled required>
-                                                <label class="btn btn-outline-primary w-100 p-3 text-start" for="turno-matutino" id="label-matutino">
-                                                    <div class="fw-bold fs-5 mb-1"><i class="bi bi-sunrise me-2"></i>Manhã</div>
-                                                    <small class="d-block text-muted" id="vagas-matutino">Aguardando data...</small>
-                                                </label>
+                                            <div class="d-flex justify-content-between align-items-center mb-3 bg-light p-2 border rounded shadow-sm">
+                                                <button type="button" class="btn btn-outline-primary btn-sm fw-bold px-3" id="btn-prev-week"><i class="bi bi-chevron-left me-1"></i>Anterior</button>
+                                                <h5 class="m-0 fw-bold text-dark text-capitalize" id="calendar-month-year" style="font-size: 1.1rem;">Carregando...</h5>
+                                                <button type="button" class="btn btn-outline-primary btn-sm fw-bold px-3" id="btn-next-week">Próxima<i class="bi bi-chevron-right ms-1"></i></button>
                                             </div>
-                                            <div class="col-md-6">
-                                                <input type="radio" class="btn-check" name="turno" id="turno-vespertino" value="VESPERTINO" autocomplete="off" disabled required>
-                                                <label class="btn btn-outline-primary w-100 p-3 text-start" for="turno-vespertino" id="label-vespertino">
-                                                    <div class="fw-bold fs-5 mb-1"><i class="bi bi-sunset me-2"></i>Tarde</div>
-                                                    <small class="d-block text-muted" id="vagas-vespertino">Aguardando data...</small>
-                                                </label>
+
+                                            <div id="calendar-grid" class="d-flex w-100 overflow-auto pb-3 gap-2" style="scrollbar-width: thin;">
+                                                </div>
+
+                                            <input type="hidden" id="selected-data" required>
+                                            <input type="hidden" id="selected-turno" required>
+
+                                            <div class="mt-3 text-center d-none" id="selection-feedback">
+                                                <span class="badge bg-success fs-6 p-3 shadow-sm border border-success border-2 text-white">
+                                                    <i class="bi bi-check-circle-fill me-2 fs-5 align-middle"></i>
+                                                    Selecionado: <span id="feedback-text" class="fw-bold"></span>
+                                                </span>
                                             </div>
                                         </div>
-                                    </div>
 
-                                    <div class="bg-light p-3 rounded border mb-4 d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <h6 class="mb-0 fw-bold"><i class="bi bi-puzzle me-1"></i>Aceita Encaixe?</h6>
-                                            <small class="text-muted">Se a agenda liberar, o técnico pode ir antes.</small>
-                                        </div>
-                                        <div class="form-check form-switch fs-4 mb-0">
-                                            <input class="form-check-input" type="checkbox" id="chk-encaixe">
+                                        <div class="col-12 mb-2">
+                                            <h6 class="text-muted fw-bold small text-uppercase mb-3"><i class="bi bi-plus-circle me-2"></i>Opções Adicionais</h6>
+                                            <div class="d-flex flex-wrap gap-4 p-3 bg-light border rounded shadow-sm">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="chk-encaixe">
+                                                    <label class="form-check-label fw-bold text-dark" for="chk-encaixe">Aceita Encaixe?</label>
+                                                    <small class="d-block text-muted" style="font-size: 0.75rem;">Cliente tem flexibilidade de horário.</small>
+                                                </div>
+                                                
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" style="background-color: #dc3545; border-color: #dc3545;" type="checkbox" id="chk-prioridade">
+                                                    <label class="form-check-label fw-bold text-danger" for="chk-prioridade">Solicitar Prioridade</label>
+                                                    <small class="d-block text-muted" style="font-size: 0.75rem;">Sinaliza urgência para a Logística.</small>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
 

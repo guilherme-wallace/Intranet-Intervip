@@ -376,10 +376,17 @@ async function processarAvancoTarefa() {
         };
     }
     else {
+        const obsElement = document.getElementById('obs-triagem');
+        const relatoOriginal = obsElement ? obsElement.value : '';
+        
+        const msgEncaminhamento = relatoOriginal 
+            ? `Informações do chamado: ${relatoOriginal}\n---\nEncaminhado para a etapa: ${nomeTarefa}` 
+            : `Atendimento triado e encaminhado para a etapa: ${nomeTarefa}`;
+
         payload = {
             ticket_id: ultimoTicketGerado,
             id_tarefa: selectedTarefa.value,
-            mensagem: 'Atendimento triado e encaminhado via Intranet Hub'
+            mensagem: msgEncaminhamento
         };
     }
 

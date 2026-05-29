@@ -135,6 +135,15 @@ router.get('/capacidade-dia', (req, res) => __awaiter(void 0, void 0, void 0, fu
         res.status(500).json({ error: e.message });
     }
 }));
+router.get('/capacidade-templates', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const templates = yield executeDb('SELECT * FROM ivp_agenda_capacidade_templates ORDER BY id ASC');
+        res.json(templates);
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+}));
 router.post('/salvar-configuracoes', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { data, tecnicos, capacidades } = req.body;
     //console.log(`[DEBUG] Salvando escala para: ${data}`);
@@ -439,13 +448,40 @@ router.put('/reagendar', (req, res) => __awaiter(void 0, void 0, void 0, functio
         res.status(500).json({ error: error.message });
     }
 }));
+const getIxcDate = () => {
+    const now = new Date();
+    now.setHours(now.getHours() - 3);
+    return now.toISOString().replace('T', ' ').substring(0, 19);
+};
 router.put('/fechar-os', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const { ixc_os_id, mensagem_resposta } = req.body;
+    const { ixc_os_id, mensagem_resposta, id_tarefa, id_processo, id_tarefa_atual, id_tecnico } = req.body;
     try {
-        yield makeIxcRequest('PUT', `/su_oss_chamado/${ixc_os_id}`, {
-            status: 'F',
-            mensagem_resposta: mensagem_resposta
-        });
+        if (id_processo && id_tarefa) {
+            const dataHoraAtual = getIxcDate();
+            const payloadFechamento = {
+                "id_chamado": ixc_os_id,
+                "data_inicio": dataHoraAtual,
+                "data_final": dataHoraAtual,
+                "mensagem": mensagem_resposta,
+                "id_tecnico": id_tecnico || "138",
+                "status": "F",
+                "data": dataHoraAtual.split(' ')[0],
+                "id_processo": id_processo,
+                "id_tarefa_atual": id_tarefa_atual,
+                "eh_tarefa_decisao": "N",
+                "id_proxima_tarefa": id_tarefa
+            };
+            const respWfl = yield makeIxcRequest('POST', '/su_oss_chamado_fechar', payloadFechamento, 'incluir');
+            if (respWfl && respWfl.type === 'error') {
+                throw new Error(`Erro WFL IXC: ${respWfl.message.replace(/<br \/>/g, ' - ')}`);
+            }
+        }
+        else {
+            yield makeIxcRequest('PUT', `/su_oss_chamado/${ixc_os_id}`, {
+                status: 'F',
+                mensagem_resposta: mensagem_resposta
+            });
+        }
         res.json({ success: true, message: "OS Finalizada com sucesso!" });
     }
     catch (error) {

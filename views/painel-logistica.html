@@ -36,111 +36,137 @@
     <main class="container-fluid py-4">
         <div class="ivp-card mb-4 p-3">
             <div class="row g-3 align-items-end">
-                <div class="col-md-2">
+                <div class="col-md-3">
                     <label class="form-label fw-bold">Data da Agenda</label>
-                    <input type="date" id="filtro-data" class="form-control">
+                    <input type="date" id="filtro-data" class="form-control border-primary">
                 </div>
                 <div class="col-md-3">
                     <label class="form-label fw-bold">Município / Região</label>
-                    <select id="filtro-municipio" class="form-select">
+                    <select id="filtro-municipio" class="form-select border-primary">
                         <option value="TODOS">Todas as Regiões</option>
+                        <option value="SERRA">Serra</option>
+                        <option value="VV_VIX_CCA">VV / VIX / CAR</option>
                     </select>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label fw-bold">Equipe / Setor</label>
-                    <select id="filtro-setor" class="form-select">
+                    <select id="filtro-setor" class="form-select border-primary">
                         <option value="TODOS">Todos os Setores</option>
                     </select>
                 </div>
-                <div class="col-md-2">
+                <div class="col-md-3">
                     <label class="form-label fw-bold">Status</label>
-                    <select id="filtro-status" class="form-select">
+                    <select id="filtro-status" class="form-select border-primary">
                         <option value="OCULTAR_CONCLUIDOS" selected>Ocultar Concluídas</option>
                         <option value="TODOS">Mostrar Todas</option>
                         <option value="PENDENTES">Apenas Pendentes</option>
                         <option value="FALHAS">Apenas Falhas / Reagendar</option>
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <button class="btn btn-primary w-100" id="btn-carregar-agenda">
-                        <i class="bi bi-arrow-clockwise me-2"></i>Carregar
-                    </button>
-                </div>
             </div>
         </div>
 
         <div id="area-admin-logistica" class="mb-3 text-end d-none">
-            <button id="btn-abrir-config" class="btn btn-outline-primary">
-                <i class="bi bi-people-fill me-2"></i>Configurações do Dia
+            <button id="btn-abrir-config" class="btn btn-outline-primary shadow-sm">
+                <i class="bi bi-gear-fill me-2"></i>Ajustar Capacidade & Escala
             </button>
         </div>
 
-        <div class="swimlane-container mb-4">
-            <h5 class="fw-bold text-primary mb-3 border-bottom pb-2"><i class="bi bi-tools me-2"></i>Equipes de Manutenção</h5>
-            <div id="board-manutencao" class="d-flex align-items-start overflow-x-auto gap-3 pb-2" style="min-height: 350px;">
+        <div class="swimlane-container mb-5 p-3 bg-white rounded shadow-sm">
+            <h5 class="fw-bold mb-3 border-bottom pb-2 d-flex justify-content-between align-items-center" style="color: #f57c00;">
+                <span><i class="bi bi-brightness-alt-high-fill me-2"></i>Turno: MATUTINO (Manhã)</span>
+                <button class="btn btn-sm btn-light border btn-retrair-turno" data-target="swimlane-matutino" title="Ocultar/Exibir Turno"><i class="bi bi-arrows-collapse"></i></button>
+            </h5>
+            <div id="swimlane-matutino" class="d-flex align-items-start overflow-x-auto gap-3 pb-2" style="min-height: 250px;">
                 
-                <div class="kanban-column border-top border-3 border-secondary" style="background-color: #f1f3f5; min-width: 280px;" data-inbox="true">
-                    <div class="column-header d-flex flex-column align-items-center pb-2 text-center border-bottom mb-2">
-                        <div class="text-uppercase fw-bold text-muted mb-1" style="font-size: 0.70rem;">
-                            <i class="bi bi-house-door-fill me-1"></i><span class="hide-on-collapse">Casas</span>
-                        </div>
-                        <div class="fw-bold text-dark mb-1 w-100 px-1 hide-on-collapse" style="font-size: 0.85rem;">Aguardando Técnico</div>
-                        <div class="badge bg-secondary rounded-pill px-3 py-1 mt-auto hide-on-collapse"><span class="task-count" id="count-inbox-manut-casa">0</span> OS</div>
+                <div class="kanban-column border-top border-3 border-primary bg-light" style="min-width: 280px;">
+                    <div class="column-header text-center border-bottom mb-2 pb-2">
+                        <div class="fw-bold text-dark"><i class="bi bi-house-door-fill me-1 text-primary"></i>Manutenção - Casas</div>
+                        <div class="badge bg-secondary rounded-pill mt-1"><span class="task-count">0</span> OS</div>
                     </div>
-                    <div class="column-body" id="col-inbox-manut-casa" data-tecnico-id="AGUARDANDO"></div>
+                    <div class="column-body" id="col-manut-casa-matutino"></div>
                 </div>
 
-                <div class="kanban-column border-top border-3 border-secondary" style="background-color: #f1f3f5; min-width: 280px;" data-inbox="true">
-                    <div class="column-header d-flex flex-column align-items-center pb-2 text-center border-bottom mb-2">
-                        <div class="text-uppercase fw-bold text-muted mb-1" style="font-size: 0.70rem;">
-                            <i class="bi bi-building me-1"></i><span class="hide-on-collapse">Prédios - Serra</span>
-                        </div>
-                        <div class="fw-bold text-dark mb-1 w-100 px-1 hide-on-collapse" style="font-size: 0.85rem;">Aguardando Técnico</div>
-                        <div class="badge bg-secondary rounded-pill px-3 py-1 mt-auto hide-on-collapse"><span class="task-count" id="count-inbox-manut-predio-serra">0</span> OS</div>
+                <div class="kanban-column border-top border-3 border-primary bg-light" style="min-width: 280px;">
+                    <div class="column-header text-center border-bottom mb-2 pb-2">
+                        <div class="fw-bold text-dark"><i class="bi bi-building me-1 text-primary"></i>Manut - Prédios Serra</div>
+                        <div class="badge bg-secondary rounded-pill mt-1"><span class="task-count">0</span> OS</div>
                     </div>
-                    <div class="column-body" id="col-inbox-manut-predio-serra" data-tecnico-id="AGUARDANDO"></div>
-                </div>
-                
-                <div class="kanban-column border-top border-3 border-secondary" style="background-color: #f1f3f5; min-width: 280px;" data-inbox="true">
-                    <div class="column-header d-flex flex-column align-items-center pb-2 text-center border-bottom mb-2">
-                        <div class="text-uppercase fw-bold text-muted mb-1" style="font-size: 0.70rem;">
-                            <i class="bi bi-building me-1"></i><span class="hide-on-collapse">Prédios - VV/VIX/CAR</span>
-                        </div>
-                        <div class="fw-bold text-dark mb-1 w-100 px-1 hide-on-collapse" style="font-size: 0.85rem;">Aguardando Técnico</div>
-                        <div class="badge bg-secondary rounded-pill px-3 py-1 mt-auto hide-on-collapse"><span class="task-count" id="count-inbox-manut-predio-outros">0</span> OS</div>
-                    </div>
-                    <div class="column-body" id="col-inbox-manut-predio-outros" data-tecnico-id="AGUARDANDO"></div>
+                    <div class="column-body" id="col-manut-predio-serra-matutino"></div>
                 </div>
 
+                <div class="kanban-column border-top border-3 border-primary bg-light" style="min-width: 280px;">
+                    <div class="column-header text-center border-bottom mb-2 pb-2">
+                        <div class="fw-bold text-dark"><i class="bi bi-building me-1 text-primary"></i>Manut - Préd. VV/VIX</div>
+                        <div class="badge bg-secondary rounded-pill mt-1"><span class="task-count">0</span> OS</div>
+                    </div>
+                    <div class="column-body" id="col-manut-predio-outros-matutino"></div>
+                </div>
+
+                <div class="kanban-column border-top border-3 border-success bg-light" style="min-width: 280px;">
+                    <div class="column-header text-center border-bottom mb-2 pb-2">
+                        <div class="fw-bold text-dark"><i class="bi bi-router-fill me-1 text-success"></i>Instalação - Serra</div>
+                        <div class="badge bg-secondary rounded-pill mt-1"><span class="task-count">0</span> OS</div>
+                    </div>
+                    <div class="column-body" id="col-inst-serra-matutino"></div>
+                </div>
+
+                <div class="kanban-column border-top border-3 border-success bg-light" style="min-width: 280px;">
+                    <div class="column-header text-center border-bottom mb-2 pb-2">
+                        <div class="fw-bold text-dark"><i class="bi bi-router-fill me-1 text-success"></i>Instal - VV/VIX/CAR</div>
+                        <div class="badge bg-secondary rounded-pill mt-1"><span class="task-count">0</span> OS</div>
+                    </div>
+                    <div class="column-body" id="col-inst-outros-matutino"></div>
+                </div>
             </div>
         </div>
 
-        <div class="swimlane-container">
-            <h5 class="fw-bold text-success mb-3 border-bottom pb-2"><i class="bi bi-router-fill me-2"></i>Equipes de Instalação</h5>
-            <div id="board-instalacao" class="d-flex align-items-start overflow-x-auto gap-3 pb-2" style="min-height: 350px;">
+        <div class="swimlane-container mb-5 p-3 bg-white rounded shadow-sm">
+            <h5 class="fw-bold mb-3 border-bottom pb-2 d-flex justify-content-between align-items-center" style="color: #1976d2;">
+                <span><i class="bi bi-cloud-sun-fill me-2"></i>Turno: VESPERTINO (Tarde)</span>
+                <button class="btn btn-sm btn-light border btn-retrair-turno" data-target="swimlane-vespertino" title="Ocultar/Exibir Turno"><i class="bi bi-arrows-collapse"></i></button>
+            </h5>
+            <div id="swimlane-vespertino" class="d-flex align-items-start overflow-x-auto gap-3 pb-2" style="min-height: 250px;">
                 
-                <div class="kanban-column border-top border-3 border-secondary" style="background-color: #f1f3f5; min-width: 280px;" data-inbox="true">
-                    <div class="column-header d-flex flex-column align-items-center pb-2 text-center border-bottom mb-2">
-                        <div class="text-uppercase fw-bold text-muted mb-1" style="font-size: 0.70rem;">
-                            <i class="bi bi-geo-alt-fill me-1"></i><span class="hide-on-collapse">Instalação - Serra</span>
-                        </div>
-                        <div class="fw-bold text-dark mb-1 w-100 px-1 hide-on-collapse" style="font-size: 0.85rem;">Aguardando Técnico</div>
-                        <div class="badge bg-secondary rounded-pill px-3 py-1 mt-auto hide-on-collapse"><span class="task-count" id="count-inbox-inst-serra">0</span> OS</div>
+                <div class="kanban-column border-top border-3 border-primary bg-light" style="min-width: 280px;">
+                    <div class="column-header text-center border-bottom mb-2 pb-2">
+                        <div class="fw-bold text-dark"><i class="bi bi-house-door-fill me-1 text-primary"></i>Manutenção - Casas</div>
+                        <div class="badge bg-secondary rounded-pill mt-1"><span class="task-count">0</span> OS</div>
                     </div>
-                    <div class="column-body" id="col-inbox-inst-serra" data-tecnico-id="AGUARDANDO"></div>
+                    <div class="column-body" id="col-manut-casa-vespertino"></div>
                 </div>
 
-                <div class="kanban-column border-top border-3 border-secondary" style="background-color: #f1f3f5; min-width: 280px;" data-inbox="true">
-                    <div class="column-header d-flex flex-column align-items-center pb-2 text-center border-bottom mb-2">
-                        <div class="text-uppercase fw-bold text-muted mb-1" style="font-size: 0.70rem;">
-                            <i class="bi bi-geo-alt-fill me-1"></i><span class="hide-on-collapse">Instal - VV/VIX/CAR</span>
-                        </div>
-                        <div class="fw-bold text-dark mb-1 w-100 px-1 hide-on-collapse" style="font-size: 0.85rem;">Aguardando Técnico</div>
-                        <div class="badge bg-secondary rounded-pill px-3 py-1 mt-auto hide-on-collapse"><span class="task-count" id="count-inbox-inst-outros">0</span> OS</div>
+                <div class="kanban-column border-top border-3 border-primary bg-light" style="min-width: 280px;">
+                    <div class="column-header text-center border-bottom mb-2 pb-2">
+                        <div class="fw-bold text-dark"><i class="bi bi-building me-1 text-primary"></i>Manut - Prédios Serra</div>
+                        <div class="badge bg-secondary rounded-pill mt-1"><span class="task-count">0</span> OS</div>
                     </div>
-                    <div class="column-body" id="col-inbox-inst-outros" data-tecnico-id="AGUARDANDO"></div>
+                    <div class="column-body" id="col-manut-predio-serra-vespertino"></div>
                 </div>
 
+                <div class="kanban-column border-top border-3 border-primary bg-light" style="min-width: 280px;">
+                    <div class="column-header text-center border-bottom mb-2 pb-2">
+                        <div class="fw-bold text-dark"><i class="bi bi-building me-1 text-primary"></i>Manut - Préd. VV/VIX</div>
+                        <div class="badge bg-secondary rounded-pill mt-1"><span class="task-count">0</span> OS</div>
+                    </div>
+                    <div class="column-body" id="col-manut-predio-outros-vespertino"></div>
+                </div>
+
+                <div class="kanban-column border-top border-3 border-success bg-light" style="min-width: 280px;">
+                    <div class="column-header text-center border-bottom mb-2 pb-2">
+                        <div class="fw-bold text-dark"><i class="bi bi-router-fill me-1 text-success"></i>Instalação - Serra</div>
+                        <div class="badge bg-secondary rounded-pill mt-1"><span class="task-count">0</span> OS</div>
+                    </div>
+                    <div class="column-body" id="col-inst-serra-vespertino"></div>
+                </div>
+
+                <div class="kanban-column border-top border-3 border-success bg-light" style="min-width: 280px;">
+                    <div class="column-header text-center border-bottom mb-2 pb-2">
+                        <div class="fw-bold text-dark"><i class="bi bi-router-fill me-1 text-success"></i>Instal - VV/VIX/CAR</div>
+                        <div class="badge bg-secondary rounded-pill mt-1"><span class="task-count">0</span> OS</div>
+                    </div>
+                    <div class="column-body" id="col-inst-outros-vespertino"></div>
+                </div>
             </div>
         </div>
     </main>
@@ -214,9 +240,14 @@
                                     <button class="btn btn-warning w-100 fw-bold shadow-sm" id="btn-action-reagendar"><i class="bi bi-calendar-event me-2"></i>Reagendar Visita</button>
                                 </div>
                                 <div class="tab-pane fade" id="tab-fechar">
-                                    <label class="form-label small fw-bold">Mensagem de Fechamento</label>
-                                    <textarea class="form-control mb-4" id="action-msg-fechar" rows="4" placeholder="Descreva a solução do problema..."></textarea>
-                                    <button class="btn btn-danger w-100 fw-bold shadow-sm" id="btn-action-fechar"><i class="bi bi-check-circle-fill me-2"></i>Finalizar OS</button>
+                                    <div class="mb-4">
+                                        <label class="form-label fw-bold">Mensagem de Resolução / Fechamento:</label>
+                                        <textarea class="form-control border-secondary" id="input-fechar-mensagem" rows="4" placeholder="Descreva o que foi feito pelo técnico..."></textarea>
+                                    </div>
+                                    
+                                    <button class="btn btn-success w-100 fw-bold py-2 shadow-sm" id="btn-action-fechar">
+                                        <i class="bi bi-check-circle me-1"></i>Confirmar Mensagem e Prosseguir
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -265,6 +296,17 @@
                         </div>
 
                         <div class="tab-pane fade" id="capacidade-panel" role="tabpanel">
+                            <div class="row mb-4 bg-white p-3 border rounded shadow-sm align-items-center">
+                                <div class="col-md-8">
+                                    <label class="form-label fw-bold text-primary mb-1"><i class="bi bi-bookmark-star-fill me-2"></i>Carregar Modelo de Escala</label>
+                                    <select class="form-select border-primary" id="select-template-capacidade">
+                                        <option value="">Selecione um modelo salvo...</option>
+                                        </select>
+                                </div>
+                                <div class="col-md-4 text-end mt-3 mt-md-0">
+                                    <button type="button" class="btn btn-outline-primary fw-bold" id="btn-aplicar-template">Aplicar Modelo</button>
+                                </div>
+                            </div>
                             <div class="row g-4">
                                 <div class="col-md-6">
                                     <div class="card border-primary shadow-sm h-100">
@@ -360,6 +402,32 @@
                             <p class="mb-1"><strong>Status Físico:</strong> <span id="det-onu-status"></span></p>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalDecisaoAgendamento" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-check-circle-fill me-2"></i>Avançar Etapa</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="text-center mb-4">
+                        <p class="fs-5 text-dark m-0">OS <strong>#<span id="sucesso-ticket-id"></span></strong> processada!</p>
+                        <p class="text-muted small">Selecione para onde deseja encaminhar este atendimento agora:</p>
+                    </div>
+                    
+                    <div id="lista-tarefas-processo" class="d-flex flex-column gap-2 text-start">
+                        <div class="text-center text-muted"><span class="spinner-border spinner-border-sm"></span> Carregando fluxo...</div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light p-3">
+                    <button type="button" class="btn btn-primary fw-bold w-100" id="btn-confirmar-tarefa-logistica">
+                        Finalizar e Avançar <i class="bi bi-arrow-right-circle ms-1"></i>
+                    </button>
                 </div>
             </div>
         </div>

@@ -144,6 +144,15 @@ router.get('/capacidade-dia', async (req, res) => {
     }
 });
 
+router.get('/capacidade-templates', async (req, res) => {
+    try {
+        const templates = await executeDb('SELECT * FROM ivp_agenda_capacidade_templates ORDER BY id ASC');
+        res.json(templates);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 router.post('/salvar-configuracoes', async (req, res) => {
     const { data, tecnicos, capacidades } = req.body;
     
@@ -375,6 +384,12 @@ router.get('/agendamentos', async (req, res) => {
                 listaFinal[indexLocal].nome_setor = nomeSetor;
                 listaFinal[indexLocal].nome_condominio = nomeCondominio;
                 listaFinal[indexLocal].tipo_imovel = tipoImovel;
+
+                executeDb(
+                    `UPDATE ivp_agenda_os SET ixc_tecnico_id = ?, status_interno = 'ATRIBUIDO' WHERE id = ?`,
+                    [osIxc.id_tecnico, listaFinal[indexLocal].id]
+                ).catch(()=>{});
+
             } else {
                 let turnoInferred = 'MATUTINO';
                 
@@ -387,28 +402,44 @@ router.get('/agendamentos', async (req, res) => {
                 let msg = osIxc.mensagem || 'Agendado pelo IXC';
                 msg = msg.replace(/(<([^>]+)>)/gi, "");
 
-                listaFinal.push({
-                    id: `ixc-${osIxc.id}`, 
-                    ixc_os_id: osIxc.id,
-                    ixc_cliente_id: osIxc.id_cliente,
-                    tipo_servico: 'IXC', 
-                    tipo_imovel: tipoImovel,
-                    is_rede_neutra: isRedeNeutra,
-                    municipio_base: osIxc.bairro ? `${osIxc.bairro} (${cidadeCorreta})` : cidadeCorreta, 
-                    aceita_encaixe: 0,
-                    data_agendamento: data,
-                    turno: turnoInferred,
-                    status_interno: 'ATRIBUIDO',
-                    ixc_tecnico_id: osIxc.id_tecnico,
-                    sintoma_relatado: msg,
-                    ixc_status: osIxc.status,
-                    horario_agendado: horarioExtraido,
-                    data_hora_execucao: osIxc.data_hora_execucao, 
-                    bairro_real: osIxc.bairro || '', 
-                    cidade_real: cidadeCorreta,
-                    nome_setor: nomeSetor,
-                    nome_condominio: nomeCondominio
-                });
+                let tipoServicoSinc = 'SUPORTE';
+                if (setorUpper.includes('INSTALA') || osIxc.setor === '5') {
+                    tipoServicoSinc = 'INSTALACAO';
+                }
+
+                try {
+                    const insertRes = await executeDb(
+                        `INSERT INTO ivp_agenda_os 
+                        (ixc_os_id, ixc_cliente_id, ixc_contrato_id, tipo_servico, tipo_imovel, municipio_base, aceita_encaixe, solicita_prioridade, data_agendamento, turno, ixc_tecnico_id, status_interno, criado_por)
+                        VALUES (?, ?, 0, ?, ?, ?, 0, 0, ?, ?, ?, 'ATRIBUIDO', 'SINC_IXC')`,
+                        [osIxc.id, osIxc.id_cliente, tipoServicoSinc, tipoImovel, cidadeCorreta, data, turnoInferred, osIxc.id_tecnico]
+                    );
+
+                    listaFinal.push({
+                        id: insertRes.insertId,
+                        ixc_os_id: osIxc.id,
+                        ixc_cliente_id: osIxc.id_cliente,
+                        tipo_servico: 'IXC', 
+                        tipo_imovel: tipoImovel,
+                        is_rede_neutra: isRedeNeutra,
+                        municipio_base: osIxc.bairro ? `${osIxc.bairro} (${cidadeCorreta})` : cidadeCorreta, 
+                        aceita_encaixe: 0,
+                        data_agendamento: data,
+                        turno: turnoInferred,
+                        status_interno: 'ATRIBUIDO',
+                        ixc_tecnico_id: osIxc.id_tecnico,
+                        sintoma_relatado: msg,
+                        ixc_status: osIxc.status,
+                        horario_agendado: horarioExtraido,
+                        data_hora_execucao: osIxc.data_hora_execucao, 
+                        bairro_real: osIxc.bairro || '', 
+                        cidade_real: cidadeCorreta,
+                        nome_setor: nomeSetor,
+                        nome_condominio: nomeCondominio
+                    });
+                } catch (err) {
+                    console.error("Erro ao inserir OS Órfã no Banco Local:", err);
+                }
             }
         }
 
@@ -509,14 +540,43 @@ router.put('/reagendar', async (req, res) => {
     }
 });
 
+const getIxcDate = () => {
+    const now = new Date();
+    now.setHours(now.getHours() - 3); 
+    return now.toISOString().replace('T', ' ').substring(0, 19);
+};
+
 router.put('/fechar-os', async (req, res) => {
-    const { ixc_os_id, mensagem_resposta } = req.body;
+    const { ixc_os_id, mensagem_resposta, id_tarefa, id_processo, id_tarefa_atual, id_tecnico } = req.body;
 
     try {
-        await makeIxcRequest('PUT', `/su_oss_chamado/${ixc_os_id}`, {
-            status: 'F',
-            mensagem_resposta: mensagem_resposta
-        });
+        if (id_processo && id_tarefa) {
+            const dataHoraAtual = getIxcDate();
+            
+            const payloadFechamento = {
+                "id_chamado": ixc_os_id,
+                "data_inicio": dataHoraAtual,
+                "data_final": dataHoraAtual,
+                "mensagem": mensagem_resposta,
+                "id_tecnico": id_tecnico || "138",
+                "status": "F",
+                "data": dataHoraAtual.split(' ')[0],
+                "id_processo": id_processo,
+                "id_tarefa_atual": id_tarefa_atual,
+                "eh_tarefa_decisao": "N",
+                "id_proxima_tarefa": id_tarefa
+            };
+
+            const respWfl = await makeIxcRequest('POST', '/su_oss_chamado_fechar', payloadFechamento, 'incluir');
+            if (respWfl && respWfl.type === 'error') {
+                throw new Error(`Erro WFL IXC: ${respWfl.message.replace(/<br \/>/g, ' - ')}`);
+            }
+        } else {
+            await makeIxcRequest('PUT', `/su_oss_chamado/${ixc_os_id}`, {
+                status: 'F',
+                mensagem_resposta: mensagem_resposta
+            });
+        }
 
         res.json({ success: true, message: "OS Finalizada com sucesso!" });
     } catch (error: any) {
