@@ -239,7 +239,7 @@ async function confirmarAgendamento(event) {
         solicita_prioridade: solicitaPrioridade
     };
 
-    console.log("[DEBUG FRONTEND] Preparando envio. Payload completo:", payload);
+    //console.log("[DEBUG FRONTEND] Preparando envio. Payload completo:", payload);
 
     try {
         const response = await fetch('/api/v5/agendamento/confirmar', {

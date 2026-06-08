@@ -14,17 +14,21 @@ const executeDb = (query: string, params: any[] = []) => {
     });
 };
 
-const makeIxcRequest = async (method: Method, endpoint: string, data: any = null) => {
+const makeIxcRequest = async (method: Method, endpoint: string, data: any = null, operationType: 'listar' | 'incluir' | 'alterar' | 'integracao' | null = null) => {
     const url = `${process.env.IXC_API_URL}/webservice/v1${endpoint}`;
     const token = process.env.IXC_API_TOKEN; 
     const headers: any = {
         'Authorization': `Basic ${token}`,
         'Content-Type': 'application/json'
     };
-    if (data && data.qtype) {
+    
+    if (operationType) {
+        headers['ixcsoft'] = operationType;
+    } else if (data && data.qtype) {
         headers['ixcsoft'] = 'listar';
         method = 'POST'; 
     }
+    
     try {
         const response = await axios({ method, url, headers, data });
         return response.data;
@@ -93,8 +97,10 @@ router.get('/detalhes-os/:id_ticket', async (req, res) => {
         });
         if (ticketResp.registros && ticketResp.registros.length > 0) {
             ticket = ticketResp.registros[0];
+            
             const osResp = await makeIxcRequest('POST', '/su_oss_chamado', {
-                qtype: 'su_oss_chamado.id_ticket', query: id_ticket, oper: '=', rp: '1'
+                qtype: 'su_oss_chamado.id_ticket', query: id_ticket, oper: '=', rp: '10',
+                sortname: 'su_oss_chamado.id', sortorder: 'desc'
             });
             if (osResp.registros && osResp.registros.length > 0) osAberta = osResp.registros[0];
         } else {
@@ -224,34 +230,97 @@ router.post('/confirmar', async (req, res) => {
         }
 
         let ixc_os_id = id_ticket; 
+        let osData: any = {};
         const osResp = await makeIxcRequest('POST', '/su_oss_chamado', {
-            qtype: 'su_oss_chamado.id_ticket', query: id_ticket, oper: '=', rp: '1'
+            qtype: 'su_oss_chamado.id_ticket', query: id_ticket, oper: '=', rp: '10',
+            sortname: 'su_oss_chamado.id', sortorder: 'desc'
         });
+        
         if (osResp.registros && osResp.registros.length > 0) {
-            ixc_os_id = osResp.registros[0].id;
+            osData = osResp.registros[0];
+            ixc_os_id = osData.id;
+        } else {
+            const osResp2 = await makeIxcRequest('POST', '/su_oss_chamado', {
+                qtype: 'su_oss_chamado.id', query: id_ticket, oper: '=', rp: '1'
+            });
+            if (osResp2.registros && osResp2.registros.length > 0) {
+                osData = osResp2.registros[0];
+                ixc_os_id = osData.id;
+            }
         }
 
         await executeDb(
             `INSERT INTO ivp_agenda_os 
-            (ixc_os_id, ixc_cliente_id, ixc_contrato_id, tipo_servico, tipo_imovel, municipio_base, aceita_encaixe, solicita_prioridade, data_agendamento, turno, status_interno, criado_por)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'AGUARDANDO_ATRIBUICAO', 'ATENDIMENTO')`,
+            (ixc_os_id, ixc_cliente_id, ixc_contrato_id, tipo_servico, tipo_imovel, municipio_base, aceita_encaixe, solicita_prioridade, data_agendamento, turno, ixc_tecnico_id, status_interno, criado_por)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 138, 'AGUARDANDO_LOGISTICA', 'ATENDIMENTO')`,
             [ixc_os_id, cliente_id, contrato_id || 0, tipoServicoDb, tipo_imovel, municipio, aceita_encaixe ? 1 : 0, solicita_prioridade ? 1 : 0, data_agendamento, turno]
         );
 
-        const horaIXC = turno === 'MATUTINO' ? '08:00:00' : '13:00:00';
+        const horaInicio = turno === 'MATUTINO' ? '08:00:00' : '13:00:00';
+        const horaFim = turno === 'MATUTINO' ? '12:00:00' : '18:00:00';
         const dataFormatada = data_agendamento.split('-').reverse().join('/');
         
         const msgInteracao = `AGENDADO VIA INTRANET\nData: ${dataFormatada}\nTurno: ${turno}\nAceita Encaixe: ${aceita_encaixe ? 'SIM' : 'NÃO'}\nPrioridade: ${solicita_prioridade ? 'ALTA URGÊNCIA' : 'NORMAL'}`;
+
+        const agora = new Date();
+        agora.setHours(agora.getHours() - 3);
+        const dataInteracao = agora.toISOString().replace('T', ' ').substring(0, 19);
+
+        const payloadAgendar = {
+            "id_chamado": String(ixc_os_id),
+            "data_agendamento": `${dataFormatada} ${horaInicio}`,
+            "data_agendamento_final": `${dataFormatada} ${horaFim}`,
+            "id_resposta": "",
+            "mensagem": msgInteracao,
+            "id_tecnico": "138",
+            "id_equipe": "",
+            "status": "AG",
+            "data": dataInteracao, 
+            "id_evento": "",
+            "id_compromisso": "",
+            "latitude": "",
+            "longitude": "",
+            "gps_time": ""
+        };
+
+        console.log(`\n--- [DEBUG AGENDAMENTO IXC] INICIANDO AGENDAMENTO VIA POST (su_oss_chamado_reagendar) ---`);
+        console.log(`OS ID Alvo: ${ixc_os_id} | Técnico Destino: 138 (Hub Intervip)`);
+        console.log(`[POST Payload]:`, JSON.stringify(payloadAgendar, null, 2));
         
-        await makeIxcRequest('PUT', `/su_oss_chamado/${ixc_os_id}`, {
-            data_agenda: `${data_agendamento} ${horaIXC}`,
-            melhor_horario_agenda: turno === 'MATUTINO' ? 'M' : 'T',
-            mensagem_resposta: msgInteracao,
-            status: 'AG'
-        });
+        const respAgendar = await makeIxcRequest(
+            'POST',
+            `/su_oss_chamado_reagendar`,
+            payloadAgendar,
+            'incluir'
+        );
+
+        if (respAgendar && respAgendar.type === 'error') {
+            throw new Error(`IXC recusou o agendamento: ${respAgendar.message}`);
+        }
+
+        await executeDb(
+            `INSERT INTO ivp_agenda_os 
+            (ixc_os_id, ixc_cliente_id, ixc_contrato_id, tipo_servico, tipo_imovel, municipio_base, aceita_encaixe, solicita_prioridade, data_agendamento, turno, ixc_tecnico_id, status_interno, criado_por)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 138, 'AGUARDANDO_LOGISTICA', 'ATENDIMENTO')`,
+            [
+                ixc_os_id,
+                cliente_id,
+                contrato_id || 0,
+                tipoServicoDb,
+                tipo_imovel,
+                municipio,
+                aceita_encaixe ? 1 : 0,
+                solicita_prioridade ? 1 : 0,
+                data_agendamento,
+                turno
+            ]
+        );
+
+        console.log(`--- [DEBUG AGENDAMENTO IXC] SINCRONIZAÇÃO CONCLUÍDA COM SUCESSO ---\n`);
 
         res.json({ success: true, message: "Agendamento confirmado com sucesso!" });
     } catch (error: any) {
+        console.error("[Erro Agendamento Confirmar]:", error.message);
         res.status(500).json({ error: error.message });
     }
 });
