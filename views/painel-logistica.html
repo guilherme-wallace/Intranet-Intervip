@@ -38,7 +38,12 @@
             <div class="row g-3 align-items-end">
                 <div class="col-md-3">
                     <label class="form-label fw-bold">Data da Agenda</label>
-                    <input type="date" id="filtro-data" class="form-control border-primary">
+                    <div class="d-flex align-items-center gap-1">
+                        <button class="btn btn-outline-primary" id="btn-data-ontem" title="Ontem"><i class="bi bi-chevron-left"></i></button>
+                        <button class="btn btn-primary" id="btn-data-hoje" title="Hoje"><i class="bi bi-calendar-check"></i></button>
+                        <input type="date" id="filtro-data" class="form-control border-primary flex-grow-1">
+                        <button class="btn btn-outline-primary" id="btn-data-amanha" title="Amanhã"><i class="bi bi-chevron-right"></i></button>
+                    </div>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label fw-bold">Município / Região</label>
@@ -51,16 +56,18 @@
                 <div class="col-md-3">
                     <label class="form-label fw-bold">Equipe / Setor</label>
                     <select id="filtro-setor" class="form-select border-primary">
-                        <option value="TODOS">Todos os Setores</option>
+                        <option value="TODOS" selected>Todos</option>
+                        <option value="MANUTENCAO">Manutenção</option>
+                        <option value="INSTALACAO">Instalação</option>
+                        <option value="RECOLHIMENTO">Recolhimento</option>
                     </select>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label fw-bold">Status</label>
                     <select id="filtro-status" class="form-select border-primary">
-                        <option value="OCULTAR_CONCLUIDOS" selected>Ocultar Concluídas</option>
+                        <option value="PENDENTES" selected>Apenas Pendentes</option>
+                        <option value="FALHAS">Falhas / Reagendar</option>
                         <option value="TODOS">Mostrar Todas</option>
-                        <option value="PENDENTES">Apenas Pendentes</option>
-                        <option value="FALHAS">Apenas Falhas / Reagendar</option>
                     </select>
                 </div>
             </div>
@@ -70,6 +77,30 @@
             <button id="btn-abrir-config" class="btn btn-outline-primary shadow-sm">
                 <i class="bi bi-gear-fill me-2"></i>Ajustar Capacidade & Escala
             </button>
+        </div>
+
+        <div id="container-fila-logistica" class="mb-5 p-3 bg-white rounded shadow-sm border-top border-4 border-danger d-none">
+            <h5 class="fw-bold mb-3 d-flex justify-content-between align-items-center" style="color: #dc3545;">
+                <span><i class="bi bi-inboxes-fill me-2"></i>Fila de O.S. Pendentes (Logística)</span>
+                <span class="badge bg-danger rounded-pill fs-6" id="contador-fila">0</span>
+            </h5>
+            <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
+                <table class="table table-hover align-middle small mb-0">
+                    <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
+                        <tr>
+                            <th>O.S.</th>
+                            <th>Setor</th>
+                            <th>Cliente</th>
+                            <th>Sintoma / Relato</th>
+                            <th>Data Abertura</th>
+                            <th class="text-center">Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-fila-logistica">
+                        <tr><td colspan="6" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2"></span>Carregando fila de entrada...</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <div class="swimlane-container mb-5 p-3 bg-white rounded shadow-sm">
@@ -214,7 +245,6 @@
 
                             <div id="alerta-prioridade-futura" class="alert alert-danger d-none shadow-sm border-danger border-2 mt-3 mb-2">
                                 <h6 class="fw-bold text-danger"><i class="bi bi-exclamation-octagon-fill me-2"></i>Prioridade Puxada do Futuro (<span id="data-prioridade-original"></span>)</h6>
-                                <p class="small mb-2 text-dark">O suporte solicitou urgência máxima. Esta O.S. está agendada para outro dia, mas apareceu aqui para sua análise. O que fazer?</p>
                                 <div class="d-flex gap-2">
                                     <button class="btn btn-sm btn-success fw-bold flex-grow-1" id="btn-aceitar-prioridade"><i class="bi bi-check-circle me-1"></i>Aceitar p/ Hoje</button>
                                     <button class="btn btn-sm btn-outline-danger fw-bold flex-grow-1 bg-white" id="btn-recusar-prioridade"><i class="bi bi-x-circle me-1"></i>Recusar (Manter Data)</button>
@@ -251,7 +281,7 @@
                                 <div class="tab-pane fade" id="tab-fechar">
                                     <div class="mb-4">
                                         <label class="form-label fw-bold">Mensagem de Resolução / Fechamento:</label>
-                                        <textarea class="form-control border-secondary" id="input-fechar-mensagem" rows="4" placeholder="Descreva o que foi feito pelo técnico..."></textarea>
+                                        <textarea class="form-control border-secondary" id="input-fechar-mensagem" rows="4" placeholder="Por favor, descreva o que foi feito na mensagem de resolução..."></textarea>
                                     </div>
                                     
                                     <button class="btn btn-success w-100 fw-bold py-2 shadow-sm" id="btn-action-fechar">
@@ -312,8 +342,13 @@
                                         <option value="">Selecione um modelo salvo...</option>
                                         </select>
                                 </div>
-                                <div class="col-md-4 text-end mt-3 mt-md-0">
-                                    <button type="button" class="btn btn-outline-primary fw-bold" id="btn-aplicar-template">Aplicar Modelo</button>
+                                <div class="col-md-5 text-end mt-3 mt-md-0 d-flex gap-2 justify-content-end">
+                                    <button type="button" class="btn btn-outline-success fw-bold shadow-sm" id="btn-salvar-novo-template">
+                                        <i class="bi bi-plus-circle me-1"></i>Salvar Novo Modelo
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary fw-bold shadow-sm" id="btn-aplicar-template">
+                                        <i class="bi bi-check2-square me-1"></i>Aplicar Modelo
+                                    </button>
                                 </div>
                             </div>
                             <div class="row g-4">
