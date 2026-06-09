@@ -278,7 +278,7 @@ function criarCardOS(os) {
     
     if (isPend) {
         corBorda = 'border-left: 6px solid #dc3545;';
-        cardStyleAdicional = 'background-color: #fff4f4 !important; border: 1px dashed #dc3545 !important;';
+        cardStyleAdicional = 'background-color: var(--os-pending-bg, #fff4f4) !important; border: 1px dashed #dc3545 !important;';
         badgeStatus = `<span class="asana-badge bg-danger text-white border-danger shadow-sm"><i class="bi bi-exclamation-circle-fill me-1"></i>Aguardando Técnico</span>`;
     }
 
@@ -291,7 +291,7 @@ function criarCardOS(os) {
         else if (statusIxc === 'RAG') { corBorda = 'border-left: 4px solid #dc3545;'; badgeStatus = `<span class="asana-badge" style="background-color: #f8d7da; color: #842029;"><i class="bi bi-x-circle-fill me-1"></i>Reagendar</span>`; }
     }
 
-    card.style.cssText = corBorda + cardStyleAdicional + (os.is_futuro_prioridade ? ' background-color: #fff0f0 !important; border: 2px solid #dc3545 !important;' : '');
+    card.style.cssText = corBorda + cardStyleAdicional + (os.is_futuro_prioridade ? ' background-color: var(--os-priority-bg, #fff0f0) !important; border: 2px solid #dc3545 !important;' : '');
 
     let badgesHtml = os.horario_agendado ? `<span class="asana-badge bg-dark text-white"><i class="bi bi-clock me-1"></i>${os.horario_agendado}</span>` : '';
     badgesHtml += badgeStatus;
@@ -983,41 +983,105 @@ function initializeThemeAndUserInfo() {
     const currentTheme = localStorage.getItem('theme') || 'light';
     const bodyElement = document.querySelector('body');
     const themeToggleButton = document.getElementById('theme-toggle');
+
+    function aplicarIconeTema() {
+        if (!themeToggleButton) return;
+
+        const isDark = bodyElement.classList.contains('dark-mode');
+
+        themeToggleButton.innerHTML = isDark
+            ? '<i class="bi bi-brightness-high"></i>'
+            : '<i class="bi bi-moon-stars"></i>';
+
+        themeToggleButton.title = isDark
+            ? 'Alternar para Tema Claro'
+            : 'Alternar para Tema Escuro';
+    }
+
     if (currentTheme === 'dark') {
         bodyElement.classList.add('dark-mode');
-        if (themeToggleButton) themeToggleButton.innerHTML = '<i class="bi bi-brightness-high"></i>';
     } else {
-        if (themeToggleButton) themeToggleButton.innerHTML = '<i class="bi bi-moon-stars"></i>';
+        bodyElement.classList.remove('dark-mode');
     }
+
+    aplicarIconeTema();
+
+    if (themeToggleButton && !themeToggleButton.dataset.themeListenerAttached) {
+        themeToggleButton.addEventListener('click', function() {
+            bodyElement.classList.toggle('dark-mode');
+
+            const newTheme = bodyElement.classList.contains('dark-mode')
+                ? 'dark'
+                : 'light';
+
+            localStorage.setItem('theme', newTheme);
+            aplicarIconeTema();
+
+            if (typeof renderizarQuadro === 'function') {
+                renderizarQuadro();
+            }
+        });
+
+        themeToggleButton.dataset.themeListenerAttached = 'true';
+    }
+
     const logoutButton = document.getElementById('btnLogout');
-    if (logoutButton) {
+
+    if (logoutButton && !logoutButton.dataset.logoutListenerAttached) {
         logoutButton.addEventListener('click', function() {
             window.location.href = '/logout';
         });
+
+        logoutButton.dataset.logoutListenerAttached = 'true';
     }
+
     fetch('/api/username')
         .then(response => response.json())
         .then(data => {
             const username = data.username || 'Visitante';
             window.usuarioLogado = username;
-            const rawGroup = data.group || '';
+
             const group = data.group || 'Sem grupo';
+
             if (username === 'Visitante') {
-                showModal('Sessão Expirada', 'Será necessário refazer o login!', 'warning');
-                setTimeout(() => { window.location = "/"; }, 300);
+                if (typeof showModal === 'function') {
+                    showModal('Sessão Expirada', 'Será necessário refazer o login!', 'warning');
+                } else {
+                    alert('Sessão expirada. Será necessário refazer o login.');
+                }
+
+                setTimeout(() => {
+                    window.location = '/';
+                }, 300);
+
                 return;
             }
+
             document.querySelectorAll('.user-info span').forEach(el => {
                 if (el.textContent.includes('{username}')) {
                     el.textContent = username;
                 }
+
                 if (el.textContent.includes('{group}')) {
                     el.textContent = group;
                 }
             });
-        }).catch(error => {
+        })
+        .catch(error => {
             console.error('Erro ao obter o nome do usuário e grupo:', error);
-             showModal('Erro de Autenticação', 'Não foi possível verificar seu usuário. Por favor, faça o login novamente.', 'danger');
-             setTimeout(() => { window.location = "/"; }, 300);
+
+            if (typeof showModal === 'function') {
+                showModal(
+                    'Erro de Autenticação',
+                    'Não foi possível verificar seu usuário. Por favor, faça o login novamente.',
+                    'danger'
+                );
+            } else {
+                alert('Erro de autenticação. Faça login novamente.');
+            }
+
+            setTimeout(() => {
+                window.location = '/';
+            }, 300);
         });
 }
