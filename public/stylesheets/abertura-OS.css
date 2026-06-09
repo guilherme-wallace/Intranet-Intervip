@@ -250,3 +250,259 @@ body {
     .step-indicator { width: 100%; }
     .step p { font-size: 0.8rem; }
 }
+
+
+/* =========================================================
+   DARK MODE
+   ========================================================= */
+
+.dark-mode {
+    --body-bg: #1e1e1e;
+    --card-bg: #1e1e1e;
+    --card-bg-dark: #1f2937;
+    --card-bg-painel: #172033;
+    --text-color: #e5e7eb;
+    --text-muted: #a7b0c0;
+    --border-color: #374151;
+    --surface-bg: #111827;
+    --surface-bg-2: #1f2937;
+    --surface-bg-3: #263244;
+    --input-bg: #0b1220;
+    --input-border: #475569;
+    --table-hover-bg: rgba(255,255,255,0.055);
+    --os-pending-bg: #2a1418;
+    --os-priority-bg: #32161b;
+}
+
+body.dark-mode,
+.dark-mode .ivp-main {
+    background-color: var(--body-bg) !important;
+    color: var(--text-color) !important;
+}
+
+.dark-mode .ivp-card,
+.dark-mode .card,
+.dark-mode .swimlane-container,
+.dark-mode #container-fila-logistica,
+.dark-mode .table-responsive,
+.dark-mode .dropdown-menu {
+    background-color: var(--surface-bg) !important;
+    color: var(--text-color) !important;
+    border-color: var(--border-color) !important;
+}
+
+.dark-mode .bg-white,
+.dark-mode .bg-light,
+.dark-mode .card-header.bg-light,
+.dark-mode .modal-body.bg-white,
+.dark-mode .modal-footer.bg-light,
+.dark-mode .nav-tabs.bg-light,
+.dark-mode .tab-content.bg-light,
+.dark-mode .row.bg-light,
+.dark-mode .dupla-row.bg-light,
+.dark-mode .form-check.bg-white,
+.dark-mode .form-check.bg-light {
+    background-color: var(--surface-bg-2) !important;
+    color: var(--text-color) !important;
+    border-color: var(--border-color) !important;
+}
+
+.dark-mode .border,
+.dark-mode .border-bottom,
+.dark-mode .border-top,
+.dark-mode .border-start,
+.dark-mode .border-end {
+    border-color: var(--border-color) !important;
+}
+
+.dark-mode .text-dark:not(.badge):not(.btn):not(.bg-warning),
+.dark-mode .fw-bold.text-dark,
+.dark-mode h1,
+.dark-mode h2,
+.dark-mode h3,
+.dark-mode h4,
+.dark-mode h5,
+.dark-mode h6,
+.dark-mode p,
+.dark-mode label,
+.dark-mode small,
+.dark-mode span:not(.badge) {
+    color: var(--text-color) !important;
+}
+
+.dark-mode .text-muted,
+.dark-mode .text-secondary,
+.dark-mode .form-label,
+.dark-mode .small.text-muted {
+    color: var(--text-muted) !important;
+}
+
+.dark-mode .text-primary:not(.badge),
+.dark-mode .nav-link.text-dark.active,
+.dark-mode .nav-link.active {
+    color: var(--primary-color) !important;
+}
+
+.dark-mode .modal-content {
+    background-color: var(--surface-bg) !important;
+    color: var(--text-color) !important;
+    border-color: var(--border-color) !important;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.55) !important;
+}
+
+.dark-mode .modal-header,
+.dark-mode .modal-body,
+.dark-mode .modal-footer {
+    background-color: var(--surface-bg) !important;
+    color: var(--text-color) !important;
+    border-color: var(--border-color) !important;
+}
+
+.dark-mode .modal-header.bg-success,
+.dark-mode .modal-header.bg-danger,
+.dark-mode .modal-header.bg-primary,
+.dark-mode .modal-header.bg-warning {
+    color: #ffffff !important;
+}
+
+.dark-mode .btn-close {
+    filter: invert(1) grayscale(100%) brightness(180%);
+}
+
+.dark-mode .form-control,
+.dark-mode .form-select,
+.dark-mode textarea,
+.dark-mode input[type="date"],
+.dark-mode input[type="number"],
+.dark-mode input[type="text"] {
+    background-color: var(--input-bg) !important;
+    color: var(--text-color) !important;
+    border-color: var(--input-border) !important;
+}
+
+.dark-mode .form-control:focus,
+.dark-mode .form-select:focus,
+.dark-mode textarea:focus {
+    background-color: #101a2e !important;
+    color: #ffffff !important;
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 .2rem rgba(77,159,236,.18) !important;
+}
+
+.dark-mode .form-control::placeholder {
+    color: #7f8ea3 !important;
+}
+
+.dark-mode .input-group-text {
+    background-color: var(--surface-bg-2) !important;
+    color: var(--text-color) !important;
+    border-color: var(--input-border) !important;
+}
+
+.dark-mode .table {
+    --bs-table-bg: transparent;
+    --bs-table-color: var(--text-color);
+    --bs-table-border-color: var(--border-color);
+    --bs-table-striped-bg: rgba(255,255,255,0.035);
+    --bs-table-striped-color: var(--text-color);
+    --bs-table-hover-bg: var(--table-hover-bg);
+    --bs-table-hover-color: #ffffff;
+    color: var(--text-color) !important;
+    border-color: var(--border-color) !important;
+}
+
+.dark-mode .table-light,
+.dark-mode thead.table-light,
+.dark-mode .table-light th,
+.dark-mode .table-light td {
+    --bs-table-bg: var(--surface-bg-2);
+    --bs-table-color: var(--text-color);
+    background-color: var(--surface-bg-2) !important;
+    color: var(--text-color) !important;
+    border-color: var(--border-color) !important;
+}
+
+.dark-mode .nav-tabs {
+    border-color: var(--border-color) !important;
+}
+
+.dark-mode .nav-tabs .nav-link {
+    color: var(--text-muted) !important;
+    background-color: transparent !important;
+    border-color: transparent !important;
+}
+
+.dark-mode .nav-tabs .nav-link.active {
+    background-color: var(--surface-bg) !important;
+    color: var(--primary-color) !important;
+    border-color: var(--border-color) var(--border-color) var(--surface-bg) !important;
+}
+
+.dark-mode .list-group-item,
+.dark-mode .accordion-item,
+.dark-mode .accordion-button {
+    background-color: var(--surface-bg-2) !important;
+    color: var(--text-color) !important;
+    border-color: var(--border-color) !important;
+}
+
+.dark-mode .alert-success {
+    background-color: rgba(25,135,84,.16) !important;
+    color: #a7f3d0 !important;
+    border-color: rgba(25,135,84,.45) !important;
+}
+
+.dark-mode .alert-danger {
+    background-color: rgba(220,53,69,.14) !important;
+    color: #fecdd3 !important;
+    border-color: rgba(220,53,69,.45) !important;
+}
+
+.dark-mode .alert-warning {
+    background-color: rgba(255,193,7,.15) !important;
+    color: #fde68a !important;
+    border-color: rgba(255,193,7,.45) !important;
+}
+
+.dark-mode .btn-outline-dark {
+    color: var(--text-color) !important;
+    border-color: var(--border-color) !important;
+}
+
+.dark-mode .btn-outline-dark:hover {
+    background-color: var(--surface-bg-3) !important;
+    color: #ffffff !important;
+}
+
+.dark-mode hr {
+    border-color: var(--border-color) !important;
+    opacity: 1;
+}
+
+.dark-mode ::-webkit-scrollbar-track {
+    background: var(--surface-bg);
+}
+
+.dark-mode ::-webkit-scrollbar-thumb {
+    background: #475569;
+    border-radius: 10px;
+}
+
+
+/* Abertura de OS - cards e blocos dinâmicos */
+.dark-mode #painel-detalhes-tecnicos,
+.dark-mode #area-pppoe-onu,
+.dark-mode #onu-realtime-container,
+.dark-mode #card-atendimentos-abertos .card-body,
+.dark-mode #lista-atendimentos-abertos > div,
+.dark-mode .card-tarefa-wfl,
+.dark-mode .card-tarefa-wfl.bg-white,
+.dark-mode .card-tarefa-wfl.bg-light {
+    background-color: var(--surface-bg-2) !important;
+    color: var(--text-color) !important;
+    border-color: var(--border-color) !important;
+}
+
+.dark-mode .form-check-label.text-dark {
+    color: var(--text-color) !important;
+}
