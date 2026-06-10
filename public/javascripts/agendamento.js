@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const origem = urlParams.get('origem');
 
     if (!osId) {
-        alert("Nenhuma OS informada na URL.");
+        await showInfoModal("Nenhuma OS informada na URL.", "Agendamento", "warning");
         document.getElementById('loading-os').style.display = 'none';
         return;
     }
@@ -16,10 +16,36 @@ document.addEventListener('DOMContentLoaded', async function() {
     document.getElementById('btn-prev-week').addEventListener('click', () => changeWeek(-1));
     document.getElementById('btn-next-week').addEventListener('click', () => changeWeek(1));
 
+    carregarTagsAgendamento();
     await carregarDadosOS(osId, origem);
 
     document.getElementById('form-agendamento').addEventListener('submit', confirmarAgendamento);
 });
+
+async function carregarTagsAgendamento() {
+    const container = document.getElementById('area-tags-agendamento');
+    if (!container) return;
+
+    try {
+        const response = await fetch('/api/v5/painel-logistica/tags');
+        const tags = await response.json();
+        const ativas = Array.isArray(tags) ? tags.filter(tag => Number(tag.ativo) === 1) : [];
+
+        if (ativas.length === 0) {
+            container.innerHTML = '<span class="text-muted small">Nenhuma tag ativa configurada.</span>';
+            return;
+        }
+
+        container.innerHTML = ativas.map(tag => `
+            <label class="form-check-label border rounded-pill px-3 py-2 bg-white small fw-bold" style="cursor:pointer;">
+                <input class="form-check-input me-1 chk-tag-agendamento" type="checkbox" value="${tag.id}">
+                <span style="background:${tag.cor_fundo || '#0d6efd'};color:${tag.cor_texto || '#fff'};" class="badge">${tag.nome}</span>
+            </label>
+        `).join('');
+    } catch (error) {
+        container.innerHTML = '<span class="text-danger small">Não foi possível carregar as tags.</span>';
+    }
+}
 
 async function carregarDadosOS(id_ticket, origem) {
     try {
@@ -60,7 +86,7 @@ async function carregarDadosOS(id_ticket, origem) {
         initCalendar();
 
     } catch (error) {
-        alert("Erro ao buscar OS: " + error.message);
+        await showInfoModal("Erro ao buscar OS: " + error.message, "Erro", "danger");
     }
 }
 
@@ -184,7 +210,7 @@ function renderSlot(dateStr, turno, slotData, isPast) {
             </button>`;
 }
 
-document.addEventListener('click', function(e) {
+document.addEventListener('click', async function(e) {
     const btnSlot = e.target.closest('.btn-slot-agenda');
     if (btnSlot) {
         const dateStr = btnSlot.getAttribute('data-date');
@@ -211,14 +237,15 @@ function formatDate(date) {
 
 async function confirmarAgendamento(event) {
     event.preventDefault();
-    
+
     const dataEscolhida = document.getElementById('selected-data').value;
     const turnoEscolhido = document.getElementById('selected-turno').value;
     const aceitaEncaixe = document.getElementById('chk-encaixe') ? document.getElementById('chk-encaixe').checked : false;
-    const solicitaPrioridade = document.getElementById('chk-prioridade') ? document.getElementById('chk-prioridade').checked : false;
+    const solicitaPrioridade = false;
 
     if (!dataEscolhida || !turnoEscolhido) {
-        return alert("Por favor, selecione um dia e turno disponível clicando no calendário!");
+        await showInfoModal('Por favor, selecione um dia e turno disponível clicando no calendário.', 'Selecione um horário', 'warning');
+        return;
     }
 
     const btnConfirmar = document.getElementById('btn-confirmar-agendamento');
@@ -236,33 +263,36 @@ async function confirmarAgendamento(event) {
         data_agendamento: dataEscolhida,
         turno: turnoEscolhido,
         aceita_encaixe: aceitaEncaixe,
-        solicita_prioridade: solicitaPrioridade
+        solicita_prioridade: solicitaPrioridade,
+        tag_ids: Array.from(document.querySelectorAll('.chk-tag-agendamento:checked')).map(chk => chk.value),
+        usuario_logado: window.usuarioLogado
     };
 
-    //console.log("[DEBUG FRONTEND] Preparando envio. Payload completo:", payload);
-
     try {
-        const response = await fetch('/api/v5/agendamento/confirmar', {
+        let response = await fetch('/api/v5/agendamento/confirmar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
 
-        const result = await response.json();
+        let result = await response.json();
+
+        if (!response.ok && result.code === 'OS_JA_AGENDADA' && result.can_reagendar) {
+            const confirmar = await showConfirmModal(result.error, 'OS já agendada', 'warning', 'Reagendar', 'Cancelar');
+            if (!confirmar) throw new Error('Reagendamento cancelado pelo usuário.');
+            response = await fetch('/api/v5/agendamento/confirmar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...payload, reagendar_existente: true })
+            });
+            result = await response.json();
+        }
 
         if (!response.ok) throw new Error(result.error);
 
-        document.getElementById('form-agendamento').innerHTML = `
-            <div class="alert alert-success text-center p-4 border-success">
-                <i class="bi bi-check-circle-fill display-4 d-block mb-3"></i>
-                <h4 class="alert-heading fw-bold">Agendamento Realizado!</h4>
-                <p class="mb-0">A OS foi enviada para o painel da Logística.</p>
-                <a href="/painel-logistica" class="btn btn-outline-success mt-3">Ir para a agenda!</a>
-            </div>
-        `;
-
+        document.getElementById('form-agendamento').innerHTML = '<div class="alert alert-success text-center p-4 border-success"><i class="bi bi-check-circle-fill display-4 d-block mb-3"></i><h4 class="alert-heading fw-bold">Agendamento Realizado!</h4><p class="mb-0">A OS foi enviada para o painel da Logística.</p><a href="/painel-logistica" class="btn btn-outline-success mt-3">Ir para a agenda!</a></div>';
     } catch (error) {
-        alert("Erro ao confirmar: " + error.message);
+        await showInfoModal('Erro ao confirmar: ' + error.message, 'Erro no agendamento', 'danger');
         btnConfirmar.innerHTML = originalText;
         btnConfirmar.disabled = false;
     }
@@ -296,10 +326,11 @@ function initializeThemeAndUserInfo() {
         .then(response => response.json())
         .then(data => {
             const username = data.username || 'Visitante';
+            window.usuarioLogado = username;
             const rawGroup = data.group || '';
             const group = data.group || 'Sem grupo';
             if (username === 'Visitante') {
-                showModal('Sessão Expirada', 'Será necessário refazer o login!', 'warning');
+                showInfoModal('Será necessário refazer o login!', 'Sessão expirada', 'warning');
                 setTimeout(() => { window.location = "/"; }, 300);
                 return;
             }
@@ -313,7 +344,7 @@ function initializeThemeAndUserInfo() {
             });
         }).catch(error => {
             console.error('Erro ao obter o nome do usuário e grupo:', error);
-             showModal('Erro de Autenticação', 'Não foi possível verificar seu usuário. Por favor, faça o login novamente.', 'danger');
+             showInfoModal('Não foi possível verificar seu usuário. Por favor, faça o login novamente.', 'Erro de autenticação', 'danger');
              setTimeout(() => { window.location = "/"; }, 300);
         });
 }
