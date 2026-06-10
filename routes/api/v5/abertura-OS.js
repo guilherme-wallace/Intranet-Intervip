@@ -13,6 +13,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const Express = require("express");
 const axios_1 = require("axios");
 const database_1 = require("../../../api/database");
+const agendaService_1 = require("./agendaService");
 const router = Express.Router();
 const makeIxcRequest = (method, endpoint, data = null, operationType = null) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
@@ -43,6 +44,51 @@ const getIxcDate = () => {
     now.setHours(now.getHours() - 3);
     return now.toISOString().replace('T', ' ').substring(0, 19);
 };
+function extrairProtocoloTicket(ticket) {
+    if (!ticket)
+        return '';
+    return ticket.protocolo
+        || ticket.numero_protocolo
+        || ticket.protocolo_atendimento
+        || ticket.id_protocolo
+        || ticket.codigo_protocolo
+        || '';
+}
+function traduzirStatusOsIxc(status) {
+    const s = String(status || '').toUpperCase();
+    const mapa = {
+        A: 'Aberta',
+        AG: 'Agendada',
+        EN: 'Encaminhada',
+        DS: 'A caminho',
+        EX: 'Em execução',
+        RAG: 'Reagendar',
+        F: 'Finalizada',
+        C: 'Cancelada'
+    };
+    return mapa[s] || s || 'Não informado';
+}
+function formatarAgendaOs(valor) {
+    if (!valor || String(valor).startsWith('0000-00-00'))
+        return '';
+    const str = String(valor).trim();
+    const match = str.match(/^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2}))?/);
+    if (match)
+        return `${match[3]}/${match[2]}/${match[1]}${match[4] ? ` ${match[4]}:${match[5]}` : ''}`;
+    return str;
+}
+function buscarTicketIxc(ticketId) {
+    var _a;
+    return __awaiter(this, void 0, void 0, function* () {
+        const ticketResp = yield makeIxcRequest('POST', '/su_ticket', {
+            qtype: 'su_ticket.id',
+            query: String(ticketId),
+            oper: '=',
+            rp: '1'
+        });
+        return ((_a = ticketResp.registros) === null || _a === void 0 ? void 0 : _a[0]) || null;
+    });
+}
 function obterIdFuncionarioIxc(usuario_intranet) {
     return __awaiter(this, void 0, void 0, function* () {
         if (!usuario_intranet)
@@ -176,6 +222,9 @@ router.get('/busca-cliente/:termo', (req, res) => __awaiter(void 0, void 0, void
             const isCorp = clienteEncontrado.id_tipo_cliente === '7' || clienteEncontrado.id_tipo_cliente === '8';
             return {
                 id: contrato.id,
+                status: contrato.status || '',
+                status_internet: contrato.status_internet || contrato.status_acesso || '',
+                bloqueio_automatico: contrato.bloqueio_automatico || '',
                 endereco_completo: arrayEnd.join(' | '),
                 condominio: nomeCondominio || null,
                 is_predio: isPredio,
@@ -212,6 +261,14 @@ router.get('/busca-cliente/:termo', (req, res) => __awaiter(void 0, void 0, void
             nome: clienteEncontrado.razao,
             documento: clienteEncontrado.cnpj_cpf,
             telefones: [clienteEncontrado.telefone_celular, clienteEncontrado.whatsapp, clienteEncontrado.telefone_residencial].filter(f => f).join(' / ') || 'Sem telefone',
+            contatos: {
+                fone: clienteEncontrado.fone || clienteEncontrado.telefone_residencial || '',
+                telefone_comercial: clienteEncontrado.telefone_comercial || '',
+                telefone_celular: clienteEncontrado.telefone_celular || '',
+                whatsapp: clienteEncontrado.whatsapp || '',
+                email: clienteEncontrado.email || '',
+                contato: clienteEncontrado.contato || ''
+            },
             contratos: contratosProcessados
         });
     }
@@ -221,6 +278,7 @@ router.get('/busca-cliente/:termo', (req, res) => __awaiter(void 0, void 0, void
     }
 }));
 router.post('/criar-os', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _f;
     const { cliente_id, contrato_id, id_assunto, id_departamento, id_processo, observacao, titulo } = req.body;
     //console.log("\n=== [DEBUG] INICIANDO CRIAÇÃO DE CHAMADO (IXC) ===");
     //console.log("1. Dados brutos recebidos do Frontend:", req.body);
@@ -229,6 +287,29 @@ router.post('/criar-os', (req, res) => __awaiter(void 0, void 0, void 0, functio
         return res.status(400).json({ error: "Dados incompletos. Verifique se o assunto possui um processo vinculado no IXC." });
     }
     try {
+        const abertosResp = yield makeIxcRequest('POST', '/su_ticket', {
+            qtype: 'su_ticket.id_cliente',
+            query: String(cliente_id),
+            oper: '=',
+            page: '1',
+            rp: '50',
+            sortname: 'su_ticket.id',
+            sortorder: 'desc'
+        }).catch(() => ({ registros: [] }));
+        const atendimentoDuplicado = (abertosResp.registros || []).find((ticket) => {
+            const statusAberto = !['F', 'C'].includes(String(ticket.status || '').toUpperCase());
+            const mesmoContrato = !contrato_id || !ticket.id_contrato || String(ticket.id_contrato) === String(contrato_id);
+            const mesmoAssunto = !ticket.id_assunto || String(ticket.id_assunto) === String(id_assunto);
+            return statusAberto && mesmoContrato && mesmoAssunto;
+        });
+        if (atendimentoDuplicado) {
+            const protocoloDuplicado = extrairProtocoloTicket(atendimentoDuplicado) || 'Protocolo ainda não retornado pelo IXC';
+            return res.status(409).json({
+                error: `Já existe atendimento aberto compatível para este cliente/contrato: #${atendimentoDuplicado.id}. Protocolo: ${protocoloDuplicado}.`,
+                ticket_id: atendimentoDuplicado.id,
+                protocolo: protocoloDuplicado
+            });
+        }
         const payloadTicket = {
             id_cliente: cliente_id,
             titulo: titulo || "Atendimento via Intranet",
@@ -253,7 +334,32 @@ router.post('/criar-os', (req, res) => __awaiter(void 0, void 0, void 0, functio
         if (ixcResp.type === 'error') {
             throw new Error(ixcResp.message || "Erro desconhecido retornado pelo IXC");
         }
-        res.json({ success: true, ticket_id: ixcResp.id, message: "Atendimento criado com sucesso no IXC!" });
+        const ticketId = ixcResp.id || ixcResp.id_su_ticket || ixcResp.ticket_id;
+        let ticketCriado = null;
+        if (ticketId) {
+            ticketCriado = yield buscarTicketIxc(String(ticketId)).catch(() => null);
+        }
+        let osCriada = null;
+        if (ticketId) {
+            const osCriadaResp = yield makeIxcRequest('POST', '/su_oss_chamado', {
+                qtype: 'su_oss_chamado.id_ticket',
+                query: String(ticketId),
+                oper: '=',
+                rp: '1',
+                sortname: 'su_oss_chamado.id',
+                sortorder: 'desc'
+            }).catch(() => ({ registros: [] }));
+            osCriada = ((_f = osCriadaResp.registros) === null || _f === void 0 ? void 0 : _f[0]) || null;
+        }
+        const protocolo = extrairProtocoloTicket(ixcResp) || extrairProtocoloTicket(ticketCriado) || extrairProtocoloTicket(osCriada) || 'Protocolo ainda não retornado pelo IXC';
+        if (protocolo === 'Protocolo ainda não retornado pelo IXC') {
+            console.warn('[Abertura OS][Protocolo] Protocolo não retornado pelo IXC:', {
+                respostaCriacao: ixcResp,
+                ticketCriado,
+                osCriada
+            });
+        }
+        res.json({ success: true, ticket_id: ticketId, protocolo, message: "Atendimento criado com sucesso no IXC!" });
         //console.log("=== CHAMADO CRIADO COM SUCESSO ===\n");
     }
     catch (error) {
@@ -326,9 +432,10 @@ router.get('/tarefas/:id_processo/:id_tarefa_atual', (req, res) => __awaiter(voi
     }
 }));
 router.post('/avancar-tarefa', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const { ticket_id, os_id, id_tarefa, mensagem, usuario_intranet } = req.body;
+    const { ticket_id, os_id, id_tarefa, mensagem, usuario_intranet, usuario_logado } = req.body;
     try {
-        const idTecnicoIxc = yield obterIdFuncionarioIxc(usuario_intranet);
+        const usuarioIxc = yield agendaService_1.AgendaService.obterUsuarioIxcLogado(usuario_intranet || usuario_logado);
+        const idTecnicoIxc = usuarioIxc.id_funcionario_ixc;
         let osAberta = null;
         let ticketIdRetornado = ticket_id;
         if (os_id) {
@@ -365,9 +472,9 @@ router.post('/avancar-tarefa', (req, res) => __awaiter(void 0, void 0, void 0, f
             "id_tecnico": idTecnicoIxc,
             "id_equipe": "",
             "gera_comissao": "N",
-            "status": "F",
+            "status": osAberta.status || "A",
             "data": dataAtual,
-            "id_evento": "",
+            "id_evento": osAberta.id_evento || osAberta.id_evento_status || osAberta.id_wfl_tarefa || "0",
             "id_su_diagnostico": "",
             "justificativa_sla_atrasado": "",
             "latitude": "",
@@ -378,11 +485,24 @@ router.post('/avancar-tarefa', (req, res) => __awaiter(void 0, void 0, void 0, f
             "eh_tarefa_decisao": "N",
             "sequencia_atual": "",
             "proxima_sequencia_forcada": "",
+            "finaliza_processo": "N",
             "finaliza_processo_aux": "N",
-            "id_evento_status": "",
+            "id_evento_status": osAberta.id_evento_status || osAberta.id_evento || osAberta.id_wfl_tarefa || "0",
             "id_proxima_tarefa": id_tarefa,
             "id_proxima_tarefa_aux": ""
         };
+        console.log('[Abertura OS][Avancar Tarefa] Payload IXC:', {
+            os_id: osAberta.id,
+            ticket_id: ticketIdRetornado,
+            usuario_logado: usuario_intranet || usuario_logado,
+            id_funcionario_ixc: idTecnicoIxc,
+            colaborador_nome: usuarioIxc.nome,
+            status_atual: osAberta.status,
+            id_tarefa_atual: idTarefaAtualWfl,
+            id_proxima_tarefa: id_tarefa,
+            finaliza_processo: payloadFechamento.finaliza_processo,
+            payload: payloadFechamento
+        });
         const respWfl = yield makeIxcRequest('POST', '/su_oss_chamado_fechar', payloadFechamento, 'incluir');
         if (respWfl && respWfl.type === 'error') {
             throw new Error(`Erro no motor do IXC: ${respWfl.message.replace(/<br \/>/g, ' - ')}`);
@@ -420,8 +540,11 @@ router.get('/historico-conexao/:username', (req, res) => __awaiter(void 0, void 
 }));
 router.post('/limpar-mac', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { id_login } = req.body;
-        yield makeIxcRequest('POST', `/radusuarios_${id_login}`, { get_id: "" });
+        const { id_login, usuario_logado } = req.body;
+        if (!id_login)
+            return res.status(400).json({ error: 'ID PPPoE não informado.' });
+        console.log('[Abertura OS][Limpar MAC]', { id_login, usuario_logado });
+        yield makeIxcRequest('POST', '/radusuarios_25452', { get_id: String(id_login) });
         res.json({ success: true });
     }
     catch (error) {
@@ -430,8 +553,24 @@ router.post('/limpar-mac', (req, res) => __awaiter(void 0, void 0, void 0, funct
 }));
 router.post('/desconectar', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { id_login } = req.body;
-        yield makeIxcRequest('POST', '/desconectar_clientes', { id: id_login });
+        const { id_login, usuario_logado } = req.body;
+        if (!id_login)
+            return res.status(400).json({ error: 'ID PPPoE não informado.' });
+        console.log('[Abertura OS][Desconectar Login]', { id_login, usuario_logado });
+        yield makeIxcRequest('POST', '/desconectar_clientes', { id: String(id_login) });
+        res.json({ success: true });
+    }
+    catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+}));
+router.post('/desbloqueio-confianca', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { contrato_id, usuario_logado } = req.body;
+        if (!contrato_id)
+            return res.status(400).json({ error: 'Contrato não informado.' });
+        console.log('[Abertura OS][Desbloqueio Confiança]', { contrato_id, usuario_logado });
+        yield makeIxcRequest('POST', '/desbloqueio_confianca', { id: String(contrato_id) });
         res.json({ success: true });
     }
     catch (error) {
@@ -476,7 +615,7 @@ router.get('/atendimento-oss/:id_ticket', (req, res) => __awaiter(void 0, void 0
                 setoresMap[s.id] = s.setor;
             });
         }
-        const oss = (resp.registros || []).map((os) => (Object.assign(Object.assign({}, os), { nome_setor: setoresMap[os.setor] || 'Setor Desconhecido' })));
+        const oss = (resp.registros || []).map((os) => (Object.assign(Object.assign({}, os), { nome_setor: setoresMap[os.setor] || 'Setor Desconhecido', status_label: traduzirStatusOsIxc(os.status), data_agenda_formatada: formatarAgendaOs(os.data_agenda || os.data_agendamento), ja_agendada: !!formatarAgendaOs(os.data_agenda || os.data_agendamento) })));
         //console.log(`\n[DEBUG WFL] OSs encontradas para o ticket ${req.params.id_ticket}:`);
         oss.forEach((o) => {
             //console.log(`OS ID: ${o.id} | wfl_param_os: ${o.id_wfl_param_os} | processo_alt: ${o.id_wfl_processo} | status: ${o.status}`);
