@@ -2,6 +2,7 @@
 import * as Express from 'express';
 import axios, { Method } from 'axios';
 import { LOCALHOST } from '../../../api/database';
+import { AgendaService } from './agendaService';
 
 const router = Express.Router();
 
@@ -40,6 +41,49 @@ const getIxcDate = () => {
     now.setHours(now.getHours() - 3); 
     return now.toISOString().replace('T', ' ').substring(0, 19);
 };
+
+function extrairProtocoloTicket(ticket: any): string {
+    if (!ticket) return '';
+    return ticket.protocolo
+        || ticket.numero_protocolo
+        || ticket.protocolo_atendimento
+        || ticket.id_protocolo
+        || ticket.codigo_protocolo
+        || '';
+}
+
+function traduzirStatusOsIxc(status: any): string {
+    const s = String(status || '').toUpperCase();
+    const mapa: Record<string, string> = {
+        A: 'Aberta',
+        AG: 'Agendada',
+        EN: 'Encaminhada',
+        DS: 'A caminho',
+        EX: 'Em execução',
+        RAG: 'Reagendar',
+        F: 'Finalizada',
+        C: 'Cancelada'
+    };
+    return mapa[s] || s || 'Não informado';
+}
+
+function formatarAgendaOs(valor: any): string {
+    if (!valor || String(valor).startsWith('0000-00-00')) return '';
+    const str = String(valor).trim();
+    const match = str.match(/^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2}))?/);
+    if (match) return `${match[3]}/${match[2]}/${match[1]}${match[4] ? ` ${match[4]}:${match[5]}` : ''}`;
+    return str;
+}
+
+async function buscarTicketIxc(ticketId: string): Promise<any> {
+    const ticketResp = await makeIxcRequest('POST', '/su_ticket', {
+        qtype: 'su_ticket.id',
+        query: String(ticketId),
+        oper: '=',
+        rp: '1'
+    });
+    return ticketResp.registros?.[0] || null;
+}
 
 async function obterIdFuncionarioIxc(usuario_intranet: string): Promise<string> {
     if (!usuario_intranet) return "138";
@@ -174,6 +218,9 @@ router.get('/busca-cliente/:termo', async (req, res) => {
 
             return {
                 id: contrato.id,
+                status: contrato.status || '',
+                status_internet: contrato.status_internet || contrato.status_acesso || '',
+                bloqueio_automatico: contrato.bloqueio_automatico || '',
                 endereco_completo: arrayEnd.join(' | '),
                 condominio: nomeCondominio || null,
                 is_predio: isPredio,
@@ -211,6 +258,14 @@ router.get('/busca-cliente/:termo', async (req, res) => {
             nome: clienteEncontrado.razao,
             documento: clienteEncontrado.cnpj_cpf,
             telefones: [clienteEncontrado.telefone_celular, clienteEncontrado.whatsapp, clienteEncontrado.telefone_residencial].filter(f => f).join(' / ') || 'Sem telefone',
+            contatos: {
+                fone: clienteEncontrado.fone || clienteEncontrado.telefone_residencial || '',
+                telefone_comercial: clienteEncontrado.telefone_comercial || '',
+                telefone_celular: clienteEncontrado.telefone_celular || '',
+                whatsapp: clienteEncontrado.whatsapp || '',
+                email: clienteEncontrado.email || '',
+                contato: clienteEncontrado.contato || ''
+            },
             contratos: contratosProcessados
         });
 
@@ -232,11 +287,37 @@ router.post('/criar-os', async (req, res) => {
     }
 
     try {
+        const abertosResp = await makeIxcRequest('POST', '/su_ticket', {
+            qtype: 'su_ticket.id_cliente',
+            query: String(cliente_id),
+            oper: '=',
+            page: '1',
+            rp: '50',
+            sortname: 'su_ticket.id',
+            sortorder: 'desc'
+        }).catch(() => ({ registros: [] }));
+
+        const atendimentoDuplicado = (abertosResp.registros || []).find((ticket: any) => {
+            const statusAberto = !['F', 'C'].includes(String(ticket.status || '').toUpperCase());
+            const mesmoContrato = !contrato_id || !ticket.id_contrato || String(ticket.id_contrato) === String(contrato_id);
+            const mesmoAssunto = !ticket.id_assunto || String(ticket.id_assunto) === String(id_assunto);
+            return statusAberto && mesmoContrato && mesmoAssunto;
+        });
+
+        if (atendimentoDuplicado) {
+            const protocoloDuplicado = extrairProtocoloTicket(atendimentoDuplicado) || 'Protocolo ainda não retornado pelo IXC';
+            return res.status(409).json({
+                error: `Já existe atendimento aberto compatível para este cliente/contrato: #${atendimentoDuplicado.id}. Protocolo: ${protocoloDuplicado}.`,
+                ticket_id: atendimentoDuplicado.id,
+                protocolo: protocoloDuplicado
+            });
+        }
+
         const payloadTicket: any = {
             id_cliente: cliente_id,
             titulo: titulo || "Atendimento via Intranet",
             id_assunto: id_assunto, 
-            id_ticket_setor: id_departamento || "1",
+            id_ticket_setor: id_departamento || "4",
             id_wfl_processo: id_processo,
             origem_endereco: "CC",
             tipo: "C", 
@@ -262,7 +343,35 @@ router.post('/criar-os', async (req, res) => {
             throw new Error(ixcResp.message || "Erro desconhecido retornado pelo IXC");
         }
 
-        res.json({ success: true, ticket_id: ixcResp.id, message: "Atendimento criado com sucesso no IXC!" });
+        const ticketId = ixcResp.id || ixcResp.id_su_ticket || ixcResp.ticket_id;
+        let ticketCriado: any = null;
+        if (ticketId) {
+            ticketCriado = await buscarTicketIxc(String(ticketId)).catch(() => null);
+        }
+
+        let osCriada: any = null;
+        if (ticketId) {
+            const osCriadaResp = await makeIxcRequest('POST', '/su_oss_chamado', {
+                qtype: 'su_oss_chamado.id_ticket',
+                query: String(ticketId),
+                oper: '=',
+                rp: '1',
+                sortname: 'su_oss_chamado.id',
+                sortorder: 'desc'
+            }).catch(() => ({ registros: [] }));
+            osCriada = osCriadaResp.registros?.[0] || null;
+        }
+
+        const protocolo = extrairProtocoloTicket(ixcResp) || extrairProtocoloTicket(ticketCriado) || extrairProtocoloTicket(osCriada) || 'Protocolo ainda não retornado pelo IXC';
+        if (protocolo === 'Protocolo ainda não retornado pelo IXC') {
+            console.warn('[Abertura OS][Protocolo] Protocolo não retornado pelo IXC:', {
+                respostaCriacao: ixcResp,
+                ticketCriado,
+                osCriada
+            });
+        }
+
+        res.json({ success: true, ticket_id: ticketId, protocolo, message: "Atendimento criado com sucesso no IXC!" });
         //console.log("=== CHAMADO CRIADO COM SUCESSO ===\n");
 
     } catch (error: any) {
@@ -349,10 +458,11 @@ router.get('/tarefas/:id_processo/:id_tarefa_atual', async (req, res) => {
 });
 
 router.post('/avancar-tarefa', async (req, res) => {
-    const { ticket_id, os_id, id_tarefa, mensagem, usuario_intranet } = req.body; 
+    const { ticket_id, os_id, id_tarefa, mensagem, usuario_intranet, usuario_logado } = req.body; 
     
     try {
-        const idTecnicoIxc = await obterIdFuncionarioIxc(usuario_intranet);
+        const usuarioIxc = await AgendaService.obterUsuarioIxcLogado(usuario_intranet || usuario_logado);
+        const idTecnicoIxc = usuarioIxc.id_funcionario_ixc;
 
         let osAberta = null;
         let ticketIdRetornado = ticket_id;
@@ -394,9 +504,9 @@ router.post('/avancar-tarefa', async (req, res) => {
             "id_tecnico": idTecnicoIxc,
             "id_equipe": "",
             "gera_comissao": "N",
-            "status": "F", 
+            "status": osAberta.status || "A", 
             "data": dataAtual,
-            "id_evento": "",
+            "id_evento": osAberta.id_evento || osAberta.id_evento_status || osAberta.id_wfl_tarefa || "0",
             "id_su_diagnostico": "",
             "justificativa_sla_atrasado": "",
             "latitude": "",
@@ -407,11 +517,25 @@ router.post('/avancar-tarefa', async (req, res) => {
             "eh_tarefa_decisao": "N",
             "sequencia_atual": "",
             "proxima_sequencia_forcada": "",
+            "finaliza_processo": "N",
             "finaliza_processo_aux": "N",
-            "id_evento_status": "",
+            "id_evento_status": osAberta.id_evento_status || osAberta.id_evento || osAberta.id_wfl_tarefa || "0",
             "id_proxima_tarefa": id_tarefa,
             "id_proxima_tarefa_aux": ""
         };
+
+        console.log('[Abertura OS][Avancar Tarefa] Payload IXC:', {
+            os_id: osAberta.id,
+            ticket_id: ticketIdRetornado,
+            usuario_logado: usuario_intranet || usuario_logado,
+            id_funcionario_ixc: idTecnicoIxc,
+            colaborador_nome: usuarioIxc.nome,
+            status_atual: osAberta.status,
+            id_tarefa_atual: idTarefaAtualWfl,
+            id_proxima_tarefa: id_tarefa,
+            finaliza_processo: payloadFechamento.finaliza_processo,
+            payload: payloadFechamento
+        });
 
         const respWfl = await makeIxcRequest('POST', '/su_oss_chamado_fechar', payloadFechamento, 'incluir');
         
@@ -454,8 +578,10 @@ router.get('/historico-conexao/:username', async (req, res) => {
 
 router.post('/limpar-mac', async (req, res) => {
     try {
-        const { id_login } = req.body;
-        await makeIxcRequest('POST', `/radusuarios_${id_login}`, { get_id: "" });
+        const { id_login, usuario_logado } = req.body;
+        if (!id_login) return res.status(400).json({ error: 'ID PPPoE não informado.' });
+        console.log('[Abertura OS][Limpar MAC]', { id_login, usuario_logado });
+        await makeIxcRequest('POST', '/radusuarios_25452', { get_id: String(id_login) });
         res.json({ success: true });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
@@ -464,8 +590,22 @@ router.post('/limpar-mac', async (req, res) => {
 
 router.post('/desconectar', async (req, res) => {
     try {
-        const { id_login } = req.body;
-        await makeIxcRequest('POST', '/desconectar_clientes', { id: id_login });
+        const { id_login, usuario_logado } = req.body;
+        if (!id_login) return res.status(400).json({ error: 'ID PPPoE não informado.' });
+        console.log('[Abertura OS][Desconectar Login]', { id_login, usuario_logado });
+        await makeIxcRequest('POST', '/desconectar_clientes', { id: String(id_login) });
+        res.json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/desbloqueio-confianca', async (req, res) => {
+    try {
+        const { contrato_id, usuario_logado } = req.body;
+        if (!contrato_id) return res.status(400).json({ error: 'Contrato não informado.' });
+        console.log('[Abertura OS][Desbloqueio Confiança]', { contrato_id, usuario_logado });
+        await makeIxcRequest('POST', '/desbloqueio_confianca', { id: String(contrato_id) });
         res.json({ success: true });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
@@ -517,7 +657,10 @@ router.get('/atendimento-oss/:id_ticket', async (req, res) => {
 
         const oss = (resp.registros || []).map((os: any) => ({
             ...os,
-            nome_setor: setoresMap[os.setor] || 'Setor Desconhecido'
+            nome_setor: setoresMap[os.setor] || 'Setor Desconhecido',
+            status_label: traduzirStatusOsIxc(os.status),
+            data_agenda_formatada: formatarAgendaOs(os.data_agenda || os.data_agendamento),
+            ja_agendada: !!formatarAgendaOs(os.data_agenda || os.data_agendamento)
         }));
         
         //console.log(`\n[DEBUG WFL] OSs encontradas para o ticket ${req.params.id_ticket}:`);

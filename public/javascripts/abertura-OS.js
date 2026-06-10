@@ -2,6 +2,37 @@
 let clienteAtual = null;
 let ultimoTicketGerado = null;
 
+function traduzirStatusContrato(status) {
+    const mapa = { P: 'Pré-contrato', A: 'Ativo', I: 'Inativo', N: 'Negativado', D: 'Desistiu' };
+    const s = String(status || '').toUpperCase();
+    return mapa[s] ? `${mapa[s]} (${s})` : (s ? `Desconhecido (${s})` : 'Não informado');
+}
+
+function traduzirStatusAcesso(status) {
+    const mapa = { A: 'Ativo', D: 'Desativado', CM: 'Bloqueio Manual', CA: 'Bloqueio Automático', FA: 'Financeiro em atraso', AA: 'Aguardando Assinatura' };
+    const s = String(status || '').toUpperCase();
+    return mapa[s] ? `${mapa[s]} (${s})` : (s ? `Desconhecido (${s})` : 'Não informado');
+}
+
+function simNao(valor) {
+    const v = String(valor || '').toUpperCase();
+    if (v === 'S') return 'Sim';
+    if (v === 'N') return 'Não';
+    return 'Não informado';
+}
+
+function montarContatosCliente(cliente) {
+    const contatos = cliente?.contatos || {};
+    return [
+        ['Telefone residencial', contatos.fone],
+        ['Telefone comercial', contatos.telefone_comercial],
+        ['Telefone celular', contatos.telefone_celular],
+        ['WhatsApp', contatos.whatsapp],
+        ['E-mail', contatos.email],
+        ['Contato', contatos.contato]
+    ].filter(([, valor]) => valor).map(([label, valor]) => `${label}: ${valor}`).join(' | ') || 'Nenhum contato cadastrado';
+}
+
 document.addEventListener('DOMContentLoaded', async function() {
     initializeThemeAndUserInfo();
     
@@ -59,7 +90,7 @@ async function realizarBusca(termo) {
     termo = termo.trim();
 
     if (/[a-zA-Z]/.test(termo)) {
-        alert("Busca inválida! Digite apenas o Código do cliente, CPF ou CNPJ.");
+        showInfoModal("Busca inválida! Digite apenas o Código do cliente, CPF ou CNPJ.");
         document.getElementById('input-busca-cliente').value = '';
         return;
     }
@@ -80,7 +111,7 @@ async function realizarBusca(termo) {
 
         document.getElementById('display-nome-cliente').textContent = data.nome || 'N/A';
         const elTelefone = document.getElementById('display-telefone-cliente');
-        if (elTelefone) elTelefone.innerHTML = `<i class="bi bi-telephone-fill me-1"></i>${data.telefones}`;
+        if (elTelefone) elTelefone.innerHTML = `<i class="bi bi-telephone-fill me-1"></i>${montarContatosCliente(data)}`;
 
         const formTriagem = document.getElementById('form-triagem');
         const alertaInativo = document.getElementById('alerta-cliente-inativo');
@@ -93,10 +124,16 @@ async function realizarBusca(termo) {
             selectContrato.disabled = false;
 
             data.contratos.forEach(c => {
-                selectContrato.add(new Option(`Contrato ${c.id} - ${c.plano.nome}`, c.id));
+                selectContrato.add(new Option(`Contrato ${c.id} - ${c.plano.nome} - ${traduzirStatusContrato(c.status)}`, c.id));
             });
             document.getElementById('painel-detalhes-tecnicos').style.display = 'flex';
-            window.renderizarDetalhesContrato(data.contratos[0].id);
+            if (data.contratos.length > 1) {
+                selectContrato.selectedIndex = -1;
+                await showInfoModal('Este cliente possui mais de um contrato elegível. Selecione o contrato correto antes de continuar.', 'Seleção obrigatória', 'warning');
+            } else {
+                selectContrato.value = data.contratos[0].id;
+                window.renderizarDetalhesContrato(data.contratos[0].id);
+            }
         } else {
             selectContrato.add(new Option('Nenhum contrato ativo/bloqueado localizado', ''));
             selectContrato.disabled = true;
@@ -114,7 +151,7 @@ async function realizarBusca(termo) {
         card.style.pointerEvents = 'auto';
 
     } catch (error) {
-        alert(error.message);
+        showInfoModal(error.message);
         const card = document.getElementById('card-diagnostico');
         card.style.opacity = '0.5';
         card.style.pointerEvents = 'none';
@@ -165,12 +202,11 @@ window.renderizarDetalhesContrato = function(contratoId) {
     document.getElementById('det-plano-nome').textContent = c.plano.nome;
     document.getElementById('det-plano-valor').textContent = parseFloat(c.plano.valor || 0).toFixed(2).replace('.', ',');
     
-    let statusBadge = '';
-    if (c.plano.status === 'A') statusBadge = '<span class="badge bg-success">Ativo</span>';
-    else if (c.plano.status === 'CM') statusBadge = '<span class="badge bg-danger">Cancelado</span>';
-    else if (c.plano.status === 'B' || c.plano.status === 'F') statusBadge = '<span class="badge bg-warning text-dark">Bloqueado Financeiro</span>';
-    else statusBadge = `<span class="badge bg-secondary">${c.plano.status}</span>`;
-    document.getElementById('det-plano-status').innerHTML = statusBadge;
+    document.getElementById('det-plano-status').innerHTML = `
+        <span class="badge bg-success">${traduzirStatusContrato(c.status || c.plano.status)}</span>
+        <span class="badge bg-primary ms-1">Acesso: ${traduzirStatusAcesso(c.status_internet)}</span>
+        <span class="badge bg-secondary ms-1">Bloqueio automático: ${simNao(c.bloqueio_automatico)}</span>
+    `;
 
     const pppoeArea = document.getElementById('area-pppoe-onu');
     if (c.login) {
@@ -191,6 +227,7 @@ window.renderizarDetalhesContrato = function(contratoId) {
             
             <div class="d-flex flex-wrap gap-2 mb-2">
                 <button class="btn btn-sm btn-outline-primary fw-bold" id="btn-relatorio-pppoe" data-user="${c.login.user}"><i class="bi bi-file-earmark-bar-graph"></i> Relatório de Conexão</button>
+                <button class="btn btn-sm btn-outline-success fw-bold" id="btn-desbloqueio-confianca" data-contratoid="${c.id}"><i class="bi bi-unlock"></i> Desbloqueio de Confiança</button>
                 <button class="btn btn-sm btn-outline-warning fw-bold text-dark" id="btn-limpar-mac" data-loginid="${c.login.id}"><i class="bi bi-eraser"></i> Limpar MAC</button>
                 <button class="btn btn-sm btn-outline-danger fw-bold" id="btn-desconectar" data-loginid="${c.login.id}"><i class="bi bi-plug"></i> Desconectar</button>
             </div>
@@ -201,6 +238,7 @@ window.renderizarDetalhesContrato = function(contratoId) {
         `;
 
         document.getElementById('btn-relatorio-pppoe').addEventListener('click', function() { verHistoricoPppoe(this.dataset.user); });
+        document.getElementById('btn-desbloqueio-confianca').addEventListener('click', function() { desbloqueioConfianca(this.dataset.contratoid); });
         document.getElementById('btn-limpar-mac').addEventListener('click', function() { limparMacPppoe(this.dataset.loginid); });
         document.getElementById('btn-desconectar').addEventListener('click', function() { desconectarPppoe(this.dataset.loginid); });
 
@@ -246,7 +284,7 @@ function atualizarChecklist(e) {
 }
 
 async function gerarOS() {
-    if (!clienteAtual) return alert("Busque e selecione um cliente primeiro.");
+    if (!clienteAtual) return showInfoModal("Busque e selecione um cliente primeiro.");
 
     const selectAssunto = document.getElementById('select-assunto');
     const id_assunto = selectAssunto.value;
@@ -258,17 +296,21 @@ async function gerarOS() {
     const id_contrato = document.getElementById('select-contrato').value;
     const observacao = document.getElementById('obs-triagem').value;
 
-    if (!id_assunto) return alert("Selecione um Processo/Assunto.");
+    if (clienteAtual.contratos && clienteAtual.contratos.length > 1 && !id_contrato) {
+        return showInfoModal('Selecione o contrato correto antes de continuar.', 'Contrato obrigatório', 'warning');
+    }
+
+    if (!id_assunto) return showInfoModal("Selecione um Processo/Assunto.");
     
     if (!id_processo) {
-        return alert("ERRO DE CONFIGURAÇÃO NO IXC: Este assunto não possui um Processo (Workflow) vinculado a ele no IXC. Peça ao gestor para vincular!");
+        return showInfoModal("ERRO DE CONFIGURAÇÃO NO IXC: Este assunto não possui um Processo (Workflow) vinculado a ele no IXC. Peça ao gestor para vincular!");
     }
     
-    if (!observacao) return alert("Preencha as observações da triagem.");
+    if (!observacao) return showInfoModal("Preencha as observações da triagem.");
 
     const checkboxes = document.querySelectorAll('#checklist-items input[type="checkbox"]');
     for (let chk of checkboxes) {
-        if (!chk.checked) return alert("Por favor, confirme todos os itens do checklist obrigatório.");
+        if (!chk.checked) return showInfoModal("Por favor, confirme todos os itens do checklist obrigatório.");
     }
 
     const btn = document.getElementById('btn-gerar-os');
@@ -299,6 +341,10 @@ async function gerarOS() {
         if (spanTicket) {
             spanTicket.textContent = ultimoTicketGerado;
         }
+        const spanProtocolo = document.getElementById('sucesso-ticket-protocolo');
+        if (spanProtocolo) {
+            spanProtocolo.textContent = data.protocolo || '';
+        }
         
         carregarTarefasProcesso(id_processo);
         
@@ -307,7 +353,7 @@ async function gerarOS() {
         modalDecisao.show();
 
     } catch (error) {
-        alert("Erro ao criar chamado: " + error.message);
+        showInfoModal("Erro ao criar chamado: " + error.message);
     } finally {
         btn.innerHTML = '<i class="bi bi-file-earmark-plus me-2"></i>Continuar';
         btn.disabled = false;
@@ -350,7 +396,7 @@ async function carregarTarefasProcesso(id_processo) {
 
 async function processarAvancoTarefa() {
     const selectedTarefa = document.querySelector('input[name="tarefa_wfl"]:checked');
-    if (!selectedTarefa) return alert('Selecione uma etapa para avançar!');
+    if (!selectedTarefa) return showInfoModal('Selecione uma etapa para avançar!');
 
     const nomeTarefa = selectedTarefa.getAttribute('data-nome') || '';
 
@@ -362,7 +408,7 @@ async function processarAvancoTarefa() {
     let payload = {};
 
     if (window.osParaTramitar) {
-        let msg = prompt("Digite uma mensagem de encaminhamento/resolução:", "Encaminhado para setor responsável via Intranet");
+        let msg = await showPromptModal("Digite uma mensagem de encaminhamento/resolução:", "Encaminhado para setor responsável via Intranet");
         if (msg === null) {
             btn.innerHTML = conteudoOriginal;
             btn.disabled = false;
@@ -372,7 +418,8 @@ async function processarAvancoTarefa() {
         payload = {
             os_id: window.osParaTramitar.id,
             id_tarefa: selectedTarefa.value,
-            mensagem: msg
+            mensagem: msg,
+            usuario_logado: window.usuarioLogado
         };
     }
     else {
@@ -386,7 +433,8 @@ async function processarAvancoTarefa() {
         payload = {
             ticket_id: ultimoTicketGerado,
             id_tarefa: selectedTarefa.value,
-            mensagem: msgEncaminhamento
+            mensagem: msgEncaminhamento,
+            usuario_logado: window.usuarioLogado
         };
     }
 
@@ -408,7 +456,7 @@ async function processarAvancoTarefa() {
             const idReferencia = payload.ticket_id || data.ticket_id_retornado;
             window.location.href = `/agendamento?os=${idReferencia}&origem=suporte`;
         } else {
-            alert(`O.S. encaminhada com sucesso para a etapa: ${nomeTarefa}`);
+            showInfoModal(`O.S. encaminhada com sucesso para a etapa: ${nomeTarefa}`);
             window.location.reload();
             
             const modalDecisaoEl = document.getElementById('modalDecisaoAgendamento');
@@ -423,7 +471,7 @@ async function processarAvancoTarefa() {
         }
         
     } catch (error) {
-        alert("Erro ao avançar etapa: " + error.message);
+        showInfoModal("Erro ao avançar etapa: " + error.message);
         btn.innerHTML = conteudoOriginal;
         btn.disabled = false;
     }
@@ -508,23 +556,48 @@ async function verHistoricoPppoe(username) {
 }
 
 async function limparMacPppoe(id_login) {
-    if(!confirm('Deseja realmente limpar o MAC e derrubar o bloqueio deste PPPoE?')) return;
+    if (!(await showConfirmModal('Deseja realmente limpar o MAC e derrubar o bloqueio deste PPPoE?'))) return;
     try {
-        await fetch('/api/v5/abertura-OS/limpar-mac', {
-            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({id_login})
+        const response = await fetch('/api/v5/abertura-OS/limpar-mac', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ id_login, usuario_logado: window.usuarioLogado })
         });
-        alert('MAC limpo com sucesso! Peça para o cliente reiniciar o roteador.');
-    } catch(e) { alert('Erro ao limpar MAC.'); }
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.success === false) throw new Error(data.error || 'Falha ao limpar MAC.');
+        showInfoModal('MAC limpo com sucesso! Peça para o cliente reiniciar o roteador.', 'Sucesso', 'success');
+    } catch(e) { showInfoModal('Erro ao limpar MAC: ' + e.message, 'Erro', 'danger'); }
 }
 
 async function desconectarPppoe(id_login) {
-    if(!confirm('Atenção: Isso forçará a queda da conexão do cliente. Continuar?')) return;
+    if (!(await showConfirmModal('Atenção: isso forçará a queda da conexão do cliente. Continuar?', 'Desconectar login', 'warning'))) return;
     try {
-        await fetch('/api/v5/abertura-OS/desconectar', {
-            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({id_login})
+        const response = await fetch('/api/v5/abertura-OS/desconectar', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ id_login, usuario_logado: window.usuarioLogado })
         });
-        alert('Comando de desconexão (Kick) enviado à NAS com sucesso!');
-    } catch(e) { alert('Erro ao desconectar cliente.'); }
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.success === false) throw new Error(data.error || 'Falha ao desconectar login.');
+        showInfoModal('Comando de desconexão enviado com sucesso.', 'Sucesso', 'success');
+    } catch(e) { showInfoModal('Erro ao desconectar cliente: ' + e.message, 'Erro', 'danger'); }
+}
+
+async function desbloqueioConfianca(contrato_id) {
+    if (!contrato_id) return showInfoModal('Selecione um contrato antes de solicitar desbloqueio.', 'Contrato obrigatório', 'warning');
+    if (!(await showConfirmModal('Executar desbloqueio de confiança para este contrato?', 'Desbloqueio de confiança', 'warning'))) return;
+    try {
+        const response = await fetch('/api/v5/abertura-OS/desbloqueio-confianca', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contrato_id, usuario_logado: window.usuarioLogado })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.success === false) throw new Error(data.error || 'Falha ao executar desbloqueio.');
+        showInfoModal('Desbloqueio de confiança enviado com sucesso.', 'Sucesso', 'success');
+    } catch (e) {
+        showInfoModal('Erro no desbloqueio de confiança: ' + e.message, 'Erro', 'danger');
+    }
 }
 
 function formatBytes(bytes) {
@@ -570,9 +643,9 @@ async function buscarAtendimentosAbertos(id_cliente) {
                 div.style.cursor = 'pointer';
                 div.dataset.ticket = JSON.stringify(t);
                 
-                div.onclick = function() {
+                div.addEventListener('click', function() {
                     abrirModalTicket(JSON.parse(this.dataset.ticket));
-                };
+                });
 
                 div.innerHTML = `
                     <div class="d-flex justify-content-between mb-2">
@@ -619,10 +692,18 @@ async function abrirModalTicket(ticket) {
 
         let html = '';
         oss.forEach(os => {
-            let statusBadge = `<span class="badge bg-secondary">${os.status}</span>`;
-            if (os.status === 'F') statusBadge = '<span class="badge bg-success">Finalizado</span>';
+            const statusLabel = os.status_label || os.status || 'Não informado';
+            let statusBadge = `<span class="badge bg-secondary">${statusLabel}</span>`;
+            if (os.status === 'F') statusBadge = '<span class="badge bg-success">Finalizada</span>';
+            else if (os.status === 'C') statusBadge = '<span class="badge bg-secondary">Cancelada</span>';
             else if (os.status === 'RAG') statusBadge = '<span class="badge bg-danger">Reagendar</span>';
-            else if (os.status === 'A' || os.status === 'EN' || os.status === 'AG') statusBadge = '<span class="badge bg-warning text-dark">Em Andamento</span>';
+            else if (os.status === 'AG' || os.ja_agendada) statusBadge = '<span class="badge bg-primary">Agendada</span>';
+            else if (os.status === 'DS') statusBadge = '<span class="badge bg-info text-dark">A caminho</span>';
+            else if (os.status === 'EX') statusBadge = '<span class="badge bg-warning text-dark">Em execução</span>';
+            else if (os.status === 'A' || os.status === 'EN') statusBadge = '<span class="badge bg-warning text-dark">Aberta</span>';
+            if (os.data_agenda_formatada) {
+                statusBadge += `<br><span class="badge bg-light text-dark border mt-1"><i class="bi bi-calendar-check me-1"></i>${os.data_agenda_formatada}</span>`;
+            }
             
             let resposta = os.mensagem_resposta || os.mensagem || '---';
             resposta = resposta.replace(/(<([^>]+)>)/gi, " ");
@@ -638,7 +719,10 @@ async function abrirModalTicket(ticket) {
                 const upperSetor = nomeSetor.toUpperCase();
                 const podeAgendar = setoresAgendaveis.some(s => upperSetor.includes(s));
 
-                if (podeAgendar) {
+                if (os.ja_agendada) {
+                    acoesHtml = `<button class="btn btn-sm btn-outline-primary fw-bold w-100 shadow-sm btn-ver-agendamento" data-agenda="${os.data_agenda_formatada || ''}"><i class="bi bi-calendar-check me-1"></i>Ver agendamento</button>
+                    <button class="btn btn-sm btn-warning fw-bold w-100 shadow-sm mt-1 btn-agendar-direto" data-os-id="${os.id}" data-ja-agendada="1" data-agenda="${os.data_agenda_formatada || ''}"><i class="bi bi-calendar2-week me-1"></i>Reagendar</button>`;
+                } else if (podeAgendar) {
                     acoesHtml = `<button class="btn btn-sm btn-success fw-bold w-100 shadow-sm btn-agendar-direto" data-os-id="${os.id}"><i class="bi bi-calendar-check me-1"></i>Agendar</button>`;
                 } else {
                     acoesHtml = `<button class="btn btn-sm btn-primary fw-bold w-100 shadow-sm btn-tramitar-agendar" data-os='${JSON.stringify(os).replace(/'/g, "&#39;")}'><i class="bi bi-arrow-right-circle me-1"></i>Tramitar / Agendar</button>`;
@@ -665,7 +749,7 @@ window.abrirTramiteOS = async function(os) {
     const idTarefaAtual = os.id_wfl_tarefa || os.id_tarefa_atual || os.id_tarefa || '0';
 
     if (!idProcesso || idProcesso === '0') {
-        alert('Esta O.S. não possui um fluxo de trabalho (Workflow) configurado no IXC. Não é possível tramitar automaticamente.');
+        showInfoModal('Esta O.S. não possui um fluxo de trabalho (Workflow) configurado no IXC. Não é possível tramitar automaticamente.');
         return;
     }
 
@@ -715,11 +799,21 @@ window.abrirTramiteOS = async function(os) {
     }
 };
 
-document.addEventListener('click', function(e) {
+document.addEventListener('click', async function(e) {
     const btnAgendar = e.target.closest('.btn-agendar-direto');
     if (btnAgendar) {
         const osId = btnAgendar.getAttribute('data-os-id');
+        if (btnAgendar.getAttribute('data-ja-agendada') === '1') {
+            const agenda = btnAgendar.getAttribute('data-agenda') || 'data já preenchida no IXC';
+            if (!(await showConfirmModal(`Esta OS já possui agendamento para ${agenda}. Deseja reagendar?`))) return;
+        }
         window.location.href = `/agendamento?os=${osId}&origem=suporte`;
+        return;
+    }
+
+    const btnVerAgenda = e.target.closest('.btn-ver-agendamento');
+    if (btnVerAgenda) {
+        showInfoModal(`Agendamento atual: ${btnVerAgenda.getAttribute('data-agenda') || 'não localizado'}`);
         return;
     }
 
@@ -790,7 +884,7 @@ function initializeThemeAndUserInfo() {
             const rawGroup = data.group || '';
             const group = data.group || 'Sem grupo';
             if (username === 'Visitante') {
-                showModal('Sessão Expirada', 'Será necessário refazer o login!', 'warning');
+                showInfoModal('Sessão Expirada', 'Será necessário refazer o login!', 'warning');
                 setTimeout(() => { window.location = "/"; }, 300);
                 return;
             }
