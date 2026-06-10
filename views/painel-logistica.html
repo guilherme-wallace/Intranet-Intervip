@@ -246,6 +246,19 @@
                                 </div>
                             </div>
 
+                            <div id="box-resumo-acesso" class="border rounded p-3 mb-4 bg-light">
+                                <h6 class="fw-bold small text-uppercase mb-2 text-muted"><i class="bi bi-activity me-2"></i>Resumo de Acesso</h6>
+                                <div class="row g-2 small">
+                                    <div class="col-6"><strong>Status:</strong> <span id="resumo-status-acesso" class="badge bg-secondary">---</span></div>
+                                    <div class="col-6"><strong>Quedas Hoje:</strong> <span id="resumo-quedas-hoje">0</span></div>
+                                    <div class="col-6"><strong>Quedas 7 dias:</strong> <span id="resumo-quedas-7d">0</span></div>
+                                    <div class="col-6"><strong>RX/TX:</strong> <span id="resumo-sinais-onu">N/A</span></div>
+                                </div>
+                                <button class="btn btn-sm btn-outline-primary fw-bold mt-3 d-none" id="btn-relatorio-conexao">
+                                    <i class="bi bi-file-earmark-bar-graph me-1"></i>Relatório de conexão
+                                </button>
+                            </div>
+
                             <h6 class="text-muted fw-bold small text-uppercase mb-2"><i class="bi bi-geo-alt-fill me-2"></i>Endereço Completo</h6>
                             <p class="mb-1 text-dark fw-medium" id="det-endereco">---</p>
                             <p class="mb-4 text-muted small"><i class="bi bi-geo me-1"></i>Ref: <span id="det-referencia">---</span></p>
@@ -253,6 +266,11 @@
                             <h6 class="text-muted fw-bold small text-uppercase mb-2"><i class="bi bi-clipboard-data me-2"></i>Sintoma / Descrição da O.S.</h6>
                             <div class="bg-light p-3 rounded border" style="max-height: 200px; overflow-y: auto;">
                                 <p class="mb-0 small fw-medium text-dark" id="det-sintoma" style="white-space: pre-wrap; word-break: break-word;">---</p>
+                            </div>
+
+                            <h6 class="text-muted fw-bold small text-uppercase mt-4 mb-2"><i class="bi bi-chat-dots me-2"></i>Histórico de Mensagens</h6>
+                            <div id="historico-mensagens-os" class="bg-light p-3 rounded border small" style="max-height: min(60vh, 520px); overflow-y: auto;">
+                                <p class="text-muted mb-0">Carregando mensagens...</p>
                             </div>
 
                             <div id="alerta-prioridade-futura" class="alert alert-danger d-none shadow-sm border-danger border-2 mt-3 mb-2">
@@ -267,6 +285,51 @@
                         
                         <div class="col-md-4 ps-4" id="area-acoes-os">
                             <h6 class="text-muted fw-bold small text-uppercase mb-3"><i class="bi bi-gear-fill me-2"></i>Ações da Logística</h6>
+
+                            <div class="border rounded p-3 mb-3 bg-light" id="secao-confirmacao-cliente">
+                                <label class="form-label small fw-bold mb-2">Confirmação com Cliente</label>
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-sm btn-success fw-bold" id="btn-contato-confirmado"><i class="bi bi-check-circle me-1"></i>Cliente Confirmou</button>
+                                    <button class="btn btn-sm btn-outline-danger fw-bold" id="btn-contato-nao-recebe"><i class="bi bi-calendar-x me-1"></i>Não irá receber / Reagendar</button>
+                                    <button class="btn btn-sm btn-outline-secondary fw-bold" id="btn-contato-sem-contato"><i class="bi bi-telephone-x me-1"></i>Sem contato</button>
+                                </div>
+                                <small id="status-contato-atual" class="text-muted d-block mt-2">Status: pendente</small>
+                            </div>
+
+                            <div class="border rounded p-3 mb-3 bg-light" id="secao-espera-cliente">
+                                <label class="form-label small fw-bold">Técnico aguardará cliente</label>
+                                <div class="input-group input-group-sm mb-2">
+                                    <input type="number" min="1" class="form-control" id="input-minutos-espera" placeholder="Minutos">
+                                    <button class="btn btn-outline-warning fw-bold" id="btn-iniciar-espera">Iniciar</button>
+                                    <button class="btn btn-outline-danger fw-bold" id="btn-parar-espera">Parar</button>
+                                </div>
+                            </div>
+
+                            <div class="border rounded p-3 mb-3 bg-light">
+                                <label class="form-label small fw-bold">Observação da Logística</label>
+                                <textarea class="form-control form-control-sm mb-2" id="input-observacao-logistica" rows="3" placeholder="Digite uma observação para registrar no IXC..."></textarea>
+                                <button class="btn btn-sm btn-outline-primary fw-bold w-100" id="btn-salvar-observacao-logistica"><i class="bi bi-chat-left-text me-1"></i>Salvar observação no IXC</button>
+                            </div>
+
+                            <div class="border rounded p-3 mb-3 bg-light" id="secao-prioridade-logistica">
+                                <label class="form-label small fw-bold">Prioridade Manual</label>
+                                <select class="form-select form-select-sm mb-2" id="input-prioridade-logistica">
+                                    <option value="0">Normal</option>
+                                    <option value="1">Média</option>
+                                    <option value="2">Alta</option>
+                                    <option value="3">Urgente</option>
+                                </select>
+                                <textarea class="form-control form-control-sm mb-2" id="input-prioridade-logistica-obs" rows="2" placeholder="Motivo da prioridade"></textarea>
+                                <button class="btn btn-sm btn-outline-danger fw-bold w-100" id="btn-salvar-prioridade-logistica"><i class="bi bi-arrow-up-circle me-1"></i>Salvar prioridade</button>
+                            </div>
+
+                            <div class="border rounded p-3 mb-3 bg-light" id="secao-tags-os">
+                                <label class="form-label small fw-bold">Tags da OS</label>
+                                <div id="lista-tags-os" class="d-flex flex-wrap gap-2 mb-2">
+                                    <span class="text-muted small">Carregando tags...</span>
+                                </div>
+                                <button class="btn btn-sm btn-outline-secondary fw-bold w-100" id="btn-salvar-tags-os"><i class="bi bi-tags me-1"></i>Salvar tags</button>
+                            </div>
                             
                             <ul class="nav nav-tabs" id="myTab" role="tablist">
                                 <li class="nav-item" role="presentation">
@@ -288,6 +351,7 @@
                                         <option value="MATUTINO">Matutino (Manhã)</option>
                                         <option value="VESPERTINO">Vespertino (Tarde)</option>
                                     </select>
+                                    <div id="info-capacidade-reagendamento" class="small rounded border bg-white p-2 mb-3 text-muted d-none"></div>
                                     <button class="btn btn-warning w-100 fw-bold shadow-sm" id="btn-action-reagendar"><i class="bi bi-calendar-event me-2"></i>Reagendar Visita</button>
                                 </div>
                                 <div class="tab-pane fade" id="tab-fechar">
@@ -312,7 +376,7 @@
         <div class="modal-dialog modal-dialog-centered modal-xl"> <div class="modal-content">
                 <div class="modal-header bg-light">
                     <h5 class="modal-title fw-bold">
-                        <i class="bi bi-gear-fill me-2 text-primary"></i>Configurações do Dia: <span id="display-data-escala" class="text-dark"></span>
+                        <i class="bi bi-gear-fill me-2 text-primary"></i>Configurações Logísticas: <span id="display-data-escala" class="text-dark"></span>
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
@@ -325,8 +389,23 @@
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
+                            <button class="nav-link fw-bold text-dark" id="duplas-tab" data-bs-toggle="tab" data-bs-target="#duplas-panel" type="button" role="tab">
+                                <i class="bi bi-diagram-3 me-1 text-info"></i> Duplas
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
                             <button class="nav-link fw-bold text-dark" id="capacidade-tab" data-bs-toggle="tab" data-bs-target="#capacidade-panel" type="button" role="tab">
-                                <i class="bi bi-speedometer2 me-1 text-success"></i> Capacidade de Agendamentos
+                                <i class="bi bi-speedometer2 me-1 text-success"></i> Capacidade Hoje
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link fw-bold text-dark" id="modelos-tab" data-bs-toggle="tab" data-bs-target="#modelos-panel" type="button" role="tab">
+                                <i class="bi bi-bookmark-star me-1 text-primary"></i> Modelos/Padrões
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link fw-bold text-dark" id="tags-tab" data-bs-toggle="tab" data-bs-target="#tags-panel" type="button" role="tab">
+                                <i class="bi bi-tags me-1 text-danger"></i> Tags
                             </button>
                         </li>
                     </ul>
@@ -334,6 +413,21 @@
                     <div class="tab-content p-4" id="configTabsContent">
                         
                         <div class="tab-pane fade show active" id="escala-panel" role="tabpanel">
+                            <div class="border-top pt-2 mb-3 d-flex flex-wrap justify-content-between align-items-end gap-2">
+                                <div>
+                                    <h6 class="fw-bold mb-1 text-dark">Técnicos Individuais</h6>
+                                    <small class="text-muted">Busque, selecione e ajuste equipe, região, turno e imóvel.</small>
+                                </div>
+                                <div style="min-width: 280px;">
+                                    <label class="form-label small fw-bold mb-1">Buscar técnico</label>
+                                    <input type="search" class="form-control form-control-sm" id="busca-tecnico-escala" placeholder="Digite parte do nome...">
+                                </div>
+                            </div>
+                            <div id="resumo-tecnicos-selecionados" class="alert alert-primary small py-2 mb-3">Nenhum técnico individual selecionado.</div>
+                            <div id="lista-checkbox-tecnicos" class="row g-2" style="max-height: 420px; overflow-y: auto;"></div>
+                        </div>
+
+                        <div class="tab-pane fade" id="duplas-panel" role="tabpanel">
                             <div class="d-flex justify-content-between align-items-center mb-3">
                                 <h6 class="fw-bold m-0 text-dark">Duplas Configuradas</h6>
                                 <button type="button" class="btn btn-sm btn-primary fw-bold shadow-sm" id="btn-add-dupla">
@@ -341,28 +435,9 @@
                                 </button>
                             </div>
                             <div id="container-duplas" class="mb-4"></div>
-
-                            <h6 class="fw-bold mb-3 border-top pt-4 text-dark">Técnicos Individuais</h6>
-                            <div id="lista-checkbox-tecnicos" class="row g-2" style="max-height: 250px; overflow-y: auto;"></div>
                         </div>
 
                         <div class="tab-pane fade" id="capacidade-panel" role="tabpanel">
-                            <div class="row mb-4 bg-white p-3 border rounded shadow-sm align-items-center">
-                                <div class="col-md-8">
-                                    <label class="form-label fw-bold text-primary mb-1"><i class="bi bi-bookmark-star-fill me-2"></i>Carregar Modelo de Escala</label>
-                                    <select class="form-select border-primary" id="select-template-capacidade">
-                                        <option value="">Selecione um modelo salvo...</option>
-                                        </select>
-                                </div>
-                                <div class="col-md-5 text-end mt-3 mt-md-0 d-flex gap-2 justify-content-end">
-                                    <button type="button" class="btn btn-outline-success fw-bold shadow-sm" id="btn-salvar-novo-template">
-                                        <i class="bi bi-plus-circle me-1"></i>Salvar Novo Modelo
-                                    </button>
-                                    <button type="button" class="btn btn-outline-primary fw-bold shadow-sm" id="btn-aplicar-template">
-                                        <i class="bi bi-check2-square me-1"></i>Aplicar Modelo
-                                    </button>
-                                </div>
-                            </div>
                             <div class="row g-4">
                                 <div class="col-md-6">
                                     <div class="card border-primary shadow-sm h-100">
@@ -409,6 +484,79 @@
                                             </div>
 
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="modelos-panel" role="tabpanel">
+                            <div class="row mb-4 bg-white p-3 border rounded shadow-sm align-items-center">
+                                <div class="col-md-8">
+                                    <label class="form-label fw-bold text-primary mb-1"><i class="bi bi-bookmark-star-fill me-2"></i>Carregar Modelo de Escala</label>
+                                    <select class="form-select border-primary" id="select-template-capacidade">
+                                        <option value="">Selecione um modelo salvo...</option>
+                                        </select>
+                                </div>
+                                <div class="col-md-5 text-end mt-3 mt-md-0 d-flex gap-2 justify-content-end">
+                                    <button type="button" class="btn btn-outline-success fw-bold shadow-sm" id="btn-salvar-novo-template">
+                                        <i class="bi bi-plus-circle me-1"></i>Salvar Novo Modelo
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary fw-bold shadow-sm" id="btn-aplicar-template">
+                                        <i class="bi bi-check2-square me-1"></i>Aplicar Modelo
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary fw-bold shadow-sm" id="btn-editar-template">
+                                        <i class="bi bi-pencil-square me-1"></i>Editar
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger fw-bold shadow-sm" id="btn-excluir-template">
+                                        <i class="bi bi-trash me-1"></i>Excluir
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="tags-panel" role="tabpanel">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <div class="border rounded p-3 bg-light">
+                                        <input type="hidden" id="tag-logistica-id">
+                                        <label class="form-label small fw-bold">Nome</label>
+                                        <input type="text" class="form-control form-control-sm mb-2" id="tag-logistica-nome" placeholder="Ex: Levar ONU">
+                                        <div class="row g-2">
+                                            <div class="col-6">
+                                                <label class="form-label small fw-bold">Fundo</label>
+                                                <input type="color" class="form-control form-control-color w-100" id="tag-logistica-cor-fundo" value="#0d6efd">
+                                            </div>
+                                            <div class="col-6">
+                                                <label class="form-label small fw-bold">Texto</label>
+                                                <input type="color" class="form-control form-control-color w-100" id="tag-logistica-cor-texto" value="#ffffff">
+                                            </div>
+                                        </div>
+                                        <label class="form-label small fw-bold mt-2">Ordem</label>
+                                        <input type="number" class="form-control form-control-sm mb-2" id="tag-logistica-ordem" value="0">
+                                        <div class="form-check form-switch mb-3">
+                                            <input class="form-check-input" type="checkbox" id="tag-logistica-ativo" checked>
+                                            <label class="form-check-label small fw-bold" for="tag-logistica-ativo">Ativa</label>
+                                        </div>
+                                        <div class="d-grid gap-2">
+                                            <button class="btn btn-sm btn-primary fw-bold" id="btn-salvar-tag-logistica">Salvar tag</button>
+                                            <button class="btn btn-sm btn-outline-secondary" id="btn-limpar-form-tag">Limpar</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-8">
+                                    <div class="table-responsive border rounded">
+                                        <table class="table table-sm align-middle mb-0">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Nome</th>
+                                                    <th>Preview</th>
+                                                    <th>Status</th>
+                                                    <th>Ordem</th>
+                                                    <th class="text-end">Ações</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="tbody-tags-logistica"></tbody>
+                                        </table>
                                     </div>
                                 </div>
                             </div>
@@ -489,8 +637,38 @@
         </div>
     </div>
 
+    <div class="modal fade" id="modalHistoricoPPPOE" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-clock-history me-2 text-primary"></i>Relatório de Conexão</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-3">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover small align-middle">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>IP</th>
+                                    <th>MAC Autenticado</th>
+                                    <th>Início</th>
+                                    <th>Fim</th>
+                                    <th>Tempo</th>
+                                    <th>Tráfego</th>
+                                    <th>Motivo da Queda</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-historico-pppoe"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="javascripts/jquery.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="javascripts/app-modal.js"></script>
     <script src="javascripts/painel-logistica.js"></script>
 </body>
 </html>

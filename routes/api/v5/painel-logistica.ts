@@ -1,4 +1,4 @@
-// routes/api/v5/painel-logistica.ts
+﻿// routes/api/v5/painel-logistica.ts
 import * as Express from 'express';
 import { AgendaService } from './agendaService';
 
@@ -30,10 +30,14 @@ function formatarDataIxc(valor: any): string {
         });
     }
 
-    throw new Error(`Data de agendamento inválida: ${str}`);
+    throw new Error(`Data de agendamento invÃ¡lida: ${str}`);
 }
 
 function dataHoraAtualSaoPaulo(): string {
+    return AgendaService.dataHoraAtualSaoPaulo();
+}
+
+function dataHoraSaoPaulo(date: Date): string {
     const partes = new Intl.DateTimeFormat('sv-SE', {
         timeZone: 'America/Sao_Paulo',
         year: 'numeric',
@@ -43,7 +47,7 @@ function dataHoraAtualSaoPaulo(): string {
         minute: '2-digit',
         second: '2-digit',
         hour12: false
-    }).format(new Date());
+    }).format(date);
 
     return partes.replace('T', ' ');
 }
@@ -109,13 +113,14 @@ function obterJanelaAgendamentoSegura(dataFormatada: string, turno: string) {
 router.get('/agendamentos', async (req, res) => {
     const data = req.query.data as string;
     const municipio = req.query.municipio as string;
+    const status = req.query.status as string;
 
-    if (!data) return res.status(400).json({ error: "A data de filtro é obrigatória" });
+    if (!data) return res.status(400).json({ error: "A data de filtro Ã© obrigatÃ³ria" });
 
     try {
         await AgendaService.garantirCapacidadeDia(data);
         
-        const agendamentos = await AgendaService.obterAgendamentos(data, municipio);
+        const agendamentos = await AgendaService.obterAgendamentos(data, municipio, status);
         res.json(agendamentos);
     } catch (error: any) {
         console.error("[Logistica Controller] Erro na rota /agendamentos:", error);
@@ -204,12 +209,13 @@ router.put('/atribuir-tecnico', async (req, res) => {
         ixc_tecnico_id,
         ixc_os_id,
         data_agendamento,
-        turno
+        turno,
+        usuario_logado
     } = req.body;
 
     try {
         if (!ixc_os_id) {
-            return res.status(400).json({ error: 'ixc_os_id é obrigatório.' });
+            return res.status(400).json({ error: 'ixc_os_id Ã© obrigatÃ³rio.' });
         }
 
         const tecnicoFinal =
@@ -231,6 +237,7 @@ router.put('/atribuir-tecnico', async (req, res) => {
         } = obterJanelaAgendamentoSegura(dataFormatada, turno);
 
         const dataInteracao = dataHoraAtualSaoPaulo();
+        const colaboradorAcao = await AgendaService.obterUsuarioIxcLogado(usuario_logado);
 
         const payloadAtribuir = {
             id_chamado: String(ixc_os_id),
@@ -239,8 +246,9 @@ router.put('/atribuir-tecnico', async (req, res) => {
             id_resposta: '',
             mensagem:
                 tecnicoFinal === '138'
-                    ? 'O.S. devolvida para a fila da Logística (Hub Intervip).'
-                    : `AGENDADO VIA INTRANET\nData: ${dataFormatada}\nTurno: ${turnoNormalizado}\nAceita Encaixe: NÃO\nPrioridade: NORMAL`,
+                    ? `O.S. devolvida para a fila da Logística (Hub Intervip).\nColaborador responsável: ${colaboradorAcao.nome}`
+                    : `AGENDADO VIA INTRANET\nData: ${dataFormatada}\nTurno: ${turnoNormalizado}\nAceita Encaixe: NÃƒO\nColaborador responsável: ${colaboradorAcao.nome}`,
+            // Em su_oss_chamado_reagendar, id_tecnico define o técnico destino da OS; o autor aparece na mensagem pelo usuário logado.
             id_tecnico: tecnicoFinal,
             id_equipe: '',
             status: 'AG',
@@ -260,7 +268,7 @@ router.put('/atribuir-tecnico', async (req, res) => {
         );
 
         if (respIxc?.type === 'error') {
-            throw new Error(`Erro IXC: ${respIxc.message || 'Erro ao atribuir técnico.'}`);
+            throw new Error(`Erro IXC: ${respIxc.message || 'Erro ao atribuir tÃ©cnico.'}`);
         }
 
         if (id_agenda && !String(id_agenda).startsWith('ixc-')) {
@@ -277,12 +285,12 @@ router.put('/atribuir-tecnico', async (req, res) => {
 
         res.json({
             success: true,
-            message: 'Técnico atribuído com sucesso no IXC.',
+            message: 'TÃ©cnico atribuÃ­do com sucesso no IXC.',
             payload_enviado: payloadAtribuir,
             resposta_ixc: respIxc
         });
     } catch (error: any) {
-        console.error('[Logistica] Erro ao atribuir técnico:', error.response?.data || error.message);
+        console.error('[Logistica] Erro ao atribuir tÃ©cnico:', error.response?.data || error.message);
         res.status(500).json({
             error: error.response?.data?.message || error.message
         });
@@ -299,18 +307,7 @@ router.put('/reagendar', async (req, res) => {
 router.put('/fechar-os', async (req, res) => {
     const { ixc_os_id, mensagem_resposta, id_tarefa, id_processo, id_tarefa_atual, usuario_logado } = req.body;
     try {
-        let tecnicoFechamento = "138";
-
-        if (usuario_logado && usuario_logado !== 'Visitante') {
-            const dbUser = await AgendaService.executeDb(
-                'SELECT id_funcionario_ixc FROM usuarios_intranet WHERE usuario = ? OR nome = ? LIMIT 1', 
-                [usuario_logado, usuario_logado]
-            );
-            
-            if (dbUser.length > 0 && dbUser[0].id_funcionario_ixc) {
-                tecnicoFechamento = String(dbUser[0].id_funcionario_ixc);
-            }
-        }
+        const tecnicoFechamento = await AgendaService.obterIdFuncionarioIxc(usuario_logado);
 
         if (id_processo && id_tarefa) {
             const now = new Date(); 
@@ -339,6 +336,10 @@ router.put('/fechar-os', async (req, res) => {
                 id_tecnico: tecnicoFechamento 
             });
         }
+        await AgendaService.executeDb(
+            `UPDATE ivp_agenda_os SET status_interno = 'FINALIZADO' WHERE ixc_os_id = ?`,
+            [ixc_os_id]
+        ).catch((dbError: any) => console.error('[Painel Logistica] Falha ao marcar OS local como FINALIZADO:', dbError.message));
         res.json({ success: true, message: "OS Finalizada com sucesso!" });
     } catch (error: any) { 
         res.status(500).json({ error: error.message }); 
@@ -346,15 +347,15 @@ router.put('/fechar-os', async (req, res) => {
 });
 
 router.post('/tratar-prioridade', async (req, res) => {
-    const { id_local, acao, ixc_os_id } = req.body;
+    const { id_local, acao, ixc_os_id, usuario_logado } = req.body;
 
     try {
         if (!id_local) {
-            return res.status(400).json({ error: 'id_local é obrigatório.' });
+            return res.status(400).json({ error: 'id_local Ã© obrigatÃ³rio.' });
         }
 
         if (!ixc_os_id) {
-            return res.status(400).json({ error: 'ixc_os_id é obrigatório.' });
+            return res.status(400).json({ error: 'ixc_os_id Ã© obrigatÃ³rio.' });
         }
 
         const rows = await AgendaService.executeDb(
@@ -368,7 +369,7 @@ router.post('/tratar-prioridade', async (req, res) => {
         );
 
         if (!rows || rows.length === 0) {
-            return res.status(404).json({ error: 'Agendamento local não encontrado.' });
+            return res.status(404).json({ error: 'Agendamento local nÃ£o encontrado.' });
         }
 
         const osLocal = rows[0];
@@ -390,6 +391,7 @@ router.post('/tratar-prioridade', async (req, res) => {
         } = obterJanelaAgendamentoSegura(hojeBr, turno);
 
         const dataInteracao = dataHoraAtualSaoPaulo();
+        const colaboradorAcao = await AgendaService.obterUsuarioIxcLogado(usuario_logado);
 
         if (acao === 'aceitar') {
             const payloadAceitar = {
@@ -397,7 +399,8 @@ router.post('/tratar-prioridade', async (req, res) => {
                 data_agendamento: `${hojeBr} ${horaInicio}`,
                 data_agendamento_final: `${hojeBr} ${horaFim}`,
                 id_resposta: '',
-                mensagem: `AGENDADO VIA INTRANET\nData: ${hojeBr}\nTurno: ${turnoNormalizado}\nAceita Encaixe: SIM\nPrioridade: ACEITA PELA LOGÍSTICA`,
+                mensagem: `AGENDADO VIA INTRANET\nData: ${hojeBr}\nTurno: ${turnoNormalizado}\nAceita Encaixe: SIM\nColaborador responsÃ¡vel: ${colaboradorAcao.nome}`,
+                // Aqui 138 é o técnico destino HUB/Logística da OS, não o autor da ação.
                 id_tecnico: '138',
                 id_equipe: '',
                 status: 'AG',
@@ -457,7 +460,7 @@ router.post('/tratar-prioridade', async (req, res) => {
             });
         }
 
-        return res.status(400).json({ error: 'Ação inválida. Use aceitar ou recusar.' });
+        return res.status(400).json({ error: 'AÃ§Ã£o invÃ¡lida. Use aceitar ou recusar.' });
     } catch (error: any) {
         console.error('[Logistica] Erro ao tratar prioridade:', error.response?.data || error.message);
 
@@ -476,48 +479,407 @@ router.get('/tarefas-workflow/:idProcesso', async (req, res) => {
 
 router.post('/onu-realtime', async (req, res) => {
     try {
-        const resp = await AgendaService.makeIxcRequest('GET', `/radpop_radio_cliente_fibra/${req.body.id_fibra}/get_info_onu`);
-        res.json(resp || null);
+        const idFibra = req.body.id_fibra;
+        if (!idFibra) return res.status(400).json({ error: 'id_fibra Ã© obrigatÃ³rio.' });
+
+        await AgendaService.makeIxcRequest('POST', '/radpop_radio_cliente_fibra', { id_registro: idFibra }, 'integracao').catch(() => null);
+
+        const resp = await AgendaService.makeIxcRequest('POST', '/radpop_radio_cliente_fibra', {
+            qtype: 'radpop_radio_cliente_fibra.id',
+            query: String(idFibra),
+            oper: '=',
+            page: '1',
+            rp: '1'
+        });
+
+        res.json(resp.registros ? resp.registros[0] : null);
     } catch (error: any) { res.status(500).json({ error: error.message }); }
+});
+
+router.get('/historico-conexao/:username', async (req, res) => {
+    try {
+        const resp = await AgendaService.makeIxcRequest('POST', '/radacct', {
+            qtype: 'radacct.username',
+            query: req.params.username,
+            oper: '=',
+            page: '1',
+            rp: '10',
+            sortname: 'radacctid',
+            sortorder: 'desc'
+        });
+        res.json(resp.registros || []);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 router.get('/os-detalhes/:id', async (req, res) => {
     try {
-        const osResp = await AgendaService.makeIxcRequest('POST', '/su_oss_chamado', { qtype: 'id', query: req.params.id, oper: '=', rp: '1' });
-        if (!osResp.registros || osResp.registros.length === 0) return res.status(404).json({ error: 'OS não encontrada' });
+        const osResp = await AgendaService.makeIxcRequest('POST', '/su_oss_chamado', { qtype: 'su_oss_chamado.id', query: req.params.id, oper: '=', rp: '1' });
+        if (!osResp.registros || osResp.registros.length === 0) return res.status(404).json({ error: 'OS nÃ£o encontrada' });
         const os = osResp.registros[0];
 
-        const clienteResp = await AgendaService.makeIxcRequest('POST', '/cliente', { qtype: 'id', query: os.id_cliente, oper: '=', rp: '1' });
+        const clienteResp = await AgendaService.makeIxcRequest('POST', '/cliente', { qtype: 'cliente.id', query: os.id_cliente, oper: '=', rp: '1' });
         const cliente = clienteResp.registros ? clienteResp.registros[0] : {};
 
         const idContrato = (os.id_contrato_kit && os.id_contrato_kit !== '0') ? os.id_contrato_kit : os.id_contrato;
-        const contratoResp = await AgendaService.makeIxcRequest('POST', '/cliente_contrato', { qtype: 'id', query: idContrato, oper: '=', rp: '1' });
+        const contratoResp = await AgendaService.makeIxcRequest('POST', '/cliente_contrato', { qtype: 'cliente_contrato.id', query: idContrato, oper: '=', rp: '1' });
         const contrato = contratoResp.registros ? contratoResp.registros[0] : {};
 
+        const localRows = await AgendaService.executeDb('SELECT * FROM ivp_agenda_os WHERE ixc_os_id = ? LIMIT 1', [req.params.id]).catch(() => []);
+        const local = localRows && localRows.length > 0 ? localRows[0] : {};
+
         let login: any = null;
-        let onu = null;
+        let onu: any = null;
+        let mensagens: any[] = [];
+        let historicoLogin: any[] = [];
+        let resumoAcesso: any = {
+            status: 'Sem login',
+            quedas_hoje: 0,
+            quedas_7_dias: 0,
+            rx: 'N/A',
+            tx: 'N/A',
+            onu_status: 'N/A'
+        };
+
         if (idContrato && idContrato !== '0') {
-            const loginResp = await AgendaService.makeIxcRequest('POST', '/radusuarios', { qtype: 'id_contrato', query: idContrato, oper: '=', rp: '1' });
+            const loginResp = await AgendaService.makeIxcRequest('POST', '/radusuarios', { qtype: 'radusuarios.id_contrato', query: idContrato, oper: '=', rp: '1' });
             if (loginResp.registros && loginResp.registros.length > 0) {
                 login = loginResp.registros[0];
-                
-                const histResp = await AgendaService.makeIxcRequest('POST', '/radacct', { qtype: 'username', query: login.login, oper: '=', rp: '2', sortname: 'radacctid', sortorder: 'desc' });
-                if(histResp.registros && histResp.registros.length > 0) {
-                    login.historico_atual = histResp.registros[0];
-                    login.historico_queda = histResp.registros.find((h: any) => h.acctstoptime !== null && h.acctstoptime !== '');
+                const username = login.login || login.user || login.usuario;
+                if (username) {
+                    const histResp = await AgendaService.makeIxcRequest('POST', '/radacct', {
+                        qtype: 'radacct.username', query: username, oper: '=', page: '1', rp: '100', sortname: 'radacctid', sortorder: 'desc'
+                    }).catch(() => ({ registros: [] }));
+                    historicoLogin = histResp.registros || [];
+                    if (historicoLogin.length > 0) {
+                        login.historico_atual = historicoLogin[0];
+                        login.historico_queda = historicoLogin.find((h: any) => h.acctstoptime !== null && h.acctstoptime !== '');
+                    }
+
+                    const hoje = new Date();
+                    hoje.setHours(0, 0, 0, 0);
+                    const seteDias = new Date(hoje);
+                    seteDias.setDate(seteDias.getDate() - 7);
+
+                    const getDataHist = (h: any) => new Date(h.acctstarttime || h.acctstoptime || h.fim || h.inicio || 0);
+                    const ehQueda = (h: any) => !!(h.acctstoptime || h.tempo_final || h.final);
+
+                    resumoAcesso.quedas_hoje = historicoLogin.filter((h: any) => ehQueda(h) && getDataHist(h) >= hoje).length;
+                    resumoAcesso.quedas_7_dias = historicoLogin.filter((h: any) => ehQueda(h) && getDataHist(h) >= seteDias).length;
+                    resumoAcesso.status = historicoLogin[0] && !historicoLogin[0].acctstoptime ? 'Online' : 'Offline';
                 }
 
-                const onuResp = await AgendaService.makeIxcRequest('POST', '/radpop_radio_cliente_fibra', { qtype: 'login', query: login.id, oper: '=', rp: '1' });
-                if (onuResp.registros && onuResp.registros.length > 0) {
-                    onu = onuResp.registros[0];
+                const tentativasOnu = [
+                    { qtype: 'radpop_radio_cliente_fibra.id_login', query: String(login.id) },
+                    { qtype: 'id_login', query: String(login.id) },
+                    { qtype: 'radpop_radio_cliente_fibra.login', query: String(login.id) },
+                    { qtype: 'login', query: String(login.id) }
+                ];
+
+                for (const tentativa of tentativasOnu) {
+                    const onuResp = await AgendaService.makeIxcRequest('POST', '/radpop_radio_cliente_fibra', {
+                        ...tentativa, oper: '=', rp: '1', sortname: 'id', sortorder: 'desc'
+                    }).catch(() => ({ registros: [] }));
+                    if (onuResp.registros && onuResp.registros.length > 0) {
+                        onu = onuResp.registros[0];
+                        break;
+                    }
+                }
+
+                if (onu) {
+                    resumoAcesso.rx = onu.sinal_rx || onu.rx_power || onu.sinal || onu.rx || 'N/A';
+                    resumoAcesso.tx = onu.sinal_tx || onu.tx_power || onu.tx || 'N/A';
+                    resumoAcesso.onu_status = onu.status || onu.status_fibra || onu.online || 'N/A';
                 }
             }
         }
 
-        res.json({ os, cliente, contrato, login, onu });
+        const msgResp = await AgendaService.makeIxcRequest('POST', '/su_oss_chamado_mensagem', {
+            qtype: 'su_oss_chamado_mensagem.id_chamado', query: req.params.id, oper: '=', page: '1', rp: '100', sortname: 'id', sortorder: 'desc'
+        }).catch(() => ({ registros: [] }));
+        mensagens = await AgendaService.enriquecerMensagensComAutores(msgResp.registros || []);
+
+        res.json({ os, cliente, contrato, login, onu, local, mensagens, historicoLogin, resumoAcesso });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
+});
+
+router.post('/contato-cliente', async (req, res) => {
+    const { id_local, ixc_os_id, status_contato, nova_data, novo_turno, mensagem, usuario_logado } = req.body;
+
+    try {
+        if (!id_local || !ixc_os_id || !status_contato) {
+            return res.status(400).json({ error: 'id_local, ixc_os_id e status_contato sÃ£o obrigatÃ³rios.' });
+        }
+
+        const status = String(status_contato).toUpperCase();
+        if (!['CONFIRMADO', 'NAO_RECEBE', 'SEM_CONTATO'].includes(status)) {
+            return res.status(400).json({ error: 'Status de contato invÃ¡lido.' });
+        }
+
+        if (status === 'NAO_RECEBE' && (!nova_data || !novo_turno)) {
+            return res.status(400).json({ error: 'Para marcar como nÃ£o irÃ¡ receber, informe nova_data e novo_turno para reagendar.' });
+        }
+
+        const textoBase = mensagem || (
+            status === 'CONFIRMADO' ? 'Cliente confirmou que irÃ¡ receber o tÃ©cnico.' :
+            status === 'NAO_RECEBE' ? 'Cliente informou que nÃ£o poderÃ¡ receber o tÃ©cnico. Reagendar visita.' :
+            'LogÃ­stica nÃ£o conseguiu contato com o cliente.'
+        );
+
+        const { dataInteracao } = await AgendaService.registrarMensagemOs(
+            String(ixc_os_id),
+            `[LOGÃSTICA - CONTATO CLIENTE]\n${textoBase}`,
+            usuario_logado,
+            'Contato Cliente'
+        );
+
+        if (status === 'NAO_RECEBE') {
+            await AgendaService.reagendarOs({ ixc_os_id: String(ixc_os_id), id_agenda_local: String(id_local), nova_data, novo_turno, usuario_logado });
+        }
+
+        await AgendaService.executeDb(
+            `UPDATE ivp_agenda_os SET contato_status = ?, contato_confirmado_em = ?, status_interno = CASE WHEN ? = 'NAO_RECEBE' THEN 'AGUARDANDO_LOGISTICA' ELSE status_interno END WHERE id = ?`,
+            [status, dataInteracao, status, id_local]
+        );
+
+        res.json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ error: error.response?.data?.message || error.message });
+    }
+});
+
+router.post('/aguardar-cliente', async (req, res) => {
+    const { id_local, ixc_os_id, minutos, usuario_logado } = req.body;
+
+    try {
+        const minutosNum = Number(minutos);
+        if (!id_local || !ixc_os_id || !minutosNum || minutosNum <= 0) {
+            return res.status(400).json({ error: 'Informe OS, agendamento local e minutos de espera.' });
+        }
+
+        const fimEspera = dataHoraSaoPaulo(new Date(Date.now() + minutosNum * 60000));
+
+        await AgendaService.registrarMensagemOs(
+            String(ixc_os_id),
+            `[LOGÃSTICA]\nTÃ©cnico orientado a aguardar o cliente por ${minutosNum} minuto(s).`,
+            usuario_logado,
+            'Aguardar Cliente'
+        );
+
+        await AgendaService.executeDb(
+            `UPDATE ivp_agenda_os SET espera_cliente_ate = ? WHERE id = ?`,
+            [fimEspera, id_local]
+        );
+
+        res.json({ success: true, espera_cliente_ate: fimEspera });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/parar-espera-cliente', async (req, res) => {
+    const { id_local } = req.body;
+
+    try {
+        if (!id_local) {
+            return res.status(400).json({ error: 'id_local Ã© obrigatÃ³rio.' });
+        }
+
+        await AgendaService.executeDb(
+            `UPDATE ivp_agenda_os SET espera_cliente_ate = NULL WHERE id = ?`,
+            [id_local]
+        );
+
+        res.json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/observacao-logistica', async (req, res) => {
+    const { id_local, ixc_os_id, mensagem, usuario_logado } = req.body;
+
+    try {
+        if (!id_local || !ixc_os_id || !mensagem || !String(mensagem).trim()) {
+            return res.status(400).json({ error: 'Informe a observaÃ§Ã£o.' });
+        }
+
+        const texto = String(mensagem).trim();
+        const { dataInteracao } = await AgendaService.registrarMensagemOs(
+            String(ixc_os_id),
+            `[OBSERVAÃ‡ÃƒO LOGÃSTICA]\n${texto}`,
+            usuario_logado,
+            'Observacao Logistica'
+        );
+
+        await AgendaService.executeDb(
+            `UPDATE ivp_agenda_os SET observacao_logistica = CONCAT(COALESCE(observacao_logistica, ''), ?, '\n') WHERE id = ?`,
+            [`[${dataInteracao}] ${texto}`, id_local]
+        );
+
+        res.json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ error: error.response?.data?.message || error.message });
+    }
+});
+
+router.get('/tags', async (_req, res) => {
+    try {
+        const tags = await AgendaService.executeDb(
+            'SELECT * FROM ivp_agenda_tags ORDER BY ativo DESC, ordem ASC, nome ASC'
+        );
+        res.json(tags || []);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/tags', async (req, res) => {
+    const { nome, cor_fundo, cor_texto, ativo, ordem } = req.body;
+    try {
+        if (!nome || !String(nome).trim()) {
+            return res.status(400).json({ error: 'Nome da tag Ã© obrigatÃ³rio.' });
+        }
+
+        const result = await AgendaService.executeDb(
+            `
+            INSERT INTO ivp_agenda_tags (nome, cor_fundo, cor_texto, ativo, ordem)
+            VALUES (?, ?, ?, ?, ?)
+            `,
+            [
+                String(nome).trim(),
+                cor_fundo || '#0d6efd',
+                cor_texto || '#ffffff',
+                ativo === false || ativo === 0 || ativo === '0' ? 0 : 1,
+                Number(ordem || 0)
+            ]
+        );
+        res.json({ success: true, id: result.insertId });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.put('/tags/:id', async (req, res) => {
+    const { nome, cor_fundo, cor_texto, ativo, ordem } = req.body;
+    try {
+        await AgendaService.executeDb(
+            `
+            UPDATE ivp_agenda_tags
+            SET nome = ?, cor_fundo = ?, cor_texto = ?, ativo = ?, ordem = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            `,
+            [
+                String(nome || '').trim(),
+                cor_fundo || '#0d6efd',
+                cor_texto || '#ffffff',
+                ativo === false || ativo === 0 || ativo === '0' ? 0 : 1,
+                Number(ordem || 0),
+                req.params.id
+            ]
+        );
+        res.json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.delete('/tags/:id', async (req, res) => {
+    try {
+        await AgendaService.executeDb(
+            'UPDATE ivp_agenda_tags SET ativo = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [req.params.id]
+        );
+        res.json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/os-tags/:idAgenda', async (req, res) => {
+    try {
+        const rows = await AgendaService.executeDb(
+            `
+            SELECT t.id, t.nome, t.cor_fundo, t.cor_texto
+            FROM ivp_agenda_os_tags ot
+            INNER JOIN ivp_agenda_tags t ON t.id = ot.id_tag
+            WHERE ot.id_agenda_os = ? AND t.ativo = 1
+            ORDER BY t.ordem ASC, t.nome ASC
+            `,
+            [req.params.idAgenda]
+        );
+        res.json(rows || []);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.put('/os-tags/:idAgenda', async (req, res) => {
+    const { tag_ids } = req.body;
+    try {
+        const ids = Array.isArray(tag_ids) ? tag_ids.map(String).filter(Boolean) : [];
+        await AgendaService.executeDb('DELETE FROM ivp_agenda_os_tags WHERE id_agenda_os = ?', [req.params.idAgenda]);
+
+        for (const idTag of ids) {
+            await AgendaService.executeDb(
+                'INSERT IGNORE INTO ivp_agenda_os_tags (id_agenda_os, id_tag) VALUES (?, ?)',
+                [req.params.idAgenda, idTag]
+            );
+        }
+
+        res.json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/prioridade-logistica', async (req, res) => {
+    const { id_local, prioridade, observacao } = req.body;
+    try {
+        if (!id_local || String(id_local).startsWith('fila-')) {
+            return res.status(400).json({ error: 'Agendamento local invÃ¡lido.' });
+        }
+
+        await AgendaService.executeDb(
+            `
+            UPDATE ivp_agenda_os
+            SET prioridade_logistica = ?, prioridade_logistica_obs = ?
+            WHERE id = ?
+            `,
+            [Number(prioridade || 0), observacao || '', id_local]
+        );
+
+        res.json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.put('/capacidade-templates/:id', async (req, res) => {
+    const { nome, capacidades } = req.body;
+    try {
+        await AgendaService.executeDb(
+            `
+            UPDATE ivp_agenda_capacidade_templates
+            SET nome = ?, casa_m = ?, casa_t = ?, predio_serra_m = ?, predio_serra_t = ?,
+                predio_outros_m = ?, predio_outros_t = ?, inst_serra_m = ?, inst_serra_t = ?,
+                inst_outros_m = ?, inst_outros_t = ?
+            WHERE id = ?
+            `,
+            [nome, capacidades.casa_m, capacidades.casa_t, capacidades.predio_serra_m, capacidades.predio_serra_t, capacidades.predio_outros_m, capacidades.predio_outros_t, capacidades.inst_serra_m, capacidades.inst_serra_t, capacidades.inst_outros_m, capacidades.inst_outros_t, req.params.id]
+        );
+        res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+router.delete('/capacidade-templates/:id', async (req, res) => {
+    try {
+        await AgendaService.executeDb('DELETE FROM ivp_agenda_capacidade_templates WHERE id = ?', [req.params.id]);
+        res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 export default router;

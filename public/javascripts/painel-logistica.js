@@ -4,6 +4,45 @@ let todosAgendamentosGlobais = [];
 let mapaTecnicoColuna = {};
 let allTechsGlobal = [];
 let duplaCounter = 0;
+let tagsLogisticaGlobal = [];
+
+const PRIORIDADE_LOGISTICA_LABELS = {
+    0: 'Normal',
+    1: 'Média',
+    2: 'Alta',
+    3: 'Urgente'
+};
+
+function traduzirStatusContratoLogistica(status) {
+    const mapa = { P: 'Pré-contrato', A: 'Ativo', I: 'Inativo', N: 'Negativado', D: 'Desistiu' };
+    const s = String(status || '').toUpperCase();
+    return mapa[s] ? `${mapa[s]} (${s})` : (s ? `Desconhecido (${s})` : 'Não informado');
+}
+
+function traduzirStatusAcessoLogistica(status) {
+    const mapa = { A: 'Ativo', D: 'Desativado', CM: 'Bloqueio Manual', CA: 'Bloqueio Automático', FA: 'Financeiro em atraso', AA: 'Aguardando Assinatura' };
+    const s = String(status || '').toUpperCase();
+    return mapa[s] ? `${mapa[s]} (${s})` : (s ? `Desconhecido (${s})` : 'Não informado');
+}
+
+function simNaoLogistica(valor) {
+    const v = String(valor || '').toUpperCase();
+    if (v === 'S') return 'Sim';
+    if (v === 'N') return 'Não';
+    return 'Não informado';
+}
+
+function montarContatosClienteLogistica(cliente) {
+    const itens = [
+        ['Telefone residencial', cliente?.fone || cliente?.telefone_residencial],
+        ['Telefone comercial', cliente?.telefone_comercial],
+        ['Telefone celular', cliente?.telefone_celular],
+        ['WhatsApp', cliente?.whatsapp],
+        ['E-mail', cliente?.email],
+        ['Contato', cliente?.contato]
+    ].filter(([, valor]) => valor);
+    return itens.length ? itens.map(([label, valor]) => `${label}: ${valor}`).join(' | ') : 'Nenhum contato cadastrado';
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
     try { if (typeof initializeThemeAndUserInfo === 'function') initializeThemeAndUserInfo(); } catch (e) {}
@@ -14,7 +53,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('filtro-data').addEventListener('change', carregarAgenda);
     document.getElementById('filtro-municipio').addEventListener('change', renderizarQuadro);
     document.getElementById('filtro-setor').addEventListener('change', renderizarQuadro);
-    document.getElementById('filtro-status').addEventListener('change', renderizarQuadro);
+    document.getElementById('filtro-status').addEventListener('change', carregarAgenda);
 
     document.getElementById('btn-data-ontem')?.addEventListener('click', () => mudarData(-1));
     document.getElementById('btn-data-hoje')?.addEventListener('click', () => mudarData(0));
@@ -26,12 +65,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('btn-abrir-config')?.addEventListener('click', abrirModalConfiguracoes);
     document.getElementById('btn-salvar-config')?.addEventListener('click', salvarConfiguracoes);
     document.getElementById('btn-salvar-novo-template')?.addEventListener('click', salvarNovoTemplate);
+    document.getElementById('btn-aplicar-template')?.addEventListener('click', aplicarTemplateCapacidade);
+    document.getElementById('btn-editar-template')?.addEventListener('click', editarTemplateCapacidade);
+    document.getElementById('btn-excluir-template')?.addEventListener('click', excluirTemplateCapacidade);
     document.getElementById('btn-add-dupla')?.addEventListener('click', () => adicionarLinhaDupla());
     document.getElementById('btn-action-reagendar')?.addEventListener('click', enviarReagendamento);
+    document.getElementById('action-nova-data')?.addEventListener('change', atualizarInfoCapacidadeReagendamento);
+    document.getElementById('action-novo-turno')?.addEventListener('change', atualizarInfoCapacidadeReagendamento);
     document.getElementById('btn-aceitar-prioridade')?.addEventListener('click', () => tratarPrioridade('aceitar'));
     document.getElementById('btn-recusar-prioridade')?.addEventListener('click', () => tratarPrioridade('recusar'));
+    document.getElementById('btn-contato-confirmado')?.addEventListener('click', () => registrarContatoCliente('CONFIRMADO'));
+    document.getElementById('btn-contato-nao-recebe')?.addEventListener('click', () => registrarContatoCliente('NAO_RECEBE'));
+    document.getElementById('btn-contato-sem-contato')?.addEventListener('click', () => registrarContatoCliente('SEM_CONTATO'));
+    document.getElementById('btn-iniciar-espera')?.addEventListener('click', iniciarEsperaCliente);
+    document.getElementById('btn-parar-espera')?.addEventListener('click', pararEsperaCliente);
+    document.getElementById('btn-salvar-observacao-logistica')?.addEventListener('click', salvarObservacaoLogistica);
+    document.getElementById('btn-salvar-prioridade-logistica')?.addEventListener('click', salvarPrioridadeLogistica);
+    document.getElementById('btn-salvar-tags-os')?.addEventListener('click', salvarTagsOsAtual);
+    document.getElementById('btn-salvar-tag-logistica')?.addEventListener('click', salvarTagLogistica);
+    document.getElementById('btn-limpar-form-tag')?.addEventListener('click', limparFormTagLogistica);
+    document.getElementById('tbody-tags-logistica')?.addEventListener('click', tratarCliqueTabelaTags);
+    document.getElementById('btn-relatorio-conexao')?.addEventListener('click', () => {
+        const login = window.loginAtualData?.login || window.loginAtualData?.user || window.loginAtualData?.usuario;
+        if (login) verHistoricoPppoe(login);
+    });
 
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', async function(e) {
         const btnTurno = e.target.closest('.btn-retrair-turno');
         if (btnTurno) {
             const targetId = btnTurno.getAttribute('data-target');
@@ -87,7 +146,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     carregarFilaLogistica(); 
     carregarAgenda();
     setInterval(autoRefreshSilencioso, 45000); 
-    setInterval(atualizarTimers, 30000); 
+    setInterval(atualizarTimers, 10000); 
 });
 
 function mudarData(offset) {
@@ -138,6 +197,7 @@ async function verificarPermissoes() {
 async function carregarAgenda() {
     const data = document.getElementById('filtro-data').value;
     if (!data) return;
+    const statusFiltro = document.getElementById('filtro-status').value;
 
     await construirColunasTecnicos(data);
 
@@ -146,7 +206,7 @@ async function carregarAgenda() {
     });
 
     try {
-        const response = await fetch(`/api/v5/painel-logistica/agendamentos?data=${data}&municipio=TODOS`);
+        const response = await fetch(`/api/v5/painel-logistica/agendamentos?data=${data}&municipio=TODOS&status=${encodeURIComponent(statusFiltro)}`);
         todosAgendamentosGlobais = await response.json();
         
         renderizarQuadro();
@@ -270,6 +330,8 @@ function criarCardOS(os) {
     const card = document.createElement('div');
     card.className = `asana-card ${os.status_interno === 'ATRIBUIDO' ? 'card-os-atribuida' : 'card-os-pendente'}`;
     card.id = `os-${os.id}`;
+    card.dataset.agendaId = os.id;
+    card.dataset.ixcOsId = os.ixc_os_id;
 
     const isPend = (!os.ixc_tecnico_id || String(os.ixc_tecnico_id) === '138' || String(os.ixc_tecnico_id) === '0');
     let corBorda = 'border-left: 4px solid #6c757d;'; 
@@ -296,8 +358,25 @@ function criarCardOS(os) {
     let badgesHtml = os.horario_agendado ? `<span class="asana-badge bg-dark text-white"><i class="bi bi-clock me-1"></i>${os.horario_agendado}</span>` : '';
     badgesHtml += badgeStatus;
     if (os.aceita_encaixe) badgesHtml += `<span class="asana-badge badge-encaixe"><i class="bi bi-lightning-fill"></i> Encaixe</span>`;
+    const prioridadeManual = Math.max(0, Math.min(3, Number(os.prioridade_logistica || 0)));
+    if (prioridadeManual > 0) badgesHtml += `<span class="asana-badge bg-danger text-white"><i class="bi bi-arrow-up-circle me-1"></i>${PRIORIDADE_LOGISTICA_LABELS[prioridadeManual]}</span>`;
     if (os.is_futuro_prioridade) badgesHtml += `<span class="asana-badge bg-danger text-white border border-danger shadow-sm ms-1"><i class="bi bi-calendar-x me-1"></i>Vindo de ${String(os.data_agendamento_original).split('T')[0].split('-').reverse().join('/')}</span>`;
     else if (os.solicita_prioridade) badgesHtml += `<span class="asana-badge bg-danger text-white border border-danger shadow-sm ms-1"><i class="bi bi-exclamation-triangle-fill me-1"></i>Prioridade</span>`;
+
+    if (Array.isArray(os.tags)) {
+        os.tags.forEach(tag => {
+            badgesHtml += `<span class="asana-badge" style="background:${tag.cor_fundo || '#0d6efd'};color:${tag.cor_texto || '#fff'};"><i class="bi bi-tag-fill me-1"></i>${tag.nome}</span>`;
+        });
+    }
+
+    const contatoStatus = String(os.contato_status || 'PENDENTE').toUpperCase();
+    if (contatoStatus === 'CONFIRMADO') badgesHtml += `<span class="asana-badge bg-success text-white"><i class="bi bi-telephone-check me-1"></i>Cliente Confirmou</span>`;
+    else if (contatoStatus === 'NAO_RECEBE') badgesHtml += `<span class="asana-badge bg-warning text-dark"><i class="bi bi-calendar-x me-1"></i>Não Recebe</span>`;
+    else if (contatoStatus === 'SEM_CONTATO') badgesHtml += `<span class="asana-badge bg-secondary text-white"><i class="bi bi-telephone-x me-1"></i>Sem Contato</span>`;
+
+    if (os.espera_cliente_ate) {
+        badgesHtml += `<span class="asana-badge bg-warning text-dark timer-espera-cliente" data-fim-espera="${os.espera_cliente_ate}"><i class="bi bi-hourglass-split me-1"></i>Aguardando...</span>`;
+    }
 
     let optionsHtml = '';
     window.opcoesEscala.forEach(op => {
@@ -338,6 +417,34 @@ function criarCardOS(os) {
     return card;
 }
 
+function atualizarOsLocal(idLocal, patch) {
+    const idStr = String(idLocal);
+    const os = todosAgendamentosGlobais.find(item => String(item.id) === idStr);
+    if (os) Object.assign(os, patch);
+    if (window.osModalAtual && String(window.osModalAtual.id) === idStr) {
+        Object.assign(window.osModalAtual, patch);
+    }
+}
+
+function atualizarCardAberto(idLocal) {
+    if (!idLocal || String(idLocal).startsWith('fila-')) return;
+    renderizarQuadro();
+}
+
+function atualizarStatusContatoNaUi(idLocal, status) {
+    atualizarOsLocal(idLocal, { contato_status: status });
+    const elStatusContato = document.getElementById('status-contato-atual');
+    if (elStatusContato) elStatusContato.textContent = `Status: ${formatarStatusContato(status)}`;
+    atualizarCardAberto(idLocal);
+}
+
+function atualizarEsperaNaUi(idLocal, esperaAte) {
+    atualizarOsLocal(idLocal, { espera_cliente_ate: esperaAte || null });
+    const input = document.getElementById('input-minutos-espera');
+    if (input) input.value = '';
+    atualizarCardAberto(idLocal);
+}
+
 window.atribuirTecnicoOS = async function(
     id_agenda,
     id_tecnico,
@@ -354,7 +461,8 @@ window.atribuirTecnicoOS = async function(
                 ixc_tecnico_id: id_tecnico,
                 ixc_os_id,
                 data_agendamento,
-                turno
+                turno,
+                usuario_logado: window.usuarioLogado
             })
         });
 
@@ -370,7 +478,7 @@ window.atribuirTecnicoOS = async function(
             await carregarFilaLogistica();
         }
     } catch (error) {
-        alert('Erro ao atribuir técnico: ' + error.message);
+        showInfoModal('Erro ao atribuir técnico: ' + error.message);
 
         await carregarAgenda();
     }
@@ -379,9 +487,10 @@ window.atribuirTecnicoOS = async function(
 async function autoRefreshSilencioso() {
     const data = document.getElementById('filtro-data').value;
     if (!data) return;
+    const statusFiltro = document.getElementById('filtro-status').value;
 
     try {
-        const response = await fetch(`/api/v5/painel-logistica/agendamentos?data=${data}&municipio=TODOS`);
+        const response = await fetch(`/api/v5/painel-logistica/agendamentos?data=${data}&municipio=TODOS&status=${encodeURIComponent(statusFiltro)}`);
         const novaLista = await response.json();
         
         if (JSON.stringify(novaLista) !== JSON.stringify(todosAgendamentosGlobais)) {
@@ -404,13 +513,32 @@ function atualizarTimers() {
         const horas = Math.floor(diffMinutos / 60);
         const mins = diffMinutos % 60;
         
-        el.innerHTML = `<i class="bi bi-tools me-1"></i>${horas > 0 ? `${horas}h ${mins}m` : `${mins}m`}`;
+        el.innerHTML = `<i class="bi bi-tools me-1"></i>Execução ${horas > 0 ? `${horas}h ${mins}m` : `${mins}m`}`;
         el.className = 'asana-badge timer-execucao';
         el.style.backgroundColor = '';
 
         if (diffMinutos >= 90) { el.classList.add('text-roxo-vibrante', 'blink'); el.style.backgroundColor = '#f3e5f5'; }
         else if (diffMinutos >= 60) { el.classList.add('text-danger', 'fw-bold'); el.style.backgroundColor = '#f8d7da'; }
         else { el.classList.add('text-success', 'fw-bold'); el.style.backgroundColor = '#d1e7dd'; }
+    });
+
+    document.querySelectorAll('.timer-espera-cliente').forEach(el => {
+        const fimStr = el.dataset.fimEspera;
+        if (!fimStr || fimStr === 'null') return;
+        const fim = new Date(String(fimStr).replace(/-/g, '/'));
+        if (isNaN(fim)) return;
+        const diffSeg = Math.floor((fim - new Date()) / 1000);
+        const card = el.closest('.asana-card');
+        if (diffSeg <= 0) {
+            el.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i>Espera Acabou';
+            el.classList.add('bg-danger', 'text-white', 'blink');
+            if (card) card.classList.add('blink');
+        } else {
+            const min = Math.floor(diffSeg / 60);
+            const seg = diffSeg % 60;
+            el.innerHTML = `<i class="bi bi-hourglass-split me-1"></i>Espera ${min}:${String(seg).padStart(2,'0')}`;
+            if (card) card.classList.remove('blink');
+        }
     });
 }
 
@@ -486,6 +614,7 @@ async function abrirModalConfiguracoes() {
     showModalNativo('modalConfiguracoes');
     const data = document.getElementById('filtro-data').value;
     document.getElementById('display-data-escala').textContent = data.split('-').reverse().join('/');
+    carregarTagsConfiguracao();
 
     const containerIndiv = document.getElementById('lista-checkbox-tecnicos');
     const containerDuplas = document.getElementById('container-duplas');
@@ -521,9 +650,9 @@ async function abrirModalConfiguracoes() {
             const imovel = indivObj ? (indivObj.tipo_imovel || 'AMBOS') : 'AMBOS';
 
             containerIndiv.innerHTML += `
-                <div class="col-12 mb-2">
+                <div class="col-12 mb-2 tec-escala-item" data-nome="${tec.nome}">
                     <div class="p-2 border rounded bg-light d-flex align-items-center gap-2">
-                        <div class="form-check me-2" style="width: 140px;">
+                        <div class="form-check me-2" style="width: 240px;">
                             <input class="form-check-input chk-escala" type="checkbox" value="${tec.id}" id="chk-tec-${tec.id}" ${isChecked}>
                             <label class="form-check-label fw-bold text-truncate w-100" for="chk-tec-${tec.id}">${getPrimeiroUltimoNome(tec.nome)}</label>
                         </div>
@@ -549,6 +678,9 @@ async function abrirModalConfiguracoes() {
                 </div>`;
         });
 
+        configurarBuscaTecnicosEscala();
+        atualizarResumoTecnicosSelecionados();
+
         const resCap = await fetch(`/api/v5/painel-logistica/capacidade-dia?data=${data}`);
         const capData = await resCap.json();
         if (capData && capData.encontrado) {
@@ -563,16 +695,51 @@ async function abrirModalConfiguracoes() {
         selectTemp.innerHTML = '<option value="">Selecione um modelo salvo...</option>';
         window.templatesCapacidade.forEach(t => selectTemp.add(new Option(t.nome, t.id)));
         
-        document.getElementById('btn-aplicar-template').onclick = () => {
-            const t = window.templatesCapacidade.find(x => String(x.id) === selectTemp.value);
-            if (t) {
-                ['casa_m', 'casa_t', 'predio_serra_m', 'predio_serra_t', 'predio_outros_m', 'predio_outros_t', 'inst_serra_m', 'inst_serra_t', 'inst_outros_m', 'inst_outros_t'].forEach(campo => {
-                    document.getElementById('cap-' + campo.replace(/_/g, '-')).value = t[campo];
-                });
-                alert(`Modelo carregado! Clique em 'Salvar Tudo'.`);
-            }
-        };
     } catch (e) { containerIndiv.innerHTML = '<div class="text-danger mt-3">Erro ao carregar.</div>'; }
+}
+
+function aplicarTemplateCapacidade() {
+    const selectTemp = document.getElementById('select-template-capacidade');
+    const t = window.templatesCapacidade?.find(x => String(x.id) === selectTemp.value);
+    if (!t) return;
+
+    ['casa_m', 'casa_t', 'predio_serra_m', 'predio_serra_t', 'predio_outros_m', 'predio_outros_t', 'inst_serra_m', 'inst_serra_t', 'inst_outros_m', 'inst_outros_t'].forEach(campo => {
+        document.getElementById('cap-' + campo.replace(/_/g, '-')).value = t[campo];
+    });
+    showInfoModal(`Modelo carregado! Clique em 'Salvar Tudo'.`);
+}
+
+function configurarBuscaTecnicosEscala() {
+    const busca = document.getElementById('busca-tecnico-escala');
+    if (busca && !busca.dataset.listenerAttached) {
+        busca.addEventListener('input', () => {
+            const termo = busca.value.trim().toUpperCase();
+            document.querySelectorAll('#lista-checkbox-tecnicos .tec-escala-item').forEach(item => {
+                const nome = (item.dataset.nome || '').toUpperCase();
+                item.classList.toggle('d-none', termo && !nome.includes(termo));
+            });
+        });
+        busca.dataset.listenerAttached = 'true';
+    }
+
+    document.querySelectorAll('.chk-escala').forEach(chk => {
+        if (!chk.dataset.resumoListenerAttached) {
+            chk.addEventListener('change', atualizarResumoTecnicosSelecionados);
+            chk.dataset.resumoListenerAttached = 'true';
+        }
+    });
+}
+
+function atualizarResumoTecnicosSelecionados() {
+    const resumo = document.getElementById('resumo-tecnicos-selecionados');
+    if (!resumo) return;
+    const selecionados = Array.from(document.querySelectorAll('.chk-escala:checked')).map(chk => {
+        const label = document.querySelector(`label[for="chk-tec-${chk.value}"]`);
+        return label ? label.textContent.trim() : chk.value;
+    });
+    resumo.textContent = selecionados.length
+        ? `${selecionados.length} técnico(s) individual(is): ${selecionados.join(', ')}`
+        : 'Nenhum técnico individual selecionado.';
 }
 
 function adicionarLinhaDupla(tec1 = '', tec2 = '', equipe = 'MANUTENCAO') {
@@ -612,7 +779,7 @@ function getValoresCapacidade() {
 }
 
 async function salvarNovoTemplate() {
-    const nomeTemplate = prompt("Digite o nome para este novo modelo de capacidade:");
+    const nomeTemplate = await showPromptModal("Digite o nome para este novo modelo de capacidade:");
     if (!nomeTemplate) return;
 
     try {
@@ -620,9 +787,160 @@ async function salvarNovoTemplate() {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ nome: nomeTemplate, capacidades: getValoresCapacidade() })
         });
-        alert("Novo modelo salvo com sucesso!");
+        showInfoModal("Novo modelo salvo com sucesso!");
         abrirModalConfiguracoes();
-    } catch (e) { alert("Erro ao salvar template."); }
+    } catch (e) { showInfoModal("Erro ao salvar template."); }
+}
+
+async function editarTemplateCapacidade() {
+    const selectTemp = document.getElementById('select-template-capacidade');
+    const template = window.templatesCapacidade?.find(x => String(x.id) === selectTemp.value);
+    if (!template) return showInfoModal('Selecione um modelo para editar.');
+
+    const nome = await showPromptModal('Nome do modelo:', template.nome);
+    if (!nome) return;
+
+    try {
+        const response = await fetch(`/api/v5/painel-logistica/capacidade-templates/${template.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nome, capacidades: getValoresCapacidade() })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.success === false) throw new Error(data.error || 'Erro ao editar modelo.');
+        showInfoModal('Modelo atualizado com sucesso.');
+        abrirModalConfiguracoes();
+    } catch (e) {
+        showInfoModal('Erro ao editar modelo: ' + e.message);
+    }
+}
+
+async function excluirTemplateCapacidade() {
+    const selectTemp = document.getElementById('select-template-capacidade');
+    const template = window.templatesCapacidade?.find(x => String(x.id) === selectTemp.value);
+    if (!template) return showInfoModal('Selecione um modelo para excluir.');
+    if (!(await showConfirmModal(`Excluir o modelo "${template.nome}"?`))) return;
+
+    try {
+        const response = await fetch(`/api/v5/painel-logistica/capacidade-templates/${template.id}`, {
+            method: 'DELETE'
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.success === false) throw new Error(data.error || 'Erro ao excluir modelo.');
+        showInfoModal('Modelo excluído.');
+        abrirModalConfiguracoes();
+    } catch (e) {
+        showInfoModal('Erro ao excluir modelo: ' + e.message);
+    }
+}
+
+async function carregarTagsConfiguracao() {
+    const tbody = document.getElementById('tbody-tags-logistica');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Carregando tags...</td></tr>';
+
+    try {
+        const response = await fetch('/api/v5/painel-logistica/tags');
+        const tags = await response.json();
+        tagsLogisticaGlobal = Array.isArray(tags) ? tags : [];
+
+        if (tagsLogisticaGlobal.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Nenhuma tag cadastrada.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = tagsLogisticaGlobal.map(tag => `
+            <tr>
+                <td class="fw-bold">${tag.nome}</td>
+                <td><span class="badge" style="background:${tag.cor_fundo};color:${tag.cor_texto};">${tag.nome}</span></td>
+                <td>${Number(tag.ativo) === 1 ? '<span class="badge bg-success">Ativa</span>' : '<span class="badge bg-secondary">Inativa</span>'}</td>
+                <td>${tag.ordem || 0}</td>
+                <td class="text-end">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-action="editar-tag" data-tag-id="${tag.id}"><i class="bi bi-pencil"></i></button>
+                    <button type="button" class="btn btn-sm btn-outline-danger" data-action="excluir-tag" data-tag-id="${tag.id}"><i class="bi bi-trash"></i></button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Erro ao carregar tags.</td></tr>';
+    }
+}
+
+function limparFormTagLogistica() {
+    document.getElementById('tag-logistica-id').value = '';
+    document.getElementById('tag-logistica-nome').value = '';
+    document.getElementById('tag-logistica-cor-fundo').value = '#0d6efd';
+    document.getElementById('tag-logistica-cor-texto').value = '#ffffff';
+    document.getElementById('tag-logistica-ordem').value = '0';
+    document.getElementById('tag-logistica-ativo').checked = true;
+}
+
+async function salvarTagLogistica() {
+    const id = document.getElementById('tag-logistica-id').value;
+    const payload = {
+        nome: document.getElementById('tag-logistica-nome').value,
+        cor_fundo: document.getElementById('tag-logistica-cor-fundo').value,
+        cor_texto: document.getElementById('tag-logistica-cor-texto').value,
+        ordem: Number(document.getElementById('tag-logistica-ordem').value || 0),
+        ativo: document.getElementById('tag-logistica-ativo').checked ? 1 : 0
+    };
+
+    if (!payload.nome.trim()) return showInfoModal('Informe o nome da tag.');
+
+    try {
+        const response = await fetch(id ? `/api/v5/painel-logistica/tags/${id}` : '/api/v5/painel-logistica/tags', {
+            method: id ? 'PUT' : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.success === false) throw new Error(data.error || 'Erro ao salvar tag.');
+        tagsLogisticaGlobal = [];
+        limparFormTagLogistica();
+        carregarTagsConfiguracao();
+    } catch (error) {
+        showInfoModal('Erro ao salvar tag: ' + error.message);
+    }
+}
+
+function tratarCliqueTabelaTags(e) {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+
+    const action = btn.dataset.action;
+    const tagId = btn.dataset.tagId;
+
+    if (action === 'editar-tag') {
+        editarTagLogistica(tagId);
+    }
+
+    if (action === 'excluir-tag') {
+        excluirTagLogistica(tagId);
+    }
+}
+
+function editarTagLogistica(id) {
+    const tag = tagsLogisticaGlobal.find(item => String(item.id) === String(id));
+    if (!tag) return;
+    document.getElementById('tag-logistica-id').value = tag.id;
+    document.getElementById('tag-logistica-nome').value = tag.nome || '';
+    document.getElementById('tag-logistica-cor-fundo').value = tag.cor_fundo || '#0d6efd';
+    document.getElementById('tag-logistica-cor-texto').value = tag.cor_texto || '#ffffff';
+    document.getElementById('tag-logistica-ordem').value = tag.ordem || 0;
+    document.getElementById('tag-logistica-ativo').checked = Number(tag.ativo) === 1;
+}
+
+async function excluirTagLogistica(id) {
+    if (!(await showConfirmModal('Inativar esta tag?'))) return;
+    try {
+        const response = await fetch(`/api/v5/painel-logistica/tags/${id}`, { method: 'DELETE' });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.success === false) throw new Error(data.error || 'Erro ao inativar tag.');
+        tagsLogisticaGlobal = [];
+        carregarTagsConfiguracao();
+    } catch (error) {
+        showInfoModal('Erro ao inativar tag: ' + error.message);
+    }
 }
 
 async function salvarConfiguracoes() {
@@ -656,19 +974,26 @@ async function salvarConfiguracoes() {
         });
         hideModalNativo('modalConfiguracoes');
         carregarAgenda();
-    } catch (e) { alert("Erro ao salvar."); } 
+    } catch (e) { showInfoModal("Erro ao salvar."); } 
     finally { btn.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Salvar Tudo'; btn.disabled = false; }
 }
 
 async function abrirModalDetalhes(os) {
+    window.osModalAtual = os;
     document.getElementById('action-os-id').value = os.ixc_os_id;
     document.getElementById('action-agenda-local-id').value = os.id; 
     document.getElementById('action-nova-data').value = document.getElementById('filtro-data').value;
+    atualizarInfoCapacidadeReagendamento();
     
     document.getElementById('detalhe-os-titulo').textContent = `OS #${os.ixc_os_id} - ${os.turno} (${os.tipo_imovel})`;
 
     const areaAcoes = document.getElementById('area-acoes-os');
     if (areaAcoes) areaAcoes.style.display = usuarioPodeEditar ? 'block' : 'none';
+    const osVindaDaFila = String(os.id || '').startsWith('fila-') || os.origem === 'FILA_LOGISTICA';
+    document.getElementById('secao-confirmacao-cliente')?.classList.toggle('d-none', osVindaDaFila);
+    document.getElementById('secao-espera-cliente')?.classList.toggle('d-none', osVindaDaFila);
+    document.getElementById('secao-prioridade-logistica')?.classList.toggle('d-none', osVindaDaFila);
+    document.getElementById('secao-tags-os')?.classList.toggle('d-none', osVindaDaFila);
 
     document.getElementById('loading-detalhes-os').style.display = 'flex';
     document.getElementById('conteudo-detalhes-os').style.display = 'none';
@@ -680,17 +1005,40 @@ async function abrirModalDetalhes(os) {
         const data = await response.json();
 
         document.getElementById('det-cliente-nome').textContent = data.cliente.razao || data.cliente.nome || 'Cliente não encontrado';
-        document.getElementById('det-cliente-fone').textContent = data.cliente.telefone_celular || data.cliente.telefone_comercial || 'Sem telefone';
-        document.getElementById('det-contrato').textContent = data.contrato.contrato || data.contrato.id || 'Sem contrato';
+        document.getElementById('det-cliente-fone').textContent = montarContatosClienteLogistica(data.cliente);
+        const contratoLabel = [
+            data.contrato.id ? `Contrato #${data.contrato.id}` : (data.contrato.contrato || 'Sem contrato'),
+            `Status: ${traduzirStatusContratoLogistica(data.contrato.status)}`,
+            `Acesso: ${traduzirStatusAcessoLogistica(data.contrato.status_internet || data.contrato.status_acesso)}`,
+            `Bloqueio automático: ${simNaoLogistica(data.contrato.bloqueio_automatico)}`,
+            data.contrato.plano || data.contrato.nome_plano || data.contrato.id_vd_contrato ? `Plano: ${data.contrato.plano || data.contrato.nome_plano || data.contrato.id_vd_contrato}` : ''
+        ].filter(Boolean).join(' | ');
+        document.getElementById('det-contrato').textContent = contratoLabel;
         
         if (data.login && data.login.login) {
             document.getElementById('det-login').textContent = `PPPOE: ${data.login.login}`;
             document.getElementById('btn-ver-onu').style.display = 'inline-block';
+            document.getElementById('btn-relatorio-conexao')?.classList.remove('d-none');
             window.loginAtualData = data.login; window.onuAtualData = data.onu;
         } else {
             document.getElementById('det-login').textContent = 'Sem login PPPoE';
             document.getElementById('btn-ver-onu').style.display = 'none';
+            document.getElementById('btn-relatorio-conexao')?.classList.add('d-none');
+            window.loginAtualData = null; window.onuAtualData = null;
         }
+
+        preencherResumoAcesso(data.resumoAcesso || {});
+        renderizarHistoricoMensagens(data.mensagens || []);
+        const statusContato = data.local?.contato_status || os.contato_status || 'PENDENTE';
+        const elStatusContato = document.getElementById('status-contato-atual');
+        if (elStatusContato) elStatusContato.textContent = `Status: ${formatarStatusContato(statusContato)}`;
+        const obs = document.getElementById('input-observacao-logistica');
+        if (obs) obs.value = '';
+        const prioridade = document.getElementById('input-prioridade-logistica');
+        const obsPrioridade = document.getElementById('input-prioridade-logistica-obs');
+        if (prioridade) prioridade.value = os.prioridade_logistica || data.local?.prioridade_logistica || 0;
+        if (obsPrioridade) obsPrioridade.value = os.prioridade_logistica_obs || data.local?.prioridade_logistica_obs || '';
+        await carregarTagsParaModalOs(os, data.local || {});
 
         const osData = data.os;
         document.getElementById('det-endereco').textContent = `${osData.endereco || ''}, ${osData.numero || 'S/N'} - ${osData.bairro || ''}`;
@@ -714,6 +1062,280 @@ async function abrirModalDetalhes(os) {
             id_tecnico: osData.id_tecnico 
         };
     } catch (e) { hideModalNativo('modalDetalhesOS'); }
+}
+
+function formatarStatusContato(status) {
+    const s = String(status || 'PENDENTE').toUpperCase();
+    if (s === 'CONFIRMADO') return 'cliente confirmou';
+    if (s === 'NAO_RECEBE') return 'cliente não irá receber / reagendado';
+    if (s === 'SEM_CONTATO') return 'sem contato';
+    return 'pendente';
+}
+
+function preencherResumoAcesso(resumo) {
+    const status = resumo.status || 'Sem login';
+    const statusEl = document.getElementById('resumo-status-acesso');
+    if (statusEl) {
+        statusEl.textContent = status;
+        statusEl.className = status === 'Online' ? 'badge bg-success' : (status === 'Offline' ? 'badge bg-danger' : 'badge bg-secondary');
+    }
+    const qHoje = document.getElementById('resumo-quedas-hoje');
+    const q7 = document.getElementById('resumo-quedas-7d');
+    const sinais = document.getElementById('resumo-sinais-onu');
+    if (qHoje) qHoje.textContent = resumo.quedas_hoje ?? 0;
+    if (q7) q7.textContent = resumo.quedas_7_dias ?? 0;
+    if (sinais) sinais.textContent = `${resumo.rx || 'N/A'} / ${resumo.tx || 'N/A'}`;
+}
+
+function renderizarHistoricoMensagens(mensagens) {
+    const container = document.getElementById('historico-mensagens-os');
+    if (!container) return;
+    if (!mensagens || mensagens.length === 0) {
+        container.innerHTML = '<p class="text-muted mb-0">Nenhuma mensagem encontrada no IXC.</p>';
+        return;
+    }
+    container.innerHTML = mensagens.map(m => {
+        const dataMsg = formatarDataHoraMensagem(m.data || m.data_inicio || m.created_at || '');
+        const autor = m.autor_nome || m.nome_tecnico || m.tecnico || m.usuario || 'Sistema/IXC';
+        const texto = String(m.mensagem || m.resposta || m.descricao || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+        return `<div class="border-bottom pb-2 mb-2"><div class="fw-bold text-primary small">${dataMsg} - ${autor}</div><div>${texto || 'Sem conteúdo'}</div></div>`;
+    }).join('');
+}
+
+function formatarDataHoraMensagem(valor) {
+    if (!valor) return '--/--/---- --:--';
+    const str = String(valor).replace('T', ' ').substring(0, 16);
+    const match = str.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/);
+    if (match) return `${match[3]}/${match[2]}/${match[1]} ${match[4]}:${match[5]}`;
+    const data = new Date(valor);
+    if (!isNaN(data)) {
+        return data.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+    return str;
+}
+
+async function carregarTagsBase() {
+    if (tagsLogisticaGlobal.length > 0) return tagsLogisticaGlobal;
+    const res = await fetch('/api/v5/painel-logistica/tags');
+    const tags = await res.json();
+    tagsLogisticaGlobal = Array.isArray(tags) ? tags : [];
+    return tagsLogisticaGlobal;
+}
+
+async function carregarTagsParaModalOs(os) {
+    const container = document.getElementById('lista-tags-os');
+    if (!container) return;
+    if (!os.id || String(os.id).startsWith('fila-')) {
+        container.innerHTML = '<span class="text-muted small">Tags disponíveis apenas para OS agendada.</span>';
+        return;
+    }
+
+    const tags = (await carregarTagsBase()).filter(tag => Number(tag.ativo) === 1);
+    const selecionadas = new Set((os.tags || []).map(tag => String(tag.id)));
+    if (tags.length === 0) {
+        container.innerHTML = '<span class="text-muted small">Nenhuma tag ativa configurada.</span>';
+        return;
+    }
+
+    container.innerHTML = tags.map(tag => `
+        <label class="form-check-label border rounded-pill px-2 py-1 bg-white small" style="cursor:pointer;">
+            <input class="form-check-input me-1 chk-tag-os" type="checkbox" value="${tag.id}" ${selecionadas.has(String(tag.id)) ? 'checked' : ''}>
+            <span style="background:${tag.cor_fundo || '#0d6efd'};color:${tag.cor_texto || '#fff'};" class="badge">${tag.nome}</span>
+        </label>
+    `).join('');
+}
+
+async function salvarTagsOsAtual() {
+    const os = window.osModalAtual;
+    if (!os || !os.id || String(os.id).startsWith('fila-')) return showInfoModal('Tags disponíveis apenas para OS agendada.');
+    const tagIds = Array.from(document.querySelectorAll('.chk-tag-os:checked')).map(chk => chk.value);
+
+    try {
+        const response = await fetch(`/api/v5/painel-logistica/os-tags/${os.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tag_ids: tagIds })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.success === false) throw new Error(data.error || 'Erro ao salvar tags.');
+
+        const tagsSelecionadas = tagsLogisticaGlobal.filter(tag => tagIds.includes(String(tag.id)));
+        atualizarOsLocal(os.id, { tags: tagsSelecionadas });
+        atualizarCardAberto(os.id);
+    } catch (error) {
+        showInfoModal('Erro ao salvar tags: ' + error.message);
+    }
+}
+
+async function salvarPrioridadeLogistica() {
+    const os = window.osModalAtual;
+    if (!os || !os.id || String(os.id).startsWith('fila-')) return showInfoModal('Prioridade disponível apenas para OS agendada.');
+    const prioridade = Number(document.getElementById('input-prioridade-logistica')?.value || 0);
+    const observacao = document.getElementById('input-prioridade-logistica-obs')?.value || '';
+
+    try {
+        const response = await fetch('/api/v5/painel-logistica/prioridade-logistica', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_local: os.id, prioridade, observacao })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.success === false) throw new Error(data.error || 'Erro ao salvar prioridade.');
+        atualizarOsLocal(os.id, { prioridade_logistica: prioridade, prioridade_logistica_obs: observacao });
+        atualizarCardAberto(os.id);
+    } catch (error) {
+        showInfoModal('Erro ao salvar prioridade: ' + error.message);
+    }
+}
+
+async function verHistoricoPppoe(username) {
+    const tbody = document.getElementById('tbody-historico-pppoe');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center"><span class="spinner-border spinner-border-sm me-2"></span>Buscando relatório no IXC...</td></tr>';
+
+    showModalNativo('modalHistoricoPPPOE');
+
+    try {
+        const res = await fetch(`/api/v5/painel-logistica/historico-conexao/${encodeURIComponent(username)}`);
+        const history = await res.json();
+
+        if (!Array.isArray(history) || history.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Nenhum registro de conexão encontrado.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = history.map(h => {
+            const up = h.acctinputoctets ? formatBytes(h.acctinputoctets) : '0 B';
+            const down = h.acctoutputoctets ? formatBytes(h.acctoutputoctets) : '0 B';
+            return `<tr>
+                <td class="fw-bold">${h.framedipaddress || 'N/A'}</td>
+                <td>${h.callingstationid || 'N/A'}</td>
+                <td>${h.acctstarttime || 'N/A'}</td>
+                <td>${h.acctstoptime || '<span class="text-success fw-bold">Sessão Ativa</span>'}</td>
+                <td>${formatarTempoSessao(h.acctsessiontime)}</td>
+                <td><i class="bi bi-arrow-up-short text-primary"></i> ${up}<br><i class="bi bi-arrow-down-short text-success"></i> ${down}</td>
+                <td class="${h.acctterminatecause ? 'text-danger' : ''}">${h.acctterminatecause || '---'}</td>
+            </tr>`;
+        }).join('');
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Erro ao carregar histórico.</td></tr>';
+    }
+}
+
+function formatBytes(bytes) {
+    if (!+bytes) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+}
+
+function formatarTempoSessao(segundos) {
+    if (!segundos || segundos == 0) return '0s';
+    const d = Math.floor(segundos / 86400);
+    const h = Math.floor((segundos % 86400) / 3600);
+    const m = Math.floor((segundos % 3600) / 60);
+    const res = [];
+    if (d > 0) res.push(`${d}d`);
+    if (h > 0) res.push(`${h}h`);
+    if (m > 0) res.push(`${m}m`);
+    return res.join(' ') || `${segundos}s`;
+}
+
+async function registrarContatoCliente(status) {
+    const ixc_os_id = document.getElementById('action-os-id').value;
+    const id_local = document.getElementById('action-agenda-local-id').value;
+    const nova_data = document.getElementById('action-nova-data').value;
+    const novo_turno = document.getElementById('action-novo-turno').value;
+
+    if (status === 'NAO_RECEBE' && !nova_data) {
+        return showInfoModal('Selecione a nova data no campo Reagendar antes de marcar que o cliente não irá receber.');
+    }
+
+    const confirma = status === 'CONFIRMADO'
+        ? 'Confirmar que o cliente irá receber o técnico?'
+        : status === 'NAO_RECEBE'
+            ? 'Marcar que o cliente não irá receber e reagendar para a nova data selecionada?'
+            : 'Registrar que a logística não conseguiu contato com o cliente?';
+    if (!(await showConfirmModal(confirma))) return;
+
+    try {
+        const response = await fetch('/api/v5/painel-logistica/contato-cliente', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_local, ixc_os_id, status_contato: status, nova_data, novo_turno, usuario_logado: window.usuarioLogado })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.success === false) throw new Error(data.error || 'Erro ao registrar contato.');
+        atualizarStatusContatoNaUi(id_local, status);
+        setTimeout(() => carregarAgenda(), 250);
+    } catch (e) {
+        showInfoModal('Erro ao registrar contato: ' + e.message);
+    }
+}
+
+async function iniciarEsperaCliente() {
+    const ixc_os_id = document.getElementById('action-os-id').value;
+    const id_local = document.getElementById('action-agenda-local-id').value;
+    const minutos = document.getElementById('input-minutos-espera').value;
+    if (!minutos || Number(minutos) <= 0) return showInfoModal('Informe por quantos minutos o técnico deve aguardar.');
+
+    try {
+        const response = await fetch('/api/v5/painel-logistica/aguardar-cliente', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_local, ixc_os_id, minutos, usuario_logado: window.usuarioLogado })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.success === false) throw new Error(data.error || 'Erro ao iniciar espera.');
+        atualizarEsperaNaUi(id_local, data.espera_cliente_ate);
+        setTimeout(() => autoRefreshSilencioso(), 250);
+    } catch (e) {
+        showInfoModal('Erro ao iniciar espera: ' + e.message);
+    }
+}
+
+async function pararEsperaCliente() {
+    const id_local = document.getElementById('action-agenda-local-id').value;
+    if (!id_local || String(id_local).startsWith('fila-')) return;
+
+    try {
+        const response = await fetch('/api/v5/painel-logistica/parar-espera-cliente', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_local })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.success === false) throw new Error(data.error || 'Erro ao parar espera.');
+        atualizarEsperaNaUi(id_local, null);
+    } catch (e) {
+        showInfoModal('Erro ao parar espera: ' + e.message);
+    }
+}
+
+async function salvarObservacaoLogistica() {
+    const ixc_os_id = document.getElementById('action-os-id').value;
+    const id_local = document.getElementById('action-agenda-local-id').value;
+    const mensagem = document.getElementById('input-observacao-logistica').value;
+    if (!mensagem || !mensagem.trim()) return showInfoModal('Digite a observação.');
+
+    try {
+        const response = await fetch('/api/v5/painel-logistica/observacao-logistica', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_local, ixc_os_id, mensagem, usuario_logado: window.usuarioLogado })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.success === false) throw new Error(data.error || 'Erro ao salvar observação.');
+        document.getElementById('input-observacao-logistica').value = '';
+        showInfoModal('Observação registrada no IXC.');
+        // Recarrega os detalhes para puxar o histórico atualizado.
+        const responseDet = await fetch(`/api/v5/painel-logistica/os-detalhes/${ixc_os_id}`);
+        const det = await responseDet.json();
+        renderizarHistoricoMensagens(det.mensagens || []);
+    } catch (e) {
+        showInfoModal('Erro ao salvar observação: ' + e.message);
+    }
 }
 
 function abrirModalONU() {
@@ -781,13 +1403,97 @@ function abrirModalONU() {
     showModalNativo('modalDetalhesONU');
 }
 
+function obterParametrosCapacidadeReagendamento() {
+    const os = window.osModalAtual || {};
+    return {
+        data: document.getElementById('action-nova-data')?.value || '',
+        turno: document.getElementById('action-novo-turno')?.value || 'MATUTINO',
+        municipio: os.municipio_base || os.cidade_real || os.municipio || os.cidade || '',
+        tipo_servico: os.tipo_servico || os.assunto || '',
+        tipo_imovel: os.tipo_imovel || ''
+    };
+}
+
+function renderizarInfoCapacidadeReagendamento(info, estado = 'ok') {
+    const box = document.getElementById('info-capacidade-reagendamento');
+    if (!box) return;
+
+    if (!info) {
+        box.className = 'small rounded border bg-white p-2 mb-3 text-muted d-none';
+        box.textContent = '';
+        return;
+    }
+
+    const classes = estado === 'lotado'
+        ? 'small rounded border border-danger bg-white p-2 mb-3 text-danger'
+        : estado === 'erro'
+            ? 'small rounded border bg-white p-2 mb-3 text-muted'
+            : 'small rounded border border-success bg-white p-2 mb-3 text-success';
+    box.className = classes;
+    box.textContent = info;
+}
+
+async function atualizarInfoCapacidadeReagendamento() {
+    const params = obterParametrosCapacidadeReagendamento();
+    window.capacidadeReagendamentoAtual = null;
+
+    if (!params.data) {
+        renderizarInfoCapacidadeReagendamento(null);
+        return;
+    }
+
+    renderizarInfoCapacidadeReagendamento('Consultando capacidade do turno...', 'erro');
+
+    try {
+        const query = new URLSearchParams({
+            data_inicio: params.data,
+            data_fim: params.data,
+            municipio: params.municipio,
+            tipo_servico: params.tipo_servico,
+            tipo_imovel: params.tipo_imovel
+        });
+        const response = await fetch(`/api/v5/agendamento/vagas-semana?${query.toString()}`);
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || 'Nao foi possivel consultar a capacidade.');
+
+        const chaveTurno = params.turno === 'VESPERTINO' ? 'vespertino' : 'matutino';
+        const capacidade = data?.[params.data]?.[chaveTurno];
+        if (!capacidade) {
+            renderizarInfoCapacidadeReagendamento('Capacidade nao encontrada para este turno.', 'erro');
+            return;
+        }
+
+        window.capacidadeReagendamentoAtual = {
+            data: params.data,
+            turno: params.turno,
+            vagas: Number(capacidade.vagas || 0),
+            disponivel: Boolean(capacidade.disponivel),
+            msg: capacidade.msg || ''
+        };
+
+        const labelTurno = params.turno === 'VESPERTINO' ? 'Vespertino' : 'Matutino';
+        const texto = `${labelTurno}: ${window.capacidadeReagendamentoAtual.vagas} vaga(s) disponiveis${capacidade.msg ? ` - ${capacidade.msg}` : ''}.`;
+        renderizarInfoCapacidadeReagendamento(texto, window.capacidadeReagendamentoAtual.disponivel ? 'ok' : 'lotado');
+    } catch (e) {
+        console.warn('[Painel Logistica] Falha ao consultar capacidade de reagendamento:', e.message);
+        renderizarInfoCapacidadeReagendamento('Nao foi possivel consultar a capacidade agora.', 'erro');
+    }
+}
+
 async function enviarReagendamento() {
     const ixc_os_id = document.getElementById('action-os-id').value;
     const id_agenda_local = document.getElementById('action-agenda-local-id').value;
     const nova_data = document.getElementById('action-nova-data').value;
     const novo_turno = document.getElementById('action-novo-turno').value;
 
-    if (!nova_data) return alert("Selecione a nova data!");
+    if (!nova_data) return showInfoModal("Selecione a nova data!");
+    if (!window.capacidadeReagendamentoAtual || window.capacidadeReagendamentoAtual.data !== nova_data || window.capacidadeReagendamentoAtual.turno !== novo_turno) {
+        await atualizarInfoCapacidadeReagendamento();
+    }
+    if (window.capacidadeReagendamentoAtual && !window.capacidadeReagendamentoAtual.disponivel) {
+        const confirmarSemVaga = await showConfirmModal('Este turno esta sem vagas disponiveis. Deseja reagendar mesmo assim?');
+        if (!confirmarSemVaga) return;
+    }
 
     const btn = document.getElementById('btn-action-reagendar');
     btn.innerHTML = 'Reagendando...';
@@ -797,14 +1503,14 @@ async function enviarReagendamento() {
         await fetch('/api/v5/painel-logistica/reagendar', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ixc_os_id, id_agenda_local, nova_data, novo_turno })
+            body: JSON.stringify({ ixc_os_id, id_agenda_local, nova_data, novo_turno, usuario_logado: window.usuarioLogado })
         });
         
         hideModalNativo('modalDetalhesOS');
         carregarAgenda(); 
         if (usuarioPodeEditar) carregarFilaLogistica();
     } catch (e) {
-        alert("Erro ao reagendar: " + e.message);
+        showInfoModal("Erro ao reagendar: " + e.message);
     } finally {
         btn.innerHTML = 'Reagendar Visita';
         btn.disabled = false;
@@ -813,7 +1519,7 @@ async function enviarReagendamento() {
 
 function enviarFechamentoOS() {
     const mensagem = document.getElementById('input-fechar-mensagem').value;
-    if (!mensagem) return alert('Por favor, descreva o que foi feito na mensagem de resolução.');
+    if (!mensagem) return showInfoModal('Por favor, descreva o que foi feito na mensagem de resolução.');
 
     const pId = window.osAtualParaFechar ? window.osAtualParaFechar.id_processo : null;
 
@@ -832,7 +1538,7 @@ window.tratarPrioridade = async function(acao) {
         ? 'Tem certeza que deseja PUXAR este agendamento para HOJE?' 
         : 'Tem certeza que deseja RECUSAR a prioridade? A OS continuará no dia originalmente agendado.';
         
-    if (!confirm(msgConfirma)) return;
+    if (!(await showConfirmModal(msgConfirma))) return;
 
     try {
         const hojeYmd = new Intl.DateTimeFormat('sv-SE', {
@@ -849,7 +1555,8 @@ window.tratarPrioridade = async function(acao) {
                 id_local: window.osPrioridadeAtual.id,
                 ixc_os_id: window.osPrioridadeAtual.ixc_os_id,
                 acao: acao,
-                data_hoje: hojeYmd
+                data_hoje: hojeYmd,
+                usuario_logado: window.usuarioLogado
             })
         });
 
@@ -868,7 +1575,7 @@ window.tratarPrioridade = async function(acao) {
             await carregarFilaLogistica();
         }
     } catch (error) {
-        alert('Erro ao processar a prioridade: ' + error.message);
+        showInfoModal('Erro ao processar a prioridade: ' + error.message);
         await carregarAgenda();
     }
 };
@@ -952,7 +1659,7 @@ async function executarFechamentoFinal(mensagem, idTarefaDestino) {
         carregarAgenda();
         if (usuarioPodeEditar) carregarFilaLogistica();
     } catch (e) {
-        alert('Erro ao finalizar OS: ' + e.message);
+        showInfoModal('Erro ao finalizar OS: ' + e.message);
     } finally {
         if (btnFechar) { btnFechar.innerHTML = '<i class="bi bi-check-circle me-1"></i>Confirmar Mensagem e Prosseguir'; btnFechar.disabled = false; }
         if (btnWfl) { btnWfl.innerHTML = 'Finalizar e Avançar <i class="bi bi-arrow-right-circle ms-1"></i>'; btnWfl.disabled = false; }
@@ -1045,9 +1752,9 @@ function initializeThemeAndUserInfo() {
 
             if (username === 'Visitante') {
                 if (typeof showModal === 'function') {
-                    showModal('Sessão Expirada', 'Será necessário refazer o login!', 'warning');
+                    showInfoModal('Sessão Expirada', 'Será necessário refazer o login!', 'warning');
                 } else {
-                    alert('Sessão expirada. Será necessário refazer o login.');
+                    showInfoModal('Sessão expirada. Será necessário refazer o login.');
                 }
 
                 setTimeout(() => {
@@ -1071,13 +1778,13 @@ function initializeThemeAndUserInfo() {
             console.error('Erro ao obter o nome do usuário e grupo:', error);
 
             if (typeof showModal === 'function') {
-                showModal(
+                showInfoModal(
                     'Erro de Autenticação',
                     'Não foi possível verificar seu usuário. Por favor, faça o login novamente.',
                     'danger'
                 );
             } else {
-                alert('Erro de autenticação. Faça login novamente.');
+                showInfoModal('Erro de autenticação. Faça login novamente.');
             }
 
             setTimeout(() => {
