@@ -214,9 +214,9 @@ const PERMISSOES_SISTEMA = {
     'card-looking-glass': ['NOC','ADMIN'],
   
     'card-analise-de-risco': ['NOC','TecnicoFibra','TecnicoLogistica','Fibra','Logistica','ADMIN'],
-    'card-abertura-OS': ['NOC','ADMIN'],
-    'card-agendamento': ['NOC','ADMIN'],
-    'card-painel-logistica': ['NOC','ADMIN'],
+    'card-abertura-OS': ['NOC','Fibra','Logistica','Financeiro','Helpdesk','CRI','Corporativo','Comercial','ADMIN'],
+    'card-agendamento': ['NOC','Fibra','Logistica','Financeiro','Helpdesk','CRI','Corporativo','Comercial','ADMIN'],
+    'card-painel-logistica': ['NOC','Fibra','Logistica','Financeiro','Helpdesk','CRI','Corporativo','Comercial','ADMIN'],
 
     'card-cadastro-bandaLarga': ['NOC','Comercial','Almoxarifado','Corporativo','ADMIN','Fibra','Financeiro','Helpdesk','CRI','Logistica','Qualidade'],
     'card-cadastro-corporativo': ['NOC','Corporativo','ADMIN','Financeiro'],
