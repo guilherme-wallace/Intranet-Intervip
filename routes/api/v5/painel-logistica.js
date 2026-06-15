@@ -52,52 +52,6 @@ function dataHoraSaoPaulo(date) {
     }).format(date);
     return partes.replace('T', ' ');
 }
-function parseDataBrParaDate(dataBr, hora) {
-    const [dia, mes, ano] = dataBr.split('/').map(Number);
-    const [hh, mm, ss] = hora.split(':').map(Number);
-    return new Date(ano, mes - 1, dia, hh, mm, ss || 0);
-}
-function formatarHora(date) {
-    return date.toLocaleTimeString('pt-BR', {
-        timeZone: 'America/Sao_Paulo',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false
-    });
-}
-function obterJanelaAgendamentoSegura(dataFormatada, turno) {
-    const turnoNormalizado = String(turno || 'MATUTINO').toUpperCase();
-    let horaInicio = turnoNormalizado === 'VESPERTINO'
-        ? '13:00:00'
-        : '08:00:00';
-    let horaFim = turnoNormalizado === 'VESPERTINO'
-        ? '18:00:00'
-        : '12:00:00';
-    const inicioOriginal = parseDataBrParaDate(dataFormatada, horaInicio);
-    const fimOriginal = parseDataBrParaDate(dataFormatada, horaFim);
-    const agora = new Date();
-    const agoraMaisCincoMin = new Date(agora.getTime() + 5 * 60 * 1000);
-    const dataHojeBr = agora.toLocaleDateString('pt-BR', {
-        timeZone: 'America/Sao_Paulo'
-    });
-    const ehHoje = dataFormatada === dataHojeBr;
-    if (ehHoje && inicioOriginal < agoraMaisCincoMin) {
-        if (agoraMaisCincoMin < fimOriginal) {
-            horaInicio = formatarHora(agoraMaisCincoMin);
-        }
-        else {
-            horaInicio = formatarHora(agoraMaisCincoMin);
-            const fimEmergencial = new Date(agoraMaisCincoMin.getTime() + 30 * 60 * 1000);
-            horaFim = formatarHora(fimEmergencial);
-        }
-    }
-    return {
-        horaInicio,
-        horaFim,
-        turnoNormalizado
-    };
-}
 router.get('/agendamentos', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const data = req.query.data;
     const municipio = req.query.municipio;
@@ -205,14 +159,15 @@ router.put('/atribuir-tecnico', (req, res) => __awaiter(void 0, void 0, void 0, 
         const statusLocal = tecnicoFinal === '138'
             ? 'AGUARDANDO_LOGISTICA'
             : 'ATRIBUIDO';
-        const dataFormatada = formatarDataIxc(data_agendamento);
-        const { horaInicio, horaFim, turnoNormalizado } = obterJanelaAgendamentoSegura(dataFormatada, turno);
-        const dataInteracao = dataHoraAtualSaoPaulo();
+        const janelaSegura = agendaService_1.AgendaService.obterJanelaAgendamentoSegura(data_agendamento, turno);
+        const dataFormatada = janelaSegura.dataBr;
+        const turnoNormalizado = janelaSegura.turnoNormalizado;
+        const dataInteracao = janelaSegura.dataInteracao;
         const colaboradorAcao = yield agendaService_1.AgendaService.obterUsuarioIxcLogado(usuario_logado);
         const payloadAtribuir = {
             id_chamado: String(ixc_os_id),
-            data_agendamento: `${dataFormatada} ${horaInicio}`,
-            data_agendamento_final: `${dataFormatada} ${horaFim}`,
+            data_agendamento: janelaSegura.dataAgendamentoIxc,
+            data_agendamento_final: janelaSegura.dataAgendamentoFinalIxc,
             id_resposta: '',
             mensagem: tecnicoFinal === '138'
                 ? `O.S. devolvida para a fila da Logística (Hub Intervip).\nColaborador responsável: ${colaboradorAcao.nome}`
@@ -228,10 +183,20 @@ router.put('/atribuir-tecnico', (req, res) => __awaiter(void 0, void 0, void 0, 
             longitude: '',
             gps_time: ''
         };
+        console.log('[DEBUG AGENDAMENTO IXC] Atribuir técnico painel:', {
+            osId: ixc_os_id,
+            usuarioLogado: usuario_logado || 'não informado',
+            tecnicoDestino: tecnicoFinal,
+            dataSelecionada: data_agendamento,
+            turno,
+            janelaSegura,
+            payloadFinal: payloadAtribuir
+        });
         const respIxc = yield agendaService_1.AgendaService.makeIxcRequest('POST', '/su_oss_chamado_reagendar', payloadAtribuir, 'incluir');
         if ((respIxc === null || respIxc === void 0 ? void 0 : respIxc.type) === 'error') {
             throw new Error(`Erro IXC: ${respIxc.message || 'Erro ao atribuir tÃ©cnico.'}`);
         }
+        console.log('[DEBUG AGENDAMENTO IXC] Resposta atribuir técnico painel:', respIxc);
         if (id_agenda && !String(id_agenda).startsWith('ixc-')) {
             yield agendaService_1.AgendaService.executeDb(`
                 UPDATE ivp_agenda_os
@@ -256,11 +221,86 @@ router.put('/atribuir-tecnico', (req, res) => __awaiter(void 0, void 0, void 0, 
 }));
 router.put('/reagendar', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        if (typeof req.body.abrir_chamado_duvida === 'undefined') {
+            return res.status(400).json({ error: 'Escolha se deseja abrir chamado de duvida ou apenas reagendar.' });
+        }
+        if (!['COM_CHAMADO_DUVIDA', 'APENAS_REAGENDAR'].includes(String(req.body.modo_reagendamento || ''))) {
+            return res.status(400).json({ error: 'Informe o modo do reagendamento.' });
+        }
         yield agendaService_1.AgendaService.reagendarOs(req.body);
         res.json({ success: true, message: "OS Reagendada com sucesso!" });
     }
     catch (error) {
         res.status(500).json({ error: error.message });
+    }
+}));
+router.post('/cancelar-visita', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _d, _e, _f;
+    const { id_local, ixc_os_id, motivo, usuario_logado } = req.body;
+    try {
+        if (!ixc_os_id)
+            return res.status(400).json({ error: 'ixc_os_id e obrigatorio.' });
+        if (!motivo || !String(motivo).trim())
+            return res.status(400).json({ error: 'Informe o motivo do cancelamento.' });
+        const usuarioIxc = yield agendaService_1.AgendaService.obterUsuarioIxcLogado(usuario_logado);
+        if (String(usuarioIxc.id_funcionario_ixc) === '138') {
+            return res.status(400).json({
+                error: 'Não foi possível identificar o colaborador IXC do usuário logado. Cancele a visita com um usuário vinculado ao IXC.'
+            });
+        }
+        /* console.log('[Cancelar Visita Debug] Solicitação recebida:', {
+            osId: ixc_os_id,
+            modo: 'RETORNAR_FILA_LOGISTICA',
+            usuarioLogado: usuario_logado || 'não informado',
+            id_funcionario_ixc: usuarioIxc.id_funcionario_ixc
+        }); */
+        const textoMensagem = `Visita cancelada pelo cliente. Motivo: ${String(motivo).trim()}. OS retornada para a fila da logística.`;
+        /* console.log('[Cancelar Visita Debug] Registrando mensagem IXC:', {
+            osId: ixc_os_id,
+            mensagem: textoMensagem,
+            id_funcionario_ixc: usuarioIxc.id_funcionario_ixc
+        }); */
+        yield agendaService_1.AgendaService.registrarMensagemOs(String(ixc_os_id), textoMensagem, usuario_logado, 'Cancelar Visita');
+        //console.log('[Cancelar Visita Debug] Nenhuma chamada IXC adicional será feita; limpeza será local para não ocupar vaga e evitar alteração incompleta de OS.');
+        const statusLocal = 'AGUARDANDO_LOGISTICA';
+        const tecnicoHub = '138';
+        const params = [statusLocal, tecnicoHub, usuario_logado || null, String(motivo).trim(), id_local || 0, ixc_os_id];
+        try {
+            yield agendaService_1.AgendaService.executeDb(`UPDATE ivp_agenda_os
+                 SET status_interno = ?,
+                     data_agendamento = NULL,
+                     turno = NULL,
+                     ixc_tecnico_id = ?,
+                     espera_cliente_ate = NULL,
+                     visita_cancelada_em = NOW(),
+                     visita_cancelada_por = ?,
+                     visita_cancelada_motivo = ?
+                 WHERE id = ? OR ixc_os_id = ?`, params);
+            /* console.log('[Cancelar Visita Debug] Limpeza local concluída:', {
+                osId: ixc_os_id,
+                statusLocal,
+                campos: ['data_agendamento', 'turno', 'ixc_tecnico_id=138', 'espera_cliente_ate']
+            }); */
+        }
+        catch (dbError) {
+            console.warn('[Painel Logistica][Cancelar Visita] Campos novos/espera ausentes, atualizando campos básicos:', dbError.message);
+            yield agendaService_1.AgendaService.executeDb(`UPDATE ivp_agenda_os
+                 SET status_interno = ?,
+                     data_agendamento = NULL,
+                     turno = NULL,
+                     ixc_tecnico_id = ?
+                 WHERE id = ? OR ixc_os_id = ?`, [statusLocal, tecnicoHub, id_local || 0, ixc_os_id]);
+            /* console.log('[Cancelar Visita Debug] Limpeza local básica concluída:', {
+                osId: ixc_os_id,
+                statusLocal,
+                campos: ['data_agendamento', 'turno', 'ixc_tecnico_id=138']
+            }); */
+        }
+        res.json({ success: true, status_interno: statusLocal, ixc_tecnico_id: tecnicoHub });
+    }
+    catch (error) {
+        console.error('[Painel Logistica][Cancelar Visita]', ((_d = error.response) === null || _d === void 0 ? void 0 : _d.data) || error.message);
+        res.status(500).json({ error: ((_f = (_e = error.response) === null || _e === void 0 ? void 0 : _e.data) === null || _f === void 0 ? void 0 : _f.message) || error.message });
     }
 }));
 router.put('/fechar-os', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -295,7 +335,16 @@ router.put('/fechar-os', (req, res) => __awaiter(void 0, void 0, void 0, functio
                 id_tecnico: tecnicoFechamento
             });
         }
-        yield agendaService_1.AgendaService.executeDb(`UPDATE ivp_agenda_os SET status_interno = 'FINALIZADO' WHERE ixc_os_id = ?`, [ixc_os_id]).catch((dbError) => console.error('[Painel Logistica] Falha ao marcar OS local como FINALIZADO:', dbError.message));
+        yield agendaService_1.AgendaService.executeDb(`UPDATE ivp_agenda_os
+             SET status_interno = 'FINALIZADO',
+                 data_agendamento = NULL,
+                 turno = NULL,
+                 ixc_tecnico_id = NULL,
+                 espera_cliente_ate = NULL
+             WHERE ixc_os_id = ?`, [ixc_os_id]).catch((dbError) => __awaiter(void 0, void 0, void 0, function* () {
+            console.error('[Painel Logistica] Falha ao limpar agenda ao finalizar; marcando apenas FINALIZADO:', dbError.message);
+            yield agendaService_1.AgendaService.executeDb(`UPDATE ivp_agenda_os SET status_interno = 'FINALIZADO' WHERE ixc_os_id = ?`, [ixc_os_id]).catch((fallbackError) => console.error('[Painel Logistica] Falha ao marcar OS local como FINALIZADO:', fallbackError.message));
+        }));
         res.json({ success: true, message: "OS Finalizada com sucesso!" });
     }
     catch (error) {
@@ -303,7 +352,7 @@ router.put('/fechar-os', (req, res) => __awaiter(void 0, void 0, void 0, functio
     }
 }));
 router.post('/tratar-prioridade', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _d, _e, _f;
+    var _g, _h, _j;
     const { id_local, acao, ixc_os_id, usuario_logado } = req.body;
     try {
         if (!id_local) {
@@ -330,14 +379,15 @@ router.post('/tratar-prioridade', (req, res) => __awaiter(void 0, void 0, void 0
             day: '2-digit'
         }).format(new Date());
         const hojeBr = formatarDataIxc(hojeYmd);
-        const { horaInicio, horaFim, turnoNormalizado } = obterJanelaAgendamentoSegura(hojeBr, turno);
-        const dataInteracao = dataHoraAtualSaoPaulo();
+        const janelaSegura = agendaService_1.AgendaService.obterJanelaAgendamentoSegura(hojeYmd, turno);
+        const turnoNormalizado = janelaSegura.turnoNormalizado;
+        const dataInteracao = janelaSegura.dataInteracao;
         const colaboradorAcao = yield agendaService_1.AgendaService.obterUsuarioIxcLogado(usuario_logado);
         if (acao === 'aceitar') {
             const payloadAceitar = {
                 id_chamado: String(ixc_os_id),
-                data_agendamento: `${hojeBr} ${horaInicio}`,
-                data_agendamento_final: `${hojeBr} ${horaFim}`,
+                data_agendamento: janelaSegura.dataAgendamentoIxc,
+                data_agendamento_final: janelaSegura.dataAgendamentoFinalIxc,
                 id_resposta: '',
                 mensagem: `AGENDADO VIA INTRANET\nData: ${hojeBr}\nTurno: ${turnoNormalizado}\nAceita Encaixe: SIM\nColaborador responsÃ¡vel: ${colaboradorAcao.nome}`,
                 // Aqui 138 é o técnico destino HUB/Logística da OS, não o autor da ação.
@@ -351,10 +401,20 @@ router.post('/tratar-prioridade', (req, res) => __awaiter(void 0, void 0, void 0
                 longitude: '',
                 gps_time: ''
             };
+            console.log('[DEBUG AGENDAMENTO IXC] Aceitar prioridade painel:', {
+                osId: ixc_os_id,
+                usuarioLogado: usuario_logado || 'não informado',
+                tecnicoDestino: '138',
+                dataSelecionada: hojeYmd,
+                turno,
+                janelaSegura,
+                payloadFinal: payloadAceitar
+            });
             const respIxc = yield agendaService_1.AgendaService.makeIxcRequest('POST', '/su_oss_chamado_reagendar', payloadAceitar, 'incluir');
             if ((respIxc === null || respIxc === void 0 ? void 0 : respIxc.type) === 'error') {
                 throw new Error(`Erro IXC: ${respIxc.message || 'IXC recusou a prioridade.'}`);
             }
+            console.log('[DEBUG AGENDAMENTO IXC] Resposta aceitar prioridade painel:', respIxc);
             yield agendaService_1.AgendaService.executeDb(`
                 UPDATE ivp_agenda_os
                 SET data_agendamento = ?,
@@ -385,9 +445,9 @@ router.post('/tratar-prioridade', (req, res) => __awaiter(void 0, void 0, void 0
         return res.status(400).json({ error: 'AÃ§Ã£o invÃ¡lida. Use aceitar ou recusar.' });
     }
     catch (error) {
-        console.error('[Logistica] Erro ao tratar prioridade:', ((_d = error.response) === null || _d === void 0 ? void 0 : _d.data) || error.message);
+        console.error('[Logistica] Erro ao tratar prioridade:', ((_g = error.response) === null || _g === void 0 ? void 0 : _g.data) || error.message);
         return res.status(500).json({
-            error: ((_f = (_e = error.response) === null || _e === void 0 ? void 0 : _e.data) === null || _f === void 0 ? void 0 : _f.message) || error.message
+            error: ((_j = (_h = error.response) === null || _h === void 0 ? void 0 : _h.data) === null || _j === void 0 ? void 0 : _j.message) || error.message
         });
     }
 }));
@@ -516,31 +576,24 @@ router.get('/os-detalhes/:id', (req, res) => __awaiter(void 0, void 0, void 0, f
     }
 }));
 router.post('/contato-cliente', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _g, _h;
-    const { id_local, ixc_os_id, status_contato, nova_data, novo_turno, mensagem, usuario_logado } = req.body;
+    var _k, _l;
+    const { id_local, ixc_os_id, status_contato, mensagem, usuario_logado } = req.body;
     try {
         if (!id_local || !ixc_os_id || !status_contato) {
             return res.status(400).json({ error: 'id_local, ixc_os_id e status_contato sÃ£o obrigatÃ³rios.' });
         }
         const status = String(status_contato).toUpperCase();
-        if (!['CONFIRMADO', 'NAO_RECEBE', 'SEM_CONTATO'].includes(status)) {
+        if (!['CONFIRMADO', 'SEM_CONTATO'].includes(status)) {
             return res.status(400).json({ error: 'Status de contato invÃ¡lido.' });
         }
-        if (status === 'NAO_RECEBE' && (!nova_data || !novo_turno)) {
-            return res.status(400).json({ error: 'Para marcar como nÃ£o irÃ¡ receber, informe nova_data e novo_turno para reagendar.' });
-        }
         const textoBase = mensagem || (status === 'CONFIRMADO' ? 'Cliente confirmou que irÃ¡ receber o tÃ©cnico.' :
-            status === 'NAO_RECEBE' ? 'Cliente informou que nÃ£o poderÃ¡ receber o tÃ©cnico. Reagendar visita.' :
-                'LogÃ­stica nÃ£o conseguiu contato com o cliente.');
+            'LogÃ­stica nÃ£o conseguiu contato com o cliente.');
         const { dataInteracao } = yield agendaService_1.AgendaService.registrarMensagemOs(String(ixc_os_id), `[LOGÃSTICA - CONTATO CLIENTE]\n${textoBase}`, usuario_logado, 'Contato Cliente');
-        if (status === 'NAO_RECEBE') {
-            yield agendaService_1.AgendaService.reagendarOs({ ixc_os_id: String(ixc_os_id), id_agenda_local: String(id_local), nova_data, novo_turno, usuario_logado });
-        }
-        yield agendaService_1.AgendaService.executeDb(`UPDATE ivp_agenda_os SET contato_status = ?, contato_confirmado_em = ?, status_interno = CASE WHEN ? = 'NAO_RECEBE' THEN 'AGUARDANDO_LOGISTICA' ELSE status_interno END WHERE id = ?`, [status, dataInteracao, status, id_local]);
+        yield agendaService_1.AgendaService.executeDb(`UPDATE ivp_agenda_os SET contato_status = ?, contato_confirmado_em = ? WHERE id = ?`, [status, dataInteracao, id_local]);
         res.json({ success: true });
     }
     catch (error) {
-        res.status(500).json({ error: ((_h = (_g = error.response) === null || _g === void 0 ? void 0 : _g.data) === null || _h === void 0 ? void 0 : _h.message) || error.message });
+        res.status(500).json({ error: ((_l = (_k = error.response) === null || _k === void 0 ? void 0 : _k.data) === null || _l === void 0 ? void 0 : _l.message) || error.message });
     }
 }));
 router.post('/aguardar-cliente', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -573,7 +626,7 @@ router.post('/parar-espera-cliente', (req, res) => __awaiter(void 0, void 0, voi
     }
 }));
 router.post('/observacao-logistica', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _j, _k;
+    var _m, _o;
     const { id_local, ixc_os_id, mensagem, usuario_logado } = req.body;
     try {
         if (!id_local || !ixc_os_id || !mensagem || !String(mensagem).trim()) {
@@ -585,7 +638,7 @@ router.post('/observacao-logistica', (req, res) => __awaiter(void 0, void 0, voi
         res.json({ success: true });
     }
     catch (error) {
-        res.status(500).json({ error: ((_k = (_j = error.response) === null || _j === void 0 ? void 0 : _j.data) === null || _k === void 0 ? void 0 : _k.message) || error.message });
+        res.status(500).json({ error: ((_o = (_m = error.response) === null || _m === void 0 ? void 0 : _m.data) === null || _o === void 0 ? void 0 : _o.message) || error.message });
     }
 }));
 router.get('/tags', (_req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -679,16 +732,25 @@ router.put('/os-tags/:idAgenda', (req, res) => __awaiter(void 0, void 0, void 0,
     }
 }));
 router.post('/prioridade-logistica', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const { id_local, prioridade, observacao } = req.body;
+    const { id_local, ixc_os_id, prioridade, usuario_logado } = req.body;
     try {
         if (!id_local || String(id_local).startsWith('fila-')) {
             return res.status(400).json({ error: 'Agendamento local invÃ¡lido.' });
+        }
+        const prioridadeNum = Number(prioridade);
+        if (!Number.isInteger(prioridadeNum) || prioridadeNum < 0 || prioridadeNum > 3) {
+            return res.status(400).json({ error: 'Prioridade inválida.' });
+        }
+        const labelsPrioridade = { 0: 'Normal', 1: 'Média', 2: 'Alta', 3: 'Urgente' };
+        if (ixc_os_id) {
+            const mensagemPrioridade = `Prioridade da logística alterada para: ${labelsPrioridade[prioridadeNum]}`;
+            yield agendaService_1.AgendaService.registrarMensagemOs(String(ixc_os_id), mensagemPrioridade, usuario_logado, 'Prioridade Logistica');
         }
         yield agendaService_1.AgendaService.executeDb(`
             UPDATE ivp_agenda_os
             SET prioridade_logistica = ?, prioridade_logistica_obs = ?
             WHERE id = ?
-            `, [Number(prioridade || 0), observacao || '', id_local]);
+            `, [prioridadeNum, '', id_local]);
         res.json({ success: true });
     }
     catch (error) {

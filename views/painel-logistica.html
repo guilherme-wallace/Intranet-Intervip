@@ -245,6 +245,7 @@
                                     <button class="btn btn-sm btn-outline-success ms-2 py-0 px-2" id="btn-ver-onu" style="display: none; font-size: 0.75rem;">Detalhes</button>
                                 </div>
                             </div>
+                            <div id="det-preferencia-horario" class="alert alert-info py-2 px-3 small fw-medium d-none mb-4"></div>
 
                             <div id="box-resumo-acesso" class="border rounded p-3 mb-4 bg-light">
                                 <h6 class="fw-bold small text-uppercase mb-2 text-muted"><i class="bi bi-activity me-2"></i>Resumo de Acesso</h6>
@@ -290,7 +291,6 @@
                                 <label class="form-label small fw-bold mb-2">Confirmação com Cliente</label>
                                 <div class="d-grid gap-2">
                                     <button class="btn btn-sm btn-success fw-bold" id="btn-contato-confirmado"><i class="bi bi-check-circle me-1"></i>Cliente Confirmou</button>
-                                    <button class="btn btn-sm btn-outline-danger fw-bold" id="btn-contato-nao-recebe"><i class="bi bi-calendar-x me-1"></i>Não irá receber / Reagendar</button>
                                     <button class="btn btn-sm btn-outline-secondary fw-bold" id="btn-contato-sem-contato"><i class="bi bi-telephone-x me-1"></i>Sem contato</button>
                                 </div>
                                 <small id="status-contato-atual" class="text-muted d-block mt-2">Status: pendente</small>
@@ -306,7 +306,7 @@
                             </div>
 
                             <div class="border rounded p-3 mb-3 bg-light">
-                                <label class="form-label small fw-bold">Observação da Logística</label>
+                                <label class="form-label small fw-bold">Observações</label>
                                 <textarea class="form-control form-control-sm mb-2" id="input-observacao-logistica" rows="3" placeholder="Digite uma observação para registrar no IXC..."></textarea>
                                 <button class="btn btn-sm btn-outline-primary fw-bold w-100" id="btn-salvar-observacao-logistica"><i class="bi bi-chat-left-text me-1"></i>Salvar observação no IXC</button>
                             </div>
@@ -319,7 +319,6 @@
                                     <option value="2">Alta</option>
                                     <option value="3">Urgente</option>
                                 </select>
-                                <textarea class="form-control form-control-sm mb-2" id="input-prioridade-logistica-obs" rows="2" placeholder="Motivo da prioridade"></textarea>
                                 <button class="btn btn-sm btn-outline-danger fw-bold w-100" id="btn-salvar-prioridade-logistica"><i class="bi bi-arrow-up-circle me-1"></i>Salvar prioridade</button>
                             </div>
 
@@ -331,42 +330,82 @@
                                 <button class="btn btn-sm btn-outline-secondary fw-bold w-100" id="btn-salvar-tags-os"><i class="bi bi-tags me-1"></i>Salvar tags</button>
                             </div>
                             
-                            <ul class="nav nav-tabs" id="myTab" role="tablist">
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link active py-2 fw-medium" data-bs-toggle="tab" data-bs-target="#tab-reagendar" type="button">Reagendar</button>
-                                </li>
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link py-2 fw-medium text-danger" data-bs-toggle="tab" data-bs-target="#tab-fechar" type="button">Fechar OS</button>
-                                </li>
-                            </ul>
-                            
-                            <div class="tab-content border border-top-0 p-3 rounded-bottom bg-light" id="myTabContent">
-                                <div class="tab-pane fade show active" id="tab-reagendar">
-                                    <input type="hidden" id="action-os-id">
-                                    <input type="hidden" id="action-agenda-local-id">
-                                    <label class="form-label small fw-bold">Nova Data</label>
-                                    <input type="date" class="form-control mb-3" id="action-nova-data">
-                                    <label class="form-label small fw-bold">Novo Turno</label>
-                                    <select class="form-select mb-4" id="action-novo-turno">
-                                        <option value="MATUTINO">Matutino (Manhã)</option>
-                                        <option value="VESPERTINO">Vespertino (Tarde)</option>
-                                    </select>
-                                    <div id="info-capacidade-reagendamento" class="small rounded border bg-white p-2 mb-3 text-muted d-none"></div>
-                                    <button class="btn btn-warning w-100 fw-bold shadow-sm" id="btn-action-reagendar"><i class="bi bi-calendar-event me-2"></i>Reagendar Visita</button>
-                                </div>
-                                <div class="tab-pane fade" id="tab-fechar">
-                                    <div class="mb-4">
-                                        <label class="form-label fw-bold">Mensagem de Resolução / Fechamento:</label>
-                                        <textarea class="form-control border-secondary" id="input-fechar-mensagem" rows="4" placeholder="Por favor, descreva o que foi feito na mensagem de resolução..."></textarea>
-                                    </div>
-                                    
-                                    <button class="btn btn-success w-100 fw-bold py-2 shadow-sm" id="btn-action-fechar">
-                                        <i class="bi bi-check-circle me-1"></i>Confirmar Mensagem e Prosseguir
+                            <div class="border rounded p-3 mb-3 bg-light" id="secao-acoes-visita">
+                                <input type="hidden" id="action-os-id">
+                                <input type="hidden" id="action-agenda-local-id">
+                                <h6 class="text-muted fw-bold small text-uppercase mb-3"><i class="bi bi-list-check me-2"></i>Ações da visita</h6>
+                                <label class="form-label small fw-bold">Mensagem de resolução / fechamento</label>
+                                <textarea class="form-control form-control-sm border-secondary mb-3" id="input-fechar-mensagem" rows="3" placeholder="Descreva o que foi feito antes de fechar/tramitar..."></textarea>
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-success fw-bold shadow-sm" id="btn-action-fechar">
+                                        <i class="bi bi-check-circle me-1"></i>Fechar OS e Tramitar
                                     </button>
+                                    <button class="btn btn-outline-danger fw-bold shadow-sm" id="btn-cancelar-visita"><i class="bi bi-x-circle me-2"></i>Cancelar visita</button>
+                                    <button class="btn btn-warning fw-bold shadow-sm" id="btn-abrir-reagendamento-visita"><i class="bi bi-calendar-event me-2"></i>Reagendar Visita</button>
                                 </div>
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalReagendarVisita" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-calendar-event me-2 text-warning"></i>Reagendar Visita</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label small fw-bold">Nova Data</label>
+                    <input type="date" class="form-control mb-3" id="action-nova-data">
+                    <div id="calendario-reagendamento" class="d-flex flex-wrap gap-2 mb-3"></div>
+                    <label class="form-label small fw-bold">Novo Turno</label>
+                    <select class="form-select mb-4" id="action-novo-turno">
+                        <option value="MATUTINO">Matutino (Manhã)</option>
+                        <option value="VESPERTINO">Vespertino (Tarde)</option>
+                    </select>
+                    <div id="info-capacidade-reagendamento" class="small rounded border bg-white p-2 mb-3 text-muted d-none"></div>
+                    <div class="border rounded bg-white p-2 mb-3">
+                        <label class="form-label small fw-bold mb-1">Preferência de horário</label>
+                        <input class="form-control form-control-sm" id="reag-preferencia-obs" maxlength="255" placeholder="Ex.: cliente prefere após 15h">
+                    </div>
+                    <div class="border rounded bg-white p-2 mb-3">
+                        <label class="form-label small fw-bold d-block">Sobre o motivo do reagendamento</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="reagendamento-duvida" id="reag-duvida-sim" value="SIM">
+                            <label class="form-check-label small" for="reag-duvida-sim">Abrir chamado de dúvida para registrar o novo assunto</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="reagendamento-duvida" id="reag-duvida-nao" value="NAO">
+                            <label class="form-check-label small" for="reag-duvida-nao">Apenas reagendar a visita</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Voltar</button>
+                    <button type="button" class="btn btn-warning fw-bold" id="btn-action-reagendar"><i class="bi bi-calendar-event me-2"></i>Confirmar Reagendamento</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalCancelarVisita" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-x-circle me-2 text-danger"></i>Cancelar visita</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label fw-bold">Motivo do cancelamento</label>
+                    <textarea class="form-control mb-3" id="cancelar-visita-motivo" rows="3" maxlength="500" placeholder="Informe o motivo..."></textarea>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Voltar</button>
+                    <button type="button" class="btn btn-danger fw-bold" id="btn-confirmar-cancelar-visita">Confirmar cancelamento</button>
                 </div>
             </div>
         </div>

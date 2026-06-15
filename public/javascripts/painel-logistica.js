@@ -72,10 +72,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('btn-action-reagendar')?.addEventListener('click', enviarReagendamento);
     document.getElementById('action-nova-data')?.addEventListener('change', atualizarInfoCapacidadeReagendamento);
     document.getElementById('action-novo-turno')?.addEventListener('change', atualizarInfoCapacidadeReagendamento);
+    document.getElementById('btn-cancelar-visita')?.addEventListener('click', abrirModalCancelarVisita);
+    document.getElementById('btn-confirmar-cancelar-visita')?.addEventListener('click', confirmarCancelarVisita);
+    document.getElementById('btn-abrir-reagendamento-visita')?.addEventListener('click', abrirModalReagendamentoVisita);
+    document.getElementById('calendario-reagendamento')?.addEventListener('click', tratarCliqueCalendarioReagendamento);
     document.getElementById('btn-aceitar-prioridade')?.addEventListener('click', () => tratarPrioridade('aceitar'));
     document.getElementById('btn-recusar-prioridade')?.addEventListener('click', () => tratarPrioridade('recusar'));
     document.getElementById('btn-contato-confirmado')?.addEventListener('click', () => registrarContatoCliente('CONFIRMADO'));
-    document.getElementById('btn-contato-nao-recebe')?.addEventListener('click', () => registrarContatoCliente('NAO_RECEBE'));
     document.getElementById('btn-contato-sem-contato')?.addEventListener('click', () => registrarContatoCliente('SEM_CONTATO'));
     document.getElementById('btn-iniciar-espera')?.addEventListener('click', iniciarEsperaCliente);
     document.getElementById('btn-parar-espera')?.addEventListener('click', pararEsperaCliente);
@@ -186,6 +189,7 @@ async function verificarPermissoes() {
         const response = await fetch('/api/username');
         const data = await response.json();
         const grupo = (data.group || '').toUpperCase();
+        window.grupoUsuarioLogado = data.group || '';
         
         if (grupo.includes('LOGISTICA') || grupo.includes('LOGÍSTICA') || grupo.includes('ADMIN') || grupo.includes('NOC')) {
             usuarioPodeEditar = true;
@@ -219,6 +223,7 @@ async function carregarAgenda() {
 
 function renderizarQuadro() {
     document.querySelectorAll('.column-body').forEach(col => col.innerHTML = '');
+    document.querySelectorAll('.swimlane-container').forEach(lane => lane.classList.remove('d-none'));
     
     const filtroSetor = document.getElementById('filtro-setor').value;
     const statusFiltro = document.getElementById('filtro-status').value;
@@ -279,6 +284,14 @@ function renderizarQuadro() {
         if (spanCount) spanCount.textContent = totalCards;
         
         col.style.display = totalCards === 0 ? 'none' : 'block';
+    });
+
+    ['matutino', 'vespertino'].forEach(turno => {
+        const laneBody = document.getElementById(`swimlane-${turno}`);
+        const lane = laneBody ? laneBody.closest('.swimlane-container') : null;
+        if (!laneBody || !lane) return;
+        const totalTurno = laneBody.querySelectorAll('.asana-card').length;
+        lane.classList.toggle('d-none', totalTurno === 0);
     });
 
     atualizarTimers();
@@ -347,8 +360,12 @@ function criarCardOS(os) {
     const statusIxc = os.ixc_status || 'A';
 
     if (!isPend) {
-        if (statusIxc === 'DS') { corBorda = 'border-left: 4px solid #ffc107;'; badgeStatus = `<span class="asana-badge" style="background-color: #fff3cd; color: #856404;"><i class="bi bi-car-front-fill me-1"></i>A Caminho</span>`; }
-        else if (statusIxc === 'EX') { corBorda = 'border-left: 4px solid #0dcaf0;'; badgeStatus = `<span class="asana-badge timer-execucao" style="background-color: #cff4fc; color: #055160;" data-inicio="${os.data_hora_execucao || ''}"><i class="bi bi-tools me-1"></i>0h 0m</span>`; }
+        if (statusIxc === 'DS') {
+            corBorda = 'border-left: 4px solid #ffc107;';
+            const inicioDeslocamento = os.data_hora_deslocamento || os.data_hora_assumido || os.data_hora_execucao || os.data_hora_inicio || '';
+            badgeStatus = `<span class="asana-badge timer-deslocamento" style="background-color: #fff3cd; color: #856404;" data-inicio="${inicioDeslocamento}"><i class="bi bi-car-front-fill me-1"></i>Deslocamento</span>`;
+        }
+        else if (statusIxc === 'EX') { corBorda = 'border-left: 4px solid #0dcaf0;'; badgeStatus = `<span class="asana-badge timer-execucao" style="background-color: #cff4fc; color: #055160;" data-inicio="${os.data_hora_execucao || ''}"><i class="bi bi-tools me-1"></i>Execução</span>`; }
         else if (statusIxc === 'F') { corBorda = 'border-left: 4px solid #198754;'; badgeStatus = `<span class="asana-badge" style="background-color: #d1e7dd; color: #0f5132;"><i class="bi bi-check-circle-fill me-1"></i>Concluído</span>`; }
         else if (statusIxc === 'RAG') { corBorda = 'border-left: 4px solid #dc3545;'; badgeStatus = `<span class="asana-badge" style="background-color: #f8d7da; color: #842029;"><i class="bi bi-x-circle-fill me-1"></i>Reagendar</span>`; }
     }
@@ -358,6 +375,8 @@ function criarCardOS(os) {
     let badgesHtml = os.horario_agendado ? `<span class="asana-badge bg-dark text-white"><i class="bi bi-clock me-1"></i>${os.horario_agendado}</span>` : '';
     badgesHtml += badgeStatus;
     if (os.aceita_encaixe) badgesHtml += `<span class="asana-badge badge-encaixe"><i class="bi bi-lightning-fill"></i> Encaixe</span>`;
+    const preferenciaHorario = formatarPreferenciaHorario(os);
+    if (preferenciaHorario) badgesHtml += `<span class="asana-badge bg-info-subtle text-info-emphasis"><i class="bi bi-clock-history me-1"></i>${preferenciaHorario}</span>`;
     const prioridadeManual = Math.max(0, Math.min(3, Number(os.prioridade_logistica || 0)));
     if (prioridadeManual > 0) badgesHtml += `<span class="asana-badge bg-danger text-white"><i class="bi bi-arrow-up-circle me-1"></i>${PRIORIDADE_LOGISTICA_LABELS[prioridadeManual]}</span>`;
     if (os.is_futuro_prioridade) badgesHtml += `<span class="asana-badge bg-danger text-white border border-danger shadow-sm ms-1"><i class="bi bi-calendar-x me-1"></i>Vindo de ${String(os.data_agendamento_original).split('T')[0].split('-').reverse().join('/')}</span>`;
@@ -415,6 +434,39 @@ function criarCardOS(os) {
 
     card.querySelectorAll('.click-os-detalhes').forEach(el => el.addEventListener('click', () => abrirModalDetalhes(os)));
     return card;
+}
+
+function formatarPreferenciaHorario(os) {
+    const tipo = String(os?.preferencia_horario_tipo || 'SEM_PREFERENCIA').toUpperCase();
+    const inicio = String(os?.preferencia_horario_inicio || '').substring(0, 5);
+    const fim = String(os?.preferencia_horario_fim || '').substring(0, 5);
+    const obs = String(os?.preferencia_horario_obs || '').trim();
+
+    if (!tipo || tipo === 'SEM_PREFERENCIA') return '';
+    if (tipo === 'MANHA') return 'Pref. manhã';
+    if (tipo === 'TARDE') return 'Pref. tarde';
+    if (tipo === 'A_PARTIR' && inicio) return `Pref. a partir de ${inicio}`;
+    if (tipo === 'ATE' && fim) return `Pref. até ${fim}`;
+    if (tipo === 'INTERVALO' && inicio && fim) return `Pref. ${inicio}-${fim}`;
+    if (tipo === 'OBSERVACAO' && obs) return `Pref. ${obs}`;
+    return 'Pref. horário';
+}
+
+function traduzirMotivoOnu(motivo) {
+    const raw = String(motivo || '').trim();
+    const normalizado = raw.toUpperCase();
+    if (!raw) return '---';
+    if (normalizado.includes('DYING-GASP') || normalizado.includes('DYING GASP')) return 'Falha elétrica';
+    if (normalizado === 'LOS' || normalizado.includes('LOS') || normalizado.includes('LOBI')) return 'Perda do Sinal Óptico';
+    return raw;
+}
+
+function classeSinalOnu(valor) {
+    const numero = Math.abs(parseFloat(String(valor || '').replace(',', '.')));
+    if (!Number.isFinite(numero) || numero === 0) return 'text-muted';
+    if (numero > 30) return 'text-danger fw-bold';
+    if (numero >= 28) return 'text-warning fw-bold';
+    return 'text-success fw-bold';
 }
 
 function atualizarOsLocal(idLocal, patch) {
@@ -522,6 +574,22 @@ function atualizarTimers() {
         else { el.classList.add('text-success', 'fw-bold'); el.style.backgroundColor = '#d1e7dd'; }
     });
 
+    document.querySelectorAll('.timer-deslocamento').forEach(el => {
+        const inicioStr = el.dataset.inicio;
+        if (!inicioStr || inicioStr === 'null') return;
+
+        const dataInicio = new Date(String(inicioStr).replace(/-/g, '/'));
+        if (isNaN(dataInicio)) return;
+
+        const diffMinutos = Math.max(0, Math.floor((new Date() - dataInicio) / 60000));
+        const horas = Math.floor(diffMinutos / 60);
+        const mins = diffMinutos % 60;
+
+        el.innerHTML = `<i class="bi bi-car-front-fill me-1"></i>Deslocamento ${horas > 0 ? `${horas}h ${mins}m` : `${mins}m`}`;
+        el.className = 'asana-badge timer-deslocamento text-warning fw-bold';
+        el.style.backgroundColor = '#fff3cd';
+    });
+
     document.querySelectorAll('.timer-espera-cliente').forEach(el => {
         const fimStr = el.dataset.fimEspera;
         if (!fimStr || fimStr === 'null') return;
@@ -572,8 +640,13 @@ async function carregarFilaLogistica() {
             const osDataStr = JSON.stringify({
                 ixc_os_id: os.id,
                 id: 'fila-' + os.id,
+                origem: 'FILA_LOGISTICA',
                 turno: 'N/A',
-                tipo_imovel: 'Pendente',
+                tipo_imovel: os.tipo_imovel || 'Pendente',
+                tipo_servico: os.tipo_servico || os.nome_setor || '',
+                municipio_base: os.municipio_base || os.cidade_real || os.cidade || '',
+                cidade_real: os.cidade_real || os.cidade || '',
+                nome_setor: os.nome_setor || '',
                 data_agendamento_original: os.data_abertura
             }).replace(/'/g, "&#39;");
 
@@ -583,7 +656,7 @@ async function carregarFilaLogistica() {
             }
 
             html += `
-                <tr>
+                <tr data-fila-os-id="${os.id}">
                     <td class="align-middle">
                         <span class="fw-bold text-primary">#${os.id}</span>
                         ${badgeAtraso}
@@ -608,6 +681,31 @@ async function carregarFilaLogistica() {
     } catch (e) {
         tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-4">Erro ao carregar a fila de O.S.</td></tr>';
     }
+}
+
+function removerOsFilaAtualDaUi() {
+    const os = window.osModalAtual || window.osAtualParaFechar;
+    if (!os || !String(os.id || '').startsWith('fila-')) return false;
+
+    const idFila = String(os.ixc_os_id || os.id).replace(/^fila-/, '');
+    const tbody = document.getElementById('tbody-fila-logistica');
+    const contador = document.getElementById('contador-fila');
+    const linha = Array.from(document.querySelectorAll('[data-fila-os-id]'))
+        .find(el => String(el.dataset.filaOsId) === idFila);
+
+    if (linha) linha.remove();
+
+    if (contador) {
+        const atual = Number(contador.textContent || 0);
+        contador.textContent = String(Math.max(0, atual - 1));
+    }
+
+    if (tbody && !tbody.querySelector('[data-fila-os-id]')) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4 fst-italic">Nenhuma O.S. pendente na fila neste momento.</td></tr>';
+        if (contador) contador.textContent = '0';
+    }
+
+    return true;
 }
 
 async function abrirModalConfiguracoes() {
@@ -983,17 +1081,24 @@ async function abrirModalDetalhes(os) {
     document.getElementById('action-os-id').value = os.ixc_os_id;
     document.getElementById('action-agenda-local-id').value = os.id; 
     document.getElementById('action-nova-data').value = document.getElementById('filtro-data').value;
+    renderizarCalendarioReagendamento(document.getElementById('filtro-data').value);
+    document.querySelectorAll('input[name="reagendamento-duvida"]').forEach(input => { input.checked = false; });
+    const prefReag = document.getElementById('reag-preferencia-obs');
+    if (prefReag) prefReag.value = os.preferencia_horario_obs || '';
     atualizarInfoCapacidadeReagendamento();
     
     document.getElementById('detalhe-os-titulo').textContent = `OS #${os.ixc_os_id} - ${os.turno} (${os.tipo_imovel})`;
 
     const areaAcoes = document.getElementById('area-acoes-os');
-    if (areaAcoes) areaAcoes.style.display = usuarioPodeEditar ? 'block' : 'none';
+    if (areaAcoes) areaAcoes.style.display = 'block';
     const osVindaDaFila = String(os.id || '').startsWith('fila-') || os.origem === 'FILA_LOGISTICA';
     document.getElementById('secao-confirmacao-cliente')?.classList.toggle('d-none', osVindaDaFila);
     document.getElementById('secao-espera-cliente')?.classList.toggle('d-none', osVindaDaFila);
     document.getElementById('secao-prioridade-logistica')?.classList.toggle('d-none', osVindaDaFila);
     document.getElementById('secao-tags-os')?.classList.toggle('d-none', osVindaDaFila);
+    document.getElementById('secao-acoes-visita')?.classList.remove('d-none');
+    document.getElementById('btn-cancelar-visita')?.classList.toggle('d-none', osVindaDaFila);
+    document.getElementById('btn-abrir-reagendamento-visita')?.classList.remove('d-none');
 
     document.getElementById('loading-detalhes-os').style.display = 'flex';
     document.getElementById('conteudo-detalhes-os').style.display = 'none';
@@ -1003,6 +1108,16 @@ async function abrirModalDetalhes(os) {
     try {
         const response = await fetch(`/api/v5/painel-logistica/os-detalhes/${os.ixc_os_id}`);
         const data = await response.json();
+        const osDetalhe = data.os || {};
+        const localDetalhe = data.local || {};
+        const municipioDetalhe = localDetalhe.municipio_base || os.municipio_base || os.cidade_real || data.cliente?.cidade || osDetalhe.cidade || osDetalhe.bairro || '';
+        window.osModalAtual = {
+            ...window.osModalAtual,
+            tipo_servico: localDetalhe.tipo_servico || os.tipo_servico || osDetalhe.tipo_servico || osDetalhe.assunto || osDetalhe.setor || '',
+            municipio_base: municipioDetalhe,
+            cidade_real: municipioDetalhe,
+            tipo_imovel: localDetalhe.tipo_imovel || os.tipo_imovel || window.osModalAtual?.tipo_imovel || ''
+        };
 
         document.getElementById('det-cliente-nome').textContent = data.cliente.razao || data.cliente.nome || 'Cliente não encontrado';
         document.getElementById('det-cliente-fone').textContent = montarContatosClienteLogistica(data.cliente);
@@ -1029,15 +1144,19 @@ async function abrirModalDetalhes(os) {
 
         preencherResumoAcesso(data.resumoAcesso || {});
         renderizarHistoricoMensagens(data.mensagens || []);
+        const prefBox = document.getElementById('det-preferencia-horario');
+        const preferenciaTexto = formatarPreferenciaHorario({ ...os, ...(data.local || {}) });
+        if (prefBox) {
+            prefBox.textContent = preferenciaTexto ? `Preferência de horário: ${preferenciaTexto}` : '';
+            prefBox.classList.toggle('d-none', !preferenciaTexto);
+        }
         const statusContato = data.local?.contato_status || os.contato_status || 'PENDENTE';
         const elStatusContato = document.getElementById('status-contato-atual');
         if (elStatusContato) elStatusContato.textContent = `Status: ${formatarStatusContato(statusContato)}`;
         const obs = document.getElementById('input-observacao-logistica');
         if (obs) obs.value = '';
         const prioridade = document.getElementById('input-prioridade-logistica');
-        const obsPrioridade = document.getElementById('input-prioridade-logistica-obs');
         if (prioridade) prioridade.value = os.prioridade_logistica || data.local?.prioridade_logistica || 0;
-        if (obsPrioridade) obsPrioridade.value = os.prioridade_logistica_obs || data.local?.prioridade_logistica_obs || '';
         await carregarTagsParaModalOs(os, data.local || {});
 
         const osData = data.os;
@@ -1171,17 +1290,21 @@ async function salvarPrioridadeLogistica() {
     const os = window.osModalAtual;
     if (!os || !os.id || String(os.id).startsWith('fila-')) return showInfoModal('Prioridade disponível apenas para OS agendada.');
     const prioridade = Number(document.getElementById('input-prioridade-logistica')?.value || 0);
-    const observacao = document.getElementById('input-prioridade-logistica-obs')?.value || '';
 
     try {
         const response = await fetch('/api/v5/painel-logistica/prioridade-logistica', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id_local: os.id, prioridade, observacao })
+            body: JSON.stringify({
+                id_local: os.id,
+                ixc_os_id: os.ixc_os_id,
+                prioridade,
+                usuario_logado: window.usuarioLogado
+            })
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok || data.success === false) throw new Error(data.error || 'Erro ao salvar prioridade.');
-        atualizarOsLocal(os.id, { prioridade_logistica: prioridade, prioridade_logistica_obs: observacao });
+        atualizarOsLocal(os.id, { prioridade_logistica: prioridade, prioridade_logistica_obs: '' });
         atualizarCardAberto(os.id);
     } catch (error) {
         showInfoModal('Erro ao salvar prioridade: ' + error.message);
@@ -1214,7 +1337,7 @@ async function verHistoricoPppoe(username) {
                 <td>${h.acctstoptime || '<span class="text-success fw-bold">Sessão Ativa</span>'}</td>
                 <td>${formatarTempoSessao(h.acctsessiontime)}</td>
                 <td><i class="bi bi-arrow-up-short text-primary"></i> ${up}<br><i class="bi bi-arrow-down-short text-success"></i> ${down}</td>
-                <td class="${h.acctterminatecause ? 'text-danger' : ''}">${h.acctterminatecause || '---'}</td>
+                <td class="${h.acctterminatecause ? 'text-danger' : ''}">${traduzirMotivoOnu(h.acctterminatecause)}</td>
             </tr>`;
         }).join('');
     } catch (e) {
@@ -1245,18 +1368,16 @@ function formatarTempoSessao(segundos) {
 async function registrarContatoCliente(status) {
     const ixc_os_id = document.getElementById('action-os-id').value;
     const id_local = document.getElementById('action-agenda-local-id').value;
-    const nova_data = document.getElementById('action-nova-data').value;
-    const novo_turno = document.getElementById('action-novo-turno').value;
+    const nova_data = '';
+    const novo_turno = '';
 
-    if (status === 'NAO_RECEBE' && !nova_data) {
-        return showInfoModal('Selecione a nova data no campo Reagendar antes de marcar que o cliente não irá receber.');
+    if (status === 'NAO_RECEBE') {
+        return showInfoModal('Use Reagendar Visita para alterar a data da visita.', 'Ação removida', 'warning');
     }
 
     const confirma = status === 'CONFIRMADO'
         ? 'Confirmar que o cliente irá receber o técnico?'
-        : status === 'NAO_RECEBE'
-            ? 'Marcar que o cliente não irá receber e reagendar para a nova data selecionada?'
-            : 'Registrar que a logística não conseguiu contato com o cliente?';
+        : 'Registrar que a logística não conseguiu contato com o cliente?';
     if (!(await showConfirmModal(confirma))) return;
 
     try {
@@ -1366,7 +1487,7 @@ function abrirModalONU() {
             document.getElementById('det-onu-uptime').textContent = 'Sessão Encerrada';
         }
 
-        document.getElementById('det-onu-queda-motivo').textContent = hQueda ? hQueda.acctterminatecause : 'Sem quedas registradas';
+        document.getElementById('det-onu-queda-motivo').textContent = hQueda ? traduzirMotivoOnu(hQueda.acctterminatecause) : 'Sem quedas registradas';
     } else {
         document.getElementById('det-onu-queda-data').textContent = 'Sem registros';
         document.getElementById('det-onu-queda-motivo').textContent = '---';
@@ -1401,6 +1522,34 @@ function abrirModalONU() {
     }
 
     showModalNativo('modalDetalhesONU');
+}
+
+function renderizarCalendarioReagendamento(dataBase) {
+    const container = document.getElementById('calendario-reagendamento');
+    if (!container) return;
+    const base = dataBase ? new Date(`${dataBase}T00:00:00`) : new Date();
+    if (Number.isNaN(base.getTime())) return;
+
+    const inicio = new Date(base);
+    const selecionada = document.getElementById('action-nova-data')?.value || '';
+    const dias = [];
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(inicio);
+        d.setDate(inicio.getDate() + i);
+        const ymd = d.toISOString().split('T')[0];
+        const label = d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+        dias.push(`<button type="button" class="btn btn-sm ${ymd === selecionada ? 'btn-primary' : 'btn-outline-primary'}" data-action="selecionar-data-reag" data-date="${ymd}">${label}</button>`);
+    }
+    container.innerHTML = dias.join('');
+}
+
+function tratarCliqueCalendarioReagendamento(e) {
+    const btn = e.target.closest('[data-action="selecionar-data-reag"]');
+    if (!btn) return;
+    const input = document.getElementById('action-nova-data');
+    if (input) input.value = btn.dataset.date;
+    renderizarCalendarioReagendamento(btn.dataset.date);
+    atualizarInfoCapacidadeReagendamento();
 }
 
 function obterParametrosCapacidadeReagendamento() {
@@ -1480,18 +1629,35 @@ async function atualizarInfoCapacidadeReagendamento() {
     }
 }
 
+function abrirModalReagendamentoVisita() {
+    if (!window.osModalAtual) return showInfoModal('Abra uma OS antes de reagendar.', 'OS não selecionada', 'warning');
+    document.querySelectorAll('input[name="reagendamento-duvida"]').forEach(input => { input.checked = false; });
+    const dataFiltro = document.getElementById('filtro-data')?.value || new Date().toISOString().split('T')[0];
+    const inputData = document.getElementById('action-nova-data');
+    if (inputData && !inputData.value) inputData.value = dataFiltro;
+    renderizarCalendarioReagendamento(inputData?.value || dataFiltro);
+    atualizarInfoCapacidadeReagendamento();
+    showModalNativo('modalReagendarVisita');
+}
+
 async function enviarReagendamento() {
     const ixc_os_id = document.getElementById('action-os-id').value;
     const id_agenda_local = document.getElementById('action-agenda-local-id').value;
     const nova_data = document.getElementById('action-nova-data').value;
     const novo_turno = document.getElementById('action-novo-turno').value;
+    const escolhaDuvida = document.querySelector('input[name="reagendamento-duvida"]:checked')?.value;
+    const preferenciaObs = document.getElementById('reag-preferencia-obs')?.value.trim() || '';
 
     if (!nova_data) return showInfoModal("Selecione a nova data!");
+    if (!escolhaDuvida) return showInfoModal('Escolha se deseja abrir chamado de dúvida ou apenas reagendar.', 'Escolha obrigatória', 'warning');
     if (!window.capacidadeReagendamentoAtual || window.capacidadeReagendamentoAtual.data !== nova_data || window.capacidadeReagendamentoAtual.turno !== novo_turno) {
         await atualizarInfoCapacidadeReagendamento();
     }
     if (window.capacidadeReagendamentoAtual && !window.capacidadeReagendamentoAtual.disponivel) {
-        const confirmarSemVaga = await showConfirmModal('Este turno esta sem vagas disponiveis. Deseja reagendar mesmo assim?');
+        const grupo = String(window.grupoUsuarioLogado || '').toUpperCase();
+        const podeForcarLotado = usuarioPodeEditar || grupo.includes('LOGISTICA') || grupo.includes('LOGÍSTICA') || grupo.includes('NOC') || grupo.includes('ADMIN');
+        if (!podeForcarLotado) return showInfoModal('Este turno está sem vagas disponíveis. Apenas Logística/NOC pode confirmar mesmo assim.', 'Turno lotado', 'warning');
+        const confirmarSemVaga = await showConfirmModal('Este turno está sem vagas disponíveis. Deseja reagendar mesmo assim?', 'Turno lotado', 'warning', 'Reagendar mesmo assim', 'Voltar');
         if (!confirmarSemVaga) return;
     }
 
@@ -1500,12 +1666,26 @@ async function enviarReagendamento() {
     btn.disabled = true;
 
     try {
-        await fetch('/api/v5/painel-logistica/reagendar', {
+        const response = await fetch('/api/v5/painel-logistica/reagendar', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ixc_os_id, id_agenda_local, nova_data, novo_turno, usuario_logado: window.usuarioLogado })
+            body: JSON.stringify({
+                ixc_os_id,
+                id_agenda_local,
+                nova_data,
+                novo_turno,
+                usuario_logado: window.usuarioLogado,
+                abrir_chamado_duvida: escolhaDuvida === 'SIM',
+                modo_reagendamento: escolhaDuvida === 'SIM' ? 'COM_CHAMADO_DUVIDA' : 'APENAS_REAGENDAR',
+                preferencia_horario_obs: preferenciaObs,
+                preferencia_horario_tipo: preferenciaObs ? 'OBSERVACAO' : 'SEM_PREFERENCIA'
+            })
         });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.success === false) throw new Error(data.error || data.message || 'Erro ao reagendar.');
         
+        removerOsFilaAtualDaUi();
+        hideModalNativo('modalReagendarVisita');
         hideModalNativo('modalDetalhesOS');
         carregarAgenda(); 
         if (usuarioPodeEditar) carregarFilaLogistica();
@@ -1513,6 +1693,50 @@ async function enviarReagendamento() {
         showInfoModal("Erro ao reagendar: " + e.message);
     } finally {
         btn.innerHTML = 'Reagendar Visita';
+        btn.disabled = false;
+    }
+}
+
+function abrirModalCancelarVisita() {
+    document.getElementById('cancelar-visita-motivo').value = '';
+    showModalNativo('modalCancelarVisita');
+}
+
+async function confirmarCancelarVisita() {
+    const motivo = document.getElementById('cancelar-visita-motivo')?.value.trim() || '';
+    const os = window.osModalAtual || {};
+    if (!motivo) return showInfoModal('Informe o motivo do cancelamento da visita.', 'Motivo obrigatório', 'warning');
+
+    const btn = document.getElementById('btn-confirmar-cancelar-visita');
+    const original = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Cancelando...';
+    btn.disabled = true;
+
+    try {
+        const response = await fetch('/api/v5/painel-logistica/cancelar-visita', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id_local: os.id,
+                ixc_os_id: os.ixc_os_id,
+                motivo,
+                usuario_logado: window.usuarioLogado
+            })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.success === false) throw new Error(data.error || 'Erro ao cancelar visita.');
+
+        hideModalNativo('modalCancelarVisita');
+        hideModalNativo('modalDetalhesOS');
+        removerOsFilaAtualDaUi();
+        todosAgendamentosGlobais = todosAgendamentosGlobais.filter(item => String(item.id) !== String(os.id));
+        renderizarQuadro();
+        carregarAgenda();
+        if (usuarioPodeEditar) carregarFilaLogistica();
+    } catch (e) {
+        showInfoModal('Erro ao cancelar visita: ' + e.message, 'Erro', 'danger');
+    } finally {
+        btn.innerHTML = original;
         btn.disabled = false;
     }
 }
@@ -1654,6 +1878,7 @@ async function executarFechamentoFinal(mensagem, idTarefaDestino) {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Erro interno ao fechar OS');
         
+        removerOsFilaAtualDaUi();
         hideModalNativo('modalDetalhesOS');
         hideModalNativo('modalDecisaoAgendamento');
         carregarAgenda();
@@ -1661,7 +1886,7 @@ async function executarFechamentoFinal(mensagem, idTarefaDestino) {
     } catch (e) {
         showInfoModal('Erro ao finalizar OS: ' + e.message);
     } finally {
-        if (btnFechar) { btnFechar.innerHTML = '<i class="bi bi-check-circle me-1"></i>Confirmar Mensagem e Prosseguir'; btnFechar.disabled = false; }
+        if (btnFechar) { btnFechar.innerHTML = '<i class="bi bi-check-circle me-1"></i>Fechar OS e Tramitar'; btnFechar.disabled = false; }
         if (btnWfl) { btnWfl.innerHTML = 'Finalizar e Avançar <i class="bi bi-arrow-right-circle ms-1"></i>'; btnWfl.disabled = false; }
     }
 }
@@ -1670,8 +1895,18 @@ function atualizarLayoutOnu(onu) {
     if (!onu) return;
     
     document.getElementById('det-onu-mac').textContent = onu.mac || onu.id_mac || '---';
-    document.getElementById('det-onu-sinal').textContent = onu.sinal_rx || onu.rx || '---';
-    document.getElementById('det-onu-sinal-tx').textContent = onu.sinal_tx || onu.tx || '---';
+    const rx = onu.sinal_rx || onu.rx || '';
+    const tx = onu.sinal_tx || onu.tx || '';
+    const rxEl = document.getElementById('det-onu-sinal');
+    const txEl = document.getElementById('det-onu-sinal-tx');
+    if (rxEl) {
+        rxEl.textContent = rx || '---';
+        rxEl.className = classeSinalOnu(rx);
+    }
+    if (txEl) {
+        txEl.textContent = tx || '---';
+        txEl.className = classeSinalOnu(tx);
+    }
     document.getElementById('det-onu-distancia').textContent = onu.distancia || onu.distance || '---';
     
     const statusFisico = onu.status || onu.status_onu || 'N/A';
@@ -1749,6 +1984,7 @@ function initializeThemeAndUserInfo() {
             window.usuarioLogado = username;
 
             const group = data.group || 'Sem grupo';
+            window.grupoUsuarioLogado = group;
 
             if (username === 'Visitante') {
                 if (typeof showModal === 'function') {
