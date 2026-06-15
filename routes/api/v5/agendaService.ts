@@ -50,6 +50,84 @@ export class AgendaService {
         return partes.replace('T', ' ');
     }
 
+    private static normalizarDataParaYmd(valor: any): string {
+        const str = String(valor || '').trim();
+        const iso = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+        const br = str.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+        if (br) return `${br[3]}-${br[2]}-${br[1]}`;
+        throw new Error(`Data de agendamento inválida: ${str}`);
+    }
+
+    private static formatarYmdParaBr(ymd: string): string {
+        const [ano, mes, dia] = ymd.split('-');
+        return `${dia}/${mes}/${ano}`;
+    }
+
+    private static dataLocalDePartes(ymd: string, hora: string): Date {
+        const [ano, mes, dia] = ymd.split('-').map(Number);
+        const [hh, mm, ss] = hora.split(':').map(Number);
+        return new Date(ano, mes - 1, dia, hh, mm, ss || 0);
+    }
+
+    private static formatarHoraLocal(date: Date): string {
+        return new Intl.DateTimeFormat('pt-BR', {
+            timeZone: 'America/Sao_Paulo',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        }).format(date);
+    }
+
+    public static obterJanelaAgendamentoSegura(dataAgendamento: any, turno: string) {
+        const dataYmd = this.normalizarDataParaYmd(dataAgendamento);
+        const dataBr = this.formatarYmdParaBr(dataYmd);
+        const turnoNormalizado = String(turno || 'MATUTINO').toUpperCase() === 'VESPERTINO' ? 'VESPERTINO' : 'MATUTINO';
+        let horaInicio = turnoNormalizado === 'VESPERTINO' ? '13:00:00' : '08:00:00';
+        let horaFim = turnoNormalizado === 'VESPERTINO' ? '18:00:00' : '12:00:00';
+
+        const agoraSaoPaulo = this.dataHoraAtualSaoPaulo();
+        const hojeYmd = agoraSaoPaulo.substring(0, 10);
+        const agoraHoraSaoPaulo = agoraSaoPaulo.substring(11, 19);
+        const agoraLocalSaoPaulo = this.dataLocalDePartes(hojeYmd, agoraHoraSaoPaulo);
+        const agoraMaisCinco = new Date(agoraLocalSaoPaulo.getTime() + 5 * 60 * 1000);
+        const inicioPadrao = this.dataLocalDePartes(dataYmd, horaInicio);
+        const fimPadrao = this.dataLocalDePartes(dataYmd, horaFim);
+        let janelaEmergencial = false;
+
+        if (dataYmd === hojeYmd && inicioPadrao < agoraMaisCinco) {
+            horaInicio = this.formatarHoraLocal(agoraMaisCinco);
+            if (fimPadrao <= agoraMaisCinco) {
+                const fimEmergencial = new Date(agoraMaisCinco.getTime() + 30 * 60 * 1000);
+                horaFim = this.formatarHoraLocal(fimEmergencial);
+                janelaEmergencial = true;
+            }
+        }
+
+        const resultado = {
+            dataYmd,
+            dataBr,
+            turnoNormalizado,
+            horaInicio,
+            horaFim,
+            dataAgendamentoIxc: `${dataBr} ${horaInicio}`,
+            dataAgendamentoFinalIxc: `${dataBr} ${horaFim}`,
+            dataInteracao: agoraSaoPaulo,
+            agoraSaoPaulo,
+            janelaEmergencial
+        };
+
+        console.log('[DEBUG AGENDAMENTO IXC] Janela segura calculada:', {
+            dataEscolhida: dataAgendamento,
+            turno,
+            agoraSaoPaulo,
+            resultado
+        });
+
+        return resultado;
+    }
+
     public static async obterIdFuncionarioIxc(usuarioLogado?: string): Promise<string> {
         const usuario = await this.obterUsuarioIxcLogado(usuarioLogado);
         return usuario.id_funcionario_ixc;
@@ -160,7 +238,7 @@ export class AgendaService {
             gps_time: ''
         };
 
-        console.log(`[IXC Mensagem Debug][${contexto}] OS: ${ixcOsId} | usuario_logado: ${usuarioLogado || 'N/A'} | id_funcionario_ixc: ${idColaboradorIxc}`);
+        /* console.log(`[IXC Mensagem Debug][${contexto}] OS: ${ixcOsId} | usuario_logado: ${usuarioLogado || 'N/A'} | id_funcionario_ixc: ${idColaboradorIxc}`);
         console.log(`[IXC Mensagem Debug][${contexto}] Campos OS:`, {
             status: osAtual.status,
             id_evento: osAtual.id_evento,
@@ -170,11 +248,11 @@ export class AgendaService {
             id_equipe: osAtual.id_equipe,
             id_tecnico: osAtual.id_tecnico
         });
-        console.log(`[IXC Mensagem Debug][${contexto}] Payload:`, { ...payload, mensagem: String(payload.mensagem || '').substring(0, 300) });
+        console.log(`[IXC Mensagem Debug][${contexto}] Payload:`, { ...payload, mensagem: String(payload.mensagem || '').substring(0, 300) }); */
 
         try {
             const resp = await this.makeIxcRequest('POST', '/su_oss_chamado_mensagem', payload, 'incluir');
-            console.log(`[IXC Mensagem Debug][${contexto}] Resposta IXC:`, resp);
+            //console.log(`[IXC Mensagem Debug][${contexto}] Resposta IXC:`, resp);
             this.validarRespostaIxc(resp, 'IXC recusou o registro da mensagem da OS.');
             return { resp, osAtual, dataInteracao, idColaboradorIxc };
         } catch (error: any) {
@@ -205,6 +283,61 @@ export class AgendaService {
             if (!autor) autor = `Colaborador IXC ${idTecnico}`;
             return { ...m, autor_nome: autor };
         });
+    }
+
+    public static async abrirFinalizarChamadoDuvidaReagendamento(ixcOsId: string, usuarioLogado?: string, contexto = 'Reagendamento Duvida'): Promise<{ id: string; protocolo: string }> {
+        console.log(`[Reagendamento Duvida][${contexto}] Iniciando chamado de dúvida para OS ${ixcOsId}. Usuario: ${usuarioLogado || 'nao informado'}`);
+        const osAtual = await this.obterOsIxc(ixcOsId);
+        const usuarioIxc = await this.obterUsuarioIxcLogado(usuarioLogado);
+        const mensagem = `Chamado de dúvida aberto via Intranet para registrar novo assunto no reagendamento da OS ${ixcOsId}.\nColaborador responsável: ${usuarioIxc.nome}`;
+        const payloadTicket = {
+            id_cliente: osAtual.id_cliente,
+            id_contrato: osAtual.id_contrato || osAtual.id_contrato_kit || '',
+            titulo: `DÚVIDA - REAGENDAMENTO OS ${ixcOsId}`,
+            // O fluxo de reagendamento com dúvida deve usar o processo DÚVIDA (ID 19).
+            id_wfl_processo: '19',
+            id_assunto: '19',
+            id_ticket_setor: osAtual.setor || osAtual.id_setor || osAtual.id_ticket_setor || '4',
+            origem_endereco: 'CC',
+            tipo: 'C',
+            status: 'A',
+            su_status: 'N',
+            prioridade: 'M',
+            su_ticket_origem: 'I',
+            mensagem,
+            menssagem: mensagem
+        };
+
+        console.log(`[Reagendamento Duvida][${contexto}] Payload abertura:`, payloadTicket);
+        const ticketDuvida: any = await this.makeIxcRequest('POST', '/su_ticket', payloadTicket, 'incluir');
+        console.log(`[Reagendamento Duvida][${contexto}] Resposta abertura:`, ticketDuvida);
+        this.validarRespostaIxc(ticketDuvida, 'IXC recusou a abertura do chamado de dúvida.');
+
+        const idTicket = String(ticketDuvida.id || ticketDuvida.id_su_ticket || ticketDuvida.id_ticket || '').trim();
+        const protocolo = String(ticketDuvida.protocolo || ticketDuvida.protocolo_atendimento || idTicket || '').trim();
+        if (!idTicket) {
+            throw new Error('Chamado de dúvida criado, mas o IXC não retornou o ID para finalização.');
+        }
+
+        const payloadFinalizar = {
+            status: 'F',
+            su_status: 'S',
+            mensagem: `Chamado de dúvida finalizado automaticamente após registro no reagendamento da OS ${ixcOsId}.\nColaborador responsável: ${usuarioIxc.nome}`,
+            menssagem: `Chamado de dúvida finalizado automaticamente após registro no reagendamento da OS ${ixcOsId}.\nColaborador responsável: ${usuarioIxc.nome}`
+        };
+        console.log(`[Reagendamento Duvida][${contexto}] Payload finalização ticket ${idTicket}:`, payloadFinalizar);
+        const respFinalizar = await this.makeIxcRequest('PUT', `/su_ticket/${idTicket}`, payloadFinalizar, 'alterar');
+        console.log(`[Reagendamento Duvida][${contexto}] Resposta finalização:`, respFinalizar);
+        this.validarRespostaIxc(respFinalizar, 'IXC recusou a finalização do chamado de dúvida.');
+
+        await this.registrarMensagemOs(
+            String(ixcOsId),
+            `Chamado de dúvida vinculado ao reagendamento: ${protocolo || idTicket}. Chamado finalizado automaticamente.`,
+            usuarioLogado,
+            contexto
+        );
+
+        return { id: idTicket, protocolo: protocolo || idTicket };
     }
 
     private static async fetchIxcInBatches(endpoint: string, table: string, ids: string[], batchSize = 3): Promise<any[]> {
@@ -358,7 +491,7 @@ export class AgendaService {
     }
 
     public static async obterAgendamentos(dataFiltro: string, municipioBase: string | null, statusFiltro: string | null = 'PENDENTES') {
-        let queryLocal = `SELECT * FROM ivp_agenda_os WHERE data_agendamento = ?`;
+        let queryLocal = `SELECT * FROM ivp_agenda_os WHERE data_agendamento = ? AND (status_interno IS NULL OR status_interno NOT IN ('FINALIZADO', 'CANCELADO', 'VISITA_CANCELADA'))`;
         let params: any[] = [dataFiltro];
 
         if (municipioBase && municipioBase !== 'TODOS') {
@@ -371,7 +504,7 @@ export class AgendaService {
         
         const agendamentosLocais = await this.executeDb(queryLocal, params);
         const prioridadesFuturas = await this.executeDb(
-            `SELECT * FROM ivp_agenda_os WHERE solicita_prioridade = 1 AND data_agendamento > ? AND status_interno NOT IN ('FINALIZADO', 'CANCELADO')`,
+            `SELECT * FROM ivp_agenda_os WHERE solicita_prioridade = 1 AND data_agendamento > ? AND status_interno NOT IN ('FINALIZADO', 'CANCELADO', 'VISITA_CANCELADA')`,
             [dataFiltro]
         );
 
@@ -444,6 +577,16 @@ export class AgendaService {
                 if (localExistente && localExistente.length > 0) {
                     osLocal = localExistente[0];
                 }
+            }
+
+            const statusLocalAtual = String(osLocal?.status_interno || '').toUpperCase();
+            const retornoParaFilaLocal =
+                osLocal &&
+                ['AGUARDANDO_LOGISTICA', 'AGUARDANDO_REAGENDAMENTO'].includes(statusLocalAtual) &&
+                !osLocal.data_agendamento;
+
+            if (retornoParaFilaLocal) {
+                continue;
             }
 
             const dataLocalYmd = osLocal ? this.dataParaYmdSaoPaulo(osLocal.data_agendamento) : '';
@@ -522,6 +665,10 @@ export class AgendaService {
                 espera_cliente_ate: osLocal ? osLocal.espera_cliente_ate : null,
                 prioridade_logistica: osLocal ? Number(osLocal.prioridade_logistica || 0) : 0,
                 prioridade_logistica_obs: osLocal ? (osLocal.prioridade_logistica_obs || '') : '',
+                preferencia_horario_tipo: osLocal ? (osLocal.preferencia_horario_tipo || 'SEM_PREFERENCIA') : 'SEM_PREFERENCIA',
+                preferencia_horario_inicio: osLocal ? osLocal.preferencia_horario_inicio : null,
+                preferencia_horario_fim: osLocal ? osLocal.preferencia_horario_fim : null,
+                preferencia_horario_obs: osLocal ? (osLocal.preferencia_horario_obs || '') : '',
             };
 
             if (osLocal) {
@@ -615,25 +762,33 @@ export class AgendaService {
         return this.ordenarAgendamentos(listaFinal);
     }
 
-    public static async reagendarOs(payload: { ixc_os_id: string, id_agenda_local: string, nova_data: string, novo_turno: string, id_tecnico?: string, usuario_logado?: string }) {
-        const horaInicio = payload.novo_turno === 'MATUTINO' ? '08:00:00' : '13:00:00';
-        const horaFim = payload.novo_turno === 'MATUTINO' ? '12:00:00' : '18:00:00';
-        
-        const dataFormatada = payload.nova_data.split('-').reverse().join('/');
-        
-        const agora = new Date();
-        agora.setHours(agora.getHours() - 3);
-        const dataInteracao = agora.toISOString().replace('T', ' ').substring(0, 19);
+    public static async reagendarOs(payload: { ixc_os_id: string, id_agenda_local: string, nova_data: string, novo_turno: string, id_tecnico?: string, usuario_logado?: string, preferencia_horario_tipo?: string, preferencia_horario_inicio?: string, preferencia_horario_fim?: string, preferencia_horario_obs?: string, abrir_chamado_duvida?: boolean, modo_reagendamento?: string }) {
+        const janelaSegura = this.obterJanelaAgendamentoSegura(payload.nova_data, payload.novo_turno);
+        const dataFormatada = janelaSegura.dataBr;
+        const dataInteracao = janelaSegura.dataInteracao;
 
         const tecnicoDestino = payload.id_tecnico || "138";
         const colaboradorAcao = await this.obterUsuarioIxcLogado(payload.usuario_logado);
+        const preferencia = this.formatarPreferenciaHorario(payload);
+        let protocoloDuvida = '';
+        if (payload.abrir_chamado_duvida) {
+            const chamadoDuvida = await this.abrirFinalizarChamadoDuvidaReagendamento(
+                String(payload.ixc_os_id),
+                payload.usuario_logado,
+                'Reagendamento Duvida Painel'
+            );
+            protocoloDuvida = chamadoDuvida.protocolo;
+        }
+        const linhaDuvida = payload.abrir_chamado_duvida
+            ? `\nChamado de duvida/protocolo relacionado: ${protocoloDuvida || 'protocolo nao retornado pelo IXC'}.`
+            : '\nApenas reagendamento solicitado.';
 
-        const respIxc = await this.makeIxcRequest('POST', '/su_oss_chamado_reagendar', {
+        const payloadReagendar = {
             "id_chamado": payload.ixc_os_id,
-            "data_agendamento": `${dataFormatada} ${horaInicio}`,
-            "data_agendamento_final": `${dataFormatada} ${horaFim}`,
+            "data_agendamento": janelaSegura.dataAgendamentoIxc,
+            "data_agendamento_final": janelaSegura.dataAgendamentoFinalIxc,
             "id_resposta": "",
-            "mensagem": `Reagendado via Painel de Logística para ${dataFormatada} (${payload.novo_turno}).\nColaborador responsável: ${colaboradorAcao.nome}`,
+            "mensagem": `Reagendado via Painel de Logística para ${dataFormatada} (${payload.novo_turno}).${preferencia ? `\nPreferência de horário: ${preferencia}` : ''}\nColaborador responsável: ${colaboradorAcao.nome}`,
             // Em su_oss_chamado_reagendar, id_tecnico define o técnico destino da OS; o autor aparece na mensagem pelo usuário logado.
             "id_tecnico": tecnicoDestino,
             "id_equipe": "",
@@ -644,16 +799,59 @@ export class AgendaService {
             "latitude": "",
             "longitude": "",
             "gps_time": ""
-        }, 'incluir');
+        };
+
+        console.log('[DEBUG AGENDAMENTO IXC] Reagendamento painel:', {
+            osId: payload.ixc_os_id,
+            usuarioLogado: payload.usuario_logado || 'não informado',
+            tecnicoDestino,
+            dataSelecionada: payload.nova_data,
+            turno: payload.novo_turno,
+            janelaSegura,
+            payloadFinal: payloadReagendar
+        });
+
+        const respIxc = await this.makeIxcRequest('POST', '/su_oss_chamado_reagendar', payloadReagendar, 'incluir');
+        console.log('[DEBUG AGENDAMENTO IXC] Resposta reagendamento painel:', respIxc);
 
         this.validarRespostaIxc(respIxc, 'IXC recusou o reagendamento.');
 
         if (!String(payload.id_agenda_local).startsWith('ixc-')) {
             await this.executeDb(
-                `UPDATE ivp_agenda_os SET data_agendamento = ?, turno = ?, ixc_tecnico_id = 138, status_interno = 'AGUARDANDO_LOGISTICA' WHERE id = ?`,
-                [payload.nova_data, payload.novo_turno, payload.id_agenda_local]
+                `UPDATE ivp_agenda_os
+                 SET data_agendamento = ?, turno = ?, ixc_tecnico_id = 138, status_interno = 'AGUARDANDO_LOGISTICA',
+                     preferencia_horario_tipo = COALESCE(?, preferencia_horario_tipo),
+                     preferencia_horario_inicio = COALESCE(?, preferencia_horario_inicio),
+                     preferencia_horario_fim = COALESCE(?, preferencia_horario_fim),
+                     preferencia_horario_obs = COALESCE(?, preferencia_horario_obs)
+                 WHERE id = ?`,
+                [
+                    payload.nova_data,
+                    payload.novo_turno,
+                    payload.preferencia_horario_tipo || null,
+                    payload.preferencia_horario_inicio || null,
+                    payload.preferencia_horario_fim || null,
+                    payload.preferencia_horario_obs || null,
+                    payload.id_agenda_local
+                ]
             );
         }
+    }
+
+    private static formatarPreferenciaHorario(payload: any): string {
+        const tipo = String(payload?.preferencia_horario_tipo || 'SEM_PREFERENCIA').toUpperCase();
+        const inicio = String(payload?.preferencia_horario_inicio || '').substring(0, 5);
+        const fim = String(payload?.preferencia_horario_fim || '').substring(0, 5);
+        const obs = String(payload?.preferencia_horario_obs || '').trim();
+
+        if (!tipo || tipo === 'SEM_PREFERENCIA') return '';
+        if (tipo === 'MANHA') return 'Preferência pela manhã';
+        if (tipo === 'TARDE') return 'Preferência pela tarde';
+        if (tipo === 'A_PARTIR' && inicio) return `A partir de ${inicio}`;
+        if (tipo === 'ATE' && fim) return `Até ${fim}`;
+        if (tipo === 'INTERVALO' && inicio && fim) return `${inicio} até ${fim}`;
+        if (tipo === 'OBSERVACAO' && obs) return obs;
+        return 'Preferência de horário informada';
     }
     
     public static async garantirCapacidadeDia(data: string) {
@@ -738,6 +936,43 @@ export class AgendaService {
             }
         }
 
+        const locaisRetornoLogistica = await this.executeDb(
+            `
+            SELECT
+                ixc_os_id AS id,
+                ixc_cliente_id AS id_cliente,
+                setor,
+                tipo_servico,
+                tipo_imovel,
+                municipio_base,
+                sintoma_relatado AS mensagem,
+                NULL AS data_abertura,
+                ixc_tecnico_id AS id_tecnico,
+                status_interno
+            FROM ivp_agenda_os
+            WHERE status_interno IN ('AGUARDANDO_LOGISTICA', 'AGUARDANDO_REAGENDAMENTO')
+              AND (ixc_tecnico_id IS NULL OR ixc_tecnico_id = 138)
+              AND (data_agendamento IS NULL OR data_agendamento = '')
+              AND ixc_os_id IS NOT NULL
+            ORDER BY id DESC
+            LIMIT 200
+            `
+        ).catch(() => []);
+
+        for (const local of locaisRetornoLogistica || []) {
+            const idOs = String(local.id || '').trim();
+            if (!idOs || mapIds.has(idOs)) continue;
+            mapIds.add(idOs);
+            fila.push({
+                ...local,
+                id: idOs,
+                id_tecnico: local.id_tecnico || '138',
+                status: 'A',
+                setor: local.setor || '',
+                _origem_local_logistica: true
+            });
+        }
+
         const idClientes = fila.map(o => o.id_cliente);
         const clientesData = await this.fetchIxcInBatches('/cliente', 'cliente', idClientes, 5);
         const dictClientes = new Map(clientesData.map(c => [String(c.id), c]));
@@ -756,8 +991,10 @@ export class AgendaService {
             return {
                 ...os,
                 nome_cliente: cliente ? (cliente.razao || cliente.nome) : 'Desconhecido',
-                nome_setor: dictSetores.get(String(os.setor)) || 'Desconhecido',
-                endereco_formatado: cliente ? `${cliente.endereco || ''}, ${cliente.numero || 'S/N'} - ${cliente.bairro || ''}` : ''
+                nome_setor: dictSetores.get(String(os.setor)) || os.tipo_servico || 'Desconhecido',
+                endereco_formatado: cliente ? `${cliente.endereco || ''}, ${cliente.numero || 'S/N'} - ${cliente.bairro || ''}` : '',
+                cidade_real: cliente?.cidade || os.municipio_base || '',
+                municipio_base: os.municipio_base || cliente?.cidade || ''
             };
         });
     }

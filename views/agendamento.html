@@ -110,16 +110,53 @@
                                         <div class="col-12 mb-2">
                                             <h6 class="text-muted fw-bold small text-uppercase mb-3"><i class="bi bi-plus-circle me-2"></i>Opções Adicionais</h6>
                                             <div class="d-flex flex-wrap gap-4 p-3 bg-light border rounded shadow-sm">
-                                                <div class="form-check form-switch">
-                                                    <input class="form-check-input" type="checkbox" id="chk-encaixe">
-                                                    <label class="form-check-label fw-bold text-dark" for="chk-encaixe">Aceita Encaixe?</label>
-                                                    <small class="d-block text-muted" style="font-size: 0.75rem;">Cliente tem flexibilidade de horário.</small>
+                                                <div>
+                                                    <label class="form-label fw-bold text-dark mb-1">Aceita Encaixe?</label>
+                                                    <div class="d-flex flex-wrap gap-3">
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="radio" name="aceita-encaixe" id="encaixe-sim" value="SIM" required>
+                                                            <label class="form-check-label fw-bold text-dark" for="encaixe-sim">Sim</label>
+                                                        </div>
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="radio" name="aceita-encaixe" id="encaixe-nao" value="NAO" required>
+                                                            <label class="form-check-label fw-bold text-dark" for="encaixe-nao">Não</label>
+                                                        </div>
+                                                    </div>
+                                                    <small class="d-block text-muted" style="font-size: 0.75rem;">Obrigatório para confirmar o agendamento.</small>
                                                 </div>
                                                 
                                                 <div class="form-check form-switch">
                                                     <input class="form-check-input" style="border-color: #dc3545;" type="checkbox" id="chk-prioridade" disabled title="Função temporariamente desativada.">
                                                     <label class="form-check-label fw-bold text-danger" for="chk-prioridade">Solicitar Prioridade</label>
                                                     <small class="d-block text-muted" style="font-size: 0.75rem;">Função temporariamente desativada.</small>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-12 mb-2">
+                                            <h6 class="text-muted fw-bold small text-uppercase mb-3"><i class="bi bi-clock-history me-2"></i>Preferência de Horário</h6>
+                                            <div class="row g-2 p-3 bg-light border rounded shadow-sm">
+                                                <div class="col-md-4">
+                                                    <label class="form-label small fw-bold">Preferência</label>
+                                                    <select class="form-select form-select-sm" id="preferencia-horario-tipo">
+                                                        <option value="SEM_PREFERENCIA">Sem preferência</option>
+                                                        <option value="MANHA">Preferência pela manhã</option>
+                                                        <option value="TARDE">Preferência pela tarde</option>
+                                                        <option value="INTERVALO">Intervalo específico</option>
+                                                        <option value="OBSERVACAO">Observação livre</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <label class="form-label small fw-bold">Início</label>
+                                                    <input type="time" class="form-control form-control-sm" id="preferencia-horario-inicio">
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <label class="form-label small fw-bold">Fim</label>
+                                                    <input type="time" class="form-control form-control-sm" id="preferencia-horario-fim">
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label small fw-bold">Observação</label>
+                                                    <input type="text" maxlength="255" class="form-control form-control-sm" id="preferencia-horario-obs" placeholder="Ex.: cliente sai após 16h">
                                                 </div>
                                             </div>
                                         </div>

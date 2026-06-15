@@ -80,6 +80,7 @@
                                     <div class="mt-2 mb-3">
                                         <label class="form-label small fw-bold text-muted mb-1">Selecione o Contrato:</label>
                                         <select class="form-select form-select-sm border-primary" id="select-contrato" style="max-width: 400px;"></select>
+                                        <div id="cards-contratos-cliente" class="row g-2 mt-2"></div>
                                     </div>
                                 </div>
                                 <div class="text-end">
@@ -92,6 +93,11 @@
                                     <h6 class="text-muted fw-bold small text-uppercase mb-1"><i class="bi bi-geo-alt-fill me-1"></i>Endereço Completo de Instalação</h6>
                                     <p class="mb-1 fw-bold text-primary small" id="det-condominio" style="display: none;"></p>
                                     <p class="mb-0 fw-bold text-dark small" id="det-endereco-completo">---</p>
+                                    <div class="d-flex flex-wrap gap-2 mt-2">
+                                        <button type="button" class="btn btn-sm btn-outline-primary fw-bold" id="btn-editar-cliente-contrato">
+                                            <i class="bi bi-pencil-square me-1"></i>Editar contato/endereço
+                                        </button>
+                                    </div>
                                 </div>
                                 <div class="col-md-5 border-end">
                                     <h6 class="text-muted fw-bold small text-uppercase mb-2"><i class="bi bi-file-earmark-text me-1"></i>Contrato & Plano</h6>
@@ -103,6 +109,12 @@
                                     <h6 class="text-muted fw-bold small text-uppercase mb-2"><i class="bi bi-router me-1"></i>Conexão PPPOE e ONU</h6>
                                     <div id="area-pppoe-onu" class="small">
                                         </div>
+                                </div>
+                                <div class="col-12 border-top pt-3">
+                                    <h6 class="text-muted fw-bold small text-uppercase mb-2"><i class="bi bi-receipt me-1"></i>Boletos em aberto</h6>
+                                    <div id="area-boletos-contrato" class="small">
+                                        <p class="text-muted mb-0">Selecione um contrato para consultar boletos.</p>
+                                    </div>
                                 </div>
                             </div>
 
@@ -128,6 +140,10 @@
                                     <div class="col-12 mt-3">
                                         <label class="form-label fw-bold">Observações do chamado</label>
                                         <textarea class="form-control" id="obs-triagem" rows="3" placeholder="Relato do cliente..."></textarea>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary fw-bold mt-2" id="btn-anexar-arquivo">
+                                            <i class="bi bi-paperclip me-1"></i>Anexar arquivo
+                                        </button>
+                                        <small class="text-muted d-block mt-1">O arquivo será anexado automaticamente após a criação do atendimento.</small>
                                     </div>
                                 </div>
                                 <div class="text-end mt-4">
@@ -212,6 +228,66 @@
         </div>
     </div>
 
+    <div class="modal fade" id="modalEditarClienteContrato" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2 text-primary"></i>Editar contato e endereço</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="edit-cliente-id">
+                    <input type="hidden" id="edit-contrato-id">
+                    <h6 class="text-muted fw-bold small text-uppercase mb-2">Contatos</h6>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-4"><label class="form-label small fw-bold">Telefone residencial</label><input class="form-control form-control-sm" id="edit-fone"></div>
+                        <div class="col-md-4"><label class="form-label small fw-bold">Telefone comercial</label><input class="form-control form-control-sm" id="edit-telefone-comercial"></div>
+                        <div class="col-md-4"><label class="form-label small fw-bold">Telefone celular</label><input class="form-control form-control-sm" id="edit-telefone-celular"></div>
+                        <div class="col-md-4"><label class="form-label small fw-bold">WhatsApp</label><input class="form-control form-control-sm" id="edit-whatsapp"></div>
+                        <div class="col-md-4"><label class="form-label small fw-bold">E-mail</label><input type="email" class="form-control form-control-sm" id="edit-email"></div>
+                        <div class="col-md-4"><label class="form-label small fw-bold">Contato</label><input class="form-control form-control-sm" id="edit-contato"></div>
+                    </div>
+                    <h6 class="text-muted fw-bold small text-uppercase mb-2">Endereço do contrato</h6>
+                    <div class="row g-2">
+                        <div class="col-md-8"><label class="form-label small fw-bold">Endereço</label><input class="form-control form-control-sm" id="edit-endereco" required></div>
+                        <div class="col-md-4"><label class="form-label small fw-bold">Número</label><input class="form-control form-control-sm" id="edit-numero"></div>
+                        <div class="col-md-4"><label class="form-label small fw-bold">Bairro</label><input class="form-control form-control-sm" id="edit-bairro" required></div>
+                        <div class="col-md-4"><label class="form-label small fw-bold">Cidade</label><input class="form-control form-control-sm" id="edit-cidade"></div>
+                        <div class="col-md-4"><label class="form-label small fw-bold">CEP</label><input class="form-control form-control-sm" id="edit-cep"></div>
+                        <div class="col-md-6"><label class="form-label small fw-bold">Complemento</label><input class="form-control form-control-sm" id="edit-complemento"></div>
+                        <div class="col-md-6"><label class="form-label small fw-bold">Referência</label><input class="form-control form-control-sm" id="edit-referencia"></div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary fw-bold" id="btn-salvar-edicao-cliente">Salvar alterações</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalAnexarArquivo" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-paperclip me-2 text-primary"></i>Anexar arquivo ao atendimento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label small fw-bold">Descrição</label>
+                    <input class="form-control form-control-sm mb-2" id="anexo-descricao" placeholder="Ex.: foto da ONU">
+                    <label class="form-label small fw-bold">Arquivo</label>
+                    <input type="file" class="form-control form-control-sm" id="anexo-arquivo" accept=".jpg,.jpeg,.png,.webp,.pdf,.txt,.doc,.docx,.xls,.xlsx">
+                    <small class="text-muted d-block mt-2">Tamanho máximo: 8 MB. Se o atendimento ainda não foi criado, o arquivo será anexado automaticamente após a criação.</small>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary fw-bold" id="btn-enviar-anexo">Enviar anexo</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="modal fade" id="modalDetalhesTicket" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content">
@@ -225,7 +301,10 @@
                             <h6 class="text-muted fw-bold small text-uppercase mb-2">Descrição / Assunto do Cliente</h6>
                             <p class="mb-1 text-primary fw-bold" id="modal-ticket-assunto"></p>
                             <p class="mb-2 small"><i class="bi bi-calendar me-1"></i>Aberto em: <span id="modal-ticket-data"></span></p>
-                            <p class="mb-0 small text-dark fst-italic" id="modal-ticket-mensagem" style="white-space: pre-wrap; word-break: break-word;"></p>
+                            <p class="mb-2 small text-dark fst-italic" id="modal-ticket-mensagem" style="white-space: pre-wrap; word-break: break-word;"></p>
+                            <button type="button" class="btn btn-sm btn-outline-primary fw-bold" id="btn-anexar-arquivo-ticket">
+                                <i class="bi bi-paperclip me-1"></i>Anexar arquivo neste atendimento
+                            </button>
                         </div>
                     </div>
                     
