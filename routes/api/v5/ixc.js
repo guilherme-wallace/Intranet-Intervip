@@ -541,6 +541,28 @@ function abrirAtendimentoOS(novoClienteId, clientData, nomePlano, novoLoginId, n
         return ticketId.toString();
     });
 }
+function buscarOsInstalacaoPorTicket(ticketId) {
+    return __awaiter(this, void 0, void 0, function* () {
+        for (let tentativa = 0; tentativa < 4; tentativa++) {
+            if (tentativa > 0) {
+                yield new Promise(resolve => setTimeout(resolve, 1500));
+            }
+            const osResponse = yield makeIxcRequest('POST', '/su_oss_chamado', {
+                qtype: 'su_oss_chamado.id_ticket',
+                query: String(ticketId),
+                oper: '=',
+                rp: '20',
+                sortname: 'su_oss_chamado.id',
+                sortorder: 'desc'
+            }).catch(() => ({ registros: [] }));
+            const registros = (osResponse === null || osResponse === void 0 ? void 0 : osResponse.registros) || [];
+            const osAberta = registros.find((os) => !['F', 'C'].includes(String(os.status || '').toUpperCase()));
+            if (osAberta)
+                return osAberta;
+        }
+        return null;
+    });
+}
 function obterIdFuncionarioIxc(usuario_intranet) {
     return __awaiter(this, void 0, void 0, function* () {
         if (!usuario_intranet)
@@ -926,6 +948,7 @@ router.post('/cliente', (req, res) => __awaiter(void 0, void 0, void 0, function
         const novoContratoId = yield criarContrato(novoClienteId, clientData, dataCadastro, nomePlano);
         const novoLoginId = yield criarLogin(novoClienteId, novoContratoId, clientData, dataCadastro);
         const novoTicketId = yield abrirAtendimentoOS(novoClienteId, clientData, nomePlano, novoLoginId, novoContratoId);
+        const osInstalacao = yield buscarOsInstalacaoPorTicket(novoTicketId);
         if (condominio_novo_nome && condominio_novo_nome.trim() !== '') {
             yield abrirChamadoNocCadastro(condominio_novo_nome, clientData, novoClienteId);
         }
@@ -935,7 +958,8 @@ router.post('/cliente', (req, res) => __awaiter(void 0, void 0, void 0, function
             clienteId: novoClienteId,
             contratoId: novoContratoId,
             loginId: novoLoginId,
-            ticketId: novoTicketId
+            ticketId: novoTicketId,
+            osId: (osInstalacao === null || osInstalacao === void 0 ? void 0 : osInstalacao.id) || null
         });
     }
     catch (error) {

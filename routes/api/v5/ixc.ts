@@ -578,6 +578,29 @@ async function abrirAtendimentoOS(novoClienteId: string, clientData: any, nomePl
     return ticketId.toString(); 
 }
 
+async function buscarOsInstalacaoPorTicket(ticketId: string): Promise<any | null> {
+    for (let tentativa = 0; tentativa < 4; tentativa++) {
+        if (tentativa > 0) {
+            await new Promise(resolve => setTimeout(resolve, 1500));
+        }
+
+        const osResponse = await makeIxcRequest('POST', '/su_oss_chamado', {
+            qtype: 'su_oss_chamado.id_ticket',
+            query: String(ticketId),
+            oper: '=',
+            rp: '20',
+            sortname: 'su_oss_chamado.id',
+            sortorder: 'desc'
+        }).catch(() => ({ registros: [] }));
+
+        const registros = osResponse?.registros || [];
+        const osAberta = registros.find((os: any) => !['F', 'C'].includes(String(os.status || '').toUpperCase()));
+        if (osAberta) return osAberta;
+    }
+
+    return null;
+}
+
 async function obterIdFuncionarioIxc(usuario_intranet: string): Promise<string> {
     if (!usuario_intranet) return "138";
 
@@ -1009,6 +1032,7 @@ router.post('/cliente', async (req, res) => {
         const novoContratoId = await criarContrato(novoClienteId, clientData, dataCadastro, nomePlano);
         const novoLoginId = await criarLogin(novoClienteId, novoContratoId, clientData, dataCadastro);
         const novoTicketId = await abrirAtendimentoOS(novoClienteId, clientData, nomePlano, novoLoginId, novoContratoId);
+        const osInstalacao = await buscarOsInstalacaoPorTicket(novoTicketId);
         
         if (condominio_novo_nome && condominio_novo_nome.trim() !== '') {
             await abrirChamadoNocCadastro(condominio_novo_nome, clientData, novoClienteId);
@@ -1020,7 +1044,8 @@ router.post('/cliente', async (req, res) => {
             clienteId: novoClienteId,
             contratoId: novoContratoId,
             loginId: novoLoginId,
-            ticketId: novoTicketId
+            ticketId: novoTicketId,
+            osId: osInstalacao?.id || null
         });
 
     } catch (error: any) {
