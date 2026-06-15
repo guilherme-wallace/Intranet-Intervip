@@ -80,6 +80,69 @@ function turnoAmigavel(turno: any): string {
     return t || 'Turno não informado';
 }
 
+function formatarPreferenciaHorario(payload: any): string {
+    const tipo = String(payload?.preferencia_horario_tipo || 'SEM_PREFERENCIA').toUpperCase();
+    const inicio = String(payload?.preferencia_horario_inicio || '').substring(0, 5);
+    const fim = String(payload?.preferencia_horario_fim || '').substring(0, 5);
+    const obs = String(payload?.preferencia_horario_obs || '').trim();
+
+    if (!tipo || tipo === 'SEM_PREFERENCIA') return '';
+    if (tipo === 'MANHA') return 'Preferência pela manhã';
+    if (tipo === 'TARDE') return 'Preferência pela tarde';
+    if (tipo === 'A_PARTIR' && inicio) return `A partir de ${inicio}`;
+    if (tipo === 'ATE' && fim) return `Até ${fim}`;
+    if (tipo === 'INTERVALO' && inicio && fim) return `${inicio} até ${fim}`;
+    if (tipo === 'OBSERVACAO' && obs) return obs;
+    return 'Preferência de horário informada';
+}
+
+function validarPreferenciaHorario(payload: any) {
+    const tipo = String(payload?.preferencia_horario_tipo || 'SEM_PREFERENCIA').toUpperCase();
+    const inicio = String(payload?.preferencia_horario_inicio || '').trim();
+    const fim = String(payload?.preferencia_horario_fim || '').trim();
+    const obs = String(payload?.preferencia_horario_obs || '').trim();
+    const tiposPermitidos = ['SEM_PREFERENCIA', 'A_PARTIR', 'ATE', 'INTERVALO', 'OBSERVACAO', 'MANHA', 'TARDE'];
+    if (!tiposPermitidos.includes(tipo)) throw new Error('Tipo de preferência de horário inválido.');
+    if (tipo === 'A_PARTIR' && !inicio) throw new Error('Informe o horário inicial da preferência.');
+    if (tipo === 'ATE' && !fim) throw new Error('Informe o horário final da preferência.');
+    if (tipo === 'INTERVALO' && (!inicio || !fim)) throw new Error('Informe o horário inicial e final da preferência.');
+    if (tipo === 'OBSERVACAO' && !obs) throw new Error('Informe a observação da preferência de horário.');
+}
+
+async function finalizarOsConsolidada(ixcOsId: string, mensagem: string, usuarioLogado?: string) {
+    const usuarioIxc = await AgendaService.obterUsuarioIxcLogado(usuarioLogado);
+    const registro = await AgendaService.registrarMensagemOs(ixcOsId, mensagem, usuarioLogado, 'Consolidacao OS Agendada');
+    try {
+        await makeIxcRequest('PUT', `/su_oss_chamado/${ixcOsId}`, {
+            status: 'F',
+            mensagem_resposta: mensagem,
+            id_tecnico: usuarioIxc.id_funcionario_ixc
+        }, 'alterar');
+    } catch (erroPut: any) {
+        const osAtual = registro?.osAtual || {};
+        const idProcesso = osAtual.id_wfl_param_os || osAtual.id_wfl_processo || osAtual.id_processo || '';
+        const idTarefaAtual = osAtual.id_wfl_tarefa || osAtual.id_tarefa_atual || osAtual.id_tarefa || '';
+        if (!idProcesso || !idTarefaAtual) throw erroPut;
+
+        const agora = new Date();
+        agora.setHours(agora.getHours() - 3);
+        const dataHoraAtual = agora.toISOString().replace('T', ' ').substring(0, 19);
+        await makeIxcRequest('POST', '/su_oss_chamado_fechar', {
+            id_chamado: ixcOsId,
+            data_inicio: dataHoraAtual,
+            data_final: dataHoraAtual,
+            mensagem,
+            id_tecnico: usuarioIxc.id_funcionario_ixc,
+            status: 'F',
+            data: dataHoraAtual.split(' ')[0],
+            id_processo: idProcesso,
+            id_tarefa_atual: idTarefaAtual,
+            eh_tarefa_decisao: 'N',
+            finaliza_processo: 'S'
+        }, 'incluir');
+    }
+}
+
 function osJaTemAgendaIxc(osData: any): boolean {
     const dataAgenda = osData?.data_agenda || osData?.data_agendamento || osData?.data_agenda_final;
     if (!dataAgenda || String(dataAgenda).startsWith('0000-00-00')) return false;
@@ -307,12 +370,21 @@ router.get('/detalhes-os/:id_ticket', async (req, res) => {
 });
 
 router.post('/confirmar', async (req, res) => {
-    const { id_ticket, cliente_id, contrato_id, municipio, tipo_servico, tipo_imovel, data_agendamento, turno, aceita_encaixe, usuario_logado, tag_ids, reagendar_existente } = req.body;
+    const { id_ticket, cliente_id, contrato_id, municipio, tipo_servico, tipo_imovel, data_agendamento, turno, aceita_encaixe, usuario_logado, tag_ids, reagendar_existente, abrir_chamado_duvida, modo_reagendamento } = req.body;
+    const preferenciaHorarioTipo = String(req.body.preferencia_horario_tipo || 'SEM_PREFERENCIA').toUpperCase();
+    const preferenciaHorarioInicio = String(req.body.preferencia_horario_inicio || '').substring(0, 5);
+    const preferenciaHorarioFim = String(req.body.preferencia_horario_fim || '').substring(0, 5);
+    const preferenciaHorarioObs = String(req.body.preferencia_horario_obs || '').trim().substring(0, 255);
     const solicitaPrioridadeAtiva = 0;
 
     console.log(`[DEBUG HUB AGENDAMENTO] Nova O.S. -> Ticket: ${id_ticket} | Contrato Capturado: ${contrato_id || 'VAZIO'} | Serviço: ${tipo_servico}`);
 
     try {
+        if (typeof aceita_encaixe !== 'boolean') {
+            return res.status(400).json({ error: 'Informe se o cliente aceita encaixe antes de confirmar.' });
+        }
+        validarPreferenciaHorario(req.body);
+
         let tipoServicoDb = 'SUPORTE';
         if (String(tipo_servico).toUpperCase().includes('INSTALA')) {
             tipoServicoDb = 'INSTALACAO';
@@ -350,7 +422,7 @@ router.post('/confirmar', async (req, res) => {
               AND (? = 0 OR ixc_contrato_id = ?)
               AND ixc_os_id <> ?
               AND data_agendamento >= ?
-              AND (status_interno IS NULL OR status_interno NOT IN ('CANCELADO', 'FINALIZADO'))
+              AND (status_interno IS NULL OR status_interno NOT IN ('CANCELADO', 'FINALIZADO', 'VISITA_CANCELADA'))
             LIMIT 1
             `,
             [cliente_id, contrato_id || 0, contrato_id || 0, ixc_os_id, dataHojeSaoPauloYmd()]
@@ -364,6 +436,12 @@ router.post('/confirmar', async (req, res) => {
                 usuario_logado,
                 'Agendamento Duplicado Cliente'
             ).catch((err: any) => console.error('[Agendamento] Falha ao registrar novo assunto na OS existente:', err.message));
+
+            await finalizarOsConsolidada(
+                String(ixc_os_id),
+                `OS consolidada na visita já agendada #${existente.ixc_os_id}. Novo assunto registrado para atendimento na mesma visita.`,
+                usuario_logado
+            );
 
             return res.status(409).json({
                 code: 'CLIENTE_JA_AGENDADO',
@@ -401,6 +479,12 @@ router.post('/confirmar', async (req, res) => {
                 'Agendamento Duplicado Cliente IXC'
             ).catch((err: any) => console.error('[Agendamento] Falha ao registrar novo assunto na OS IXC existente:', err.message));
 
+            await finalizarOsConsolidada(
+                String(ixc_os_id),
+                `OS consolidada na visita já agendada #${outraOsAgendadaIxc.id}. Novo assunto registrado para atendimento na mesma visita.`,
+                usuario_logado
+            );
+
             return res.status(409).json({
                 code: 'CLIENTE_JA_AGENDADO',
                 error: `Este cliente já possui uma OS agendada para ${formatarAgendaIxc(outraOsAgendadaIxc.data_agenda || outraOsAgendadaIxc.data_agendamento)}. O novo assunto foi registrado na OS/agendamento já aberto para que o técnico trate tudo na mesma visita.`,
@@ -418,13 +502,21 @@ router.post('/confirmar', async (req, res) => {
             FROM ivp_agenda_os
             WHERE ixc_os_id = ?
               AND data_agendamento >= ?
-              AND (status_interno IS NULL OR status_interno NOT IN ('CANCELADO', 'FINALIZADO'))
+              AND (status_interno IS NULL OR status_interno NOT IN ('CANCELADO', 'FINALIZADO', 'VISITA_CANCELADA'))
             LIMIT 1
             `,
             [ixc_os_id, dataHojeSaoPauloYmd()]
         );
 
         const podeReagendarExistente = String(reagendar_existente) === 'true' || reagendar_existente === true;
+        if (podeReagendarExistente && typeof abrir_chamado_duvida === 'undefined') {
+            return res.status(400).json({ error: 'Informe se deseja abrir chamado de dúvida para gerar novo protocolo antes do reagendamento.' });
+        }
+
+        if (podeReagendarExistente && !['COM_CHAMADO_DUVIDA', 'APENAS_REAGENDAR'].includes(String(modo_reagendamento || ''))) {
+            return res.status(400).json({ error: 'Informe o modo do reagendamento.' });
+        }
+
         if (agendamentoLocalExistente && agendamentoLocalExistente.length > 0 && !podeReagendarExistente) {
             const ag = agendamentoLocalExistente[0];
             return res.status(409).json({
@@ -455,21 +547,28 @@ router.post('/confirmar', async (req, res) => {
             throw new Error('Esta OS já está atribuída a um técnico no IXC e não pode ser agendada novamente por esta tela.');
         }
 
-        const horaInicio = turno === 'MATUTINO' ? '08:00:00' : '13:00:00';
-        const horaFim = turno === 'MATUTINO' ? '12:00:00' : '18:00:00';
-        const dataFormatada = data_agendamento.split('-').reverse().join('/');
+        const janelaSegura = AgendaService.obterJanelaAgendamentoSegura(data_agendamento, turno);
+        const dataFormatada = janelaSegura.dataBr;
         const usuarioIxc = await AgendaService.obterUsuarioIxcLogado(usuario_logado);
+        let protocoloDuvida = '';
+        if (podeReagendarExistente && abrir_chamado_duvida) {
+            const chamadoDuvida = await AgendaService.abrirFinalizarChamadoDuvidaReagendamento(
+                String(ixc_os_id),
+                usuario_logado,
+                'Reagendamento Duvida Agendamento'
+            );
+            protocoloDuvida = chamadoDuvida.protocolo;
+        }
         
-        const msgAgendamento = `AGENDADO VIA INTRANET\nData: ${dataFormatada}\nTurno: ${turno}\nAceita Encaixe: ${aceita_encaixe ? 'SIM' : 'NÃO'}\nColaborador responsável: ${usuarioIxc.nome}`;
+        const preferenciaTexto = formatarPreferenciaHorario(req.body);
+        const msgAgendamento = `AGENDADO VIA INTRANET\nData: ${dataFormatada}\nTurno: ${turno}\nAceita Encaixe: ${aceita_encaixe ? 'SIM' : 'NÃO'}${preferenciaTexto ? `\nPreferência de horário: ${preferenciaTexto}` : ''}${protocoloDuvida ? `\nChamado de dúvida/protocolo relacionado: ${protocoloDuvida}` : ''}\nColaborador responsável: ${usuarioIxc.nome}`;
 
-        const agora = new Date();
-        agora.setHours(agora.getHours() - 3);
-        const dataInteracao = agora.toISOString().replace('T', ' ').substring(0, 19);
+        const dataInteracao = janelaSegura.dataInteracao;
 
         const payloadAgendar = {
             "id_chamado": String(ixc_os_id),
-            "data_agendamento": `${dataFormatada} ${horaInicio}`,
-            "data_agendamento_final": `${dataFormatada} ${horaFim}`,
+            "data_agendamento": janelaSegura.dataAgendamentoIxc,
+            "data_agendamento_final": janelaSegura.dataAgendamentoFinalIxc,
             "id_resposta": "",
             "mensagem": msgAgendamento,
             // Em su_oss_chamado_reagendar, id_tecnico define o técnico destino da OS; o autor aparece na mensagem pelo usuário logado.
@@ -485,8 +584,10 @@ router.post('/confirmar', async (req, res) => {
         };
 
         console.log(`\n--- [DEBUG AGENDAMENTO IXC] INICIANDO AGENDAMENTO VIA POST (su_oss_chamado_reagendar) ---`);
-        console.log(`OS ID Alvo: ${ixc_os_id} | Técnico Destino: 138 (Hub Intervip)`);
-        console.log(`[POST Payload]:`, JSON.stringify(payloadAgendar, null, 2));
+        console.log(`[DEBUG AGENDAMENTO IXC] OS ID: ${ixc_os_id} | Usuário: ${usuario_logado || 'não informado'} | Técnico destino: 138`);
+        console.log('[DEBUG AGENDAMENTO IXC] Data/turno selecionados:', { data_agendamento, turno });
+        console.log('[DEBUG AGENDAMENTO IXC] Janela segura calculada:', janelaSegura);
+        console.log(`[DEBUG AGENDAMENTO IXC] Payload final:`, JSON.stringify(payloadAgendar, null, 2));
         
         const respAgendar = await makeIxcRequest(
             'POST',
@@ -494,6 +595,7 @@ router.post('/confirmar', async (req, res) => {
             payloadAgendar,
             'incluir'
         );
+        console.log('[DEBUG AGENDAMENTO IXC] Resposta IXC:', respAgendar);
 
         if (respAgendar && respAgendar.type === 'error') {
             throw new Error(`IXC recusou o agendamento: ${respAgendar.message}`);
@@ -504,15 +606,16 @@ router.post('/confirmar', async (req, res) => {
             idAgendaLocal = agendamentoLocalExistente[0].id;
             await executeDb(
                 `UPDATE ivp_agenda_os
-                 SET data_agendamento = ?, turno = ?, aceita_encaixe = ?, solicita_prioridade = 0, ixc_tecnico_id = 138, status_interno = 'AGUARDANDO_LOGISTICA'
+                 SET data_agendamento = ?, turno = ?, aceita_encaixe = ?, solicita_prioridade = 0, ixc_tecnico_id = 138, status_interno = 'AGUARDANDO_LOGISTICA',
+                     preferencia_horario_tipo = ?, preferencia_horario_inicio = ?, preferencia_horario_fim = ?, preferencia_horario_obs = ?
                  WHERE id = ?`,
-                [data_agendamento, turno, aceita_encaixe ? 1 : 0, idAgendaLocal]
+                [data_agendamento, turno, aceita_encaixe ? 1 : 0, preferenciaHorarioTipo, preferenciaHorarioInicio || null, preferenciaHorarioFim || null, preferenciaHorarioObs || null, idAgendaLocal]
             );
         } else {
             const insertAgenda = await executeDb(
                 `INSERT INTO ivp_agenda_os
-                (ixc_os_id, ixc_cliente_id, ixc_contrato_id, tipo_servico, tipo_imovel, municipio_base, aceita_encaixe, solicita_prioridade, data_agendamento, turno, ixc_tecnico_id, status_interno, criado_por)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 138, 'AGUARDANDO_LOGISTICA', 'ATENDIMENTO')`,
+                (ixc_os_id, ixc_cliente_id, ixc_contrato_id, tipo_servico, tipo_imovel, municipio_base, aceita_encaixe, solicita_prioridade, data_agendamento, turno, ixc_tecnico_id, status_interno, criado_por, preferencia_horario_tipo, preferencia_horario_inicio, preferencia_horario_fim, preferencia_horario_obs)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 138, 'AGUARDANDO_LOGISTICA', 'ATENDIMENTO', ?, ?, ?, ?)`,
                 [
                     ixc_os_id,
                     cliente_id,
@@ -523,7 +626,11 @@ router.post('/confirmar', async (req, res) => {
                     aceita_encaixe ? 1 : 0,
                     solicitaPrioridadeAtiva,
                     data_agendamento,
-                    turno
+                    turno,
+                    preferenciaHorarioTipo,
+                    preferenciaHorarioInicio || null,
+                    preferenciaHorarioFim || null,
+                    preferenciaHorarioObs || null
                 ]
             );
             idAgendaLocal = insertAgenda.insertId;
@@ -545,6 +652,7 @@ router.post('/confirmar', async (req, res) => {
         res.json({ success: true, message: "Agendamento confirmado com sucesso!" });
     } catch (error: any) {
         console.error("[Erro Agendamento Confirmar]:", error.message);
+        console.error("[DEBUG AGENDAMENTO IXC] Erro completo:", error.response?.data || error.message);
         res.status(500).json({ error: error.message });
     }
 });
@@ -566,7 +674,7 @@ router.get('/vagas-semana', async (req, res) => {
         const agendamentos = await executeDb(
             `SELECT * FROM ivp_agenda_os
              WHERE data_agendamento >= ? AND data_agendamento <= ?
-               AND (status_interno IS NULL OR status_interno NOT IN ('CANCELADO', 'FINALIZADO'))`,
+               AND (status_interno IS NULL OR status_interno NOT IN ('CANCELADO', 'FINALIZADO', 'VISITA_CANCELADA'))`,
             [data_inicio, data_fim]
         );
 

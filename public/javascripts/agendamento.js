@@ -15,12 +15,95 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     document.getElementById('btn-prev-week').addEventListener('click', () => changeWeek(-1));
     document.getElementById('btn-next-week').addEventListener('click', () => changeWeek(1));
+    prepararPreferenciaHorario();
 
     carregarTagsAgendamento();
     await carregarDadosOS(osId, origem);
 
     document.getElementById('form-agendamento').addEventListener('submit', confirmarAgendamento);
 });
+
+function prepararPreferenciaHorario() {
+    const selectTipo = document.getElementById('preferencia-horario-tipo');
+    if (!selectTipo) return;
+
+    const detalhesRow = selectTipo.closest('.row');
+    if (!detalhesRow) return;
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'mb-2';
+    wrapper.innerHTML = `
+        <label class="form-label small fw-bold">Preferência de horário?</label>
+        <select class="form-select form-select-sm" id="preferencia-horario-habilitada">
+            <option value="NAO">Sem preferência</option>
+            <option value="SIM">Informar preferência</option>
+        </select>
+    `;
+    detalhesRow.parentElement.insertBefore(wrapper, detalhesRow);
+
+    selectTipo.innerHTML = `
+        <option value="A_PARTIR">A partir de</option>
+        <option value="ATE">Até</option>
+        <option value="INTERVALO">Entre horários</option>
+        <option value="OBSERVACAO">Observação livre</option>
+    `;
+
+    document.getElementById('preferencia-horario-habilitada').addEventListener('change', atualizarPreferenciaHorarioUi);
+    selectTipo.addEventListener('change', atualizarPreferenciaHorarioUi);
+    atualizarPreferenciaHorarioUi();
+}
+
+function atualizarPreferenciaHorarioUi() {
+    const habilitada = document.getElementById('preferencia-horario-habilitada')?.value === 'SIM';
+    const selectTipo = document.getElementById('preferencia-horario-tipo');
+    const detalhesRow = selectTipo?.closest('.row');
+    if (!detalhesRow) return;
+
+    detalhesRow.classList.toggle('d-none', !habilitada);
+    const tipo = String(selectTipo.value || 'A_PARTIR').toUpperCase();
+    const inicioGroup = document.getElementById('preferencia-horario-inicio')?.closest('.col-md-2');
+    const fimGroup = document.getElementById('preferencia-horario-fim')?.closest('.col-md-2');
+    const obsGroup = document.getElementById('preferencia-horario-obs')?.closest('.col-md-4');
+
+    if (inicioGroup) inicioGroup.classList.toggle('d-none', !habilitada || !['A_PARTIR', 'INTERVALO'].includes(tipo));
+    if (fimGroup) fimGroup.classList.toggle('d-none', !habilitada || !['ATE', 'INTERVALO'].includes(tipo));
+    if (obsGroup) obsGroup.classList.toggle('d-none', !habilitada || tipo !== 'OBSERVACAO');
+
+    if (!habilitada) {
+        document.getElementById('preferencia-horario-inicio').value = '';
+        document.getElementById('preferencia-horario-fim').value = '';
+        document.getElementById('preferencia-horario-obs').value = '';
+    }
+}
+
+async function obterPreferenciaHorarioPayload() {
+    const habilitada = document.getElementById('preferencia-horario-habilitada')?.value === 'SIM';
+    if (!habilitada) {
+        return {
+            preferencia_horario_tipo: 'SEM_PREFERENCIA',
+            preferencia_horario_inicio: '',
+            preferencia_horario_fim: '',
+            preferencia_horario_obs: ''
+        };
+    }
+
+    const tipo = String(document.getElementById('preferencia-horario-tipo')?.value || '').toUpperCase();
+    const inicio = document.getElementById('preferencia-horario-inicio')?.value || '';
+    const fim = document.getElementById('preferencia-horario-fim')?.value || '';
+    const obs = document.getElementById('preferencia-horario-obs')?.value.trim() || '';
+
+    if (tipo === 'A_PARTIR' && !inicio) throw new Error('Informe o horário inicial da preferência.');
+    if (tipo === 'ATE' && !fim) throw new Error('Informe o horário final da preferência.');
+    if (tipo === 'INTERVALO' && (!inicio || !fim)) throw new Error('Informe o horário inicial e final da preferência.');
+    if (tipo === 'OBSERVACAO' && !obs) throw new Error('Informe a observação da preferência de horário.');
+
+    return {
+        preferencia_horario_tipo: tipo,
+        preferencia_horario_inicio: inicio,
+        preferencia_horario_fim: fim,
+        preferencia_horario_obs: obs
+    };
+}
 
 async function carregarTagsAgendamento() {
     const container = document.getElementById('area-tags-agendamento');
@@ -240,11 +323,24 @@ async function confirmarAgendamento(event) {
 
     const dataEscolhida = document.getElementById('selected-data').value;
     const turnoEscolhido = document.getElementById('selected-turno').value;
-    const aceitaEncaixe = document.getElementById('chk-encaixe') ? document.getElementById('chk-encaixe').checked : false;
+    const encaixeSelecionado = document.querySelector('input[name="aceita-encaixe"]:checked');
     const solicitaPrioridade = false;
 
     if (!dataEscolhida || !turnoEscolhido) {
         await showInfoModal('Por favor, selecione um dia e turno disponível clicando no calendário.', 'Selecione um horário', 'warning');
+        return;
+    }
+
+    if (!encaixeSelecionado) {
+        await showInfoModal('Informe se o cliente aceita encaixe antes de confirmar.', 'Aceita encaixe?', 'warning');
+        return;
+    }
+
+    let preferenciaPayload;
+    try {
+        preferenciaPayload = await obterPreferenciaHorarioPayload();
+    } catch (error) {
+        await showInfoModal(error.message, 'Preferência de horário', 'warning');
         return;
     }
 
@@ -262,8 +358,9 @@ async function confirmarAgendamento(event) {
         tipo_imovel: document.getElementById('form-agendamento').dataset.tipoImovel,
         data_agendamento: dataEscolhida,
         turno: turnoEscolhido,
-        aceita_encaixe: aceitaEncaixe,
+        aceita_encaixe: encaixeSelecionado.value === 'SIM',
         solicita_prioridade: solicitaPrioridade,
+        ...preferenciaPayload,
         tag_ids: Array.from(document.querySelectorAll('.chk-tag-agendamento:checked')).map(chk => chk.value),
         usuario_logado: window.usuarioLogado
     };
@@ -280,17 +377,29 @@ async function confirmarAgendamento(event) {
         if (!response.ok && result.code === 'OS_JA_AGENDADA' && result.can_reagendar) {
             const confirmar = await showConfirmModal(result.error, 'OS já agendada', 'warning', 'Reagendar', 'Cancelar');
             if (!confirmar) throw new Error('Reagendamento cancelado pelo usuário.');
+            const abrirChamadoDuvida = await showConfirmModal(
+                'Deseja abrir um chamado de dúvida para gerar novo protocolo e relacionar ao reagendamento?',
+                'Novo protocolo',
+                'question',
+                'Sim, abrir',
+                'Não'
+            );
             response = await fetch('/api/v5/agendamento/confirmar', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...payload, reagendar_existente: true })
+                body: JSON.stringify({
+                    ...payload,
+                    reagendar_existente: true,
+                    abrir_chamado_duvida: abrirChamadoDuvida,
+                    modo_reagendamento: abrirChamadoDuvida ? 'COM_CHAMADO_DUVIDA' : 'APENAS_REAGENDAR'
+                })
             });
             result = await response.json();
         }
 
         if (!response.ok) throw new Error(result.error);
 
-        document.getElementById('form-agendamento').innerHTML = '<div class="alert alert-success text-center p-4 border-success"><i class="bi bi-check-circle-fill display-4 d-block mb-3"></i><h4 class="alert-heading fw-bold">Agendamento Realizado!</h4><p class="mb-0">A OS foi enviada para o painel da Logística.</p><a href="/painel-logistica" class="btn btn-outline-success mt-3">Ir para a agenda!</a></div>';
+        document.getElementById('form-agendamento').innerHTML = '<div class="alert alert-success text-center p-4 border-success"><i class="bi bi-check-circle-fill display-4 d-block mb-3"></i><h4 class="alert-heading fw-bold">Agendamento Realizado!</h4><p class="mb-0">A OS foi enviada para o painel da Logística.</p><div class="d-flex flex-wrap justify-content-center gap-2 mt-3"><a href="/painel-logistica" class="btn btn-outline-success">Ir para a agenda!</a><a href="/abertura-OS" class="btn btn-outline-primary">Voltar para Abertura de OS</a></div></div>';
     } catch (error) {
         await showInfoModal('Erro ao confirmar: ' + error.message, 'Erro no agendamento', 'danger');
         btnConfirmar.innerHTML = originalText;
