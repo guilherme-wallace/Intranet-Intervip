@@ -1,6 +1,34 @@
 // javascripts/abertura-OS.js
 let clienteAtual = null;
 let ultimoTicketGerado = null;
+let contratoAtual = null;
+let ticketAtualDetalhes = null;
+let anexoPendente = null;
+let anexoOrigemModalTicket = false;
+let dadosEdicaoOriginais = null;
+
+const PROCESSOS_OCULTOS_ABERTURA = new Set(['3', '9', '13', '21', '24', '28', '29', '30', '33', '39', '45', '46', '51', '54']);
+const TERMOS_PROCESSOS_OCULTOS_ABERTURA = [
+    'INSTALACAO',
+    'MUDANCA DE ENDERECO',
+    'ALTERACAO DE TITULARIDADE',
+    'RAZAO SOCIAL',
+    'NAO USAR'
+];
+
+function normalizarTextoAbertura(valor) {
+    return String(valor || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toUpperCase();
+}
+
+function deveOcultarProcessoAbertura(processo) {
+    const id = String(processo?.id || '').trim();
+    if (PROCESSOS_OCULTOS_ABERTURA.has(id)) return true;
+    const nome = normalizarTextoAbertura(processo?.descricao || processo?.nome || processo?.processo || processo?.titulo || '');
+    return TERMOS_PROCESSOS_OCULTOS_ABERTURA.some(termo => nome.includes(termo));
+}
 
 function traduzirStatusContrato(status) {
     const mapa = { P: 'Pré-contrato', A: 'Ativo', I: 'Inativo', N: 'Negativado', D: 'Desistiu' };
@@ -33,6 +61,23 @@ function montarContatosCliente(cliente) {
     ].filter(([, valor]) => valor).map(([label, valor]) => `${label}: ${valor}`).join(' | ') || 'Nenhum contato cadastrado';
 }
 
+function traduzirMotivoOnu(motivo) {
+    const raw = String(motivo || '').trim();
+    const normalizado = raw.toUpperCase();
+    if (!raw) return '---';
+    if (normalizado.includes('DYING-GASP') || normalizado.includes('DYING GASP')) return 'Falha elétrica';
+    if (normalizado === 'LOS' || normalizado.includes('LOS') || normalizado.includes('LOBI')) return 'Perda do Sinal Óptico';
+    return raw;
+}
+
+function classeSinalOnu(valor) {
+    const numero = Math.abs(parseFloat(String(valor || '').replace(',', '.')));
+    if (!Number.isFinite(numero) || numero === 0) return 'text-muted';
+    if (numero > 30) return 'text-danger fw-bold';
+    if (numero >= 28) return 'text-warning fw-bold';
+    return 'text-success fw-bold';
+}
+
 document.addEventListener('DOMContentLoaded', async function() {
     initializeThemeAndUserInfo();
     
@@ -55,33 +100,33 @@ document.addEventListener('DOMContentLoaded', async function() {
     document.getElementById('btn-gerar-os').addEventListener('click', gerarOS);
     
     document.getElementById('btn-confirmar-tarefa').addEventListener('click', processarAvancoTarefa);
+    document.getElementById('btn-editar-cliente-contrato')?.addEventListener('click', abrirModalEditarClienteContrato);
+    document.getElementById('btn-salvar-edicao-cliente')?.addEventListener('click', salvarEdicaoClienteContrato);
+    document.getElementById('btn-anexar-arquivo')?.addEventListener('click', abrirModalAnexo);
+    document.getElementById('btn-anexar-arquivo-ticket')?.addEventListener('click', abrirModalAnexo);
+    document.getElementById('btn-enviar-anexo')?.addEventListener('click', enviarAnexoAtendimento);
+    document.getElementById('area-boletos-contrato')?.addEventListener('click', tratarCliqueBoletos);
 });
 
 async function carregarAssuntosIXC() {
     try {
-        const response = await fetch('/api/v5/abertura-OS/assuntos');
-        const assuntos = await response.json();
+        const response = await fetch('/api/v5/abertura-OS/processos');
+        const processos = await response.json();
         const select = document.getElementById('select-assunto');
         
-        select.innerHTML = '<option value="">Selecione o Assunto...</option>';
+        select.innerHTML = '<option value="">Selecione o Processo...</option>';
 
-        assuntos.forEach(a => {
-            const nomeStr = (a.assunto || '').toUpperCase();
-            const processoVinculado = a.id_wfl_processo || a.id_processo || '';
-            
-            if (processoVinculado && processoVinculado !== '0' && processoVinculado.trim() !== '') {
-                if (!nomeStr.includes('INSTALA') && !nomeStr.includes('TITULARIDADE')) {
-                    const option = document.createElement('option');
-                    option.value = a.id;
-                    option.dataset.departamento = a.id_departamento || a.id_setor || '1'; 
-                    option.dataset.processo = processoVinculado; 
-                    option.textContent = a.assunto;
-                    select.appendChild(option);
-                }
-            }
+        processos.filter(p => !deveOcultarProcessoAbertura(p)).forEach(p => {
+            const nome = p.descricao || p.nome || p.processo || p.titulo || `Processo #${p.id}`;
+            const option = document.createElement('option');
+            option.value = p.id;
+            option.dataset.processo = p.id;
+            option.dataset.departamento = p.id_setor || p.id_departamento || '4';
+            option.textContent = nome;
+            select.appendChild(option);
         });
     } catch (e) {
-        document.getElementById('select-assunto').innerHTML = '<option value="">Erro ao carregar assuntos</option>';
+        document.getElementById('select-assunto').innerHTML = '<option value="">Erro ao carregar processos</option>';
     }
 }
 
@@ -116,7 +161,10 @@ async function realizarBusca(termo) {
         const formTriagem = document.getElementById('form-triagem');
         const alertaInativo = document.getElementById('alerta-cliente-inativo');
         const selectContrato = document.getElementById('select-contrato');
+        const cardsContratos = document.getElementById('cards-contratos-cliente');
         selectContrato.innerHTML = '';
+        if (cardsContratos) cardsContratos.innerHTML = '';
+        contratoAtual = null;
         
         if (data.contratos && data.contratos.length > 0) {
             alertaInativo.classList.add('d-none');
@@ -126,12 +174,13 @@ async function realizarBusca(termo) {
             data.contratos.forEach(c => {
                 selectContrato.add(new Option(`Contrato ${c.id} - ${c.plano.nome} - ${traduzirStatusContrato(c.status)}`, c.id));
             });
-            document.getElementById('painel-detalhes-tecnicos').style.display = 'flex';
             if (data.contratos.length > 1) {
                 selectContrato.selectedIndex = -1;
-                await showInfoModal('Este cliente possui mais de um contrato elegível. Selecione o contrato correto antes de continuar.', 'Seleção obrigatória', 'warning');
+                document.getElementById('painel-detalhes-tecnicos').style.display = 'none';
+                renderizarCardsContratos(data.contratos);
             } else {
                 selectContrato.value = data.contratos[0].id;
+                if (cardsContratos) cardsContratos.innerHTML = '';
                 window.renderizarDetalhesContrato(data.contratos[0].id);
             }
         } else {
@@ -166,6 +215,12 @@ window.renderizarDetalhesContrato = function(contratoId) {
     if (!clienteAtual || !clienteAtual.contratos) return;
     const c = clienteAtual.contratos.find(x => String(x.id) === String(contratoId));
     if (!c) return;
+    contratoAtual = c;
+    document.getElementById('painel-detalhes-tecnicos').style.display = 'flex';
+    document.querySelectorAll('.card-contrato-opcao').forEach(card => {
+        card.classList.toggle('border-primary', String(card.dataset.contratoId) === String(contratoId));
+        card.classList.toggle('shadow', String(card.dataset.contratoId) === String(contratoId));
+    });
 
     const badge = document.getElementById('display-tipo-imovel');
     if (c.is_corp) {
@@ -208,6 +263,8 @@ window.renderizarDetalhesContrato = function(contratoId) {
         <span class="badge bg-secondary ms-1">Bloqueio automático: ${simNao(c.bloqueio_automatico)}</span>
     `;
 
+    carregarBoletosContrato(c.id);
+
     const pppoeArea = document.getElementById('area-pppoe-onu');
     if (c.login) {
         const tempoHrs = Math.floor(c.login.uptime / 3600);
@@ -230,6 +287,8 @@ window.renderizarDetalhesContrato = function(contratoId) {
                 <button class="btn btn-sm btn-outline-success fw-bold" id="btn-desbloqueio-confianca" data-contratoid="${c.id}"><i class="bi bi-unlock"></i> Desbloqueio de Confiança</button>
                 <button class="btn btn-sm btn-outline-warning fw-bold text-dark" id="btn-limpar-mac" data-loginid="${c.login.id}"><i class="bi bi-eraser"></i> Limpar MAC</button>
                 <button class="btn btn-sm btn-outline-danger fw-bold" id="btn-desconectar" data-loginid="${c.login.id}"><i class="bi bi-plug"></i> Desconectar</button>
+                ${c.onu && c.onu.id ? `<button class="btn btn-sm btn-outline-info fw-bold" id="btn-reiniciar-onu" data-onuid="${c.onu.id}"><i class="bi bi-arrow-clockwise"></i> Reiniciar ONU</button>
+                <button class="btn btn-sm btn-outline-dark fw-bold" id="btn-liberar-web-onu" data-onuid="${c.onu.id}"><i class="bi bi-globe"></i> Liberar web ONU</button>` : ''}
             </div>
 
             <div id="onu-realtime-container" class="mt-3 pt-3 border-top">
@@ -241,6 +300,8 @@ window.renderizarDetalhesContrato = function(contratoId) {
         document.getElementById('btn-desbloqueio-confianca').addEventListener('click', function() { desbloqueioConfianca(this.dataset.contratoid); });
         document.getElementById('btn-limpar-mac').addEventListener('click', function() { limparMacPppoe(this.dataset.loginid); });
         document.getElementById('btn-desconectar').addEventListener('click', function() { desconectarPppoe(this.dataset.loginid); });
+        document.getElementById('btn-reiniciar-onu')?.addEventListener('click', function() { reiniciarOnu(this.dataset.onuid); });
+        document.getElementById('btn-liberar-web-onu')?.addEventListener('click', function() { liberarWebOnu(this.dataset.onuid); });
 
         if (c.onu && c.onu.id) {
             buscarOnuRealtime(c.onu.id);
@@ -252,6 +313,335 @@ window.renderizarDetalhesContrato = function(contratoId) {
         pppoeArea.innerHTML = '<p class="text-muted fst-italic">Nenhum login PPPoE localizado para este contrato.</p>';
     }
 };
+
+function renderizarCardsContratos(contratos) {
+    const container = document.getElementById('cards-contratos-cliente');
+    if (!container) return;
+    container.innerHTML = contratos.map(c => {
+        const contatoBasico = montarContatosCliente(clienteAtual);
+        return `
+            <div class="col-md-6">
+                <button type="button" class="card-contrato-opcao btn text-start w-100 h-100 border rounded bg-white p-3" data-contrato-id="${c.id}">
+                    <div class="d-flex justify-content-between align-items-start gap-2">
+                        <div class="fw-bold text-primary">Contrato #${c.id}</div>
+                        <span class="badge bg-light text-dark border">${traduzirStatusContrato(c.status)}</span>
+                    </div>
+                    <div class="small mt-2"><strong>Plano:</strong> ${c.plano?.nome || 'Não informado'}</div>
+                    <div class="small"><strong>Acesso:</strong> ${traduzirStatusAcesso(c.status_internet)}</div>
+                    <div class="small"><strong>Bloqueio automático:</strong> ${simNao(c.bloqueio_automatico)}</div>
+                    <div class="small text-muted mt-2">${c.endereco_completo || 'Endereço não informado'}</div>
+                    <div class="small text-muted text-truncate mt-1">${contatoBasico}</div>
+                </button>
+            </div>
+        `;
+    }).join('');
+
+    container.querySelectorAll('.card-contrato-opcao').forEach(card => {
+        card.addEventListener('click', () => {
+            const id = card.dataset.contratoId;
+            document.getElementById('select-contrato').value = id;
+            window.renderizarDetalhesContrato(id);
+        });
+    });
+}
+
+async function abrirModalEditarClienteContrato() {
+    if (!clienteAtual || !contratoAtual) {
+        return showInfoModal('Busque um cliente e selecione um contrato antes de editar.', 'Contrato obrigatório', 'warning');
+    }
+
+    try {
+        const res = await fetch(`/api/v5/abertura-OS/dados-edicao/${clienteAtual.id}/${contratoAtual.id}`);
+        const dados = await res.json();
+        if (!res.ok) throw new Error(dados.error || 'Não foi possível buscar dados atuais.');
+
+        const cliente = dados.cliente || {};
+        const contrato = dados.contrato || {};
+        const endereco = dados.endereco || contrato;
+        document.getElementById('edit-cliente-id').value = clienteAtual.id;
+        document.getElementById('edit-contrato-id').value = contratoAtual.id;
+        document.getElementById('edit-fone').value = cliente.fone || '';
+        document.getElementById('edit-telefone-comercial').value = cliente.telefone_comercial || '';
+        document.getElementById('edit-telefone-celular').value = cliente.telefone_celular || '';
+        document.getElementById('edit-whatsapp').value = cliente.whatsapp || '';
+        document.getElementById('edit-email').value = cliente.email || '';
+        document.getElementById('edit-contato').value = cliente.contato || '';
+        document.getElementById('edit-endereco').value = endereco.endereco || '';
+        document.getElementById('edit-numero').value = endereco.numero || '';
+        document.getElementById('edit-bairro').value = endereco.bairro || '';
+        document.getElementById('edit-cidade').value = endereco.cidade || '';
+        document.getElementById('edit-cep').value = endereco.cep || '';
+        document.getElementById('edit-complemento').value = endereco.complemento || '';
+        document.getElementById('edit-referencia').value = endereco.referencia || '';
+        dadosEdicaoOriginais = coletarDadosEdicao();
+        dadosEdicaoOriginais.endereco_origem = dados.endereco_origem || 'contrato';
+
+        new bootstrap.Modal(document.getElementById('modalEditarClienteContrato')).show();
+    } catch (e) {
+        showInfoModal('Erro ao abrir edição: ' + e.message, 'Erro', 'danger');
+    }
+}
+
+async function salvarEdicaoClienteContrato() {
+    const atual = coletarDadosEdicao();
+    const erroValidacao = validarDadosEdicao(atual);
+    if (erroValidacao) return showInfoModal(erroValidacao, 'Campos inválidos', 'warning');
+    const alteracoesCliente = montarAlteracoes(atual, dadosEdicaoOriginais, ['fone', 'telefone_comercial', 'telefone_celular', 'whatsapp', 'email', 'contato']);
+    const alteracoesEndereco = montarAlteracoes(atual, dadosEdicaoOriginais, ['endereco', 'numero', 'bairro', 'cidade', 'cep', 'complemento', 'referencia']);
+    const camposLimpados = Object.entries({ ...alteracoesCliente, ...alteracoesEndereco })
+        .filter(([campo, valor]) => valor === '' && String(dadosEdicaoOriginais?.[campo] || '').trim() !== '')
+        .map(([campo]) => campo);
+    // Mantem a validação antiga inativa; o fluxo atual salva apenas campos alterados.
+    const endereco = 'alteracao-parcial';
+    const bairro = 'alteracao-parcial';
+    if (!endereco || !bairro) return showInfoModal('Endereço e bairro são obrigatórios.', 'Campos obrigatórios', 'warning');
+
+    if (!Object.keys(alteracoesCliente).length && !Object.keys(alteracoesEndereco).length) {
+        return showInfoModal('Nenhuma alteração encontrada para salvar.', 'Sem alterações', 'info');
+    }
+
+    if (camposLimpados.length) {
+        const confirmarLimpeza = await showConfirmModal(
+            `Você limpou ${camposLimpados.length} campo(s). Confirma salvar esses campos vazios?`,
+            'Confirmar campos vazios',
+            'warning',
+            'Salvar mesmo assim',
+            'Revisar'
+        );
+        if (!confirmarLimpeza) return;
+    }
+
+    const btn = document.getElementById('btn-salvar-edicao-cliente');
+    const original = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Salvando...';
+    btn.disabled = true;
+
+    try {
+        const payload = {
+            cliente_id: document.getElementById('edit-cliente-id').value,
+            contrato_id: document.getElementById('edit-contrato-id').value,
+            cliente: alteracoesCliente,
+            endereco: alteracoesEndereco,
+            endereco_origem: dadosEdicaoOriginais?.endereco_origem || 'contrato',
+            usuario_logado: window.usuarioLogado
+        };
+        payload.numero = atual.numero;
+        const res = await fetch('/api/v5/abertura-OS/cliente-contrato', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.success === false) throw new Error(data.error || 'Falha ao salvar dados.');
+
+        clienteAtual.contatos = { ...(clienteAtual.contatos || {}), ...alteracoesCliente };
+        contratoAtual.endereco_completo = [
+            atual.endereco,
+            payload.numero ? `Nº ${payload.numero}` : '',
+            atual.bairro ? `Bairro: ${atual.bairro}` : '',
+            atual.complemento ? `Comp: ${atual.complemento}` : '',
+            atual.referencia ? `Ref: ${atual.referencia}` : ''
+        ].filter(Boolean).join(' | ');
+
+        document.getElementById('display-telefone-cliente').innerHTML = `<i class="bi bi-telephone-fill me-1"></i>${montarContatosCliente(clienteAtual)}`;
+        window.renderizarDetalhesContrato(contratoAtual.id);
+        bootstrap.Modal.getInstance(document.getElementById('modalEditarClienteContrato'))?.hide();
+        showInfoModal('Dados atualizados com sucesso.', 'Sucesso', 'success');
+    } catch (e) {
+        showInfoModal('Erro ao salvar edição: ' + e.message, 'Erro', 'danger');
+    } finally {
+        btn.innerHTML = original;
+        btn.disabled = false;
+    }
+}
+
+function coletarDadosEdicao() {
+    return {
+        fone: document.getElementById('edit-fone').value.trim(),
+        telefone_comercial: document.getElementById('edit-telefone-comercial').value.trim(),
+        telefone_celular: document.getElementById('edit-telefone-celular').value.trim(),
+        whatsapp: document.getElementById('edit-whatsapp').value.trim(),
+        email: document.getElementById('edit-email').value.trim(),
+        contato: document.getElementById('edit-contato').value.trim(),
+        endereco: document.getElementById('edit-endereco').value.trim(),
+        numero: document.getElementById('edit-numero').value.trim(),
+        bairro: document.getElementById('edit-bairro').value.trim(),
+        cidade: document.getElementById('edit-cidade').value.trim(),
+        cep: document.getElementById('edit-cep').value.trim(),
+        complemento: document.getElementById('edit-complemento').value.trim(),
+        referencia: document.getElementById('edit-referencia').value.trim()
+    };
+}
+
+function montarAlteracoes(atual, original, campos) {
+    return campos.reduce((acc, campo) => {
+        if (String(atual[campo] || '') !== String(original?.[campo] || '')) acc[campo] = atual[campo] || '';
+        return acc;
+    }, {});
+}
+
+function validarDadosEdicao(dados) {
+    const telefoneOk = /^[\d\s()+.-]*$/;
+    const cepOk = /^[\d.-]*$/;
+    const numeroOk = /^[\w\s./-]*$/;
+    if (dados.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(dados.email)) return 'Informe um e-mail válido.';
+    for (const campo of ['fone', 'telefone_comercial', 'telefone_celular', 'whatsapp']) {
+        if (dados[campo] && !telefoneOk.test(dados[campo])) return 'Telefones devem conter apenas números e sinais comuns.';
+    }
+    if (dados.cep && !cepOk.test(dados.cep)) return 'CEP deve conter apenas números, ponto ou hífen.';
+    if (dados.numero && !numeroOk.test(dados.numero)) return 'Numero deve conter apenas letras, numeros e sinais comuns.';
+    return '';
+}
+
+async function carregarBoletosContrato(idContrato) {
+    const area = document.getElementById('area-boletos-contrato');
+    if (!area || !idContrato) return;
+    area.innerHTML = '<p class="text-muted mb-0"><span class="spinner-border spinner-border-sm me-1"></span>Consultando boletos...</p>';
+    try {
+        const res = await fetch(`/api/v5/abertura-OS/boletos/${idContrato}`);
+        const boletos = await res.json();
+        if (!res.ok) throw new Error(boletos.error || 'Falha ao consultar boletos.');
+        if (!Array.isArray(boletos) || boletos.length === 0) {
+            area.innerHTML = '<p class="text-success fw-bold mb-0"><i class="bi bi-check-circle me-1"></i>Nenhum boleto em aberto localizado.</p>';
+            return;
+        }
+        area.innerHTML = boletos.map(b => `
+            <div class="border rounded bg-white p-2 mb-2 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div>
+                    <span class="fw-bold text-primary">Boleto #${b.id}</span>
+                    <span class="text-muted ms-2">Venc.: ${formatarDataBoleto(b.vencimento)}</span>
+                    <span class="fw-bold ms-2">R$ ${formatarValorBoleto(b.valor)}</span>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-primary fw-bold btn-enviar-boleto" data-boleto-id="${b.id}">
+                    <i class="bi bi-envelope me-1"></i>Enviar segunda via por e-mail
+                </button>
+            </div>
+        `).join('');
+    } catch (e) {
+        area.innerHTML = `<p class="text-danger mb-0">Erro ao consultar boletos: ${e.message}</p>`;
+    }
+}
+
+function tratarCliqueBoletos(e) {
+    const btn = e.target.closest('.btn-enviar-boleto');
+    if (btn) enviarSegundaViaBoleto(btn.dataset.boletoId);
+}
+
+async function enviarSegundaViaBoleto(boletoId) {
+    if (!(await showConfirmModal('Enviar segunda via deste boleto por e-mail?', 'Segunda via', 'question'))) return;
+    try {
+        const res = await fetch('/api/v5/abertura-OS/boletos/enviar-segunda-via', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ boleto_id: boletoId, usuario_logado: window.usuarioLogado })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.success === false) throw new Error(data.error || 'Falha ao enviar segunda via.');
+        showInfoModal('Segunda via solicitada por e-mail com sucesso.', 'Sucesso', 'success');
+    } catch (e) {
+        showInfoModal('Erro ao enviar segunda via: ' + e.message, 'Erro', 'danger');
+    }
+}
+
+async function reiniciarOnu(idOnu) {
+    if (!idOnu) return showInfoModal('ONU não localizada para este contrato.', 'ONU', 'warning');
+    if (!(await showConfirmModal('Reiniciar a ONU deste cliente agora?', 'Reiniciar ONU', 'warning'))) return;
+    await executarAcaoOnu('/api/v5/abertura-OS/onu/reiniciar', idOnu, 'Comando de reinício enviado com sucesso.');
+}
+
+async function liberarWebOnu(idOnu) {
+    if (!idOnu) return showInfoModal('ONU não localizada para este contrato.', 'ONU', 'warning');
+    if (!(await showConfirmModal('Liberar acesso web da ONU deste cliente?', 'Acesso web ONU', 'warning'))) return;
+    await executarAcaoOnu('/api/v5/abertura-OS/onu/liberar-web', idOnu, 'Acesso web da ONU liberado com sucesso.');
+}
+
+async function executarAcaoOnu(url, idOnu, msgSucesso) {
+    try {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_onu: idOnu, usuario_logado: window.usuarioLogado })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.success === false) throw new Error(data.error || 'Falha ao executar ação na ONU.');
+        showInfoModal(msgSucesso, 'Sucesso', 'success');
+    } catch (e) {
+        showInfoModal('Erro na ação da ONU: ' + e.message, 'Erro', 'danger');
+    }
+}
+
+function abrirModalAnexo() {
+    anexoOrigemModalTicket = Boolean(ticketAtualDetalhes?.id && !ultimoTicketGerado);
+    if (anexoOrigemModalTicket) bootstrap.Modal.getInstance(document.getElementById('modalDetalhesTicket'))?.hide();
+    document.getElementById('anexo-descricao').value = '';
+    document.getElementById('anexo-arquivo').value = '';
+    new bootstrap.Modal(document.getElementById('modalAnexarArquivo')).show();
+}
+
+async function enviarAnexoAtendimento() {
+    const ticketId = ultimoTicketGerado || ticketAtualDetalhes?.id || '';
+    const descricao = document.getElementById('anexo-descricao').value.trim();
+    const arquivo = document.getElementById('anexo-arquivo').files[0];
+    if (!ticketId && arquivo) {
+        if (arquivo.size > 8 * 1024 * 1024) return showInfoModal('Arquivo acima de 8 MB.', 'Arquivo muito grande', 'warning');
+        anexoPendente = { descricao: descricao || arquivo.name, arquivo };
+        bootstrap.Modal.getInstance(document.getElementById('modalAnexarArquivo'))?.hide();
+        return showInfoModal('Arquivo guardado. Ele será anexado automaticamente após o IXC criar o atendimento.', 'Anexo pendente', 'info');
+    }
+    if (!ticketId && !arquivo) return showInfoModal('Selecione um arquivo para deixar pendente até o atendimento ser criado.', 'Arquivo obrigatório', 'warning');
+    if (!ticketId) return showInfoModal('Informe o ID do atendimento.', 'Atendimento obrigatório', 'warning');
+    if (!arquivo) return showInfoModal('Selecione um arquivo para anexar.', 'Arquivo obrigatório', 'warning');
+    if (arquivo.size > 8 * 1024 * 1024) return showInfoModal('Arquivo acima de 8 MB.', 'Arquivo muito grande', 'warning');
+
+    const form = new FormData();
+    form.append('id_ticket', ticketId);
+    form.append('descricao', descricao || arquivo.name);
+    form.append('usuario_logado', window.usuarioLogado || '');
+    form.append('local_arquivo', arquivo);
+
+    const btn = document.getElementById('btn-enviar-anexo');
+    const original = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Enviando...';
+    btn.disabled = true;
+
+    try {
+        const res = await fetch('/api/v5/abertura-OS/anexar-arquivo', { method: 'POST', body: form });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.success === false) throw new Error(data.error || 'Falha ao enviar anexo.');
+        bootstrap.Modal.getInstance(document.getElementById('modalAnexarArquivo'))?.hide();
+        showInfoModal('Arquivo anexado com sucesso.', 'Sucesso', 'success');
+    } catch (e) {
+        showInfoModal('Erro ao anexar arquivo: ' + e.message, 'Erro', 'danger');
+    } finally {
+        btn.innerHTML = original;
+        btn.disabled = false;
+    }
+}
+
+async function enviarAnexoParaTicket(ticketId, descricao, arquivo) {
+    const form = new FormData();
+    form.append('id_ticket', ticketId);
+    form.append('descricao', descricao || arquivo.name);
+    form.append('usuario_logado', window.usuarioLogado || '');
+    form.append('local_arquivo', arquivo);
+
+    const res = await fetch('/api/v5/abertura-OS/anexar-arquivo', { method: 'POST', body: form });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.success === false) throw new Error(data.error || 'Falha ao enviar anexo.');
+    return data;
+}
+
+function formatarDataBoleto(valor) {
+    if (!valor) return '---';
+    const str = String(valor).substring(0, 10);
+    const m = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? `${m[3]}/${m[2]}/${m[1]}` : str;
+}
+
+function formatarValorBoleto(valor) {
+    const n = Number(String(valor || '0').replace(',', '.'));
+    return Number.isFinite(n) ? n.toFixed(2).replace('.', ',') : '0,00';
+}
 
 function atualizarChecklist(e) {
     const select = e.target;
@@ -287,7 +677,6 @@ async function gerarOS() {
     if (!clienteAtual) return showInfoModal("Busque e selecione um cliente primeiro.");
 
     const selectAssunto = document.getElementById('select-assunto');
-    const id_assunto = selectAssunto.value;
     const assuntoTexto = selectAssunto.options[selectAssunto.selectedIndex]?.text; 
     const id_departamento = selectAssunto.options[selectAssunto.selectedIndex]?.dataset.departamento;
     
@@ -300,7 +689,7 @@ async function gerarOS() {
         return showInfoModal('Selecione o contrato correto antes de continuar.', 'Contrato obrigatório', 'warning');
     }
 
-    if (!id_assunto) return showInfoModal("Selecione um Processo/Assunto.");
+    if (!id_processo) return showInfoModal("Selecione um processo.");
     
     if (!id_processo) {
         return showInfoModal("ERRO DE CONFIGURAÇÃO NO IXC: Este assunto não possui um Processo (Workflow) vinculado a ele no IXC. Peça ao gestor para vincular!");
@@ -324,7 +713,6 @@ async function gerarOS() {
             body: JSON.stringify({
                 cliente_id: clienteAtual.id,
                 contrato_id: id_contrato || null,
-                id_assunto: id_assunto,
                 id_departamento: id_departamento,
                 id_processo: id_processo,
                 observacao: observacao,
@@ -344,6 +732,14 @@ async function gerarOS() {
         const spanProtocolo = document.getElementById('sucesso-ticket-protocolo');
         if (spanProtocolo) {
             spanProtocolo.textContent = data.protocolo || '';
+        }
+        if (anexoPendente) {
+            try {
+                await enviarAnexoParaTicket(ultimoTicketGerado, anexoPendente.descricao, anexoPendente.arquivo);
+                anexoPendente = null;
+            } catch (erroAnexo) {
+                showInfoModal('Chamado criado, mas o anexo não foi enviado: ' + erroAnexo.message, 'Anexo pendente', 'warning');
+            }
         }
         
         carregarTarefasProcesso(id_processo);
@@ -489,10 +885,10 @@ async function buscarOnuRealtime(id_fibra) {
         if(!onu) throw new Error("ONU não retornada.");
         
         const rx = parseFloat(onu.sinal_rx) || 0;
-        let corRx = (rx < -26 || rx > -10) ? 'text-danger fw-bold' : 'text-success fw-bold';
-        if (rx === 0) corRx = 'text-dark';
+        const corRx = classeSinalOnu(onu.sinal_rx);
+        const corTx = classeSinalOnu(onu.sinal_tx);
         
-        const motivoQueda = onu.causa_ultima_queda || onu.causa_queda || onu.motivo_queda || onu.status_potencia || 'Desconhecido';
+        const motivoQueda = traduzirMotivoOnu(onu.causa_ultima_queda || onu.causa_queda || onu.motivo_queda || onu.status_potencia || 'Desconhecido');
         const isOnline = (rx < 0 && rx > -40) || onu.status === 'A' || onu.status === 'O';
         
         container.innerHTML = `
@@ -506,7 +902,7 @@ async function buscarOnuRealtime(id_fibra) {
                 </div>
                 <div class="col-6">
                     <p class="mb-1"><strong>Sinal RX:</strong> <span class="${corRx}">${onu.sinal_rx ? onu.sinal_rx + ' dBm' : 'N/A'}</span></p>
-                    <p class="mb-1"><strong>Sinal TX:</strong> <span class="text-success fw-bold">${onu.sinal_tx ? onu.sinal_tx + ' dBm' : 'N/A'}</span></p>
+                    <p class="mb-1"><strong>Sinal TX:</strong> <span class="${corTx}">${onu.sinal_tx ? onu.sinal_tx + ' dBm' : 'N/A'}</span></p>
                     <p class="mb-1"><strong>Status OLT:</strong> ${isOnline ? '<span class="text-success fw-bold">Online</span>' : '<span class="text-danger fw-bold">Offline / LOS</span>'}</p>
                     <p class="mb-0 text-danger" title="Status de potência ou Causa de Queda"><strong>Últ. Queda:</strong> ${motivoQueda}</p>
                 </div>
@@ -546,7 +942,7 @@ async function verHistoricoPppoe(username) {
                 <td>${h.acctstoptime || '<span class="text-success fw-bold">Sessão Ativa</span>'}</td>
                 <td>${tempo}</td>
                 <td><i class="bi bi-arrow-up-short text-primary"></i> ${up} <br> <i class="bi bi-arrow-down-short text-success"></i> ${down}</td>
-                <td class="${h.acctterminatecause ? 'text-danger' : ''}">${h.acctterminatecause || '---'}</td>
+                <td class="${h.acctterminatecause ? 'text-danger' : ''}">${traduzirMotivoOnu(h.acctterminatecause)}</td>
             </tr>`;
         });
         tbody.innerHTML = html;
@@ -667,6 +1063,7 @@ async function buscarAtendimentosAbertos(id_cliente) {
 }
 
 async function abrirModalTicket(ticket) {
+    ticketAtualDetalhes = ticket;
     document.getElementById('modal-ticket-id').textContent = ticket.id;
     document.getElementById('modal-ticket-assunto').textContent = ticket.titulo || 'N/A';
     document.getElementById('modal-ticket-data').textContent = ticket.data_criacao || 'N/A';

@@ -42,6 +42,128 @@ const getIxcDate = () => {
     return now.toISOString().replace('T', ' ').substring(0, 19);
 };
 
+type ArquivoMultipart = {
+    fieldName: string;
+    filename: string;
+    contentType: string;
+    buffer: Buffer;
+};
+
+function sanitizarTexto(valor: any, max = 255): string {
+    return String(valor || '').trim().substring(0, max);
+}
+
+function normalizarTelefone(valor: any): string {
+    return String(valor || '').replace(/[^\d+]/g, '').substring(0, 30);
+}
+
+function extrairBoundary(contentType: string): string {
+    const match = String(contentType || '').match(/boundary=(?:"([^"]+)"|([^;]+))/i);
+    return match ? (match[1] || match[2]) : '';
+}
+
+async function lerRequestBuffer(req: Express.Request, limiteBytes: number): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+        const chunks: Buffer[] = [];
+        let total = 0;
+        req.on('data', chunk => {
+            const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+            total += buffer.length;
+            if (total > limiteBytes) {
+                reject(new Error('Arquivo excede o limite permitido.'));
+                req.destroy();
+                return;
+            }
+            chunks.push(buffer);
+        });
+        req.on('end', () => resolve(Buffer.concat(chunks)));
+        req.on('error', reject);
+    });
+}
+
+async function parseMultipartSimples(req: Express.Request, limiteBytes = 8 * 1024 * 1024): Promise<{ fields: Record<string, string>; file: ArquivoMultipart | null }> {
+    const contentType = String(req.headers['content-type'] || '');
+    const boundary = extrairBoundary(contentType);
+    if (!boundary) throw new Error('Requisição multipart inválida.');
+
+    const body = await lerRequestBuffer(req, limiteBytes);
+    const boundaryBuffer = Buffer.from(`--${boundary}`);
+    const fields: Record<string, string> = {};
+    let file: ArquivoMultipart | null = null;
+    let cursor = body.indexOf(boundaryBuffer);
+
+    while (cursor !== -1) {
+        cursor += boundaryBuffer.length;
+        if (body[cursor] === 45 && body[cursor + 1] === 45) break;
+        if (body[cursor] === 13 && body[cursor + 1] === 10) cursor += 2;
+
+        const headerEnd = body.indexOf(Buffer.from('\r\n\r\n'), cursor);
+        if (headerEnd === -1) break;
+        const headerText = body.slice(cursor, headerEnd).toString('utf8');
+        const nextBoundary = body.indexOf(boundaryBuffer, headerEnd + 4);
+        if (nextBoundary === -1) break;
+
+        let valueBuffer = body.slice(headerEnd + 4, nextBoundary);
+        if (valueBuffer.length >= 2 && valueBuffer[valueBuffer.length - 2] === 13 && valueBuffer[valueBuffer.length - 1] === 10) {
+            valueBuffer = valueBuffer.slice(0, -2);
+        }
+
+        const nameMatch = headerText.match(/name="([^"]+)"/i);
+        const filenameMatch = headerText.match(/filename="([^"]*)"/i);
+        const contentTypeMatch = headerText.match(/content-type:\s*([^\r\n]+)/i);
+        const fieldName = nameMatch ? nameMatch[1] : '';
+
+        if (fieldName && filenameMatch && filenameMatch[1]) {
+            file = {
+                fieldName,
+                filename: filenameMatch[1].replace(/[^\w.\- À-ÿ]/g, '_').substring(0, 160),
+                contentType: (contentTypeMatch ? contentTypeMatch[1].trim() : 'application/octet-stream').substring(0, 120),
+                buffer: valueBuffer
+            };
+        } else if (fieldName) {
+            fields[fieldName] = valueBuffer.toString('utf8').trim();
+        }
+
+        cursor = nextBoundary;
+    }
+
+    return { fields, file };
+}
+
+function montarMultipartIxc(fields: Record<string, string>, file: ArquivoMultipart): { body: Buffer; contentType: string } {
+    const boundary = `----hubivp-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const partes: Buffer[] = [];
+
+    Object.entries(fields).forEach(([nome, valor]) => {
+        partes.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${nome}"\r\n\r\n${valor || ''}\r\n`, 'utf8'));
+    });
+
+    partes.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="local_arquivo"; filename="${file.filename}"\r\nContent-Type: ${file.contentType}\r\n\r\n`, 'utf8'));
+    partes.push(file.buffer);
+    partes.push(Buffer.from(`\r\n--${boundary}--\r\n`, 'utf8'));
+
+    return { body: Buffer.concat(partes), contentType: `multipart/form-data; boundary=${boundary}` };
+}
+
+async function makeIxcMultipartRequest(endpoint: string, fields: Record<string, string>, file: ArquivoMultipart) {
+    const multipart = montarMultipartIxc(fields, file);
+    const url = `${process.env.IXC_API_URL}/webservice/v1${endpoint}`;
+    const token = process.env.IXC_API_TOKEN;
+    const response = await axios({
+        method: 'POST',
+        url,
+        headers: {
+            Authorization: `Basic ${token}`,
+            'Content-Type': multipart.contentType,
+            ixcsoft: 'incluir'
+        },
+        data: multipart.body,
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity
+    });
+    return response.data;
+}
+
 function extrairProtocoloTicket(ticket: any): string {
     if (!ticket) return '';
     return ticket.protocolo
@@ -276,14 +398,14 @@ router.get('/busca-cliente/:termo', async (req, res) => {
 });
 
 router.post('/criar-os', async (req, res) => {
-    const { cliente_id, contrato_id, id_assunto, id_departamento, id_processo, observacao, titulo } = req.body;
+    const { cliente_id, contrato_id, id_departamento, id_processo, observacao, titulo } = req.body;
 
     //console.log("\n=== [DEBUG] INICIANDO CRIAÇÃO DE CHAMADO (IXC) ===");
     //console.log("1. Dados brutos recebidos do Frontend:", req.body);
 
-    if (!cliente_id || !id_assunto || !observacao || !id_processo) {
-        console.error("-> Erro: Dados incompletos. Faltando assunto ou processo.");
-        return res.status(400).json({ error: "Dados incompletos. Verifique se o assunto possui um processo vinculado no IXC." });
+    if (!cliente_id || !observacao || !id_processo) {
+        console.error("-> Erro: Dados incompletos. Faltando processo.");
+        return res.status(400).json({ error: "Dados incompletos. Selecione um processo do IXC antes de continuar." });
     }
 
     try {
@@ -300,8 +422,8 @@ router.post('/criar-os', async (req, res) => {
         const atendimentoDuplicado = (abertosResp.registros || []).find((ticket: any) => {
             const statusAberto = !['F', 'C'].includes(String(ticket.status || '').toUpperCase());
             const mesmoContrato = !contrato_id || !ticket.id_contrato || String(ticket.id_contrato) === String(contrato_id);
-            const mesmoAssunto = !ticket.id_assunto || String(ticket.id_assunto) === String(id_assunto);
-            return statusAberto && mesmoContrato && mesmoAssunto;
+            const mesmoProcesso = !ticket.id_wfl_processo || String(ticket.id_wfl_processo) === String(id_processo);
+            return statusAberto && mesmoContrato && mesmoProcesso;
         });
 
         if (atendimentoDuplicado) {
@@ -316,7 +438,6 @@ router.post('/criar-os', async (req, res) => {
         const payloadTicket: any = {
             id_cliente: cliente_id,
             titulo: titulo || "Atendimento via Intranet",
-            id_assunto: id_assunto, 
             id_ticket_setor: id_departamento || "4",
             id_wfl_processo: id_processo,
             origem_endereco: "CC",
@@ -328,7 +449,6 @@ router.post('/criar-os', async (req, res) => {
             menssagem: observacao,
             mensagem: observacao
         };
-
         if (contrato_id && String(contrato_id).trim() !== "") {
             payloadTicket.id_contrato = contrato_id;
         }
@@ -377,7 +497,36 @@ router.post('/criar-os', async (req, res) => {
     } catch (error: any) {
         //console.error("4. [ERRO FATAL] Falha ao criar OS no IXC:");
         console.error(error.message);
+        const erroIxc = error.response?.data?.message || error.response?.data || error.message;
+        if (String(erroIxc || '').toLowerCase().includes('assunto')) {
+            return res.status(500).json({ error: 'O IXC recusou a criação sem id_assunto. A tela agora envia processo; verifique se o IXC permite abertura por processo/texto ou configure um vínculo obrigatório.' });
+        }
         res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/processos', async (req, res) => {
+    try {
+        const resp = await makeIxcRequest('POST', '/wfl_processo', {
+            page: '1',
+            rp: '1000',
+            sortname: 'descricao',
+            sortorder: 'asc'
+        }, 'listar');
+
+        const processos = (resp.registros || [])
+            .filter((p: any) => String(p.ativo || p.status || 'S').toUpperCase() !== 'N')
+            .map((p: any) => ({
+                id: p.id,
+                descricao: p.descricao || p.nome || p.processo || p.titulo || `Processo #${p.id}`,
+                id_setor: p.id_setor || p.id_ticket_setor || p.id_departamento || ''
+            }))
+            .filter((p: any) => p.id);
+
+        res.json(processos);
+    } catch (error: any) {
+        console.error("Erro ao buscar processos:", error.response?.data || error.message);
+        res.status(500).json({ error: 'Nao foi possivel carregar processos do IXC.' });
     }
 });
 
@@ -573,6 +722,218 @@ router.get('/historico-conexao/:username', async (req, res) => {
         res.json(resp.registros || []);
     } catch (error: any) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/dados-edicao/:id_cliente/:id_contrato', async (req, res) => {
+    try {
+        const { id_cliente, id_contrato } = req.params;
+        const clienteResp = await makeIxcRequest('POST', '/cliente', {
+            qtype: 'cliente.id',
+            query: String(id_cliente),
+            oper: '=',
+            rp: '1'
+        });
+        const contratoResp = await makeIxcRequest('POST', '/cliente_contrato', {
+            qtype: 'cliente_contrato.id',
+            query: String(id_contrato),
+            oper: '=',
+            rp: '1'
+        });
+
+        const cliente = clienteResp.registros?.[0] || null;
+        const contrato = contratoResp.registros?.[0] || null;
+        if (!cliente || !contrato) return res.status(404).json({ error: 'Cliente ou contrato não localizado no IXC.' });
+
+        const enderecoOrigem = contrato.endereco_padrao_cliente === 'S' ? 'cliente' : 'contrato';
+        const enderecoBase = enderecoOrigem === 'cliente' ? cliente : contrato;
+        res.json({ cliente, contrato, endereco: enderecoBase, endereco_origem: enderecoOrigem });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.put('/cliente-contrato', async (req, res) => {
+    try {
+        const { cliente_id, contrato_id, usuario_logado } = req.body;
+        if (!cliente_id || !contrato_id) return res.status(400).json({ error: 'Cliente e contrato são obrigatórios.' });
+
+        if ((req.body.cliente && typeof req.body.cliente === 'object') || (req.body.endereco && typeof req.body.endereco === 'object')) {
+            const camposCliente = req.body.cliente || {};
+            const camposEndereco = req.body.endereco || {};
+            const payloadClienteParcial: any = {};
+            for (const campo of ['fone', 'telefone_comercial', 'telefone_celular', 'whatsapp']) {
+                if (Object.prototype.hasOwnProperty.call(camposCliente, campo)) payloadClienteParcial[campo] = normalizarTelefone(camposCliente[campo]);
+            }
+            if (Object.prototype.hasOwnProperty.call(camposCliente, 'email')) payloadClienteParcial.email = sanitizarTexto(camposCliente.email, 180);
+            if (Object.prototype.hasOwnProperty.call(camposCliente, 'contato')) payloadClienteParcial.contato = sanitizarTexto(camposCliente.contato, 120);
+
+            const payloadEnderecoParcial: any = {};
+            const limitesEndereco: Record<string, number> = { endereco: 180, numero: 30, bairro: 100, cidade: 100, complemento: 120, referencia: 180, cep: 20 };
+            for (const [campo, limite] of Object.entries(limitesEndereco)) {
+                if (Object.prototype.hasOwnProperty.call(camposEndereco, campo)) payloadEnderecoParcial[campo] = sanitizarTexto(camposEndereco[campo], limite);
+            }
+
+            const enderecoOrigem = req.body.endereco_origem === 'cliente' ? 'cliente' : 'contrato';
+            const payloadClienteFinal = enderecoOrigem === 'cliente' ? { ...payloadClienteParcial, ...payloadEnderecoParcial } : payloadClienteParcial;
+            const payloadContratoFinal = enderecoOrigem === 'contrato' ? payloadEnderecoParcial : {};
+            if (!Object.keys(payloadClienteFinal).length && !Object.keys(payloadContratoFinal).length) {
+                return res.status(400).json({ error: 'Nenhuma alteracao enviada para salvar.' });
+            }
+
+            console.log('[Abertura OS][Editar Cliente/Contrato]', { cliente_id, contrato_id, usuario_logado, enderecoOrigem, camposCliente: Object.keys(payloadClienteFinal), camposContrato: Object.keys(payloadContratoFinal) });
+            let respClienteParcial: any = null;
+            let respContratoParcial: any = null;
+            if (Object.keys(payloadClienteFinal).length) {
+                respClienteParcial = await makeIxcRequest('PUT', `/cliente/${cliente_id}`, payloadClienteFinal, 'alterar');
+                if (respClienteParcial?.type === 'error') throw new Error(respClienteParcial.message || 'IXC recusou a atualizacao do cliente.');
+            }
+            if (Object.keys(payloadContratoFinal).length) {
+                respContratoParcial = await makeIxcRequest('PUT', `/cliente_contrato/${contrato_id}`, payloadContratoFinal, 'alterar');
+                if (respContratoParcial?.type === 'error') throw new Error(respContratoParcial.message || 'IXC recusou a atualizacao do contrato.');
+            }
+
+            return res.json({ success: true, cliente: payloadClienteFinal, contrato: payloadContratoFinal, response: { cliente: respClienteParcial, contrato: respContratoParcial } });
+        }
+
+        const payloadCliente = {
+            fone: normalizarTelefone(req.body.fone),
+            telefone_comercial: normalizarTelefone(req.body.telefone_comercial),
+            telefone_celular: normalizarTelefone(req.body.telefone_celular),
+            whatsapp: normalizarTelefone(req.body.whatsapp),
+            email: sanitizarTexto(req.body.email, 180),
+            contato: sanitizarTexto(req.body.contato, 120)
+        };
+
+        const payloadContrato = {
+            endereco: sanitizarTexto(req.body.endereco, 180),
+            numero: sanitizarTexto(req.body.numero, 30),
+            bairro: sanitizarTexto(req.body.bairro, 100),
+            cidade: sanitizarTexto(req.body.cidade, 100),
+            complemento: sanitizarTexto(req.body.complemento, 120),
+            referencia: sanitizarTexto(req.body.referencia, 180),
+            cep: sanitizarTexto(req.body.cep, 20)
+        };
+
+        if (!payloadContrato.endereco || !payloadContrato.bairro) {
+            return res.status(400).json({ error: 'Endereço e bairro são obrigatórios.' });
+        }
+
+        console.log('[Abertura OS][Editar Cliente/Contrato]', { cliente_id, contrato_id, usuario_logado });
+        const respCliente = await makeIxcRequest('PUT', `/cliente/${cliente_id}`, payloadCliente, 'alterar');
+        if (respCliente?.type === 'error') throw new Error(respCliente.message || 'IXC recusou a atualização do cliente.');
+
+        const respContrato = await makeIxcRequest('PUT', `/cliente_contrato/${contrato_id}`, payloadContrato, 'alterar');
+        if (respContrato?.type === 'error') throw new Error(respContrato.message || 'IXC recusou a atualização do contrato.');
+
+        res.json({ success: true, cliente: payloadCliente, contrato: payloadContrato });
+    } catch (error: any) {
+        res.status(500).json({ error: error.response?.data?.message || error.message });
+    }
+});
+
+router.get('/boletos/:id_contrato', async (req, res) => {
+    try {
+        const resp = await makeIxcRequest('POST', '/fn_areceber', {
+            qtype: 'fn_areceber.id_contrato',
+            query: String(req.params.id_contrato),
+            oper: '=',
+            rp: '100',
+            sortname: 'fn_areceber.data_vencimento',
+            sortorder: 'asc',
+            grid_param: JSON.stringify([
+                { TB: 'fn_areceber.liberado', OP: '=', P: 'S' },
+                { TB: 'fn_areceber.status', OP: '!=', P: 'C' },
+                { TB: 'fn_areceber.status', OP: '!=', P: 'R' }
+            ])
+        });
+
+        const boletos = (resp.registros || []).map((b: any) => ({
+            id: b.id,
+            documento: b.documento || b.nosso_numero || b.id,
+            vencimento: b.data_vencimento || b.vencimento || '',
+            valor: b.valor || b.valor_aberto || b.valor_recebido || '0.00',
+            status: b.status || '',
+            linha_digitavel: b.linha_digitavel || ''
+        }));
+
+        res.json(boletos);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/boletos/enviar-segunda-via', async (req, res) => {
+    try {
+        const { boleto_id, usuario_logado } = req.body;
+        if (!boleto_id) return res.status(400).json({ error: 'Boleto não informado.' });
+        console.log('[Abertura OS][Segunda via boleto]', { boleto_id, usuario_logado });
+        const resp = await makeIxcRequest('POST', '/get_boleto', {
+            boletos: String(boleto_id),
+            juro: '',
+            multa: '',
+            atualiza_boleto: '',
+            tipo_boleto: 'mail'
+        }, 'integracao');
+        if (resp?.type === 'error') throw new Error(resp.message || 'IXC recusou o envio da segunda via.');
+        res.json({ success: true, response: resp });
+    } catch (error: any) {
+        res.status(500).json({ error: error.response?.data?.message || error.message });
+    }
+});
+
+router.post('/onu/reiniciar', async (req, res) => {
+    try {
+        const { id_onu, usuario_logado } = req.body;
+        if (!id_onu) return res.status(400).json({ error: 'ID da ONU/fibra não informado.' });
+        console.log('[Abertura OS][Reiniciar ONU]', { id_onu, usuario_logado });
+        const resp = await makeIxcRequest('POST', '/radpop_radio_cliente_fibra_26379', { id: String(id_onu) }, 'integracao');
+        if (resp?.type === 'error') throw new Error(resp.message || 'IXC recusou o comando de reiniciar ONU.');
+        res.json({ success: true, response: resp });
+    } catch (error: any) {
+        res.status(500).json({ error: error.response?.data?.message || error.message });
+    }
+});
+
+router.post('/onu/liberar-web', async (req, res) => {
+    try {
+        const { id_onu, usuario_logado } = req.body;
+        if (!id_onu) return res.status(400).json({ error: 'ID da ONU/fibra não informado.' });
+        console.log('[Abertura OS][Liberar acesso web ONU]', { id_onu, usuario_logado });
+        const resp = await makeIxcRequest('POST', '/radpop_radio_cliente_fibra_28120', { id: String(id_onu) }, 'integracao');
+        if (resp?.type === 'error') throw new Error(resp.message || 'IXC recusou o comando de liberar acesso web.');
+        res.json({ success: true, response: resp });
+    } catch (error: any) {
+        res.status(500).json({ error: error.response?.data?.message || error.message });
+    }
+});
+
+router.post('/anexar-arquivo', async (req, res) => {
+    try {
+        const { fields, file } = await parseMultipartSimples(req);
+        const idTicket = sanitizarTexto(fields.id_ticket, 30);
+        const descricao = sanitizarTexto(fields.descricao || file?.filename || 'Anexo via Intranet', 180);
+        const usuarioLogado = sanitizarTexto(fields.usuario_logado, 100);
+
+        if (!idTicket) return res.status(400).json({ error: 'ID do atendimento é obrigatório.' });
+        if (!file) return res.status(400).json({ error: 'Arquivo não enviado.' });
+        if (file.buffer.length > 8 * 1024 * 1024) return res.status(400).json({ error: 'Arquivo excede 8 MB.' });
+
+        const extensoesPermitidas = ['.jpg', '.jpeg', '.png', '.webp', '.pdf', '.txt', '.doc', '.docx', '.xls', '.xlsx'];
+        const nomeLower = file.filename.toLowerCase();
+        if (!extensoesPermitidas.some(ext => nomeLower.endsWith(ext))) {
+            return res.status(400).json({ error: 'Tipo de arquivo não permitido.' });
+        }
+
+        console.log('[Abertura OS][Anexar arquivo]', { idTicket, descricao, arquivo: file.filename, tamanho: file.buffer.length, usuarioLogado });
+        const resp = await makeIxcMultipartRequest('/su_ticket_arquivos', {
+            descricao,
+            id_ticket: idTicket
+        }, file);
+        if (resp?.type === 'error') throw new Error(resp.message || 'IXC recusou o anexo.');
+        res.json({ success: true, response: resp });
+    } catch (error: any) {
+        res.status(500).json({ error: error.response?.data?.message || error.message });
     }
 });
 
