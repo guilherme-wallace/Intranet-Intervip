@@ -585,6 +585,10 @@ class AgendaService {
                     sintoma_relatado: (osIxc.mensagem || '').replace(/(<([^>]+)>)/gi, ""),
                     ixc_status: osIxc.status,
                     horario_agendado: horarioExtraido,
+                    data_hora_deslocamento: osIxc.data_hora_deslocamento || osIxc.data_inicio_deslocamento || osIxc.data_deslocamento || osIxc.inicio_deslocamento || null,
+                    data_inicio_deslocamento: osIxc.data_inicio_deslocamento || null,
+                    data_deslocamento: osIxc.data_deslocamento || null,
+                    inicio_deslocamento: osIxc.inicio_deslocamento || null,
                     data_hora_execucao: osIxc.data_hora_execucao,
                     bairro_real: osIxc.bairro || '',
                     cidade_real: cidadeCorreta,
@@ -604,15 +608,20 @@ class AgendaService {
                     preferencia_horario_inicio: osLocal ? osLocal.preferencia_horario_inicio : null,
                     preferencia_horario_fim: osLocal ? osLocal.preferencia_horario_fim : null,
                     preferencia_horario_obs: osLocal ? (osLocal.preferencia_horario_obs || '') : '',
+                    ixc_contrato_id: this.obterContratoOsIxc(osIxc, osLocal),
+                    plano_id: osIxc.plano_id || osIxc.id_plano || osIxc.planId || null,
+                    id_plano: osIxc.id_plano || null,
+                    id_plano_local: osIxc.plano_id || osIxc.id_plano || osIxc.planId || null,
                 };
                 if (osLocal) {
                     if (ehPrioridadeFutura) {
                         yield this.executeDb(`
                         UPDATE ivp_agenda_os
-                        SET ixc_tecnico_id = ?,
+                        SET ixc_contrato_id = COALESCE(NULLIF(?, '0'), ixc_contrato_id),
+                            ixc_tecnico_id = ?,
                             status_interno = ?
                         WHERE id = ?
-                        `, [osIxc.id_tecnico, novoStatus, osLocal.id]);
+                        `, [payloadFinal.ixc_contrato_id || '0', osIxc.id_tecnico, novoStatus, osLocal.id]);
                         listaFinal.push(Object.assign({ id: osLocal.id, data_agendamento_original: osLocal.data_agendamento }, payloadFinal));
                     }
                     else {
@@ -620,10 +629,11 @@ class AgendaService {
                         UPDATE ivp_agenda_os
                         SET data_agendamento = ?,
                             turno = ?,
+                            ixc_contrato_id = COALESCE(NULLIF(?, '0'), ixc_contrato_id),
                             ixc_tecnico_id = ?,
                             status_interno = ?
                         WHERE id = ?
-                        `, [dataFiltro, turnoInferred, osIxc.id_tecnico, novoStatus, osLocal.id]);
+                        `, [dataFiltro, turnoInferred, payloadFinal.ixc_contrato_id || '0', osIxc.id_tecnico, novoStatus, osLocal.id]);
                         listaFinal.push(Object.assign({ id: osLocal.id, data_agendamento_original: dataFiltro }, payloadFinal));
                     }
                 }
@@ -648,10 +658,11 @@ class AgendaService {
                         status_interno,
                         criado_por
                     )
-                    VALUES (?, ?, 0, ?, ?, ?, 0, 0, ?, ?, ?, ?, 'SINC_IXC')
+                    VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, 'SINC_IXC')
                     `, [
                         osIxc.id,
                         osIxc.id_cliente,
+                        payloadFinal.ixc_contrato_id || 0,
                         tipoServicoSinc,
                         tipoImovel,
                         cidadeCorreta,
@@ -667,8 +678,167 @@ class AgendaService {
             listaFinal.forEach((os) => {
                 os.tags = tagsPorAgenda.get(String(os.id)) || [];
             });
+            yield this.aplicarPlanosLocais(listaFinal);
             yield this.aplicarDistancias(listaFinal);
             return this.ordenarAgendamentos(listaFinal);
+        });
+    }
+    static obterCandidatosPlano(os) {
+        return [
+            os === null || os === void 0 ? void 0 : os.id_plano_local,
+            os === null || os === void 0 ? void 0 : os.plan_id,
+            os === null || os === void 0 ? void 0 : os.plano_id,
+            os === null || os === void 0 ? void 0 : os.id_plano,
+            os === null || os === void 0 ? void 0 : os.planId
+        ]
+            .map(valor => String(valor || '').trim())
+            .filter(valor => /^\d+$/.test(valor));
+    }
+    static obterContratoOsIxc(osIxc, osLocal) {
+        const contratoId = [
+            osLocal === null || osLocal === void 0 ? void 0 : osLocal.ixc_contrato_id,
+            osIxc === null || osIxc === void 0 ? void 0 : osIxc.id_contrato,
+            osIxc === null || osIxc === void 0 ? void 0 : osIxc.id_contrato_kit,
+            osIxc === null || osIxc === void 0 ? void 0 : osIxc.id_cliente_contrato,
+            osIxc === null || osIxc === void 0 ? void 0 : osIxc.cliente_contrato,
+            osIxc === null || osIxc === void 0 ? void 0 : osIxc.id_contrato_cliente,
+            osIxc === null || osIxc === void 0 ? void 0 : osIxc.contrato_id
+        ]
+            .map(valor => String(valor || '').trim())
+            .find(valor => /^\d+$/.test(valor) && valor !== '0');
+        return contratoId || null;
+    }
+    static obterCandidatosContrato(os) {
+        return [
+            os === null || os === void 0 ? void 0 : os.ixc_contrato_id,
+            os === null || os === void 0 ? void 0 : os.id_contrato,
+            os === null || os === void 0 ? void 0 : os.id_contrato_kit,
+            os === null || os === void 0 ? void 0 : os.id_cliente_contrato,
+            os === null || os === void 0 ? void 0 : os.cliente_contrato,
+            os === null || os === void 0 ? void 0 : os.id_contrato_cliente,
+            os === null || os === void 0 ? void 0 : os.contrato_id
+        ]
+            .map(valor => String(valor || '').trim())
+            .filter(valor => /^\d+$/.test(valor) && valor !== '0');
+    }
+    static obterPlanoDoContrato(contrato) {
+        return String((contrato === null || contrato === void 0 ? void 0 : contrato.id_vd_contrato) ||
+            (contrato === null || contrato === void 0 ? void 0 : contrato.id_plano) ||
+            (contrato === null || contrato === void 0 ? void 0 : contrato.plano_id) ||
+            (contrato === null || contrato === void 0 ? void 0 : contrato.planId) ||
+            '').trim();
+    }
+    static buscarContratosIxcEmLote(idsContratos) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const ids = [...new Set(idsContratos.filter(id => id && id !== '0'))];
+            if (ids.length === 0)
+                return [];
+            const resultado = [];
+            const tamanhoLote = 100;
+            for (let i = 0; i < ids.length; i += tamanhoLote) {
+                const lote = ids.slice(i, i + tamanhoLote);
+                const resp = yield this.makeIxcRequest('POST', '/cliente_contrato', {
+                    qtype: 'cliente_contrato.id',
+                    query: lote.join(','),
+                    oper: 'in',
+                    rp: String(tamanhoLote)
+                }).catch(() => ({ registros: [] }));
+                if (resp === null || resp === void 0 ? void 0 : resp.registros)
+                    resultado.push(...resp.registros);
+            }
+            const encontrados = new Set(resultado
+                .map((contrato) => String((contrato === null || contrato === void 0 ? void 0 : contrato.id) || '').trim())
+                .filter(Boolean));
+            const faltantes = ids.filter(id => !encontrados.has(id));
+            if (faltantes.length > 0) {
+                const fallback = yield this.fetchIxcInBatches('/cliente_contrato', 'cliente_contrato', faltantes, 5).catch(() => []);
+                resultado.push(...fallback);
+            }
+            const deduplicados = new Map();
+            resultado.forEach((contrato) => {
+                const id = String((contrato === null || contrato === void 0 ? void 0 : contrato.id) || '').trim();
+                if (id && !deduplicados.has(id))
+                    deduplicados.set(id, contrato);
+            });
+            return [...deduplicados.values()];
+        });
+    }
+    static aplicarPlanosLocais(lista) {
+        return __awaiter(this, void 0, void 0, function* () {
+            lista.forEach(os => {
+                os.nome_plano_local = null;
+                os.velocidade_plano = null;
+            });
+            console.info(`[Planos Locais] OSs recebidas: ${lista.length}`);
+            const idsDiretos = new Set(lista.flatMap(os => this.obterCandidatosPlano(os)));
+            const idsContratos = [...new Set(lista.flatMap(os => this.obterCandidatosContrato(os)))];
+            console.info(`[Planos Locais] Contratos únicos: ${idsContratos.length}`);
+            let contratosComPlano = 0;
+            if (idsContratos.length > 0) {
+                const contratos = yield this.buscarContratosIxcEmLote(idsContratos).catch(() => []);
+                const planosPorContrato = new Map();
+                contratos.forEach((contrato) => {
+                    const planoId = this.obterPlanoDoContrato(contrato);
+                    if (/^\d+$/.test(planoId)) {
+                        contratosComPlano++;
+                        [
+                            contrato === null || contrato === void 0 ? void 0 : contrato.id,
+                            contrato === null || contrato === void 0 ? void 0 : contrato.id_contrato,
+                            contrato === null || contrato === void 0 ? void 0 : contrato.id_contrato_kit,
+                            contrato === null || contrato === void 0 ? void 0 : contrato.id_cliente_contrato,
+                            contrato === null || contrato === void 0 ? void 0 : contrato.cliente_contrato,
+                            contrato === null || contrato === void 0 ? void 0 : contrato.id_contrato_cliente,
+                            contrato === null || contrato === void 0 ? void 0 : contrato.contrato_id
+                        ]
+                            .map(valor => String(valor || '').trim())
+                            .filter(valor => /^\d+$/.test(valor) && valor !== '0')
+                            .forEach(contratoId => planosPorContrato.set(contratoId, planoId));
+                        idsDiretos.add(planoId);
+                    }
+                    else {
+                        const contratoId = String((contrato === null || contrato === void 0 ? void 0 : contrato.id) || '').trim() || 'N/A';
+                        const camposPlano = ['id_vd_contrato', 'id_plano', 'plano_id', 'planId']
+                            .filter(campo => Object.prototype.hasOwnProperty.call(contrato || {}, campo))
+                            .join(',') || 'nenhum';
+                        console.info(`[Planos Locais] Contrato sem id de plano: contratoId=${contratoId} campos=${camposPlano}`);
+                    }
+                });
+                lista.forEach(os => {
+                    const contratoId = this.obterCandidatosContrato(os).find(id => planosPorContrato.has(id));
+                    if (!contratoId)
+                        return;
+                    const planoContrato = planosPorContrato.get(contratoId);
+                    os.id_plano_local = planoContrato ? Number(planoContrato) : os.id_plano_local;
+                });
+            }
+            console.info(`[Planos Locais] Contratos com plano: ${contratosComPlano}`);
+            const ids = [...idsDiretos];
+            if (ids.length === 0) {
+                console.info('[Planos Locais] Nenhum ID real de plano encontrado para consultar.');
+                return;
+            }
+            const placeholders = ids.map(() => '?').join(',');
+            const planos = yield this.executeDb(`SELECT planId, name, speed FROM plan WHERE planId IN (${placeholders})`, ids).catch(() => []);
+            const mapaPlanos = new Map((planos || []).map((plano) => [String(plano.planId), plano]));
+            const planosNaoEncontrados = ids.filter(id => !mapaPlanos.has(id));
+            let osComVelocidade = 0;
+            lista.forEach(os => {
+                const planoId = this.obterCandidatosPlano(os).find(id => mapaPlanos.has(id));
+                if (!planoId)
+                    return;
+                const plano = mapaPlanos.get(planoId);
+                os.plano_id = Number(planoId);
+                os.id_plano_local = Number(planoId);
+                os.nome_plano_local = (plano === null || plano === void 0 ? void 0 : plano.name) || null;
+                os.velocidade_plano = Number((plano === null || plano === void 0 ? void 0 : plano.speed) || 0) || null;
+                if (os.velocidade_plano)
+                    osComVelocidade++;
+            });
+            console.info(`[Planos Locais] IDs reais de plano consultados: ${ids.join(', ')}.`);
+            console.info(`[Planos Locais] Planos encontrados no banco local: ${mapaPlanos.size}.`);
+            if (planosNaoEncontrados.length > 0)
+                console.info(`[Planos Locais] Planos não encontrados: ${planosNaoEncontrados.join(', ')}.`);
+            console.info(`[Planos Locais] OSs com velocidade aplicada: ${osComVelocidade}.`);
         });
     }
     static reagendarOs(payload) {
