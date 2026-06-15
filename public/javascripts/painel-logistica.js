@@ -6,12 +6,78 @@ let allTechsGlobal = [];
 let duplaCounter = 0;
 let tagsLogisticaGlobal = [];
 
+function normalizarGrupoUsuario(grupo) {
+    return String(grupo || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toUpperCase();
+}
+
+function usuarioEhLogisticaOuNoc() {
+    const grupo = normalizarGrupoUsuario(window.grupoUsuarioLogado || '');
+    return grupo.includes('LOGISTICA') || grupo.includes('NOC');
+}
+
 const PRIORIDADE_LOGISTICA_LABELS = {
     0: 'Normal',
     1: 'Média',
     2: 'Alta',
     3: 'Urgente'
 };
+
+const OPCOES_TURNO_ESCALA = [
+    { value: 'INTEGRAL', label: 'Integral' },
+    { value: 'MATUTINO', label: 'Matutino' },
+    { value: 'VESPERTINO', label: 'Vespertino' }
+];
+
+const OPCOES_REGIAO_ESCALA = [
+    { value: 'TODAS', label: 'Todas' },
+    { value: 'SERRA', label: 'Serra' },
+    { value: 'VV_VIX_CCA', label: 'Vila Velha / Vit\u00f3ria / Cariacica' }
+];
+
+const OPCOES_IMOVEL_ESCALA = [
+    { value: 'AMBOS', label: 'Ambos' },
+    { value: 'CASA', label: 'Casa' },
+    { value: 'PREDIO', label: 'Pr\u00e9dio' }
+];
+
+function normalizarTurnoEscala(valor) {
+    const turno = String(valor || 'INTEGRAL').trim().toUpperCase();
+    if (turno === 'MANHA') return 'MATUTINO';
+    if (turno === 'TARDE') return 'VESPERTINO';
+    return OPCOES_TURNO_ESCALA.some(opcao => opcao.value === turno) ? turno : 'INTEGRAL';
+}
+
+function normalizarRegiaoEscala(valor) {
+    const regiao = String(valor || 'SERRA')
+        .trim()
+        .toUpperCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[\/\s-]+/g, '_')
+        .replace(/_+/g, '_');
+    if (regiao === 'VV_VIX_CAR') return 'VV_VIX_CCA';
+    if (['VILA_VELHA', 'VITORIA', 'CARIACICA'].includes(regiao)) return 'VV_VIX_CCA';
+    if (regiao === 'VILA_VELHA_VITORIA_CARIACICA') return 'VV_VIX_CCA';
+    return OPCOES_REGIAO_ESCALA.some(opcao => opcao.value === regiao) ? regiao : 'SERRA';
+}
+
+function normalizarImovelEscala(valor) {
+    const imovel = String(valor || 'AMBOS').trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return OPCOES_IMOVEL_ESCALA.some(opcao => opcao.value === imovel) ? imovel : 'AMBOS';
+}
+
+function montarOptionsEscala(opcoes, selecionado) {
+    return opcoes.map(opcao => `<option value="${opcao.value}" ${opcao.value === selecionado ? 'selected' : ''}>${opcao.label}</option>`).join('');
+}
+
+function formatarVelocidadePlano(speed) {
+    const velocidade = Number(speed || 0);
+    if (!Number.isFinite(velocidade) || velocidade <= 0) return '';
+    return `${velocidade} MB`;
+}
 
 function traduzirStatusContratoLogistica(status) {
     const mapa = { P: 'Pré-contrato', A: 'Ativo', I: 'Inativo', N: 'Negativado', D: 'Desistiu' };
@@ -188,10 +254,10 @@ async function verificarPermissoes() {
     try {
         const response = await fetch('/api/username');
         const data = await response.json();
-        const grupo = (data.group || '').toUpperCase();
+        const grupo = normalizarGrupoUsuario(data.group || '');
         window.grupoUsuarioLogado = data.group || '';
         
-        if (grupo.includes('LOGISTICA') || grupo.includes('LOGÍSTICA') || grupo.includes('ADMIN') || grupo.includes('NOC')) {
+        if (grupo.includes('LOGISTICA') || grupo.includes('ADMIN') || grupo.includes('NOC') || grupo.includes('FIBRA')) {
             usuarioPodeEditar = true;
             document.getElementById('area-admin-logistica')?.classList.remove('d-none');
         }
@@ -327,7 +393,7 @@ async function construirColunasTecnicos(data) {
             const key = isDupla ? `DUPLA_${tec.dupla_id}` : `TEC_${tec.id}`;
 
             if (!colunasMap.has(key)) {
-                colunasMap.set(key, { id_tecnico: tec.id, nomes: [getPrimeiroUltimoNome(tec.nome)], turno: tec.turno_escala || 'INTEGRAL' });
+                colunasMap.set(key, { id_tecnico: tec.id, nomes: [getPrimeiroUltimoNome(tec.nome)], turno: normalizarTurnoEscala(tec.turno_escala) });
             } else {
                 colunasMap.get(key).nomes.push(getPrimeiroUltimoNome(tec.nome));
             }
@@ -362,10 +428,10 @@ function criarCardOS(os) {
     if (!isPend) {
         if (statusIxc === 'DS') {
             corBorda = 'border-left: 4px solid #ffc107;';
-            const inicioDeslocamento = os.data_hora_deslocamento || os.data_hora_assumido || os.data_hora_execucao || os.data_hora_inicio || '';
-            badgeStatus = `<span class="asana-badge timer-deslocamento" style="background-color: #fff3cd; color: #856404;" data-inicio="${inicioDeslocamento}"><i class="bi bi-car-front-fill me-1"></i>Deslocamento</span>`;
+            const inicioDeslocamento = obterInicioDeslocamentoOs(os);
+            badgeStatus = `<span class="asana-badge timer-deslocamento" style="background-color: #fff3cd; color: #856404;" data-inicio="${inicioDeslocamento || ''}" data-os-id="${os.ixc_os_id || os.id || ''}"><i class="bi bi-car-front-fill me-1"></i>Deslocamento</span>`;
         }
-        else if (statusIxc === 'EX') { corBorda = 'border-left: 4px solid #0dcaf0;'; badgeStatus = `<span class="asana-badge timer-execucao" style="background-color: #cff4fc; color: #055160;" data-inicio="${os.data_hora_execucao || ''}"><i class="bi bi-tools me-1"></i>Execução</span>`; }
+        else if (statusIxc === 'EX') { corBorda = 'border-left: 4px solid #0dcaf0;'; badgeStatus = `<span class="asana-badge timer-execucao" style="background-color: #cff4fc; color: #055160;" data-inicio="${os.data_hora_execucao || ''}" data-os-id="${os.ixc_os_id || os.id || ''}"><i class="bi bi-tools me-1"></i>Execução</span>`; }
         else if (statusIxc === 'F') { corBorda = 'border-left: 4px solid #198754;'; badgeStatus = `<span class="asana-badge" style="background-color: #d1e7dd; color: #0f5132;"><i class="bi bi-check-circle-fill me-1"></i>Concluído</span>`; }
         else if (statusIxc === 'RAG') { corBorda = 'border-left: 4px solid #dc3545;'; badgeStatus = `<span class="asana-badge" style="background-color: #f8d7da; color: #842029;"><i class="bi bi-x-circle-fill me-1"></i>Reagendar</span>`; }
     }
@@ -397,9 +463,15 @@ function criarCardOS(os) {
         badgesHtml += `<span class="asana-badge bg-warning text-dark timer-espera-cliente" data-fim-espera="${os.espera_cliente_ate}"><i class="bi bi-hourglass-split me-1"></i>Aguardando...</span>`;
     }
 
+    const velocidadePlanoLabel = formatarVelocidadePlano(os.velocidade_plano ?? os.plano_speed ?? os.velocidadePlano ?? os.speed);
+    if (velocidadePlanoLabel) {
+        badgesHtml += `<span class="asana-badge bg-primary-subtle text-primary-emphasis"><i class="bi bi-speedometer2 me-1"></i>${velocidadePlanoLabel}</span>`;
+    }
+
     let optionsHtml = '';
     window.opcoesEscala.forEach(op => {
-        if ((os.turno === 'MATUTINO' && ['INTEGRAL', 'MANHA'].includes(op.turno)) || (os.turno === 'VESPERTINO' && ['INTEGRAL', 'TARDE'].includes(op.turno))) {
+        const turnoOpcao = normalizarTurnoEscala(op.turno);
+        if ((os.turno === 'MATUTINO' && ['INTEGRAL', 'MATUTINO'].includes(turnoOpcao)) || (os.turno === 'VESPERTINO' && ['INTEGRAL', 'VESPERTINO'].includes(turnoOpcao))) {
             const isSelected = (os.ixc_tecnico_id == op.id_tecnico && !isPend) ? 'selected' : '';
             optionsHtml += `<option value="${op.id_tecnico}" ${isSelected}>${op.nome_exibicao}</option>`;
         }
@@ -452,6 +524,14 @@ function formatarPreferenciaHorario(os) {
     return 'Pref. horário';
 }
 
+function obterInicioDeslocamentoOs(os) {
+    return os?.data_hora_deslocamento ||
+        os?.data_inicio_deslocamento ||
+        os?.data_deslocamento ||
+        os?.inicio_deslocamento ||
+        '';
+}
+
 function traduzirMotivoOnu(motivo) {
     const raw = String(motivo || '').trim();
     const normalizado = raw.toUpperCase();
@@ -467,6 +547,104 @@ function classeSinalOnu(valor) {
     if (numero > 30) return 'text-danger fw-bold';
     if (numero >= 28) return 'text-warning fw-bold';
     return 'text-success fw-bold';
+}
+
+function obterOffsetSaoPauloMs(date = new Date()) {
+    const partes = new Intl.DateTimeFormat('sv-SE', {
+        timeZone: 'America/Sao_Paulo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    }).formatToParts(date).reduce((acc, part) => {
+        if (part.type !== 'literal') acc[part.type] = part.value;
+        return acc;
+    }, {});
+
+    const asUtc = Date.UTC(
+        Number(partes.year),
+        Number(partes.month) - 1,
+        Number(partes.day),
+        Number(partes.hour),
+        Number(partes.minute),
+        Number(partes.second)
+    );
+
+    return asUtc - date.getTime();
+}
+
+function criarDataSaoPaulo(ano, mes, dia, hora = 0, minuto = 0, segundo = 0) {
+    const utcSemOffset = Date.UTC(ano, mes - 1, dia, hora, minuto, segundo);
+    const offset = obterOffsetSaoPauloMs(new Date(utcSemOffset));
+    return new Date(utcSemOffset - offset);
+}
+
+function parseDataHoraOperacional(valor) {
+    if (!valor && valor !== 0) return null;
+    if (valor instanceof Date) return Number.isNaN(valor.getTime()) ? null : valor;
+    if (typeof valor === 'number') {
+        const dataNumero = new Date(valor);
+        return Number.isNaN(dataNumero.getTime()) ? null : dataNumero;
+    }
+
+    const str = String(valor).trim();
+    if (!str || str === 'null' || str === '0000-00-00 00:00:00') return null;
+
+    let match = str.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/);
+    if (match) {
+        return criarDataSaoPaulo(
+            Number(match[1]),
+            Number(match[2]),
+            Number(match[3]),
+            Number(match[4]),
+            Number(match[5]),
+            Number(match[6] || 0)
+        );
+    }
+
+    match = str.match(/^(\d{2})\/(\d{2})\/(\d{4})[ T](\d{2}):(\d{2})(?::(\d{2}))?/);
+    if (match) {
+        return criarDataSaoPaulo(
+            Number(match[3]),
+            Number(match[2]),
+            Number(match[1]),
+            Number(match[4]),
+            Number(match[5]),
+            Number(match[6] || 0)
+        );
+    }
+
+    const fallback = new Date(str);
+    return Number.isNaN(fallback.getTime()) ? null : fallback;
+}
+
+function formatarDuracaoTimer(ms) {
+    const totalSegundos = Math.floor(ms / 1000);
+    const horas = Math.floor(totalSegundos / 3600);
+    const minutos = Math.floor((totalSegundos % 3600) / 60);
+    const segundos = totalSegundos % 60;
+    return `${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}:${String(segundos).padStart(2, '0')}`;
+}
+
+function calcularDuracaoConfiavel(valorInicio, osId, contexto) {
+    const inicio = parseDataHoraOperacional(valorInicio);
+    if (!inicio) {
+        if (valorInicio) console.warn(`[Timer ${contexto}] data inválida para OS ${osId || 'N/A'}:`, valorInicio);
+        return null;
+    }
+
+    const diffMs = Date.now() - inicio.getTime();
+    const limiteFuturoMs = 5 * 60 * 1000;
+    const limiteMaximoMs = 7 * 24 * 60 * 60 * 1000;
+    if (diffMs < -limiteFuturoMs || diffMs > limiteMaximoMs) {
+        console.warn(`[Timer ${contexto}] data inválida para OS ${osId || 'N/A'}:`, valorInicio);
+        return null;
+    }
+
+    return Math.max(0, diffMs);
 }
 
 function atualizarOsLocal(idLocal, patch) {
@@ -556,16 +734,14 @@ async function autoRefreshSilencioso() {
 function atualizarTimers() {
     document.querySelectorAll('.timer-execucao').forEach(el => {
         const inicioStr = el.dataset.inicio;
-        if (!inicioStr || inicioStr === 'null') return;
+        const diffMs = calcularDuracaoConfiavel(inicioStr, el.dataset.osId, 'Execução');
+        if (diffMs === null) {
+            el.innerHTML = '<i class="bi bi-tools me-1"></i>Execução';
+            return;
+        }
         
-        const dataInicio = new Date(inicioStr.replace(/-/g, '/')); 
-        if(isNaN(dataInicio)) return;
-
-        const diffMinutos = Math.floor((new Date() - dataInicio) / 60000);
-        const horas = Math.floor(diffMinutos / 60);
-        const mins = diffMinutos % 60;
-        
-        el.innerHTML = `<i class="bi bi-tools me-1"></i>Execução ${horas > 0 ? `${horas}h ${mins}m` : `${mins}m`}`;
+        const diffMinutos = Math.floor(diffMs / 60000);
+        el.innerHTML = `<i class="bi bi-tools me-1"></i>Execução ${formatarDuracaoTimer(diffMs)}`;
         el.className = 'asana-badge timer-execucao';
         el.style.backgroundColor = '';
 
@@ -576,16 +752,15 @@ function atualizarTimers() {
 
     document.querySelectorAll('.timer-deslocamento').forEach(el => {
         const inicioStr = el.dataset.inicio;
-        if (!inicioStr || inicioStr === 'null') return;
+        const diffMs = calcularDuracaoConfiavel(inicioStr, el.dataset.osId, 'Deslocamento');
+        if (diffMs === null) {
+            el.innerHTML = '<i class="bi bi-car-front-fill me-1"></i>Deslocamento';
+            el.className = 'asana-badge timer-deslocamento text-warning fw-bold';
+            el.style.backgroundColor = '#fff3cd';
+            return;
+        }
 
-        const dataInicio = new Date(String(inicioStr).replace(/-/g, '/'));
-        if (isNaN(dataInicio)) return;
-
-        const diffMinutos = Math.max(0, Math.floor((new Date() - dataInicio) / 60000));
-        const horas = Math.floor(diffMinutos / 60);
-        const mins = diffMinutos % 60;
-
-        el.innerHTML = `<i class="bi bi-car-front-fill me-1"></i>Deslocamento ${horas > 0 ? `${horas}h ${mins}m` : `${mins}m`}`;
+        el.innerHTML = `<i class="bi bi-car-front-fill me-1"></i>Deslocamento ${formatarDuracaoTimer(diffMs)}`;
         el.className = 'asana-badge timer-deslocamento text-warning fw-bold';
         el.style.backgroundColor = '#fff3cd';
     });
@@ -729,23 +904,32 @@ async function abrirModalConfiguracoes() {
 
         listaTecnicos.forEach(t => {
             if (t.dupla_id && t.dupla_id.trim() !== '') {
-                if (!duplasSalvas[t.dupla_id]) duplasSalvas[t.dupla_id] = { equipe: t.equipe, techs: [] };
+                if (!duplasSalvas[t.dupla_id]) {
+                    duplasSalvas[t.dupla_id] = {
+                        equipe: t.equipe,
+                        regiao: normalizarRegiaoEscala(t.regiao),
+                        turno: normalizarTurnoEscala(t.turno_escala),
+                        tipo_imovel: normalizarImovelEscala(t.tipo_imovel),
+                        techs: []
+                    };
+                }
                 duplasSalvas[t.dupla_id].techs.push(t.id);
             } else individuaisSalvos.push(t);
         });
 
         Object.keys(duplasSalvas).forEach(dId => {
             const arr = duplasSalvas[dId].techs;
-            adicionarLinhaDupla(arr[0] || '', arr[1] || '', duplasSalvas[dId].equipe);
+            const dupla = duplasSalvas[dId];
+            adicionarLinhaDupla(arr[0] || '', arr[1] || '', dupla.equipe, dupla.regiao, dupla.turno, dupla.tipo_imovel);
         });
 
         allTechsGlobal.forEach(tec => {
             const indivObj = individuaisSalvos.find(t => t.id === tec.id);
             const isChecked = indivObj ? 'checked' : '';
             const equipe = indivObj ? indivObj.equipe : 'MANUTENCAO';
-            const regiao = indivObj ? (indivObj.regiao || 'SERRA') : 'SERRA';
-            const turno = indivObj ? (indivObj.turno || 'INTEGRAL') : 'INTEGRAL';
-            const imovel = indivObj ? (indivObj.tipo_imovel || 'AMBOS') : 'AMBOS';
+            const regiao = normalizarRegiaoEscala(indivObj ? indivObj.regiao : null);
+            const turno = normalizarTurnoEscala(indivObj ? (indivObj.turno_escala || indivObj.turno) : null);
+            const imovel = normalizarImovelEscala(indivObj ? indivObj.tipo_imovel : null);
 
             containerIndiv.innerHTML += `
                 <div class="col-12 mb-2 tec-escala-item" data-nome="${tec.nome}">
@@ -759,18 +943,13 @@ async function abrirModalConfiguracoes() {
                             <option value="INSTALACAO" ${equipe === 'INSTALACAO' ? 'selected' : ''}>Instal</option>
                         </select>
                         <select class="form-select form-select-sm sel-regiao" id="regiao-${tec.id}" style="width: 100px;">
-                            <option value="SERRA" ${regiao === 'SERRA' ? 'selected' : ''}>Serra</option>
-                            <option value="VV_VIX_CAR" ${regiao === 'VV_VIX_CAR' ? 'selected' : ''}>VV/VIX</option>
+                            ${montarOptionsEscala(OPCOES_REGIAO_ESCALA, regiao)}
                         </select>
                         <select class="form-select form-select-sm sel-turno" id="turno-${tec.id}" style="width: 90px;">
-                            <option value="INTEGRAL" ${turno === 'INTEGRAL' ? 'selected' : ''}>Int.</option>
-                            <option value="MANHA" ${turno === 'MANHA' ? 'selected' : ''}>Manhã</option>
-                            <option value="TARDE" ${turno === 'TARDE' ? 'selected' : ''}>Tarde</option>
+                            ${montarOptionsEscala(OPCOES_TURNO_ESCALA, turno)}
                         </select>
                         <select class="form-select form-select-sm sel-imovel" id="imovel-${tec.id}" style="width: 90px;">
-                            <option value="AMBOS" ${imovel === 'AMBOS' ? 'selected' : ''}>Ambos</option>
-                            <option value="CASA" ${imovel === 'CASA' ? 'selected' : ''}>Casa</option>
-                            <option value="PREDIO" ${imovel === 'PREDIO' ? 'selected' : ''}>Prédio</option>
+                            ${montarOptionsEscala(OPCOES_IMOVEL_ESCALA, imovel)}
                         </select>
                     </div>
                 </div>`;
@@ -840,10 +1019,13 @@ function atualizarResumoTecnicosSelecionados() {
         : 'Nenhum técnico individual selecionado.';
 }
 
-function adicionarLinhaDupla(tec1 = '', tec2 = '', equipe = 'MANUTENCAO') {
+function adicionarLinhaDupla(tec1 = '', tec2 = '', equipe = 'MANUTENCAO', regiao = 'SERRA', turno = 'INTEGRAL', tipoImovel = 'AMBOS') {
     duplaCounter++;
     const div = document.createElement('div');
     div.className = 'd-flex align-items-center gap-2 mb-2 p-2 border rounded bg-light dupla-row shadow-sm';
+    const regiaoSelecionada = normalizarRegiaoEscala(regiao);
+    const turnoSelecionado = normalizarTurnoEscala(turno);
+    const imovelSelecionado = normalizarImovelEscala(tipoImovel);
     
     let options = `<option value="">Selecione...</option>`;
     allTechsGlobal.forEach(t => { options += `<option value="${t.id}">${getPrimeiroUltimoNome(t.nome)}</option>`; });
@@ -853,9 +1035,9 @@ function adicionarLinhaDupla(tec1 = '', tec2 = '', equipe = 'MANUTENCAO') {
             <option value="MANUTENCAO" ${equipe === 'MANUTENCAO' ? 'selected' : ''}>Manut</option>
             <option value="INSTALACAO" ${equipe === 'INSTALACAO' ? 'selected' : ''}>Instal</option>
         </select>
-        <select class="form-select form-select-sm sel-regiao border-secondary" style="width: 100px;"><option value="SERRA">Serra</option></select>
-        <select class="form-select form-select-sm sel-turno border-secondary" style="width: 90px;"><option value="INTEGRAL">Int.</option></select>
-        <select class="form-select form-select-sm sel-imovel border-secondary" style="width: 90px;"><option value="AMBOS">Ambos</option></select>
+        <select class="form-select form-select-sm sel-regiao border-secondary" style="width: 100px;">${montarOptionsEscala(OPCOES_REGIAO_ESCALA, regiaoSelecionada)}</select>
+        <select class="form-select form-select-sm sel-turno border-secondary" style="width: 90px;">${montarOptionsEscala(OPCOES_TURNO_ESCALA, turnoSelecionado)}</select>
+        <select class="form-select form-select-sm sel-imovel border-secondary" style="width: 90px;">${montarOptionsEscala(OPCOES_IMOVEL_ESCALA, imovelSelecionado)}</select>
         <select class="form-select form-select-sm sel-tec1-dupla flex-grow-1">${options}</select>
         <select class="form-select form-select-sm sel-tec2-dupla flex-grow-1">${options}</select>
         <button type="button" class="btn btn-sm btn-outline-danger btn-rm-dupla"><i class="bi bi-trash"></i></button>
@@ -971,6 +1153,8 @@ function limparFormTagLogistica() {
     document.getElementById('tag-logistica-cor-texto').value = '#ffffff';
     document.getElementById('tag-logistica-ordem').value = '0';
     document.getElementById('tag-logistica-ativo').checked = true;
+    const btnSalvar = document.getElementById('btn-salvar-tag-logistica');
+    if (btnSalvar) btnSalvar.textContent = 'Criar nova Tag';
 }
 
 async function salvarTagLogistica() {
@@ -1026,6 +1210,8 @@ function editarTagLogistica(id) {
     document.getElementById('tag-logistica-cor-texto').value = tag.cor_texto || '#ffffff';
     document.getElementById('tag-logistica-ordem').value = tag.ordem || 0;
     document.getElementById('tag-logistica-ativo').checked = Number(tag.ativo) === 1;
+    const btnSalvar = document.getElementById('btn-salvar-tag-logistica');
+    if (btnSalvar) btnSalvar.textContent = 'Salvar Tag';
 }
 
 async function excluirTagLogistica(id) {
@@ -1049,7 +1235,13 @@ async function salvarConfiguracoes() {
     document.querySelectorAll('.dupla-row').forEach((row, index) => {
         const t1 = row.querySelector('.sel-tec1-dupla').value;
         const t2 = row.querySelector('.sel-tec2-dupla').value;
-        const baseObj = { equipe: row.querySelector('.sel-equipe-dupla').value, regiao: row.querySelector('.sel-regiao').value, turno: row.querySelector('.sel-turno').value, tipo_imovel: row.querySelector('.sel-imovel').value, dupla_id: `D_DYN_${index + 1}` };
+        const baseObj = {
+            equipe: row.querySelector('.sel-equipe-dupla').value,
+            regiao: normalizarRegiaoEscala(row.querySelector('.sel-regiao').value),
+            turno: normalizarTurnoEscala(row.querySelector('.sel-turno').value),
+            tipo_imovel: normalizarImovelEscala(row.querySelector('.sel-imovel').value),
+            dupla_id: `D_DYN_${index + 1}`
+        };
         
         if (t1) { tecnicosArr.push({ id: t1, ...baseObj }); idsUsados.add(t1); }
         if (t2 && t2 !== t1) { tecnicosArr.push({ id: t2, ...baseObj }); idsUsados.add(t2); }
@@ -1058,7 +1250,14 @@ async function salvarConfiguracoes() {
     document.querySelectorAll('.chk-escala:checked').forEach(chk => {
         const id = chk.value;
         if (!idsUsados.has(id)) {
-            tecnicosArr.push({ id, equipe: document.getElementById(`equipe-${id}`).value, regiao: document.getElementById(`regiao-${id}`).value, turno: document.getElementById(`turno-${id}`).value, tipo_imovel: document.getElementById(`imovel-${id}`).value, dupla_id: null });
+            tecnicosArr.push({
+                id,
+                equipe: document.getElementById(`equipe-${id}`).value,
+                regiao: normalizarRegiaoEscala(document.getElementById(`regiao-${id}`).value),
+                turno: normalizarTurnoEscala(document.getElementById(`turno-${id}`).value),
+                tipo_imovel: normalizarImovelEscala(document.getElementById(`imovel-${id}`).value),
+                dupla_id: null
+            });
         }
     });
 
@@ -1092,11 +1291,13 @@ async function abrirModalDetalhes(os) {
     const areaAcoes = document.getElementById('area-acoes-os');
     if (areaAcoes) areaAcoes.style.display = 'block';
     const osVindaDaFila = String(os.id || '').startsWith('fila-') || os.origem === 'FILA_LOGISTICA';
-    document.getElementById('secao-confirmacao-cliente')?.classList.toggle('d-none', osVindaDaFila);
-    document.getElementById('secao-espera-cliente')?.classList.toggle('d-none', osVindaDaFila);
-    document.getElementById('secao-prioridade-logistica')?.classList.toggle('d-none', osVindaDaFila);
+    const podeAcoesSensiveisModal = usuarioEhLogisticaOuNoc();
+    document.getElementById('secao-confirmacao-cliente')?.classList.toggle('d-none', osVindaDaFila || !podeAcoesSensiveisModal);
+    document.getElementById('secao-espera-cliente')?.classList.toggle('d-none', osVindaDaFila || !podeAcoesSensiveisModal);
+    document.getElementById('secao-prioridade-logistica')?.classList.toggle('d-none', osVindaDaFila || !podeAcoesSensiveisModal);
     document.getElementById('secao-tags-os')?.classList.toggle('d-none', osVindaDaFila);
     document.getElementById('secao-acoes-visita')?.classList.remove('d-none');
+    document.getElementById('btn-action-fechar')?.classList.toggle('d-none', !podeAcoesSensiveisModal);
     document.getElementById('btn-cancelar-visita')?.classList.toggle('d-none', osVindaDaFila);
     document.getElementById('btn-abrir-reagendamento-visita')?.classList.remove('d-none');
 
@@ -1121,12 +1322,15 @@ async function abrirModalDetalhes(os) {
 
         document.getElementById('det-cliente-nome').textContent = data.cliente.razao || data.cliente.nome || 'Cliente não encontrado';
         document.getElementById('det-cliente-fone').textContent = montarContatosClienteLogistica(data.cliente);
+        const planoContratoId = data.contrato.id_plano_local || data.contrato.id_vd_contrato || data.contrato.id_plano || data.contrato.plano_id || data.contrato.plano || '';
+        const planoContratoNome = data.contrato.nome_plano_local || data.contrato.nome_plano || '';
+        const planoContratoLabel = planoContratoNome || (planoContratoId ? `Plano não localizado (${planoContratoId})` : '');
         const contratoLabel = [
             data.contrato.id ? `Contrato #${data.contrato.id}` : (data.contrato.contrato || 'Sem contrato'),
             `Status: ${traduzirStatusContratoLogistica(data.contrato.status)}`,
             `Acesso: ${traduzirStatusAcessoLogistica(data.contrato.status_internet || data.contrato.status_acesso)}`,
             `Bloqueio automático: ${simNaoLogistica(data.contrato.bloqueio_automatico)}`,
-            data.contrato.plano || data.contrato.nome_plano || data.contrato.id_vd_contrato ? `Plano: ${data.contrato.plano || data.contrato.nome_plano || data.contrato.id_vd_contrato}` : ''
+            planoContratoLabel ? `Plano: ${planoContratoLabel}` : ''
         ].filter(Boolean).join(' | ');
         document.getElementById('det-contrato').textContent = contratoLabel;
         
@@ -1424,7 +1628,7 @@ async function pararEsperaCliente() {
         const response = await fetch('/api/v5/painel-logistica/parar-espera-cliente', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id_local })
+            body: JSON.stringify({ id_local, usuario_logado: window.usuarioLogado })
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok || data.success === false) throw new Error(data.error || 'Erro ao parar espera.');
@@ -1654,8 +1858,7 @@ async function enviarReagendamento() {
         await atualizarInfoCapacidadeReagendamento();
     }
     if (window.capacidadeReagendamentoAtual && !window.capacidadeReagendamentoAtual.disponivel) {
-        const grupo = String(window.grupoUsuarioLogado || '').toUpperCase();
-        const podeForcarLotado = usuarioPodeEditar || grupo.includes('LOGISTICA') || grupo.includes('LOGÍSTICA') || grupo.includes('NOC') || grupo.includes('ADMIN');
+        const podeForcarLotado = usuarioEhLogisticaOuNoc();
         if (!podeForcarLotado) return showInfoModal('Este turno está sem vagas disponíveis. Apenas Logística/NOC pode confirmar mesmo assim.', 'Turno lotado', 'warning');
         const confirmarSemVaga = await showConfirmModal('Este turno está sem vagas disponíveis. Deseja reagendar mesmo assim?', 'Turno lotado', 'warning', 'Reagendar mesmo assim', 'Voltar');
         if (!confirmarSemVaga) return;
@@ -1688,7 +1891,7 @@ async function enviarReagendamento() {
         hideModalNativo('modalReagendarVisita');
         hideModalNativo('modalDetalhesOS');
         carregarAgenda(); 
-        if (usuarioPodeEditar) carregarFilaLogistica();
+        carregarFilaLogistica();
     } catch (e) {
         showInfoModal("Erro ao reagendar: " + e.message);
     } finally {
@@ -1732,7 +1935,7 @@ async function confirmarCancelarVisita() {
         todosAgendamentosGlobais = todosAgendamentosGlobais.filter(item => String(item.id) !== String(os.id));
         renderizarQuadro();
         carregarAgenda();
-        if (usuarioPodeEditar) carregarFilaLogistica();
+        carregarFilaLogistica();
     } catch (e) {
         showInfoModal('Erro ao cancelar visita: ' + e.message, 'Erro', 'danger');
     } finally {

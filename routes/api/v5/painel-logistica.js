@@ -13,6 +13,60 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const Express = require("express");
 const agendaService_1 = require("./agendaService");
 const router = Express.Router();
+const TURNOS_ESCALA_VALIDOS = new Set(['INTEGRAL', 'MATUTINO', 'VESPERTINO']);
+const REGIOES_ESCALA_VALIDAS = new Set(['TODAS', 'SERRA', 'VV_VIX_CCA']);
+const IMOVEIS_ESCALA_VALIDOS = new Set(['AMBOS', 'CASA', 'PREDIO']);
+function normalizarTextoEscala(valor, padrao) {
+    return String(valor || padrao)
+        .trim()
+        .toUpperCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+}
+function normalizarTextoOpcao(valor, padrao) {
+    return normalizarTextoEscala(valor, padrao)
+        .replace(/[\/\s-]+/g, '_')
+        .replace(/_+/g, '_');
+}
+function normalizarTurnoEscala(valor) {
+    const turno = normalizarTextoEscala(valor, 'INTEGRAL');
+    if (turno === 'MANHA')
+        return 'MATUTINO';
+    if (turno === 'TARDE')
+        return 'VESPERTINO';
+    return TURNOS_ESCALA_VALIDOS.has(turno) ? turno : 'INTEGRAL';
+}
+function normalizarRegiaoEscala(valor) {
+    const regiao = normalizarTextoOpcao(valor, 'SERRA');
+    if (regiao === 'VV_VIX_CAR')
+        return 'VV_VIX_CCA';
+    if (['VILA_VELHA', 'VITORIA', 'CARIACICA'].includes(regiao))
+        return 'VV_VIX_CCA';
+    if (regiao === 'VILA_VELHA_VITORIA_CARIACICA')
+        return 'VV_VIX_CCA';
+    return REGIOES_ESCALA_VALIDAS.has(regiao) ? regiao : 'SERRA';
+}
+function normalizarImovelEscala(valor) {
+    const imovel = normalizarTextoEscala(valor, 'AMBOS');
+    return IMOVEIS_ESCALA_VALIDOS.has(imovel) ? imovel : 'AMBOS';
+}
+function obterIdPlanoContrato(contrato) {
+    return String((contrato === null || contrato === void 0 ? void 0 : contrato.id_vd_contrato) ||
+        (contrato === null || contrato === void 0 ? void 0 : contrato.id_plano) ||
+        (contrato === null || contrato === void 0 ? void 0 : contrato.plano_id) ||
+        (contrato === null || contrato === void 0 ? void 0 : contrato.planId) ||
+        '').trim();
+}
+function aplicarPlanoLocalContrato(contrato) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const idPlano = obterIdPlanoContrato(contrato);
+        if (!/^\d+$/.test(idPlano))
+            return contrato;
+        const planos = yield agendaService_1.AgendaService.executeDb('SELECT planId, name, speed FROM plan WHERE planId = ? LIMIT 1', [idPlano]).catch(() => []);
+        const plano = planos === null || planos === void 0 ? void 0 : planos[0];
+        return Object.assign(Object.assign({}, contrato), { id_plano_local: idPlano, nome_plano_local: (plano === null || plano === void 0 ? void 0 : plano.name) || null, velocidade_plano: Number((plano === null || plano === void 0 ? void 0 : plano.speed) || 0) || null });
+    });
+}
 function formatarDataIxc(valor) {
     if (!valor) {
         return new Date().toLocaleDateString('pt-BR', {
@@ -52,6 +106,41 @@ function dataHoraSaoPaulo(date) {
     }).format(date);
     return partes.replace('T', ' ');
 }
+function normalizarGrupoPermissao(valor) {
+    return String(valor || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toUpperCase();
+}
+function usuarioEhLogisticaOuNoc(usuarioLogado, grupoAutenticado) {
+    var _a;
+    return __awaiter(this, void 0, void 0, function* () {
+        const grupoSessao = normalizarGrupoPermissao(grupoAutenticado);
+        if (grupoSessao) {
+            return grupoSessao.includes('LOGISTICA') || grupoSessao.includes('NOC');
+        }
+        if (!usuarioLogado || usuarioLogado === 'Visitante')
+            return false;
+        const rows = yield agendaService_1.AgendaService.executeDb(`SELECT grupo FROM usuarios_intranet WHERE ativo = 1 AND usuario = ? LIMIT 1`, [usuarioLogado]).catch(() => []);
+        const grupo = normalizarGrupoPermissao(((_a = rows === null || rows === void 0 ? void 0 : rows[0]) === null || _a === void 0 ? void 0 : _a.grupo) || '');
+        return grupo.includes('LOGISTICA') || grupo.includes('NOC');
+    });
+}
+function exigirLogisticaOuNoc(req, res) {
+    var _a, _b, _c, _d, _e, _f;
+    return __awaiter(this, void 0, void 0, function* () {
+        const reqAny = req;
+        const usuarioAutenticado = ((_a = reqAny.user) === null || _a === void 0 ? void 0 : _a.username) || ((_b = reqAny.session) === null || _b === void 0 ? void 0 : _b.username);
+        const grupoAutenticado = ((_c = reqAny.user) === null || _c === void 0 ? void 0 : _c.group) || ((_d = reqAny.session) === null || _d === void 0 ? void 0 : _d.group);
+        const usuarioLogado = (usuarioAutenticado || ((_e = req.body) === null || _e === void 0 ? void 0 : _e.usuario_logado) || ((_f = req.query) === null || _f === void 0 ? void 0 : _f.usuario_logado));
+        const permitido = yield usuarioEhLogisticaOuNoc(usuarioLogado, grupoAutenticado);
+        if (!permitido) {
+            res.status(403).json({ error: 'Ação permitida apenas para Logística ou NOC.' });
+            return false;
+        }
+        return true;
+    });
+}
 router.get('/agendamentos', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const data = req.query.data;
     const municipio = req.query.municipio;
@@ -83,7 +172,8 @@ router.get('/tecnicos', (req, res) => __awaiter(void 0, void 0, void 0, function
             SELECT u.id_funcionario_ixc as id, u.nome, e.equipe, e.dupla_id, e.regiao, e.turno_escala, e.tipo_imovel 
             FROM usuarios_intranet u
             INNER JOIN ivp_agenda_escala e ON u.id_funcionario_ixc = e.id_funcionario_ixc
-            WHERE u.ativo = 1 AND e.data_escala = ? ORDER BY u.nome ASC`;
+            WHERE u.ativo = 1 AND e.data_escala = ?
+            ORDER BY CASE WHEN e.dupla_id IS NULL OR e.dupla_id = '' THEN 1 ELSE 0 END, e.dupla_id, e.id, u.nome ASC`;
         const tecnicos = yield agendaService_1.AgendaService.executeDb(query, [req.query.data]);
         res.json(tecnicos);
     }
@@ -134,7 +224,15 @@ router.post('/salvar-configuracoes', (req, res) => __awaiter(void 0, void 0, voi
     try {
         yield agendaService_1.AgendaService.executeDb('DELETE FROM ivp_agenda_escala WHERE data_escala = ?', [data]);
         for (const tec of tecnicos) {
-            yield agendaService_1.AgendaService.executeDb('INSERT INTO ivp_agenda_escala (data_escala, id_funcionario_ixc, equipe, dupla_id, regiao, turno_escala, tipo_imovel) VALUES (?, ?, ?, ?, ?, ?, ?)', [data, tec.id, tec.equipe, tec.dupla_id || null, tec.regiao, tec.turno, tec.tipo_imovel]);
+            yield agendaService_1.AgendaService.executeDb('INSERT INTO ivp_agenda_escala (data_escala, id_funcionario_ixc, equipe, dupla_id, regiao, turno_escala, tipo_imovel) VALUES (?, ?, ?, ?, ?, ?, ?)', [
+                data,
+                tec.id,
+                tec.equipe,
+                tec.dupla_id || null,
+                normalizarRegiaoEscala(tec.regiao),
+                normalizarTurnoEscala(tec.turno_escala || tec.turno),
+                normalizarImovelEscala(tec.tipo_imovel)
+            ]);
         }
         if (capacidades) {
             yield agendaService_1.AgendaService.executeDb('DELETE FROM ivp_agenda_capacidade WHERE data = ?', [data]);
@@ -306,6 +404,8 @@ router.post('/cancelar-visita', (req, res) => __awaiter(void 0, void 0, void 0, 
 router.put('/fechar-os', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { ixc_os_id, mensagem_resposta, id_tarefa, id_processo, id_tarefa_atual, usuario_logado } = req.body;
     try {
+        if (!(yield exigirLogisticaOuNoc(req, res)))
+            return;
         const tecnicoFechamento = yield agendaService_1.AgendaService.obterIdFuncionarioIxc(usuario_logado);
         if (id_processo && id_tarefa) {
             const now = new Date();
@@ -355,6 +455,8 @@ router.post('/tratar-prioridade', (req, res) => __awaiter(void 0, void 0, void 0
     var _g, _h, _j;
     const { id_local, acao, ixc_os_id, usuario_logado } = req.body;
     try {
+        if (!(yield exigirLogisticaOuNoc(req, res)))
+            return;
         if (!id_local) {
             return res.status(400).json({ error: 'id_local Ã© obrigatÃ³rio.' });
         }
@@ -506,7 +608,8 @@ router.get('/os-detalhes/:id', (req, res) => __awaiter(void 0, void 0, void 0, f
         const cliente = clienteResp.registros ? clienteResp.registros[0] : {};
         const idContrato = (os.id_contrato_kit && os.id_contrato_kit !== '0') ? os.id_contrato_kit : os.id_contrato;
         const contratoResp = yield agendaService_1.AgendaService.makeIxcRequest('POST', '/cliente_contrato', { qtype: 'cliente_contrato.id', query: idContrato, oper: '=', rp: '1' });
-        const contrato = contratoResp.registros ? contratoResp.registros[0] : {};
+        let contrato = contratoResp.registros ? contratoResp.registros[0] : {};
+        contrato = yield aplicarPlanoLocalContrato(contrato);
         const localRows = yield agendaService_1.AgendaService.executeDb('SELECT * FROM ivp_agenda_os WHERE ixc_os_id = ? LIMIT 1', [req.params.id]).catch(() => []);
         const local = localRows && localRows.length > 0 ? localRows[0] : {};
         let login = null;
@@ -579,6 +682,8 @@ router.post('/contato-cliente', (req, res) => __awaiter(void 0, void 0, void 0, 
     var _k, _l;
     const { id_local, ixc_os_id, status_contato, mensagem, usuario_logado } = req.body;
     try {
+        if (!(yield exigirLogisticaOuNoc(req, res)))
+            return;
         if (!id_local || !ixc_os_id || !status_contato) {
             return res.status(400).json({ error: 'id_local, ixc_os_id e status_contato sÃ£o obrigatÃ³rios.' });
         }
@@ -599,6 +704,8 @@ router.post('/contato-cliente', (req, res) => __awaiter(void 0, void 0, void 0, 
 router.post('/aguardar-cliente', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id_local, ixc_os_id, minutos, usuario_logado } = req.body;
     try {
+        if (!(yield exigirLogisticaOuNoc(req, res)))
+            return;
         const minutosNum = Number(minutos);
         if (!id_local || !ixc_os_id || !minutosNum || minutosNum <= 0) {
             return res.status(400).json({ error: 'Informe OS, agendamento local e minutos de espera.' });
@@ -615,6 +722,8 @@ router.post('/aguardar-cliente', (req, res) => __awaiter(void 0, void 0, void 0,
 router.post('/parar-espera-cliente', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id_local } = req.body;
     try {
+        if (!(yield exigirLogisticaOuNoc(req, res)))
+            return;
         if (!id_local) {
             return res.status(400).json({ error: 'id_local Ã© obrigatÃ³rio.' });
         }
@@ -734,6 +843,8 @@ router.put('/os-tags/:idAgenda', (req, res) => __awaiter(void 0, void 0, void 0,
 router.post('/prioridade-logistica', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id_local, ixc_os_id, prioridade, usuario_logado } = req.body;
     try {
+        if (!(yield exigirLogisticaOuNoc(req, res)))
+            return;
         if (!id_local || String(id_local).startsWith('fila-')) {
             return res.status(400).json({ error: 'Agendamento local invÃ¡lido.' });
         }

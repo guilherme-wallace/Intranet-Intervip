@@ -434,12 +434,7 @@
                         </li>
                         <li class="nav-item" role="presentation">
                             <button class="nav-link fw-bold text-dark" id="capacidade-tab" data-bs-toggle="tab" data-bs-target="#capacidade-panel" type="button" role="tab">
-                                <i class="bi bi-speedometer2 me-1 text-success"></i> Capacidade Hoje
-                            </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link fw-bold text-dark" id="modelos-tab" data-bs-toggle="tab" data-bs-target="#modelos-panel" type="button" role="tab">
-                                <i class="bi bi-bookmark-star me-1 text-primary"></i> Modelos/Padrões
+                                <i class="bi bi-speedometer2 me-1 text-success"></i> Capacidade e Padrões
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
@@ -463,6 +458,13 @@
                                 </div>
                             </div>
                             <div id="resumo-tecnicos-selecionados" class="alert alert-primary small py-2 mb-3">Nenhum técnico individual selecionado.</div>
+                            <div class="d-none d-lg-flex px-2 py-1 mb-2 small fw-bold text-muted border-bottom">
+                                <div style="width: 240px;">Nome do Técnico</div>
+                                <div style="width: 100px;">Setor</div>
+                                <div style="width: 100px;">Município</div>
+                                <div style="width: 90px;">Turno</div>
+                                <div style="width: 90px;">Tipo de residência</div>
+                            </div>
                             <div id="lista-checkbox-tecnicos" class="row g-2" style="max-height: 420px; overflow-y: auto;"></div>
                         </div>
 
@@ -473,10 +475,21 @@
                                     <i class="bi bi-plus-lg me-1"></i>Criar Dupla
                                 </button>
                             </div>
+                            <div class="d-none d-lg-flex px-2 py-1 mb-2 small fw-bold text-muted border-bottom">
+                                <div style="width: 100px;">Setor</div>
+                                <div style="width: 100px;">Município</div>
+                                <div style="width: 90px;">Turno</div>
+                                <div style="width: 90px;">Tipo de residência</div>
+                                <div class="flex-grow-1">Técnico principal</div>
+                                <div class="flex-grow-1">Técnico auxiliar</div>
+                            </div>
                             <div id="container-duplas" class="mb-4"></div>
                         </div>
 
                         <div class="tab-pane fade" id="capacidade-panel" role="tabpanel">
+                            <div class="mb-3">
+                                <h6 class="fw-bold mb-1 text-dark">Capacidade do dia selecionado</h6>
+                            </div>
                             <div class="row g-4">
                                 <div class="col-md-6">
                                     <div class="card border-primary shadow-sm h-100">
@@ -485,20 +498,20 @@
                                             
                                             <h6 class="fw-bold text-dark border-bottom pb-1">Casas (Geral)</h6>
                                             <div class="row g-2 mb-3">
-                                                <div class="col-6"><label class="form-label text-muted mb-0">Manhã</label><input type="number" class="form-control form-control-sm" id="cap-casa-m" value="3"></div>
-                                                <div class="col-6"><label class="form-label text-muted mb-0">Tarde</label><input type="number" class="form-control form-control-sm" id="cap-casa-t" value="3"></div>
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Manhã - 08:00 as 12:00</label><input type="number" class="form-control form-control-sm" id="cap-casa-m" value="3"></div>
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Tarde - 12:00 as 17:00</label><input type="number" class="form-control form-control-sm" id="cap-casa-t" value="3"></div>
                                             </div>
 
                                             <h6 class="fw-bold text-dark border-bottom pb-1">Prédios - Serra</h6>
                                             <div class="row g-2 mb-3">
-                                                <div class="col-6"><label class="form-label text-muted mb-0">Manhã</label><input type="number" class="form-control form-control-sm" id="cap-predio-serra-m" value="5"></div>
-                                                <div class="col-6"><label class="form-label text-muted mb-0">Tarde</label><input type="number" class="form-control form-control-sm" id="cap-predio-serra-t" value="5"></div>
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Manhã - 08:00 as 12:00</label><input type="number" class="form-control form-control-sm" id="cap-predio-serra-m" value="5"></div>
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Tarde - 12:00 as 17:00</label><input type="number" class="form-control form-control-sm" id="cap-predio-serra-t" value="5"></div>
                                             </div>
 
                                             <h6 class="fw-bold text-dark border-bottom pb-1">Prédios - VV / VIX / CAR</h6>
                                             <div class="row g-2 mb-1">
-                                                <div class="col-6"><label class="form-label text-muted mb-0">Manhã</label><input type="number" class="form-control form-control-sm" id="cap-predio-outros-m" value="5"></div>
-                                                <div class="col-6"><label class="form-label text-muted mb-0">Tarde</label><input type="number" class="form-control form-control-sm" id="cap-predio-outros-t" value="3"></div>
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Manhã - 08:00 as 12:00</label><input type="number" class="form-control form-control-sm" id="cap-predio-outros-m" value="5"></div>
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Tarde - 12:00 as 17:00</label><input type="number" class="form-control form-control-sm" id="cap-predio-outros-t" value="3"></div>
                                             </div>
 
                                         </div>
@@ -512,43 +525,44 @@
                                             
                                             <h6 class="fw-bold text-dark border-bottom pb-1">Serra</h6>
                                             <div class="row g-2 mb-3">
-                                                <div class="col-6"><label class="form-label text-muted mb-0">Manhã</label><input type="number" class="form-control form-control-sm" id="cap-inst-serra-m" value="5"></div>
-                                                <div class="col-6"><label class="form-label text-muted mb-0">Tarde</label><input type="number" class="form-control form-control-sm" id="cap-inst-serra-t" value="5"></div>
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Manhã - 08:00 as 12:00</label><input type="number" class="form-control form-control-sm" id="cap-inst-serra-m" value="5"></div>
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Tarde - 12:00 as 17:00</label><input type="number" class="form-control form-control-sm" id="cap-inst-serra-t" value="5"></div>
                                             </div>
 
                                             <h6 class="fw-bold text-dark border-bottom pb-1">VV / VIX / CAR</h6>
                                             <div class="row g-2 mb-1">
-                                                <div class="col-6"><label class="form-label text-muted mb-0">Manhã</label><input type="number" class="form-control form-control-sm" id="cap-inst-outros-m" value="3"></div>
-                                                <div class="col-6"><label class="form-label text-muted mb-0">Tarde</label><input type="number" class="form-control form-control-sm" id="cap-inst-outros-t" value="2"></div>
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Manhã - 08:00 as 12:00</label><input type="number" class="form-control form-control-sm" id="cap-inst-outros-m" value="3"></div>
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Tarde - 12:00 as 17:00</label><input type="number" class="form-control form-control-sm" id="cap-inst-outros-t" value="2"></div>
                                             </div>
 
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div class="tab-pane fade" id="modelos-panel" role="tabpanel">
-                            <div class="row mb-4 bg-white p-3 border rounded shadow-sm align-items-center">
-                                <div class="col-md-8">
-                                    <label class="form-label fw-bold text-primary mb-1"><i class="bi bi-bookmark-star-fill me-2"></i>Carregar Modelo de Escala</label>
-                                    <select class="form-select border-primary" id="select-template-capacidade">
-                                        <option value="">Selecione um modelo salvo...</option>
+                            <div class="mt-4 border rounded p-3 bg-light">
+                                <h6 class="fw-bold text-dark mb-1">Aplicar modelo de capacidade</h6>
+                                <div class="row g-3 align-items-end">
+                                    <div class="col-lg-6">
+                                        <label class="form-label fw-bold text-primary mb-1"><i class="bi bi-bookmark-star-fill me-2"></i>Modelo salvo</label>
+                                        <select class="form-select border-primary" id="select-template-capacidade">
+                                            <option value="">Selecione um modelo salvo...</option>
                                         </select>
-                                </div>
-                                <div class="col-md-5 text-end mt-3 mt-md-0 d-flex gap-2 justify-content-end">
-                                    <button type="button" class="btn btn-outline-success fw-bold shadow-sm" id="btn-salvar-novo-template">
-                                        <i class="bi bi-plus-circle me-1"></i>Salvar Novo Modelo
-                                    </button>
-                                    <button type="button" class="btn btn-outline-primary fw-bold shadow-sm" id="btn-aplicar-template">
-                                        <i class="bi bi-check2-square me-1"></i>Aplicar Modelo
-                                    </button>
-                                    <button type="button" class="btn btn-outline-secondary fw-bold shadow-sm" id="btn-editar-template">
-                                        <i class="bi bi-pencil-square me-1"></i>Editar
-                                    </button>
-                                    <button type="button" class="btn btn-outline-danger fw-bold shadow-sm" id="btn-excluir-template">
-                                        <i class="bi bi-trash me-1"></i>Excluir
-                                    </button>
+                                    </div>
+                                    <div class="col-lg-6 d-flex flex-wrap gap-2">
+                                        <button type="button" class="btn btn-outline-primary fw-bold shadow-sm" id="btn-aplicar-template">
+                                            <i class="bi bi-check2-square me-1"></i>Aplicar Modelo
+                                        </button>
+                                        <button type="button" class="btn btn-outline-success fw-bold shadow-sm" id="btn-salvar-novo-template">
+                                            <i class="bi bi-plus-circle me-1"></i>Criar novo modelo
+                                        </button>
+                                        <button type="button" class="btn btn-outline-secondary fw-bold shadow-sm" id="btn-editar-template">
+                                            <i class="bi bi-pencil-square me-1"></i>Editar modelo
+                                        </button>
+                                        <button type="button" class="btn btn-outline-danger fw-bold shadow-sm" id="btn-excluir-template">
+                                            <i class="bi bi-trash me-1"></i>Excluir modelo
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -577,7 +591,7 @@
                                             <label class="form-check-label small fw-bold" for="tag-logistica-ativo">Ativa</label>
                                         </div>
                                         <div class="d-grid gap-2">
-                                            <button class="btn btn-sm btn-primary fw-bold" id="btn-salvar-tag-logistica">Salvar tag</button>
+                                            <button class="btn btn-sm btn-primary fw-bold" id="btn-salvar-tag-logistica">Criar nova Tag</button>
                                             <button class="btn btn-sm btn-outline-secondary" id="btn-limpar-form-tag">Limpar</button>
                                         </div>
                                     </div>

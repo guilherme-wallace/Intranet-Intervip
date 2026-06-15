@@ -4,6 +4,72 @@ import { AgendaService } from './agendaService';
 
 const router = Express.Router();
 
+const TURNOS_ESCALA_VALIDOS = new Set(['INTEGRAL', 'MATUTINO', 'VESPERTINO']);
+const REGIOES_ESCALA_VALIDAS = new Set(['TODAS', 'SERRA', 'VV_VIX_CCA']);
+const IMOVEIS_ESCALA_VALIDOS = new Set(['AMBOS', 'CASA', 'PREDIO']);
+
+function normalizarTextoEscala(valor: any, padrao: string): string {
+    return String(valor || padrao)
+        .trim()
+        .toUpperCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+}
+
+function normalizarTextoOpcao(valor: any, padrao: string): string {
+    return normalizarTextoEscala(valor, padrao)
+        .replace(/[\/\s-]+/g, '_')
+        .replace(/_+/g, '_');
+}
+
+function normalizarTurnoEscala(valor: any): string {
+    const turno = normalizarTextoEscala(valor, 'INTEGRAL');
+    if (turno === 'MANHA') return 'MATUTINO';
+    if (turno === 'TARDE') return 'VESPERTINO';
+    return TURNOS_ESCALA_VALIDOS.has(turno) ? turno : 'INTEGRAL';
+}
+
+function normalizarRegiaoEscala(valor: any): string {
+    const regiao = normalizarTextoOpcao(valor, 'SERRA');
+    if (regiao === 'VV_VIX_CAR') return 'VV_VIX_CCA';
+    if (['VILA_VELHA', 'VITORIA', 'CARIACICA'].includes(regiao)) return 'VV_VIX_CCA';
+    if (regiao === 'VILA_VELHA_VITORIA_CARIACICA') return 'VV_VIX_CCA';
+    return REGIOES_ESCALA_VALIDAS.has(regiao) ? regiao : 'SERRA';
+}
+
+function normalizarImovelEscala(valor: any): string {
+    const imovel = normalizarTextoEscala(valor, 'AMBOS');
+    return IMOVEIS_ESCALA_VALIDOS.has(imovel) ? imovel : 'AMBOS';
+}
+
+function obterIdPlanoContrato(contrato: any): string {
+    return String(
+        contrato?.id_vd_contrato ||
+        contrato?.id_plano ||
+        contrato?.plano_id ||
+        contrato?.planId ||
+        ''
+    ).trim();
+}
+
+async function aplicarPlanoLocalContrato(contrato: any): Promise<any> {
+    const idPlano = obterIdPlanoContrato(contrato);
+    if (!/^\d+$/.test(idPlano)) return contrato;
+
+    const planos = await AgendaService.executeDb(
+        'SELECT planId, name, speed FROM plan WHERE planId = ? LIMIT 1',
+        [idPlano]
+    ).catch(() => []);
+
+    const plano = planos?.[0];
+    return {
+        ...contrato,
+        id_plano_local: idPlano,
+        nome_plano_local: plano?.name || null,
+        velocidade_plano: Number(plano?.speed || 0) || null
+    };
+}
+
 function formatarDataIxc(valor: any): string {
     if (!valor) {
         return new Date().toLocaleDateString('pt-BR', {
@@ -52,6 +118,43 @@ function dataHoraSaoPaulo(date: Date): string {
     return partes.replace('T', ' ');
 }
 
+function normalizarGrupoPermissao(valor: any): string {
+    return String(valor || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toUpperCase();
+}
+
+async function usuarioEhLogisticaOuNoc(usuarioLogado?: string, grupoAutenticado?: string): Promise<boolean> {
+    const grupoSessao = normalizarGrupoPermissao(grupoAutenticado);
+    if (grupoSessao) {
+        return grupoSessao.includes('LOGISTICA') || grupoSessao.includes('NOC');
+    }
+
+    if (!usuarioLogado || usuarioLogado === 'Visitante') return false;
+
+    const rows = await AgendaService.executeDb(
+        `SELECT grupo FROM usuarios_intranet WHERE ativo = 1 AND usuario = ? LIMIT 1`,
+        [usuarioLogado]
+    ).catch(() => []);
+
+    const grupo = normalizarGrupoPermissao(rows?.[0]?.grupo || '');
+    return grupo.includes('LOGISTICA') || grupo.includes('NOC');
+}
+
+async function exigirLogisticaOuNoc(req: Express.Request, res: Express.Response): Promise<boolean> {
+    const reqAny = req as any;
+    const usuarioAutenticado = reqAny.user?.username || reqAny.session?.username;
+    const grupoAutenticado = reqAny.user?.group || reqAny.session?.group;
+    const usuarioLogado = (usuarioAutenticado || req.body?.usuario_logado || req.query?.usuario_logado) as string | undefined;
+    const permitido = await usuarioEhLogisticaOuNoc(usuarioLogado, grupoAutenticado);
+    if (!permitido) {
+        res.status(403).json({ error: 'Ação permitida apenas para Logística ou NOC.' });
+        return false;
+    }
+    return true;
+}
+
 router.get('/agendamentos', async (req, res) => {
     const data = req.query.data as string;
     const municipio = req.query.municipio as string;
@@ -85,7 +188,8 @@ router.get('/tecnicos', async (req, res) => {
             SELECT u.id_funcionario_ixc as id, u.nome, e.equipe, e.dupla_id, e.regiao, e.turno_escala, e.tipo_imovel 
             FROM usuarios_intranet u
             INNER JOIN ivp_agenda_escala e ON u.id_funcionario_ixc = e.id_funcionario_ixc
-            WHERE u.ativo = 1 AND e.data_escala = ? ORDER BY u.nome ASC`;
+            WHERE u.ativo = 1 AND e.data_escala = ?
+            ORDER BY CASE WHEN e.dupla_id IS NULL OR e.dupla_id = '' THEN 1 ELSE 0 END, e.dupla_id, e.id, u.nome ASC`;
         const tecnicos = await AgendaService.executeDb(query, [req.query.data]);
         res.json(tecnicos);
     } catch (error: any) { res.status(500).json({ error: error.message }); }
@@ -131,7 +235,15 @@ router.post('/salvar-configuracoes', async (req, res) => {
         for (const tec of tecnicos) {
             await AgendaService.executeDb(
                 'INSERT INTO ivp_agenda_escala (data_escala, id_funcionario_ixc, equipe, dupla_id, regiao, turno_escala, tipo_imovel) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                [data, tec.id, tec.equipe, tec.dupla_id || null, tec.regiao, tec.turno, tec.tipo_imovel]
+                [
+                    data,
+                    tec.id,
+                    tec.equipe,
+                    tec.dupla_id || null,
+                    normalizarRegiaoEscala(tec.regiao),
+                    normalizarTurnoEscala(tec.turno_escala || tec.turno),
+                    normalizarImovelEscala(tec.tipo_imovel)
+                ]
             );
         }
         if (capacidades) {
@@ -335,6 +447,7 @@ router.post('/cancelar-visita', async (req, res) => {
 router.put('/fechar-os', async (req, res) => {
     const { ixc_os_id, mensagem_resposta, id_tarefa, id_processo, id_tarefa_atual, usuario_logado } = req.body;
     try {
+        if (!(await exigirLogisticaOuNoc(req, res))) return;
         const tecnicoFechamento = await AgendaService.obterIdFuncionarioIxc(usuario_logado);
 
         if (id_processo && id_tarefa) {
@@ -390,6 +503,7 @@ router.post('/tratar-prioridade', async (req, res) => {
     const { id_local, acao, ixc_os_id, usuario_logado } = req.body;
 
     try {
+        if (!(await exigirLogisticaOuNoc(req, res))) return;
         if (!id_local) {
             return res.status(400).json({ error: 'id_local Ã© obrigatÃ³rio.' });
         }
@@ -570,7 +684,8 @@ router.get('/os-detalhes/:id', async (req, res) => {
 
         const idContrato = (os.id_contrato_kit && os.id_contrato_kit !== '0') ? os.id_contrato_kit : os.id_contrato;
         const contratoResp = await AgendaService.makeIxcRequest('POST', '/cliente_contrato', { qtype: 'cliente_contrato.id', query: idContrato, oper: '=', rp: '1' });
-        const contrato = contratoResp.registros ? contratoResp.registros[0] : {};
+        let contrato = contratoResp.registros ? contratoResp.registros[0] : {};
+        contrato = await aplicarPlanoLocalContrato(contrato);
 
         const localRows = await AgendaService.executeDb('SELECT * FROM ivp_agenda_os WHERE ixc_os_id = ? LIMIT 1', [req.params.id]).catch(() => []);
         const local = localRows && localRows.length > 0 ? localRows[0] : {};
@@ -656,6 +771,7 @@ router.post('/contato-cliente', async (req, res) => {
     const { id_local, ixc_os_id, status_contato, mensagem, usuario_logado } = req.body;
 
     try {
+        if (!(await exigirLogisticaOuNoc(req, res))) return;
         if (!id_local || !ixc_os_id || !status_contato) {
             return res.status(400).json({ error: 'id_local, ixc_os_id e status_contato sÃ£o obrigatÃ³rios.' });
         }
@@ -692,6 +808,7 @@ router.post('/aguardar-cliente', async (req, res) => {
     const { id_local, ixc_os_id, minutos, usuario_logado } = req.body;
 
     try {
+        if (!(await exigirLogisticaOuNoc(req, res))) return;
         const minutosNum = Number(minutos);
         if (!id_local || !ixc_os_id || !minutosNum || minutosNum <= 0) {
             return res.status(400).json({ error: 'Informe OS, agendamento local e minutos de espera.' });
@@ -721,6 +838,7 @@ router.post('/parar-espera-cliente', async (req, res) => {
     const { id_local } = req.body;
 
     try {
+        if (!(await exigirLogisticaOuNoc(req, res))) return;
         if (!id_local) {
             return res.status(400).json({ error: 'id_local Ã© obrigatÃ³rio.' });
         }
@@ -876,6 +994,7 @@ router.put('/os-tags/:idAgenda', async (req, res) => {
 router.post('/prioridade-logistica', async (req, res) => {
     const { id_local, ixc_os_id, prioridade, usuario_logado } = req.body;
     try {
+        if (!(await exigirLogisticaOuNoc(req, res))) return;
         if (!id_local || String(id_local).startsWith('fila-')) {
             return res.status(400).json({ error: 'Agendamento local invÃ¡lido.' });
         }
