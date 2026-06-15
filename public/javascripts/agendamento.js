@@ -159,6 +159,8 @@ async function carregarDadosOS(id_ticket, origem) {
         document.getElementById('os-tipo-imovel').textContent = data.tipo_imovel;
 
         document.getElementById('hidden-os-id').value = data.id_ticket;
+        document.getElementById('form-agendamento').dataset.osId = data.id_os || data.id_ticket;
+        document.getElementById('form-agendamento').dataset.ticketId = data.id_atendimento || data.id_ticket;
         document.getElementById('hidden-municipio').value = municipioBase;
         document.getElementById('hidden-tipo-servico').value = data.tipo_servico;
         
@@ -351,6 +353,7 @@ async function confirmarAgendamento(event) {
 
     const payload = {
         id_ticket: document.getElementById('hidden-os-id').value,
+        id_os: document.getElementById('form-agendamento').dataset.osId || '',
         cliente_id: document.getElementById('form-agendamento').dataset.clienteId,
         contrato_id: document.getElementById('form-agendamento').dataset.contratoId,
         municipio: document.getElementById('hidden-municipio').value,

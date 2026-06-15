@@ -244,29 +244,46 @@ router.get('/detalhes-os/:id_ticket', (req, res) => __awaiter(void 0, void 0, vo
         let ticket = null;
         let idCliente = null;
         let idContrato = null;
-        const ticketResp = yield makeIxcRequest('POST', '/su_ticket', {
-            qtype: 'su_ticket.id', query: id_ticket, oper: '=', rp: '1'
-        });
-        if (ticketResp.registros && ticketResp.registros.length > 0) {
-            ticket = ticketResp.registros[0];
-            const osResp = yield makeIxcRequest('POST', '/su_oss_chamado', {
-                qtype: 'su_oss_chamado.id_ticket', query: id_ticket, oper: '=', rp: '10',
-                sortname: 'su_oss_chamado.id', sortorder: 'desc'
-            });
-            if (osResp.registros && osResp.registros.length > 0)
-                osAberta = osResp.registros[0];
-        }
-        else {
-            const osResp = yield makeIxcRequest('POST', '/su_oss_chamado', {
+        const origemNormalizada = String(origem || '').toLowerCase();
+        const origemCadastroBandaLarga = ['cadastro-bandalarga', 'cadastro-banda-larga'].includes(origemNormalizada);
+        if (origemCadastroBandaLarga) {
+            const osDiretaResp = yield makeIxcRequest('POST', '/su_oss_chamado', {
                 qtype: 'su_oss_chamado.id', query: id_ticket, oper: '=', rp: '1'
             });
-            if (osResp.registros && osResp.registros.length > 0) {
-                osAberta = osResp.registros[0];
+            if (osDiretaResp.registros && osDiretaResp.registros.length > 0) {
+                osAberta = osDiretaResp.registros[0];
                 const tResp = yield makeIxcRequest('POST', '/su_ticket', {
                     qtype: 'su_ticket.id', query: osAberta.id_ticket, oper: '=', rp: '1'
                 });
                 if (tResp.registros && tResp.registros.length > 0)
                     ticket = tResp.registros[0];
+            }
+        }
+        if (!osAberta) {
+            const ticketResp = yield makeIxcRequest('POST', '/su_ticket', {
+                qtype: 'su_ticket.id', query: id_ticket, oper: '=', rp: '1'
+            });
+            if (ticketResp.registros && ticketResp.registros.length > 0) {
+                ticket = ticketResp.registros[0];
+                const osResp = yield makeIxcRequest('POST', '/su_oss_chamado', {
+                    qtype: 'su_oss_chamado.id_ticket', query: id_ticket, oper: '=', rp: '10',
+                    sortname: 'su_oss_chamado.id', sortorder: 'desc'
+                });
+                if (osResp.registros && osResp.registros.length > 0)
+                    osAberta = osResp.registros[0];
+            }
+            else {
+                const osResp = yield makeIxcRequest('POST', '/su_oss_chamado', {
+                    qtype: 'su_oss_chamado.id', query: id_ticket, oper: '=', rp: '1'
+                });
+                if (osResp.registros && osResp.registros.length > 0) {
+                    osAberta = osResp.registros[0];
+                    const tResp = yield makeIxcRequest('POST', '/su_ticket', {
+                        qtype: 'su_ticket.id', query: osAberta.id_ticket, oper: '=', rp: '1'
+                    });
+                    if (tResp.registros && tResp.registros.length > 0)
+                        ticket = tResp.registros[0];
+                }
             }
         }
         if (!osAberta && !ticket) {
@@ -346,14 +363,17 @@ router.get('/detalhes-os/:id_ticket', (req, res) => __awaiter(void 0, void 0, vo
             endCompleto += ` | Apto: ${apartamento}`;
         if (nomeCondominio)
             endCompleto += ` | Cond: ${nomeCondominio}`;
-        const tipoServico = origem === 'venda' ? 'INSTALAÇÃO' : 'SUPORTE TÉCNICO';
+        const origemInstalacao = ['venda', 'cadastro-bandalarga', 'cadastro-banda-larga'].includes(origemNormalizada);
+        const tipoServico = origemInstalacao ? 'INSTALAÇÃO' : 'SUPORTE TÉCNICO';
         let mensagem = 'Sem descrição.';
         if (osAberta && osAberta.mensagem)
             mensagem = osAberta.mensagem;
         else if (ticket && ticket.menssagem)
             mensagem = ticket.menssagem;
         res.json({
-            id_ticket: osAberta ? osAberta.id : (ticket ? ticket.id : id_ticket),
+            id_ticket: (ticket === null || ticket === void 0 ? void 0 : ticket.id) || (osAberta === null || osAberta === void 0 ? void 0 : osAberta.id_ticket) || id_ticket,
+            id_os: (osAberta === null || osAberta === void 0 ? void 0 : osAberta.id) || null,
+            id_atendimento: (ticket === null || ticket === void 0 ? void 0 : ticket.id) || (osAberta === null || osAberta === void 0 ? void 0 : osAberta.id_ticket) || null,
             cliente_id: cliente.id,
             contrato_id: idContrato || 0,
             nome: cliente.razao,
@@ -368,9 +388,30 @@ router.get('/detalhes-os/:id_ticket', (req, res) => __awaiter(void 0, void 0, vo
         res.status(500).json({ error: error.message });
     }
 }));
+router.get('/os-por-ticket/:id_ticket', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id_ticket } = req.params;
+    try {
+        const osResp = yield makeIxcRequest('POST', '/su_oss_chamado', {
+            qtype: 'su_oss_chamado.id_ticket',
+            query: id_ticket,
+            oper: '=',
+            rp: '20',
+            sortname: 'su_oss_chamado.id',
+            sortorder: 'desc'
+        });
+        const osAberta = (osResp.registros || []).find((os) => !['F', 'C'].includes(String(os.status || '').toUpperCase()));
+        if (!osAberta) {
+            return res.status(404).json({ error: 'Chamado criado, mas não foi possível localizar a OS para agendamento.' });
+        }
+        res.json({ success: true, osId: osAberta.id, ticketId: osAberta.id_ticket || id_ticket });
+    }
+    catch (error) {
+        res.status(500).json({ error: error.message || 'Erro ao localizar OS para agendamento.' });
+    }
+}));
 router.post('/confirmar', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _b;
-    const { id_ticket, cliente_id, contrato_id, municipio, tipo_servico, tipo_imovel, data_agendamento, turno, aceita_encaixe, usuario_logado, tag_ids, reagendar_existente, abrir_chamado_duvida, modo_reagendamento } = req.body;
+    const { id_ticket, id_os, cliente_id, contrato_id, municipio, tipo_servico, tipo_imovel, data_agendamento, turno, aceita_encaixe, usuario_logado, tag_ids, reagendar_existente, abrir_chamado_duvida, modo_reagendamento } = req.body;
     const preferenciaHorarioTipo = String(req.body.preferencia_horario_tipo || 'SEM_PREFERENCIA').toUpperCase();
     const preferenciaHorarioInicio = String(req.body.preferencia_horario_inicio || '').substring(0, 5);
     const preferenciaHorarioFim = String(req.body.preferencia_horario_fim || '').substring(0, 5);
@@ -386,23 +427,34 @@ router.post('/confirmar', (req, res) => __awaiter(void 0, void 0, void 0, functi
         if (String(tipo_servico).toUpperCase().includes('INSTALA')) {
             tipoServicoDb = 'INSTALACAO';
         }
-        let ixc_os_id = id_ticket;
+        let ixc_os_id = id_os || id_ticket;
         let osData = {};
-        const osResp = yield makeIxcRequest('POST', '/su_oss_chamado', {
-            qtype: 'su_oss_chamado.id_ticket', query: id_ticket, oper: '=', rp: '10',
-            sortname: 'su_oss_chamado.id', sortorder: 'desc'
-        });
-        if (osResp.registros && osResp.registros.length > 0) {
-            osData = osResp.registros[0];
-            ixc_os_id = osData.id;
-        }
-        else {
-            const osResp2 = yield makeIxcRequest('POST', '/su_oss_chamado', {
-                qtype: 'su_oss_chamado.id', query: id_ticket, oper: '=', rp: '1'
+        if (id_os) {
+            const osRespDireta = yield makeIxcRequest('POST', '/su_oss_chamado', {
+                qtype: 'su_oss_chamado.id', query: id_os, oper: '=', rp: '1'
             });
-            if (osResp2.registros && osResp2.registros.length > 0) {
-                osData = osResp2.registros[0];
+            if (osRespDireta.registros && osRespDireta.registros.length > 0) {
+                osData = osRespDireta.registros[0];
                 ixc_os_id = osData.id;
+            }
+        }
+        if (!osData || !osData.id) {
+            const osResp = yield makeIxcRequest('POST', '/su_oss_chamado', {
+                qtype: 'su_oss_chamado.id_ticket', query: id_ticket, oper: '=', rp: '10',
+                sortname: 'su_oss_chamado.id', sortorder: 'desc'
+            });
+            if (osResp.registros && osResp.registros.length > 0) {
+                osData = osResp.registros[0];
+                ixc_os_id = osData.id;
+            }
+            else {
+                const osResp2 = yield makeIxcRequest('POST', '/su_oss_chamado', {
+                    qtype: 'su_oss_chamado.id', query: id_ticket, oper: '=', rp: '1'
+                });
+                if (osResp2.registros && osResp2.registros.length > 0) {
+                    osData = osResp2.registros[0];
+                    ixc_os_id = osData.id;
+                }
             }
         }
         if (!osData || !osData.id) {
