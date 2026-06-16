@@ -187,23 +187,44 @@ class AgendaService {
         });
     }
     static registrarMensagemOs(ixcOsId, mensagem, usuarioLogado, contexto = 'IXC Mensagem') {
-        var _a;
+        return __awaiter(this, void 0, void 0, function* () {
+            return this.registrarMensagemSimplesOs(ixcOsId, mensagem, usuarioLogado, contexto);
+        });
+    }
+    static registrarMensagemSimplesOs(ixcOsId, mensagem, usuarioLogado, contexto = 'Mensagem Simples') {
+        var _a, _b;
         return __awaiter(this, void 0, void 0, function* () {
             const dataInteracao = this.dataHoraAtualSaoPaulo();
             const osAtual = yield this.obterOsIxc(ixcOsId);
             const usuarioIxc = yield this.obterUsuarioIxcLogado(usuarioLogado);
             const idColaboradorIxc = usuarioIxc.id_funcionario_ixc;
-            const candidatosEvento = [
-                osAtual.id_evento,
-                osAtual.id_evento_status,
-                osAtual.id_wfl_tarefa,
-                osAtual.id_tarefa_atual,
-                osAtual.id_tarefa
-            ].map(v => String(v || '').trim()).filter(v => v && v !== '0');
-            const idEvento = candidatosEvento[0];
-            const idEventoStatus = String(osAtual.id_evento_status || idEvento || '').trim();
-            if (!idEvento) {
-                console.error(`[IXC Mensagem Debug][${contexto}] OS sem evento valido para registrar mensagem:`, {
+            if (String(idColaboradorIxc) === '138') {
+                throw new Error('Não foi possível identificar o colaborador IXC do usuário logado para registrar a mensagem.');
+            }
+            const eventoPadraoMensagem = '7';
+            const eventoFallbackMensagem = '9';
+            const origemIdEvento = 'evento padrao de mensagem simples: 7 - Em Analise';
+            const origemIdEventoStatus = 'evento padrao de mensagem simples: 7 - Em Analise';
+            const statusAtual = String(osAtual.status || osAtual.status_os || osAtual.su_status || '').trim();
+            const debugOsAtual = {
+                id: osAtual.id,
+                status: osAtual.status,
+                id_evento: osAtual.id_evento,
+                id_evento_status: osAtual.id_evento_status,
+                id_wfl_tarefa: osAtual.id_wfl_tarefa,
+                id_wfl_processo: osAtual.id_wfl_processo,
+                id_equipe: osAtual.id_equipe,
+                id_tecnico: osAtual.id_tecnico,
+                id_setor: osAtual.id_setor,
+                setor: osAtual.setor,
+                id_assunto: osAtual.id_assunto,
+                id_filial: osAtual.id_filial,
+                id_tarefa_atual: osAtual.id_tarefa_atual,
+                id_tarefa: osAtual.id_tarefa
+            };
+            console.log(`[IXC Mensagem Simples][DEBUG OS Atual][${contexto}]`, debugOsAtual);
+            if (!statusAtual) {
+                console.error(`[IXC Mensagem Simples][${contexto}] OS sem evento/status válido para registrar mensagem:`, {
                     os: ixcOsId,
                     status: osAtual.status,
                     id_evento: osAtual.id_evento,
@@ -213,48 +234,53 @@ class AgendaService {
                     id_tarefa_atual: osAtual.id_tarefa_atual,
                     id_tarefa: osAtual.id_tarefa
                 });
-                throw new Error('Nao foi possivel registrar a mensagem no IXC: a OS nao retornou evento/tarefa atual valido.');
+                throw new Error('Não foi possível registrar a mensagem no IXC: a OS não retornou status/evento atual válido.');
             }
-            const payload = {
+            const montarPayload = (idEventoMensagem) => ({
                 id_chamado: String(ixcOsId),
-                id_evento: String(idEvento),
+                id_evento: idEventoMensagem,
                 id_resposta: '',
                 mensagem,
                 data_inicio: dataInteracao,
                 data_final: dataInteracao,
-                // Neste endpoint do IXC, id_tecnico representa o autor do registro/mensagem.
                 id_tecnico: idColaboradorIxc,
-                status: osAtual.status || '',
-                tipo_cobranca: osAtual.tipo_cobranca || '',
-                id_evento_status: idEventoStatus,
+                status: statusAtual,
+                tipo_cobranca: '',
+                id_evento_status: idEventoMensagem,
                 data: dataInteracao,
                 id_equipe: osAtual.id_equipe || '',
-                id_proxima_tarefa: osAtual.id_proxima_tarefa || '',
+                id_proxima_tarefa: '',
                 finaliza_processo: '',
                 latitude: '',
                 longitude: '',
                 gps_time: ''
-            };
-            /* console.log(`[IXC Mensagem Debug][${contexto}] OS: ${ixcOsId} | usuario_logado: ${usuarioLogado || 'N/A'} | id_funcionario_ixc: ${idColaboradorIxc}`);
-            console.log(`[IXC Mensagem Debug][${contexto}] Campos OS:`, {
-                status: osAtual.status,
-                id_evento: osAtual.id_evento,
-                id_evento_status: osAtual.id_evento_status,
-                id_wfl_tarefa: osAtual.id_wfl_tarefa,
-                id_wfl_processo: osAtual.id_wfl_processo,
-                id_equipe: osAtual.id_equipe,
-                id_tecnico: osAtual.id_tecnico
             });
-            console.log(`[IXC Mensagem Debug][${contexto}] Payload:`, { ...payload, mensagem: String(payload.mensagem || '').substring(0, 300) }); */
+            console.log(`[IXC Mensagem Simples][${contexto}] OS ID: ${ixcOsId} | usuario_logado: ${usuarioLogado || 'N/A'} | id_funcionario_ixc: ${idColaboradorIxc} | status: ${statusAtual} | origem_id_evento: ${origemIdEvento} | origem_id_evento_status: ${origemIdEventoStatus}`);
+            console.log(`[IXC Mensagem Simples][${contexto}] evento mensagem simples escolhido: ${eventoPadraoMensagem} - Em Analise`);
             try {
+                const payload = montarPayload(eventoPadraoMensagem);
+                console.log(`[IXC Mensagem Simples][${contexto}] Payload final:`, Object.assign(Object.assign({}, payload), { mensagem: String(payload.mensagem || '').substring(0, 300) }));
                 const resp = yield this.makeIxcRequest('POST', '/su_oss_chamado_mensagem', payload, 'incluir');
-                //console.log(`[IXC Mensagem Debug][${contexto}] Resposta IXC:`, resp);
+                console.log(`[IXC Mensagem Simples][${contexto}] Resposta IXC:`, resp);
                 this.validarRespostaIxc(resp, 'IXC recusou o registro da mensagem da OS.');
-                return { resp, osAtual, dataInteracao, idColaboradorIxc };
+                return { resp, osAtual, dataInteracao, idColaboradorIxc, idEventoMensagem: eventoPadraoMensagem };
             }
             catch (error) {
-                console.error(`[IXC Mensagem Debug][${contexto}] Erro IXC completo:`, ((_a = error.response) === null || _a === void 0 ? void 0 : _a.data) || error.message);
-                throw error;
+                console.error(`[IXC Mensagem Simples][${contexto}] Erro IXC completo:`, ((_a = error.response) === null || _a === void 0 ? void 0 : _a.data) || error.message);
+                console.warn('[IXC Mensagem Simples] Evento 7 recusado, tentando evento 9');
+                try {
+                    const payloadFallback = montarPayload(eventoFallbackMensagem);
+                    console.log(`[IXC Mensagem Simples][${contexto}] Payload final fallback evento 9:`, Object.assign(Object.assign({}, payloadFallback), { mensagem: String(payloadFallback.mensagem || '').substring(0, 300) }));
+                    const respFallback = yield this.makeIxcRequest('POST', '/su_oss_chamado_mensagem', payloadFallback, 'incluir');
+                    console.log(`[IXC Mensagem Simples][${contexto}] Resposta IXC fallback evento 9:`, respFallback);
+                    this.validarRespostaIxc(respFallback, 'IXC recusou o registro da mensagem da OS com evento 9.');
+                    console.log('[IXC Mensagem Simples] Evento 9 aceito');
+                    return { resp: respFallback, osAtual, dataInteracao, idColaboradorIxc, idEventoMensagem: eventoFallbackMensagem };
+                }
+                catch (fallbackError) {
+                    console.error(`[IXC Mensagem Simples][${contexto}] Erro IXC fallback evento 9 completo:`, ((_b = fallbackError.response) === null || _b === void 0 ? void 0 : _b.data) || fallbackError.message);
+                    throw fallbackError;
+                }
             }
         });
     }
