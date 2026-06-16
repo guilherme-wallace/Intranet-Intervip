@@ -460,7 +460,7 @@ function criarCardOS(os) {
     else if (contatoStatus === 'SEM_CONTATO') badgesHtml += `<span class="asana-badge bg-secondary text-white"><i class="bi bi-telephone-x me-1"></i>Sem Contato</span>`;
 
     if (os.espera_cliente_ate) {
-        badgesHtml += `<span class="asana-badge bg-warning text-dark timer-espera-cliente" data-fim-espera="${os.espera_cliente_ate}"><i class="bi bi-hourglass-split me-1"></i>Aguardando...</span>`;
+        badgesHtml += `<span class="asana-badge bg-warning text-dark timer-espera-cliente" data-fim-espera="${os.espera_cliente_ate}"><i class="bi bi-hourglass-split me-1"></i>Técnico aguardando cliente</span>`;
     }
 
     const velocidadePlanoLabel = formatarVelocidadePlano(os.velocidade_plano ?? os.plano_speed ?? os.velocidadePlano ?? os.speed);
@@ -773,13 +773,13 @@ function atualizarTimers() {
         const diffSeg = Math.floor((fim - new Date()) / 1000);
         const card = el.closest('.asana-card');
         if (diffSeg <= 0) {
-            el.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i>Espera Acabou';
+            el.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i>ESPERA ACABOU';
             el.classList.add('bg-danger', 'text-white', 'blink');
             if (card) card.classList.add('blink');
         } else {
             const min = Math.floor(diffSeg / 60);
             const seg = diffSeg % 60;
-            el.innerHTML = `<i class="bi bi-hourglass-split me-1"></i>Espera ${min}:${String(seg).padStart(2,'0')}`;
+            el.innerHTML = `<i class="bi bi-hourglass-split me-1"></i>Técnico aguardando cliente ${min}:${String(seg).padStart(2,'0')}`;
             if (card) card.classList.remove('blink');
         }
     });
@@ -1215,15 +1215,17 @@ function editarTagLogistica(id) {
 }
 
 async function excluirTagLogistica(id) {
-    if (!(await showConfirmModal('Inativar esta tag?'))) return;
+    if (!(await showConfirmModal('Deseja realmente excluir esta tag?', 'Excluir tag', 'warning', 'Excluir', 'Cancelar'))) return;
     try {
         const response = await fetch(`/api/v5/painel-logistica/tags/${id}`, { method: 'DELETE' });
         const data = await response.json().catch(() => ({}));
-        if (!response.ok || data.success === false) throw new Error(data.error || 'Erro ao inativar tag.');
+        if (!response.ok || data.success === false) throw new Error(data.error || 'Erro ao excluir tag.');
+        const idEditando = document.getElementById('tag-logistica-id')?.value;
+        if (String(idEditando || '') === String(id)) limparFormTagLogistica();
         tagsLogisticaGlobal = [];
         carregarTagsConfiguracao();
     } catch (error) {
-        showInfoModal('Erro ao inativar tag: ' + error.message);
+        showInfoModal('Erro ao excluir tag: ' + error.message);
     }
 }
 
@@ -1593,6 +1595,9 @@ async function registrarContatoCliente(status) {
         const data = await response.json().catch(() => ({}));
         if (!response.ok || data.success === false) throw new Error(data.error || 'Erro ao registrar contato.');
         atualizarStatusContatoNaUi(id_local, status);
+        if (data.registrado_ixc === false) {
+            showInfoModal(data.aviso || 'Confirmação salva localmente. O IXC recusou o registro da mensagem.', 'Confirmação com Cliente', 'warning');
+        }
         setTimeout(() => carregarAgenda(), 250);
     } catch (e) {
         showInfoModal('Erro ao registrar contato: ' + e.message);
@@ -1600,7 +1605,6 @@ async function registrarContatoCliente(status) {
 }
 
 async function iniciarEsperaCliente() {
-    const ixc_os_id = document.getElementById('action-os-id').value;
     const id_local = document.getElementById('action-agenda-local-id').value;
     const minutos = document.getElementById('input-minutos-espera').value;
     if (!minutos || Number(minutos) <= 0) return showInfoModal('Informe por quantos minutos o técnico deve aguardar.');
@@ -1609,7 +1613,7 @@ async function iniciarEsperaCliente() {
         const response = await fetch('/api/v5/painel-logistica/aguardar-cliente', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id_local, ixc_os_id, minutos, usuario_logado: window.usuarioLogado })
+            body: JSON.stringify({ id_local, minutos, usuario_logado: window.usuarioLogado })
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok || data.success === false) throw new Error(data.error || 'Erro ao iniciar espera.');
@@ -1653,7 +1657,7 @@ async function salvarObservacaoLogistica() {
         const data = await response.json().catch(() => ({}));
         if (!response.ok || data.success === false) throw new Error(data.error || 'Erro ao salvar observação.');
         document.getElementById('input-observacao-logistica').value = '';
-        showInfoModal('Observação registrada no IXC.');
+        showInfoModal(data.registrado_ixc ? 'Observação registrada no IXC.' : (data.aviso || 'Observação salva localmente.'), 'Observação', data.registrado_ixc ? 'success' : 'warning');
         // Recarrega os detalhes para puxar o histórico atualizado.
         const responseDet = await fetch(`/api/v5/painel-logistica/os-detalhes/${ixc_os_id}`);
         const det = await responseDet.json();

@@ -96,7 +96,7 @@ function formatarDataIxc(valor: any): string {
         });
     }
 
-    throw new Error(`Data de agendamento invÃ¡lida: ${str}`);
+    throw new Error(`Data de agendamento inválida: ${str}`);
 }
 
 function dataHoraAtualSaoPaulo(): string {
@@ -116,6 +116,25 @@ function dataHoraSaoPaulo(date: Date): string {
     }).format(date);
 
     return partes.replace('T', ' ');
+}
+
+function montarMensagensLocaisObservacao(local: any): any[] {
+    const linhas = String(local?.observacao_logistica || '')
+        .split('\n')
+        .map(linha => linha.trim())
+        .filter(Boolean);
+
+    return linhas
+        .filter(linha => linha.includes('[LOCAL]'))
+        .map((linha, index) => {
+            const match = linha.match(/^\[([^\]]+)\]\s+\[LOCAL\]\s*(.*)$/);
+            return {
+                id: `local-${index}`,
+                data: match?.[1] || '',
+                autor_nome: 'Logistica (local)',
+                mensagem: match?.[2] || linha
+            };
+        });
 }
 
 function normalizarGrupoPermissao(valor: any): string {
@@ -160,7 +179,7 @@ router.get('/agendamentos', async (req, res) => {
     const municipio = req.query.municipio as string;
     const status = req.query.status as string;
 
-    if (!data) return res.status(400).json({ error: "A data de filtro Ã© obrigatÃ³ria" });
+    if (!data) return res.status(400).json({ error: "A data de filtro é obrigatória" });
 
     try {
         await AgendaService.garantirCapacidadeDia(data);
@@ -269,7 +288,7 @@ router.put('/atribuir-tecnico', async (req, res) => {
 
     try {
         if (!ixc_os_id) {
-            return res.status(400).json({ error: 'ixc_os_id Ã© obrigatÃ³rio.' });
+            return res.status(400).json({ error: 'ixc_os_id é obrigatório.' });
         }
 
         const tecnicoFinal =
@@ -296,7 +315,7 @@ router.put('/atribuir-tecnico', async (req, res) => {
             mensagem:
                 tecnicoFinal === '138'
                     ? `O.S. devolvida para a fila da Logística (Hub Intervip).\nColaborador responsável: ${colaboradorAcao.nome}`
-                    : `AGENDADO VIA INTRANET\nData: ${dataFormatada}\nTurno: ${turnoNormalizado}\nAceita Encaixe: NÃƒO\nColaborador responsável: ${colaboradorAcao.nome}`,
+                    : `AGENDADO VIA INTRANET\nData: ${dataFormatada}\nTurno: ${turnoNormalizado}\nAceita Encaixe: NÃO\nColaborador responsável: ${colaboradorAcao.nome}`,
             // Em su_oss_chamado_reagendar, id_tecnico define o técnico destino da OS; o autor aparece na mensagem pelo usuário logado.
             id_tecnico: tecnicoFinal,
             id_equipe: '',
@@ -326,7 +345,7 @@ router.put('/atribuir-tecnico', async (req, res) => {
         );
 
         if (respIxc?.type === 'error') {
-            throw new Error(`Erro IXC: ${respIxc.message || 'Erro ao atribuir tÃ©cnico.'}`);
+            throw new Error(`Erro IXC: ${respIxc.message || 'Erro ao atribuir técnico.'}`);
         }
         console.log('[DEBUG AGENDAMENTO IXC] Resposta atribuir técnico painel:', respIxc);
 
@@ -344,12 +363,12 @@ router.put('/atribuir-tecnico', async (req, res) => {
 
         res.json({
             success: true,
-            message: 'TÃ©cnico atribuÃ­do com sucesso no IXC.',
+            message: 'Técnico atribuído com sucesso no IXC.',
             payload_enviado: payloadAtribuir,
             resposta_ixc: respIxc
         });
     } catch (error: any) {
-        console.error('[Logistica] Erro ao atribuir tÃ©cnico:', error.response?.data || error.message);
+        console.error('[Logistica] Erro ao atribuir técnico:', error.response?.data || error.message);
         res.status(500).json({
             error: error.response?.data?.message || error.message
         });
@@ -394,7 +413,7 @@ router.post('/cancelar-visita', async (req, res) => {
             mensagem: textoMensagem,
             id_funcionario_ixc: usuarioIxc.id_funcionario_ixc
         }); */
-        await AgendaService.registrarMensagemOs(String(ixc_os_id), textoMensagem, usuario_logado, 'Cancelar Visita');
+        await AgendaService.registrarMensagemSimplesOs(String(ixc_os_id), textoMensagem, usuario_logado, 'Cancelar Visita');
         //console.log('[Cancelar Visita Debug] Nenhuma chamada IXC adicional será feita; limpeza será local para não ocupar vaga e evitar alteração incompleta de OS.');
 
         const statusLocal = 'AGUARDANDO_LOGISTICA';
@@ -505,11 +524,11 @@ router.post('/tratar-prioridade', async (req, res) => {
     try {
         if (!(await exigirLogisticaOuNoc(req, res))) return;
         if (!id_local) {
-            return res.status(400).json({ error: 'id_local Ã© obrigatÃ³rio.' });
+            return res.status(400).json({ error: 'id_local é obrigatório.' });
         }
 
         if (!ixc_os_id) {
-            return res.status(400).json({ error: 'ixc_os_id Ã© obrigatÃ³rio.' });
+            return res.status(400).json({ error: 'ixc_os_id é obrigatório.' });
         }
 
         const rows = await AgendaService.executeDb(
@@ -523,7 +542,7 @@ router.post('/tratar-prioridade', async (req, res) => {
         );
 
         if (!rows || rows.length === 0) {
-            return res.status(404).json({ error: 'Agendamento local nÃ£o encontrado.' });
+            return res.status(404).json({ error: 'Agendamento local não encontrado.' });
         }
 
         const osLocal = rows[0];
@@ -549,7 +568,7 @@ router.post('/tratar-prioridade', async (req, res) => {
                 data_agendamento: janelaSegura.dataAgendamentoIxc,
                 data_agendamento_final: janelaSegura.dataAgendamentoFinalIxc,
                 id_resposta: '',
-                mensagem: `AGENDADO VIA INTRANET\nData: ${hojeBr}\nTurno: ${turnoNormalizado}\nAceita Encaixe: SIM\nColaborador responsÃ¡vel: ${colaboradorAcao.nome}`,
+                mensagem: `AGENDADO VIA INTRANET\nData: ${hojeBr}\nTurno: ${turnoNormalizado}\nAceita Encaixe: SIM\nColaborador responsável: ${colaboradorAcao.nome}`,
                 // Aqui 138 é o técnico destino HUB/Logística da OS, não o autor da ação.
                 id_tecnico: '138',
                 id_equipe: '',
@@ -620,7 +639,7 @@ router.post('/tratar-prioridade', async (req, res) => {
             });
         }
 
-        return res.status(400).json({ error: 'AÃ§Ã£o invÃ¡lida. Use aceitar ou recusar.' });
+        return res.status(400).json({ error: 'Ação inválida. Use aceitar ou recusar.' });
     } catch (error: any) {
         console.error('[Logistica] Erro ao tratar prioridade:', error.response?.data || error.message);
 
@@ -640,7 +659,7 @@ router.get('/tarefas-workflow/:idProcesso', async (req, res) => {
 router.post('/onu-realtime', async (req, res) => {
     try {
         const idFibra = req.body.id_fibra;
-        if (!idFibra) return res.status(400).json({ error: 'id_fibra Ã© obrigatÃ³rio.' });
+        if (!idFibra) return res.status(400).json({ error: 'id_fibra é obrigatório.' });
 
         await AgendaService.makeIxcRequest('POST', '/radpop_radio_cliente_fibra', { id_registro: idFibra }, 'integracao').catch(() => null);
 
@@ -676,7 +695,7 @@ router.get('/historico-conexao/:username', async (req, res) => {
 router.get('/os-detalhes/:id', async (req, res) => {
     try {
         const osResp = await AgendaService.makeIxcRequest('POST', '/su_oss_chamado', { qtype: 'su_oss_chamado.id', query: req.params.id, oper: '=', rp: '1' });
-        if (!osResp.registros || osResp.registros.length === 0) return res.status(404).json({ error: 'OS nÃ£o encontrada' });
+        if (!osResp.registros || osResp.registros.length === 0) return res.status(404).json({ error: 'OS não encontrada' });
         const os = osResp.registros[0];
 
         const clienteResp = await AgendaService.makeIxcRequest('POST', '/cliente', { qtype: 'cliente.id', query: os.id_cliente, oper: '=', rp: '1' });
@@ -760,6 +779,7 @@ router.get('/os-detalhes/:id', async (req, res) => {
             qtype: 'su_oss_chamado_mensagem.id_chamado', query: req.params.id, oper: '=', page: '1', rp: '100', sortname: 'id', sortorder: 'desc'
         }).catch(() => ({ registros: [] }));
         mensagens = await AgendaService.enriquecerMensagensComAutores(msgResp.registros || []);
+        mensagens = [...montarMensagensLocaisObservacao(local), ...mensagens];
 
         res.json({ os, cliente, contrato, login, onu, local, mensagens, historicoLogin, resumoAcesso });
     } catch (error: any) {
@@ -773,55 +793,76 @@ router.post('/contato-cliente', async (req, res) => {
     try {
         if (!(await exigirLogisticaOuNoc(req, res))) return;
         if (!id_local || !ixc_os_id || !status_contato) {
-            return res.status(400).json({ error: 'id_local, ixc_os_id e status_contato sÃ£o obrigatÃ³rios.' });
+            return res.status(400).json({ error: 'id_local, ixc_os_id e status_contato são obrigatórios.' });
         }
 
         const status = String(status_contato).toUpperCase();
         if (!['CONFIRMADO', 'SEM_CONTATO'].includes(status)) {
-            return res.status(400).json({ error: 'Status de contato invÃ¡lido.' });
+            return res.status(400).json({ error: 'Status de contato inválido.' });
         }
 
         const textoBase = mensagem || (
-            status === 'CONFIRMADO' ? 'Cliente confirmou que irÃ¡ receber o tÃ©cnico.' :
-            'LogÃ­stica nÃ£o conseguiu contato com o cliente.'
+            status === 'CONFIRMADO' ? 'Cliente confirmou que irá receber a visita.' :
+            'Não foi possível contato com o cliente.'
         );
+        const mensagemContato = `Confirmação com Cliente: ${textoBase}`;
 
-        const { dataInteracao } = await AgendaService.registrarMensagemOs(
-            String(ixc_os_id),
-            `[LOGÃSTICA - CONTATO CLIENTE]\n${textoBase}`,
-            usuario_logado,
-            'Contato Cliente'
-        );
+        let dataInteracao = dataHoraAtualSaoPaulo();
+        let registradoIxc = false;
+        let aviso = '';
+
+        try {
+            const registro = await AgendaService.registrarMensagemSimplesOs(
+                String(ixc_os_id),
+                mensagemContato,
+                usuario_logado,
+                'Contato Cliente'
+            );
+            dataInteracao = registro.dataInteracao;
+            registradoIxc = true;
+        } catch (error: any) {
+            aviso = 'Confirmação salva localmente. O IXC recusou o registro da mensagem.';
+            console.warn('[IXC Mensagem Simples] fallback local ativado:', error.response?.data || error.message);
+        }
 
         await AgendaService.executeDb(
             `UPDATE ivp_agenda_os SET contato_status = ?, contato_confirmado_em = ? WHERE id = ?`,
             [status, dataInteracao, id_local]
         );
 
-        res.json({ success: true });
+        if (!registradoIxc) {
+            await AgendaService.executeDb(
+                `UPDATE ivp_agenda_os SET observacao_logistica = CONCAT(COALESCE(observacao_logistica, ''), ?, '\n') WHERE id = ?`,
+                [`[${dataInteracao}] [LOCAL] ${mensagemContato}`, id_local]
+            );
+        }
+
+        res.json({ success: true, registrado_ixc: registradoIxc, aviso });
     } catch (error: any) {
         res.status(500).json({ error: error.response?.data?.message || error.message });
     }
 });
 
 router.post('/aguardar-cliente', async (req, res) => {
-    const { id_local, ixc_os_id, minutos, usuario_logado } = req.body;
+    const { id_local, minutos, usuario_logado } = req.body;
 
     try {
         if (!(await exigirLogisticaOuNoc(req, res))) return;
         const minutosNum = Number(minutos);
-        if (!id_local || !ixc_os_id || !minutosNum || minutosNum <= 0) {
+        if (!id_local || !minutosNum || minutosNum <= 0) {
             return res.status(400).json({ error: 'Informe OS, agendamento local e minutos de espera.' });
         }
 
+        const inicioEspera = dataHoraSaoPaulo(new Date());
         const fimEspera = dataHoraSaoPaulo(new Date(Date.now() + minutosNum * 60000));
-
-        await AgendaService.registrarMensagemOs(
-            String(ixc_os_id),
-            `[LOGÃSTICA]\nTÃ©cnico orientado a aguardar o cliente por ${minutosNum} minuto(s).`,
+        console.log('[Espera Cliente Local]', {
+            id_local,
+            minutos: minutosNum,
             usuario_logado,
-            'Aguardar Cliente'
-        );
+            inicio: inicioEspera,
+            fim_previsto: fimEspera,
+            chamada_ixc: false
+        });
 
         await AgendaService.executeDb(
             `UPDATE ivp_agenda_os SET espera_cliente_ate = ? WHERE id = ?`,
@@ -840,7 +881,7 @@ router.post('/parar-espera-cliente', async (req, res) => {
     try {
         if (!(await exigirLogisticaOuNoc(req, res))) return;
         if (!id_local) {
-            return res.status(400).json({ error: 'id_local Ã© obrigatÃ³rio.' });
+            return res.status(400).json({ error: 'id_local é obrigatório.' });
         }
 
         await AgendaService.executeDb(
@@ -859,23 +900,34 @@ router.post('/observacao-logistica', async (req, res) => {
 
     try {
         if (!id_local || !ixc_os_id || !mensagem || !String(mensagem).trim()) {
-            return res.status(400).json({ error: 'Informe a observaÃ§Ã£o.' });
+            return res.status(400).json({ error: 'Informe a observação.' });
         }
 
         const texto = String(mensagem).trim();
-        const { dataInteracao } = await AgendaService.registrarMensagemOs(
-            String(ixc_os_id),
-            `[OBSERVAÃ‡ÃƒO LOGÃSTICA]\n${texto}`,
-            usuario_logado,
-            'Observacao Logistica'
-        );
+        let dataInteracao = dataHoraAtualSaoPaulo();
+        let registradoIxc = false;
+        let aviso = '';
+
+        try {
+            const registro = await AgendaService.registrarMensagemSimplesOs(
+                String(ixc_os_id),
+                `Observação: ${texto}`,
+                usuario_logado,
+                'Observacoes'
+            );
+            dataInteracao = registro.dataInteracao;
+            registradoIxc = true;
+        } catch (error: any) {
+            aviso = 'Observação salva localmente. O IXC recusou o registro da mensagem.';
+            console.warn('[IXC Mensagem Simples] fallback local ativado:', error.response?.data || error.message);
+        }
 
         await AgendaService.executeDb(
             `UPDATE ivp_agenda_os SET observacao_logistica = CONCAT(COALESCE(observacao_logistica, ''), ?, '\n') WHERE id = ?`,
-            [`[${dataInteracao}] ${texto}`, id_local]
+            [`[${dataInteracao}] ${registradoIxc ? '[IXC]' : '[LOCAL]'} ${texto}`, id_local]
         );
 
-        res.json({ success: true });
+        res.json({ success: true, registrado_ixc: registradoIxc, aviso });
     } catch (error: any) {
         res.status(500).json({ error: error.response?.data?.message || error.message });
     }
@@ -896,7 +948,7 @@ router.post('/tags', async (req, res) => {
     const { nome, cor_fundo, cor_texto, ativo, ordem } = req.body;
     try {
         if (!nome || !String(nome).trim()) {
-            return res.status(400).json({ error: 'Nome da tag Ã© obrigatÃ³rio.' });
+            return res.status(400).json({ error: 'Nome da tag é obrigatório.' });
         }
 
         const result = await AgendaService.executeDb(
@@ -945,7 +997,11 @@ router.put('/tags/:id', async (req, res) => {
 router.delete('/tags/:id', async (req, res) => {
     try {
         await AgendaService.executeDb(
-            'UPDATE ivp_agenda_tags SET ativo = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            'DELETE FROM ivp_agenda_os_tags WHERE id_tag = ?',
+            [req.params.id]
+        );
+        await AgendaService.executeDb(
+            'DELETE FROM ivp_agenda_tags WHERE id = ?',
             [req.params.id]
         );
         res.json({ success: true });
@@ -996,7 +1052,7 @@ router.post('/prioridade-logistica', async (req, res) => {
     try {
         if (!(await exigirLogisticaOuNoc(req, res))) return;
         if (!id_local || String(id_local).startsWith('fila-')) {
-            return res.status(400).json({ error: 'Agendamento local invÃ¡lido.' });
+            return res.status(400).json({ error: 'Agendamento local inválido.' });
         }
         const prioridadeNum = Number(prioridade);
         if (!Number.isInteger(prioridadeNum) || prioridadeNum < 0 || prioridadeNum > 3) {
@@ -1006,7 +1062,7 @@ router.post('/prioridade-logistica', async (req, res) => {
         const labelsPrioridade: Record<number, string> = { 0: 'Normal', 1: 'Média', 2: 'Alta', 3: 'Urgente' };
         if (ixc_os_id) {
             const mensagemPrioridade = `Prioridade da logística alterada para: ${labelsPrioridade[prioridadeNum]}`;
-            await AgendaService.registrarMensagemOs(
+            await AgendaService.registrarMensagemSimplesOs(
                 String(ixc_os_id),
                 mensagemPrioridade,
                 usuario_logado,
