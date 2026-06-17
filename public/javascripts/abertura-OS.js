@@ -847,6 +847,7 @@ async function processarAvancoTarefa() {
         window.osParaTramitar = null;
         
         const isVisita = nomeTarefa.toUpperCase().includes('VISITA');
+        //console.log('Tarefa avançada com sucesso. Verificando próxima ação para etapa:', nomeTarefa);
 
         if (isVisita) {
             const idReferencia = payload.ticket_id || data.ticket_id_retornado;

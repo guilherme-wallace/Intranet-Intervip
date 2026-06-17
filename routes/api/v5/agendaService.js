@@ -222,9 +222,9 @@ class AgendaService {
                 id_tarefa_atual: osAtual.id_tarefa_atual,
                 id_tarefa: osAtual.id_tarefa
             };
-            console.log(`[IXC Mensagem Simples][DEBUG OS Atual][${contexto}]`, debugOsAtual);
+            //console.log(`[IXC Mensagem Simples][DEBUG OS Atual][${contexto}]`, debugOsAtual);
             if (!statusAtual) {
-                console.error(`[IXC Mensagem Simples][${contexto}] OS sem evento/status válido para registrar mensagem:`, {
+                /* console.error(`[IXC Mensagem Simples][${contexto}] OS sem evento/status válido para registrar mensagem:`, {
                     os: ixcOsId,
                     status: osAtual.status,
                     id_evento: osAtual.id_evento,
@@ -233,7 +233,7 @@ class AgendaService {
                     id_wfl_processo: osAtual.id_wfl_processo,
                     id_tarefa_atual: osAtual.id_tarefa_atual,
                     id_tarefa: osAtual.id_tarefa
-                });
+                }); */
                 throw new Error('Não foi possível registrar a mensagem no IXC: a OS não retornou status/evento atual válido.');
             }
             const montarPayload = (idEventoMensagem) => ({
@@ -255,26 +255,26 @@ class AgendaService {
                 longitude: '',
                 gps_time: ''
             });
-            console.log(`[IXC Mensagem Simples][${contexto}] OS ID: ${ixcOsId} | usuario_logado: ${usuarioLogado || 'N/A'} | id_funcionario_ixc: ${idColaboradorIxc} | status: ${statusAtual} | origem_id_evento: ${origemIdEvento} | origem_id_evento_status: ${origemIdEventoStatus}`);
-            console.log(`[IXC Mensagem Simples][${contexto}] evento mensagem simples escolhido: ${eventoPadraoMensagem} - Em Analise`);
+            //console.log(`[IXC Mensagem Simples][${contexto}] OS ID: ${ixcOsId} | usuario_logado: ${usuarioLogado || 'N/A'} | id_funcionario_ixc: ${idColaboradorIxc} | status: ${statusAtual} | origem_id_evento: ${origemIdEvento} | origem_id_evento_status: ${origemIdEventoStatus}`);
+            //console.log(`[IXC Mensagem Simples][${contexto}] evento mensagem simples escolhido: ${eventoPadraoMensagem} - Em Analise`);
             try {
                 const payload = montarPayload(eventoPadraoMensagem);
-                console.log(`[IXC Mensagem Simples][${contexto}] Payload final:`, Object.assign(Object.assign({}, payload), { mensagem: String(payload.mensagem || '').substring(0, 300) }));
+                //console.log(`[IXC Mensagem Simples][${contexto}] Payload final:`, { ...payload, mensagem: String(payload.mensagem || '').substring(0, 300) });
                 const resp = yield this.makeIxcRequest('POST', '/su_oss_chamado_mensagem', payload, 'incluir');
-                console.log(`[IXC Mensagem Simples][${contexto}] Resposta IXC:`, resp);
+                //console.log(`[IXC Mensagem Simples][${contexto}] Resposta IXC:`, resp);
                 this.validarRespostaIxc(resp, 'IXC recusou o registro da mensagem da OS.');
                 return { resp, osAtual, dataInteracao, idColaboradorIxc, idEventoMensagem: eventoPadraoMensagem };
             }
             catch (error) {
                 console.error(`[IXC Mensagem Simples][${contexto}] Erro IXC completo:`, ((_a = error.response) === null || _a === void 0 ? void 0 : _a.data) || error.message);
-                console.warn('[IXC Mensagem Simples] Evento 7 recusado, tentando evento 9');
+                //console.warn('[IXC Mensagem Simples] Evento 7 recusado, tentando evento 9');
                 try {
                     const payloadFallback = montarPayload(eventoFallbackMensagem);
-                    console.log(`[IXC Mensagem Simples][${contexto}] Payload final fallback evento 9:`, Object.assign(Object.assign({}, payloadFallback), { mensagem: String(payloadFallback.mensagem || '').substring(0, 300) }));
+                    //console.log(`[IXC Mensagem Simples][${contexto}] Payload final fallback evento 9:`, { ...payloadFallback, mensagem: String(payloadFallback.mensagem || '').substring(0, 300) });
                     const respFallback = yield this.makeIxcRequest('POST', '/su_oss_chamado_mensagem', payloadFallback, 'incluir');
-                    console.log(`[IXC Mensagem Simples][${contexto}] Resposta IXC fallback evento 9:`, respFallback);
+                    //console.log(`[IXC Mensagem Simples][${contexto}] Resposta IXC fallback evento 9:`, respFallback);
                     this.validarRespostaIxc(respFallback, 'IXC recusou o registro da mensagem da OS com evento 9.');
-                    console.log('[IXC Mensagem Simples] Evento 9 aceito');
+                    //console.log('[IXC Mensagem Simples] Evento 9 aceito');
                     return { resp: respFallback, osAtual, dataInteracao, idColaboradorIxc, idEventoMensagem: eventoFallbackMensagem };
                 }
                 catch (fallbackError) {
@@ -795,10 +795,10 @@ class AgendaService {
                 os.nome_plano_local = null;
                 os.velocidade_plano = null;
             });
-            console.info(`[Planos Locais] OSs recebidas: ${lista.length}`);
+            //console.info(`[Planos Locais] OSs recebidas: ${lista.length}`);
             const idsDiretos = new Set(lista.flatMap(os => this.obterCandidatosPlano(os)));
             const idsContratos = [...new Set(lista.flatMap(os => this.obterCandidatosContrato(os)))];
-            console.info(`[Planos Locais] Contratos únicos: ${idsContratos.length}`);
+            //console.info(`[Planos Locais] Contratos únicos: ${idsContratos.length}`);
             let contratosComPlano = 0;
             if (idsContratos.length > 0) {
                 const contratos = yield this.buscarContratosIxcEmLote(idsContratos).catch(() => []);
@@ -826,7 +826,7 @@ class AgendaService {
                         const camposPlano = ['id_vd_contrato', 'id_plano', 'plano_id', 'planId']
                             .filter(campo => Object.prototype.hasOwnProperty.call(contrato || {}, campo))
                             .join(',') || 'nenhum';
-                        console.info(`[Planos Locais] Contrato sem id de plano: contratoId=${contratoId} campos=${camposPlano}`);
+                        //console.info(`[Planos Locais] Contrato sem id de plano: contratoId=${contratoId} campos=${camposPlano}`);
                     }
                 });
                 lista.forEach(os => {
@@ -837,10 +837,10 @@ class AgendaService {
                     os.id_plano_local = planoContrato ? Number(planoContrato) : os.id_plano_local;
                 });
             }
-            console.info(`[Planos Locais] Contratos com plano: ${contratosComPlano}`);
+            //console.info(`[Planos Locais] Contratos com plano: ${contratosComPlano}`);
             const ids = [...idsDiretos];
             if (ids.length === 0) {
-                console.info('[Planos Locais] Nenhum ID real de plano encontrado para consultar.');
+                //console.info('[Planos Locais] Nenhum ID real de plano encontrado para consultar.');
                 return;
             }
             const placeholders = ids.map(() => '?').join(',');
@@ -860,11 +860,11 @@ class AgendaService {
                 if (os.velocidade_plano)
                     osComVelocidade++;
             });
-            console.info(`[Planos Locais] IDs reais de plano consultados: ${ids.join(', ')}.`);
-            console.info(`[Planos Locais] Planos encontrados no banco local: ${mapaPlanos.size}.`);
+            //console.info(`[Planos Locais] IDs reais de plano consultados: ${ids.join(', ')}.`);
+            //console.info(`[Planos Locais] Planos encontrados no banco local: ${mapaPlanos.size}.`);
             if (planosNaoEncontrados.length > 0)
                 console.info(`[Planos Locais] Planos não encontrados: ${planosNaoEncontrados.join(', ')}.`);
-            console.info(`[Planos Locais] OSs com velocidade aplicada: ${osComVelocidade}.`);
+            //console.info(`[Planos Locais] OSs com velocidade aplicada: ${osComVelocidade}.`);
         });
     }
     static reagendarOs(payload) {
