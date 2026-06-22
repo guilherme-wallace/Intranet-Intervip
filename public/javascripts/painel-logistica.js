@@ -15,7 +15,7 @@ function normalizarGrupoUsuario(grupo) {
 
 function usuarioEhLogisticaOuNoc() {
     const grupo = normalizarGrupoUsuario(window.grupoUsuarioLogado || '');
-    return grupo.includes('LOGISTICA') || grupo.includes('NOC');
+    return grupo.includes('LOGISTICA') || grupo.includes('NOC') || grupo.includes('FIBRA') || grupo.includes('ADMIN');
 }
 
 const PRIORIDADE_LOGISTICA_LABELS = {

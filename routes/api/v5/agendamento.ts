@@ -149,6 +149,124 @@ function osJaTemAgendaIxc(osData: any): boolean {
     return true;
 }
 
+function obterDataAgendaIxc(osData: any): string {
+    return String(osData?.data_agenda || osData?.data_agendamento || osData?.data_agenda_final || '').trim();
+}
+
+function obterDataAgendaIxcYmd(osData: any): string {
+    const valor = obterDataAgendaIxc(osData);
+    const formatoBanco = valor.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (formatoBanco) return formatoBanco[1];
+
+    const formatoBrasileiro = valor.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    return formatoBrasileiro
+        ? `${formatoBrasileiro[3]}-${formatoBrasileiro[2]}-${formatoBrasileiro[1]}`
+        : '';
+}
+
+function turnoPorDataAgendaIxc(valor: any): string {
+    const match = String(valor || '').match(/(?:\s|T)(\d{2}):/);
+    if (!match) return '';
+    return Number(match[1]) >= 12 ? 'VESPERTINO' : 'MATUTINO';
+}
+
+function osIxcContinuaAgendada(osData: any): boolean {
+    const status = String(osData?.status || '').toUpperCase();
+    const dataAgenda = obterDataAgendaIxcYmd(osData);
+    return Boolean(osData?.id) &&
+        !['F', 'C'].includes(status) &&
+        osJaTemAgendaIxc(osData) &&
+        Boolean(dataAgenda) &&
+        dataAgenda >= dataHojeSaoPauloYmd();
+}
+
+async function buscarOsIxcPorIdSeguro(ixcOsId: any): Promise<any | null> {
+    const id = String(ixcOsId || '').trim();
+    if (!id) return null;
+
+    const resposta = await makeIxcRequest('POST', '/su_oss_chamado', {
+        qtype: 'su_oss_chamado.id',
+        query: id,
+        oper: '=',
+        rp: '1'
+    });
+
+    return resposta?.registros?.[0] || null;
+}
+
+async function sincronizarAgendamentoLocalComIxc(registroLocal: any, osIxc: any): Promise<'ATIVO' | 'STALE'> {
+    if (!registroLocal?.id) return 'STALE';
+
+    if (!osIxc || !osIxcContinuaAgendada(osIxc)) {
+        const statusIxc = String(osIxc?.status || '').toUpperCase();
+        const statusLocal = statusIxc === 'F' ? 'FINALIZADO' : statusIxc === 'C' ? 'CANCELADO' : 'CANCELADO';
+        await executeDb(
+            `UPDATE ivp_agenda_os
+             SET data_agendamento = NULL,
+                 turno = NULL,
+                 status_interno = ?,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?`,
+            [statusLocal, registroLocal.id]
+        );
+        return 'STALE';
+    }
+
+    const dataAgendaIxc = obterDataAgendaIxc(osIxc);
+    const dataIxcYmd = obterDataAgendaIxcYmd(osIxc);
+    const turnoIxc = turnoPorDataAgendaIxc(dataAgendaIxc);
+    const dataLocalYmd = String(registroLocal.data_agendamento || '').substring(0, 10);
+    const tecnicoIxc = String(osIxc.id_tecnico || '').trim();
+    const statusLocalAtivo = tecnicoIxc && tecnicoIxc !== '0' && tecnicoIxc !== '138'
+        ? 'ATRIBUIDO'
+        : 'AGUARDANDO_LOGISTICA';
+    const precisaSincronizar =
+        (dataIxcYmd && dataIxcYmd !== dataLocalYmd) ||
+        (turnoIxc && turnoIxc !== String(registroLocal.turno || '').toUpperCase()) ||
+        String(registroLocal.ixc_tecnico_id || '') !== String(osIxc.id_tecnico || '');
+
+    if (precisaSincronizar) {
+        await executeDb(
+            `UPDATE ivp_agenda_os
+             SET data_agendamento = COALESCE(NULLIF(?, ''), data_agendamento),
+                 turno = COALESCE(NULLIF(?, ''), turno),
+                 ixc_tecnico_id = ?,
+                 status_interno = ?,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?`,
+            [dataIxcYmd, turnoIxc, osIxc.id_tecnico || 138, statusLocalAtivo, registroLocal.id]
+        );
+    }
+
+    return 'ATIVO';
+}
+
+async function consolidarDuplicatasLocaisMesmaOs(registros: any[]): Promise<any | null> {
+    if (!Array.isArray(registros) || registros.length === 0) return null;
+    const ordenados = [...registros].sort((a, b) => Number(b.id) - Number(a.id));
+    return ordenados[0];
+}
+
+async function marcarDuplicatasLocaisMesmaOs(registros: any[], idPrincipal: any): Promise<void> {
+    const duplicados = (registros || []).filter(registro => String(registro.id) !== String(idPrincipal));
+    for (const duplicado of duplicados) {
+        await executeDb(
+            `INSERT IGNORE INTO ivp_agenda_os_tags (id_agenda_os, id_tag)
+             SELECT ?, id_tag FROM ivp_agenda_os_tags WHERE id_agenda_os = ?`,
+            [idPrincipal, duplicado.id]
+        );
+        await executeDb(
+            `UPDATE ivp_agenda_os
+             SET data_agendamento = NULL,
+                 turno = NULL,
+                 status_interno = 'CANCELADO',
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?`,
+            [duplicado.id]
+        );
+    }
+}
+
 const garantirCapacidadeDiaLocal = async (data: string) => {
     const existe = await executeDb('SELECT data FROM ivp_agenda_capacidade WHERE data = ?', [data]);
     if (existe.length > 0) return;
@@ -381,7 +499,9 @@ router.get('/detalhes-os/:id_ticket', async (req, res) => {
             cidade: nomeCidade, 
             mensagem: mensagem,
             tipo_servico: tipoServico,
-            tipo_imovel: tipoImovel
+            tipo_imovel: tipoImovel,
+            ja_agendada: osAberta ? osJaTemAgendaIxc(osAberta) : false,
+            data_agendamento_atual: osAberta ? obterDataAgendaIxc(osAberta) : ''
         });
 
     } catch (error: any) {
@@ -414,7 +534,7 @@ router.get('/os-por-ticket/:id_ticket', async (req, res) => {
 });
 
 router.post('/confirmar', async (req, res) => {
-    const { id_ticket, id_os, cliente_id, contrato_id, municipio, tipo_servico, tipo_imovel, data_agendamento, turno, aceita_encaixe, usuario_logado, tag_ids, reagendar_existente, abrir_chamado_duvida, modo_reagendamento } = req.body;
+    const { id_ticket, id_os, os_id, id_chamado, cliente_id, contrato_id, municipio, tipo_servico, tipo_imovel, data_agendamento, turno, aceita_encaixe, usuario_logado, tag_ids, reagendar_existente, abrir_chamado_duvida, modo_reagendamento, modo } = req.body;
     const preferenciaHorarioTipo = String(req.body.preferencia_horario_tipo || 'SEM_PREFERENCIA').toUpperCase();
     const preferenciaHorarioInicio = String(req.body.preferencia_horario_inicio || '').substring(0, 5);
     const preferenciaHorarioFim = String(req.body.preferencia_horario_fim || '').substring(0, 5);
@@ -471,64 +591,206 @@ router.post('/confirmar', async (req, res) => {
             throw new Error('OS não localizada no IXC para agendamento.');
         }
 
-        const outroAgendamentoLocal = await executeDb(
-            `
-            SELECT id, ixc_os_id, data_agendamento, turno
-            FROM ivp_agenda_os
-            WHERE ixc_cliente_id = ?
-              AND (? = 0 OR ixc_contrato_id = ?)
-              AND ixc_os_id <> ?
-              AND data_agendamento >= ?
-              AND (status_interno IS NULL OR status_interno NOT IN ('CANCELADO', 'FINALIZADO', 'VISITA_CANCELADA'))
-            LIMIT 1
-            `,
-            [cliente_id, contrato_id || 0, contrato_id || 0, ixc_os_id, dataHojeSaoPauloYmd()]
+        const clienteIdEfetivo = String(osData.id_cliente || cliente_id || '').trim();
+        const contratoIdEfetivo = String(
+            osData.id_contrato_kit ||
+            osData.id_contrato ||
+            contrato_id ||
+            '0'
+        ).trim();
+        if (!clienteIdEfetivo) {
+            throw new Error('A OS não possui cliente válido para confirmar o agendamento.');
+        }
+
+        const idsOsSolicitada = new Set(
+            [ixc_os_id, id_os, os_id, id_chamado, osData.id]
+                .map(valor => String(valor || '').trim())
+                .filter(Boolean)
+        );
+        const modoExplicitoReagendamento =
+            String(modo || '').toUpperCase() === 'REAGENDAMENTO' ||
+            String(modo_reagendamento || '').toUpperCase() === 'REAGENDAMENTO' ||
+            String(reagendar_existente) === 'true' ||
+            reagendar_existente === true;
+        const ambiente = process.env.NODE_ENV || 'development';
+        const contextoBanco = {
+            host: process.env.DB_HOST || process.env.MYSQL_HOST || 'nao_informado',
+            database: process.env.DB_NAME || process.env.DB_DATABASE || process.env.MYSQL_DATABASE || 'nao_informado'
+        };
+
+        const registrosLocaisMesmaOs = await executeDb(
+            `SELECT * FROM ivp_agenda_os WHERE ixc_os_id = ? ORDER BY updated_at DESC, id DESC`,
+            [ixc_os_id]
+        );
+        const agendamentoLocalAtual = await consolidarDuplicatasLocaisMesmaOs(registrosLocaisMesmaOs || []);
+        const estadoAgendamentoLocalAtual = agendamentoLocalAtual
+            ? await sincronizarAgendamentoLocalComIxc(agendamentoLocalAtual, osData)
+            : null;
+        const agendamentoLocalAtivo = estadoAgendamentoLocalAtual === 'ATIVO'
+            ? agendamentoLocalAtual
+            : null;
+
+        console.log('[Agendamento Confirmar][Duplicidade]', {
+            ambiente,
+            banco: contextoBanco,
+            osSolicitada: String(ixc_os_id),
+            contrato: contratoIdEfetivo,
+            cliente: clienteIdEfetivo,
+            quantidadeRegistrosMesmaOs: Array.isArray(registrosLocaisMesmaOs) ? registrosLocaisMesmaOs.length : 0,
+            agendamentoLocalAtual: agendamentoLocalAtual ? {
+                id: agendamentoLocalAtual.id,
+                ixc_os_id: agendamentoLocalAtual.ixc_os_id,
+                data_agendamento: agendamentoLocalAtual.data_agendamento,
+                turno: agendamentoLocalAtual.turno,
+                status_interno: agendamentoLocalAtual.status_interno
+            } : null,
+            decisao: agendamentoLocalAtivo || modoExplicitoReagendamento || osJaTemAgendaIxc(osData)
+                ? 'MESMA_OS_REAGENDAMENTO'
+                : 'NOVA_OS',
+            motivo: agendamentoLocalAtivo
+                ? 'Existe registro local ativo com o mesmo ixc_os_id.'
+                : agendamentoLocalAtual
+                    ? 'Registro local da propria OS estava stale e foi sincronizado.'
+                : modoExplicitoReagendamento
+                    ? 'Front informou modo de reagendamento.'
+                    : osJaTemAgendaIxc(osData)
+                        ? 'A propria OS possui agenda no IXC.'
+                        : 'OS sem agenda anterior.'
+        });
+
+        const possiveisConflitosLocais = await executeDb(
+            `SELECT *
+             FROM ivp_agenda_os
+             WHERE ixc_cliente_id = ?
+               AND (? = 0 OR ixc_contrato_id = ?)
+               AND data_agendamento >= ?
+               AND (status_interno IS NULL OR status_interno NOT IN ('CANCELADO', 'FINALIZADO', 'VISITA_CANCELADA'))
+             ORDER BY updated_at DESC, id DESC`,
+            [clienteIdEfetivo, contratoIdEfetivo, contratoIdEfetivo, dataHojeSaoPauloYmd()]
         );
 
-        if (outroAgendamentoLocal && outroAgendamentoLocal.length > 0) {
-            const existente = outroAgendamentoLocal[0];
+        console.log('[Agendamento Confirmar][Duplicidade]', {
+            ambiente,
+            banco: contextoBanco,
+            osSolicitada: String(ixc_os_id),
+            contrato: contratoIdEfetivo,
+            cliente: clienteIdEfetivo,
+            quantidadeConflitosLocais: Array.isArray(possiveisConflitosLocais) ? possiveisConflitosLocais.length : 0,
+            modoSolicitado: modo || 'NAO_INFORMADO'
+        });
+
+        for (const candidatoLocal of possiveisConflitosLocais || []) {
+            const mesmaOsPorIdentidade =
+                idsOsSolicitada.has(String(candidatoLocal.ixc_os_id || '').trim()) ||
+                String(candidatoLocal.id) === String(agendamentoLocalAtual?.id || '');
+
+            if (mesmaOsPorIdentidade) {
+                console.log('[Agendamento Confirmar][Duplicidade]', {
+                    ambiente,
+                    banco: contextoBanco,
+                    osSolicitada: String(ixc_os_id),
+                    contrato: contratoIdEfetivo,
+                    cliente: clienteIdEfetivo,
+                    agendamentoLocalEncontrado: candidatoLocal.id,
+                    osEncontrada: candidatoLocal.ixc_os_id,
+                    decisao: 'MESMA_OS_REAGENDAMENTO',
+                    motivo: 'Registro local corresponde a propria OS solicitada.'
+                });
+                continue;
+            }
+
+            const osConflitanteIxc = await buscarOsIxcPorIdSeguro(candidatoLocal.ixc_os_id);
+            const estadoLocal = await sincronizarAgendamentoLocalComIxc(candidatoLocal, osConflitanteIxc);
+
+            console.log('[Agendamento Confirmar][Duplicidade]', {
+                ambiente,
+                banco: contextoBanco,
+                osSolicitada: String(ixc_os_id),
+                contrato: contratoIdEfetivo,
+                cliente: clienteIdEfetivo,
+                agendamentoLocalEncontrado: {
+                    id: candidatoLocal.id,
+                    ixc_os_id: candidatoLocal.ixc_os_id,
+                    data_agendamento: candidatoLocal.data_agendamento,
+                    turno: candidatoLocal.turno,
+                    status_interno: candidatoLocal.status_interno
+                },
+                osEncontrada: osConflitanteIxc ? {
+                    id: osConflitanteIxc.id,
+                    status: osConflitanteIxc.status,
+                    data_agenda: obterDataAgendaIxc(osConflitanteIxc),
+                    id_tecnico: osConflitanteIxc.id_tecnico
+                } : null,
+                decisao: estadoLocal === 'STALE' ? 'REGISTRO_STALE_SINCRONIZADO' : 'DUPLICIDADE_REAL',
+                motivo: estadoLocal === 'STALE'
+                    ? 'OS local nao esta mais agendada/ativa no IXC.'
+                    : 'Outra OS permanece ativa e agendada no IXC.'
+            });
+
+            if (estadoLocal === 'STALE') continue;
+
             await AgendaService.registrarMensagemOs(
-                String(existente.ixc_os_id),
-                `[NOVO ASSUNTO]\nO usuário tentou agendar outra OS para este cliente/contrato. Novo assunto informado:\n${osData.mensagem || 'Sem descrição.'}`,
+                String(osConflitanteIxc.id),
+                `[NOVO ASSUNTO]\nO usuario tentou agendar outra OS para este cliente/contrato. Novo assunto informado:\n${osData.mensagem || 'Sem descricao.'}`,
                 usuario_logado,
                 'Agendamento Duplicado Cliente'
             ).catch((err: any) => console.error('[Agendamento] Falha ao registrar novo assunto na OS existente:', err.message));
 
             await finalizarOsConsolidada(
                 String(ixc_os_id),
-                `OS consolidada na visita já agendada #${existente.ixc_os_id}. Novo assunto registrado para atendimento na mesma visita.`,
+                `OS consolidada na visita ja agendada #${osConflitanteIxc.id}. Novo assunto registrado para atendimento na mesma visita.`,
                 usuario_logado
             );
 
             return res.status(409).json({
                 code: 'CLIENTE_JA_AGENDADO',
-                error: `Este cliente já possui uma OS agendada para ${formatarDataUsuario(existente.data_agendamento)}, turno ${turnoAmigavel(existente.turno)}. O novo assunto foi registrado na OS/agendamento já aberto para que o técnico trate tudo na mesma visita.`,
+                classification: 'DUPLICIDADE_REAL',
+                error: `Este cliente ja possui outra OS agendada para ${formatarAgendaIxc(obterDataAgendaIxc(osConflitanteIxc))}. O novo assunto foi registrado na OS/agendamento ja aberto para que o tecnico trate tudo na mesma visita.`,
                 agendamento: {
-                    ixc_os_id: existente.ixc_os_id,
-                    data: formatarDataUsuario(existente.data_agendamento),
-                    turno: turnoAmigavel(existente.turno)
+                    ixc_os_id: osConflitanteIxc.id,
+                    data: formatarAgendaIxc(obterDataAgendaIxc(osConflitanteIxc)),
+                    turno: turnoAmigavel(turnoPorDataAgendaIxc(obterDataAgendaIxc(osConflitanteIxc)))
                 }
             });
         }
 
         const osAgendadasIxcCliente = await makeIxcRequest('POST', '/su_oss_chamado', {
             qtype: 'su_oss_chamado.id_cliente',
-            query: String(cliente_id),
+            query: clienteIdEfetivo,
             oper: '=',
             page: '1',
             rp: '50',
             sortname: 'su_oss_chamado.id',
             sortorder: 'desc'
-        }).catch(() => ({ registros: [] }));
+        });
 
         const outraOsAgendadaIxc = (osAgendadasIxcCliente.registros || []).find((os: any) => {
-            const mesmaOs = String(os.id) === String(ixc_os_id);
-            const mesmoContrato = !contrato_id || !os.id_contrato || String(os.id_contrato) === String(contrato_id) || String(os.id_contrato_kit) === String(contrato_id);
-            const statusAberto = !['F', 'C'].includes(String(os.status || '').toUpperCase());
-            return !mesmaOs && mesmoContrato && statusAberto && osJaTemAgendaIxc(os);
+            const mesmaOs = idsOsSolicitada.has(String(os.id || '').trim());
+            const mesmoContrato =
+                contratoIdEfetivo === '0' ||
+                (!os.id_contrato && !os.id_contrato_kit) ||
+                String(os.id_contrato) === contratoIdEfetivo ||
+                String(os.id_contrato_kit) === contratoIdEfetivo;
+            return !mesmaOs && mesmoContrato && osIxcContinuaAgendada(os);
         });
 
         if (outraOsAgendadaIxc) {
+            console.log('[Agendamento Confirmar][Duplicidade]', {
+                ambiente,
+                banco: contextoBanco,
+                osSolicitada: String(ixc_os_id),
+                contrato: contratoIdEfetivo,
+                cliente: clienteIdEfetivo,
+                agendamentoLocalEncontrado: null,
+                osEncontrada: {
+                    id: outraOsAgendadaIxc.id,
+                    status: outraOsAgendadaIxc.status,
+                    data_agenda: obterDataAgendaIxc(outraOsAgendadaIxc),
+                    id_tecnico: outraOsAgendadaIxc.id_tecnico
+                },
+                decisao: 'DUPLICIDADE_REAL',
+                motivo: 'Outra OS ativa e agendada foi encontrada diretamente no IXC.'
+            });
             await AgendaService.registrarMensagemOs(
                 String(outraOsAgendadaIxc.id),
                 `[AGENDAMENTO BLOQUEADO - NOVO ASSUNTO]\nO usuário tentou agendar outra OS para este cliente/contrato. Novo assunto informado:\n${osData.mensagem || 'Sem descrição.'}`,
@@ -544,6 +806,7 @@ router.post('/confirmar', async (req, res) => {
 
             return res.status(409).json({
                 code: 'CLIENTE_JA_AGENDADO',
+                classification: 'DUPLICIDADE_REAL',
                 error: `Este cliente já possui uma OS agendada para ${formatarAgendaIxc(outraOsAgendadaIxc.data_agenda || outraOsAgendadaIxc.data_agendamento)}. O novo assunto foi registrado na OS/agendamento já aberto para que o técnico trate tudo na mesma visita.`,
                 agendamento: {
                     ixc_os_id: outraOsAgendadaIxc.id,
@@ -553,29 +816,22 @@ router.post('/confirmar', async (req, res) => {
             });
         }
 
-        const agendamentoLocalExistente = await executeDb(
-            `
-            SELECT id, data_agendamento, turno
-            FROM ivp_agenda_os
-            WHERE ixc_os_id = ?
-              AND data_agendamento >= ?
-              AND (status_interno IS NULL OR status_interno NOT IN ('CANCELADO', 'FINALIZADO', 'VISITA_CANCELADA'))
-            LIMIT 1
-            `,
-            [ixc_os_id, dataHojeSaoPauloYmd()]
-        );
-
-        const podeReagendarExistente = String(reagendar_existente) === 'true' || reagendar_existente === true;
-        if (podeReagendarExistente && typeof abrir_chamado_duvida === 'undefined') {
+        const agendamentoLocalExistente = agendamentoLocalAtual ? [agendamentoLocalAtual] : [];
+        const podeReagendarExistente = modoExplicitoReagendamento;
+        const modoReagendamentoEfetivo = String(modo_reagendamento || '').toUpperCase() === 'REAGENDAMENTO'
+            ? 'APENAS_REAGENDAR'
+            : String(modo_reagendamento || '');
+        const fluxoLegadoConfirmado = String(reagendar_existente) === 'true' || reagendar_existente === true;
+        if (fluxoLegadoConfirmado && typeof abrir_chamado_duvida === 'undefined') {
             return res.status(400).json({ error: 'Informe se deseja abrir chamado de dúvida para gerar novo protocolo antes do reagendamento.' });
         }
 
-        if (podeReagendarExistente && !['COM_CHAMADO_DUVIDA', 'APENAS_REAGENDAR'].includes(String(modo_reagendamento || ''))) {
+        if (fluxoLegadoConfirmado && !['COM_CHAMADO_DUVIDA', 'APENAS_REAGENDAR'].includes(modoReagendamentoEfetivo)) {
             return res.status(400).json({ error: 'Informe o modo do reagendamento.' });
         }
 
-        if (agendamentoLocalExistente && agendamentoLocalExistente.length > 0 && !podeReagendarExistente) {
-            const ag = agendamentoLocalExistente[0];
+        if (agendamentoLocalAtivo && !podeReagendarExistente) {
+            const ag = agendamentoLocalAtivo;
             return res.status(409).json({
                 code: 'OS_JA_AGENDADA',
                 can_reagendar: true,
@@ -600,7 +856,7 @@ router.post('/confirmar', async (req, res) => {
         }
 
         const tecnicoAtual = String(osData.id_tecnico || '');
-        if (tecnicoAtual && tecnicoAtual !== '0' && tecnicoAtual !== '138') {
+        if (tecnicoAtual && tecnicoAtual !== '0' && tecnicoAtual !== '138' && !podeReagendarExistente) {
             throw new Error('Esta OS já está atribuída a um técnico no IXC e não pode ser agendada novamente por esta tela.');
         }
 
@@ -659,15 +915,23 @@ router.post('/confirmar', async (req, res) => {
         }
 
         let idAgendaLocal = 0;
+        const agendaAnterior = agendamentoLocalAtual ? {
+            id: agendamentoLocalAtual.id,
+            data: agendamentoLocalAtual.data_agendamento,
+            turno: agendamentoLocalAtual.turno,
+            status: agendamentoLocalAtual.status_interno
+        } : null;
         if (agendamentoLocalExistente && agendamentoLocalExistente.length > 0) {
             idAgendaLocal = agendamentoLocalExistente[0].id;
             await executeDb(
                 `UPDATE ivp_agenda_os
                  SET data_agendamento = ?, turno = ?, aceita_encaixe = ?, solicita_prioridade = 0, ixc_tecnico_id = 138, status_interno = 'AGUARDANDO_LOGISTICA',
-                     preferencia_horario_tipo = ?, preferencia_horario_inicio = ?, preferencia_horario_fim = ?, preferencia_horario_obs = ?
+                     preferencia_horario_tipo = ?, preferencia_horario_inicio = ?, preferencia_horario_fim = ?, preferencia_horario_obs = ?,
+                     updated_at = CURRENT_TIMESTAMP
                  WHERE id = ?`,
                 [data_agendamento, turno, aceita_encaixe ? 1 : 0, preferenciaHorarioTipo, preferenciaHorarioInicio || null, preferenciaHorarioFim || null, preferenciaHorarioObs || null, idAgendaLocal]
             );
+            await marcarDuplicatasLocaisMesmaOs(registrosLocaisMesmaOs || [], idAgendaLocal);
         } else {
             const insertAgenda = await executeDb(
                 `INSERT INTO ivp_agenda_os
@@ -675,8 +939,8 @@ router.post('/confirmar', async (req, res) => {
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 138, 'AGUARDANDO_LOGISTICA', 'ATENDIMENTO', ?, ?, ?, ?)`,
                 [
                     ixc_os_id,
-                    cliente_id,
-                    contrato_id || 0,
+                    clienteIdEfetivo,
+                    contratoIdEfetivo,
                     tipoServicoDb,
                     tipo_imovel,
                     municipio,
@@ -692,6 +956,23 @@ router.post('/confirmar', async (req, res) => {
             );
             idAgendaLocal = insertAgenda.insertId;
         }
+
+        console.log('[Agendamento Confirmar][Duplicidade]', {
+            ambiente,
+            banco: contextoBanco,
+            osSolicitada: String(ixc_os_id),
+            contrato: contratoIdEfetivo,
+            cliente: clienteIdEfetivo,
+            decisao: agendaAnterior ? 'MESMA_OS_REAGENDAMENTO_ATUALIZADA' : 'NOVA_OS_INSERIDA',
+            agendamentoLocalId: idAgendaLocal,
+            agendaAnterior,
+            agendaNova: {
+                data: data_agendamento,
+                turno,
+                tecnico: 138,
+                status: 'AGUARDANDO_LOGISTICA'
+            }
+        });
 
         const tagsSelecionadas = Array.isArray(tag_ids) ? tag_ids.map(String).filter(Boolean) : [];
         if (idAgendaLocal) {

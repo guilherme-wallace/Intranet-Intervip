@@ -161,6 +161,7 @@ async function carregarDadosOS(id_ticket, origem) {
         document.getElementById('hidden-os-id').value = data.id_ticket;
         document.getElementById('form-agendamento').dataset.osId = data.id_os || data.id_ticket;
         document.getElementById('form-agendamento').dataset.ticketId = data.id_atendimento || data.id_ticket;
+        document.getElementById('form-agendamento').dataset.modo = data.ja_agendada ? 'REAGENDAMENTO' : 'NOVO';
         document.getElementById('hidden-municipio').value = municipioBase;
         document.getElementById('hidden-tipo-servico').value = data.tipo_servico;
         
@@ -354,6 +355,9 @@ async function confirmarAgendamento(event) {
     const payload = {
         id_ticket: document.getElementById('hidden-os-id').value,
         id_os: document.getElementById('form-agendamento').dataset.osId || '',
+        os_id: document.getElementById('form-agendamento').dataset.osId || '',
+        id_chamado: document.getElementById('form-agendamento').dataset.osId || '',
+        modo: document.getElementById('form-agendamento').dataset.modo || 'NOVO',
         cliente_id: document.getElementById('form-agendamento').dataset.clienteId,
         contrato_id: document.getElementById('form-agendamento').dataset.contratoId,
         municipio: document.getElementById('hidden-municipio').value,
@@ -398,6 +402,16 @@ async function confirmarAgendamento(event) {
                 })
             });
             result = await response.json();
+        }
+
+        if (!response.ok && result.code === 'CLIENTE_JA_AGENDADO') {
+            const detalhes = result.agendamento
+                ? `<br><br><strong>OS existente:</strong> #${result.agendamento.ixc_os_id || 'N/A'}<br><strong>Data:</strong> ${result.agendamento.data || 'N/A'}<br><strong>Turno:</strong> ${result.agendamento.turno || 'N/A'}`
+                : '';
+            await showInfoModal(`${result.error || 'Foi encontrada outra OS agendada para este cliente.'}${detalhes}`, 'Duplicidade real de agendamento', 'warning');
+            btnConfirmar.innerHTML = originalText;
+            btnConfirmar.disabled = false;
+            return;
         }
 
         if (!response.ok) throw new Error(result.error);
