@@ -8,6 +8,7 @@ let bsModalMudanca = null;
 
 let tipoConsulta = 'cpf';
 let clienteConsultado = null;
+let contratosClienteConsultado = [];
 
 let bsModalSelecaoLogin = null;
 window.loginSelecionadoParaTransferencia = null;
@@ -89,7 +90,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const data = await response.json();
             
-            if (data.contratosComAtraso && data.contratosComAtraso.length > 0) {
+            const contratosComAtrasoNovoTitular = Array.isArray(data.contratosComAtraso) ? data.contratosComAtraso : [];
+            if (!Array.isArray(data.contratosComAtraso) && data.contratosComAtraso !== undefined) {
+                console.warn('[Cadastro Banda Larga] contratosComAtraso do novo titular veio em formato inesperado:', data.contratosComAtraso);
+            }
+
+            if (contratosComAtrasoNovoTitular.length > 0) {
                 $('#loading-novo-titular').hide();
                 $('#btn-consultar-novo-titular').prop('disabled', false);
                 bsModalMudanca.hide();
@@ -214,6 +220,45 @@ function setupTela1Listeners() {
     });
 }
 
+function obterContratoConsultadoPorId(contratoId) {
+    return contratosClienteConsultado.find(contrato => String(contrato.id) === String(contratoId)) || null;
+}
+
+function descartarTooltipSeguro(elemento) {
+    if (!elemento) return;
+
+    try {
+        if (window.bootstrap?.Tooltip && typeof bootstrap.Tooltip.getInstance === 'function') {
+            const tooltip = bootstrap.Tooltip.getInstance(elemento);
+            if (tooltip && typeof tooltip.dispose === 'function') tooltip.dispose();
+            return;
+        }
+
+        if (window.jQuery && typeof $(elemento).tooltip === 'function') {
+            $(elemento).tooltip('dispose');
+        }
+    } catch (error) {
+        console.warn('[Cadastro Banda Larga] Nao foi possivel descartar tooltip:', error);
+    }
+}
+
+function atualizarBotoesMudancaContrato() {
+    const contratoSelecionado = $('input[name="contratoSelecionado"]:checked').val();
+    const podeUsar = Boolean(clienteConsultado && clienteConsultado.id && contratoSelecionado);
+    $('#btn-mudanca-titularidade, #btn-mudanca-endereco').prop('disabled', !podeUsar).css('pointer-events', podeUsar ? 'auto' : 'none');
+
+    if (podeUsar) {
+        $('.wrapper-tooltip-mudanca').each(function() {
+            descartarTooltipSeguro(this);
+        });
+    }
+}
+
+function esconderBotoesMudancaContrato() {
+    $('#btn-mudanca-titularidade').closest('.wrapper-tooltip-mudanca').hide();
+    $('#btn-mudanca-endereco').closest('.wrapper-tooltip-mudanca').hide();
+}
+
 function setupModalListeners() {
     const confirmModalElement = document.getElementById('confirmModal');
     if (confirmModalElement) {
@@ -301,6 +346,8 @@ async function consultarClientePorDocumento() {
     btnAcao.hide();
     alertaFinanceiro.hide();
     clienteConsultado = null;
+    contratosClienteConsultado = [];
+    esconderBotoesMudancaContrato();
     
     try {
         const response = await fetch('/api/v5/ixc/consultar-cliente', {
@@ -321,6 +368,14 @@ async function consultarClientePorDocumento() {
 
         if (data.cliente) {
             clienteConsultado = data.cliente;
+            contratosClienteConsultado = Array.isArray(data.contratos) ? data.contratos : [];
+            const contratosComAtraso = Array.isArray(data.contratosComAtraso) ? data.contratosComAtraso : [];
+            if (!Array.isArray(data.contratos)) {
+                console.warn('[Cadastro Banda Larga] contratos veio em formato inesperado:', data.contratos);
+            }
+            if (!Array.isArray(data.contratosComAtraso)) {
+                console.warn('[Cadastro Banda Larga] contratosComAtraso veio em formato inesperado:', data.contratosComAtraso);
+            }
             $('#cliente-encontrado').show();
             $('#cliente-nao-encontrado').hide();
             
@@ -338,6 +393,11 @@ async function consultarClientePorDocumento() {
                             <i class="bi bi-person-lines-fill"></i> Mudança de Titularidade
                         </button>
                     </span>
+                    <span class="d-inline-block me-2 wrapper-tooltip-mudanca" tabindex="0" data-bs-toggle="tooltip" title="Selecione um contrato na lista acima para habilitar a mudanca de endereco.">
+                        <button type="button" id="btn-mudanca-endereco" class="btn btn-outline-warning" disabled style="pointer-events: none;">
+                            <i class="bi bi-geo-alt-fill"></i> Mudança de endereço
+                        </button>
+                    </span>
                 `);
                 
                 $('[data-bs-toggle="tooltip"]').tooltip();
@@ -351,7 +411,11 @@ async function consultarClientePorDocumento() {
 
                     try {
                         const response = await fetch(`/api/v5/ixc/logins-contrato/${contratoSelecionado}`);
-                        const logins = await response.json();
+                        const dadosLogins = await response.json();
+                        const logins = Array.isArray(dadosLogins) ? dadosLogins : [];
+                        if (!Array.isArray(dadosLogins)) {
+                            console.warn('[Cadastro Banda Larga] logins do contrato vieram em formato inesperado:', dadosLogins);
+                        }
                         
                         if(logins.length === 0) {
                             showModal('Aviso', 'Este contrato não possui nenhum login PPPoE ativo para transferir.', 'warning');
@@ -395,13 +459,27 @@ async function consultarClientePorDocumento() {
                         $(this).html(btnOriginalHtml).prop('disabled', false);
                     }
                 });
-            }
 
-            if (data.contratos.length > 0) {
-                data.contratos.forEach(contrato => {
+                $('#btn-mudanca-endereco').on('click', function() {
+                    const contratoSelecionado = $('input[name="contratoSelecionado"]:checked').val();
+                    const contrato = obterContratoConsultadoPorId(contratoSelecionado);
+
+                    if (!clienteConsultado || !clienteConsultado.id || !contratoSelecionado || !contrato) {
+                        showModal('Atencao', 'Selecione um contrato valido antes de iniciar a mudanca de endereco.', 'warning');
+                        return;
+                    }
+
+                    iniciarMudancaEndereco(contratoSelecionado, contrato);
+                });
+            }
+            $('#btn-mudanca-titularidade, #btn-mudanca-endereco').closest('.wrapper-tooltip-mudanca').show();
+            $('#btn-mudanca-titularidade, #btn-mudanca-endereco').prop('disabled', true).css('pointer-events', 'none');
+
+            if (contratosClienteConsultado.length > 0) {
+                contratosClienteConsultado.forEach(contrato => {
                     const statusClass = getStatusClass(contrato.status_internet);
                     const statusText = getStatusText(contrato.status_internet);
-                    const temAtraso = data.contratosComAtraso.includes(contrato.id);
+                    const temAtraso = contratosComAtraso.includes(contrato.id);
                     const classeAtraso = temAtraso ? 'list-group-item-atraso' : '';
                     
                     let enderecoContrato = 'Endereço não especificado no contrato';
@@ -446,23 +524,21 @@ async function consultarClientePorDocumento() {
                 });
 
                 $('.radio-contrato').on('change', function() {
-                    $('#btn-mudanca-titularidade').prop('disabled', false).css('pointer-events', 'auto');
-                    const wrapper = $('.wrapper-tooltip-mudanca');
-                    if(wrapper.length) {
-                        wrapper.tooltip('dispose');
-                    }
+                    atualizarBotoesMudancaContrato();
                 });
 
             } else {
                 listaContratos.append('<li class="list-group-item">Nenhum contrato encontrado.</li>');
-                $('#btn-mudanca-titularidade').hide();
+                esconderBotoesMudancaContrato();
             }
             
             $('#btn-ir-para-cadastro').text('Cadastrar Novo Contrato').removeClass('btn-success').addClass('btn-primary');
             
         } else {
+            contratosClienteConsultado = [];
             $('#cliente-encontrado').hide();
             $('#cliente-nao-encontrado').show();
+            esconderBotoesMudancaContrato();
             
             $('#btn-ir-para-cadastro').text('Cadastrar Novo Cliente').removeClass('btn-primary').addClass('btn-success');
         }
@@ -564,7 +640,11 @@ async function consultarClientePorEndereco() {
         
         if (!response.ok) throw new Error('Falha ao consultar endereço.');
 
-        const data = await response.json();
+        const dadosEndereco = await response.json();
+        const data = Array.isArray(dadosEndereco) ? dadosEndereco : [];
+        if (!Array.isArray(dadosEndereco)) {
+            console.warn('[Cadastro Banda Larga] consulta por endereco veio em formato inesperado:', dadosEndereco);
+        }
         
         loadingDiv.hide();
         resultadoDiv.show();
@@ -699,8 +779,14 @@ function resetFormularioCompleto() {
     const form = $('#venda-form');
     form.trigger('reset');
     form.find('input, select').prop('disabled', false);
+    form.find('textarea, button').prop('disabled', false);
+    form.find('> fieldset.form-section').show();
+    $('#bloco-endereco-atual-mudanca').addClass('d-none').hide();
+    $('#bloco-endereco-completo').show();
+    $('#btn-complemento').removeAttr('required');
     form.removeClass('was-validated');
     form.find('.is-valid, .is-invalid').removeClass('is-valid is-invalid');
+    form.removeAttr('data-mode');
     
     document.getElementById('btn-finalizar-venda').innerHTML = 'Finalizar Cadastro';
 
@@ -798,7 +884,9 @@ function setupFormValidation() {
                 assunto_ticket: "1", id_assunto: "1", id_wfl_processo: "3", titulo_atendimento: "INSTALAÇÃO - BANDA LARGA"
             };
 
-            if (formMode === 'mudanca') {
+            if (formMode === 'mudanca-endereco') {
+                executarMudancaEnderecoNoIXC(clientData);
+            } else if (formMode === 'mudanca') {
                 if (novoTitularConsultado && novoTitularConsultado.id) {
                     clientData.existingClientId = novoTitularConsultado.id;
                 }
@@ -1312,7 +1400,8 @@ function checkFormValidity() {
 
         if (field.id === 'input-condominio-venda') {
             const semCondominio = $('#chk-sem-condominio').is(':checked');
-            fieldIsValid = semCondominio ? true : field.value.trim() !== '';
+            const formMode = $('#venda-form').attr('data-mode');
+            fieldIsValid = semCondominio && formMode !== 'mudanca-endereco' ? true : field.value.trim() !== '';
         }
         else if (field.id === 'btn-complemento') {
              if (!$('#chk-sem-condominio').is(':checked')) {
@@ -1533,6 +1622,147 @@ async function enviarChamadoSuporte() {
     } finally {
         btnEnviar.disabled = false;
         btnEnviar.innerHTML = textoOriginal;
+    }
+}
+
+let idContratoMudancaEndereco = null;
+let contratoMudancaEndereco = null;
+
+function valorEnderecoMudanca(obj, campo) {
+    if (!obj) return '';
+    return obj[campo] || '';
+}
+
+function enderecoContratoAtual(contrato) {
+    const usaEnderecoCliente = contrato?.endereco_padrao_cliente === 'S';
+    const origem = usaEnderecoCliente && clienteConsultado ? clienteConsultado : contrato;
+    return {
+        cep: valorEnderecoMudanca(origem, 'cep'),
+        endereco: valorEnderecoMudanca(origem, 'endereco'),
+        numero: valorEnderecoMudanca(origem, 'numero'),
+        bairro: valorEnderecoMudanca(origem, 'bairro'),
+        cidade: getCidadeNome(valorEnderecoMudanca(origem, 'cidade')) || valorEnderecoMudanca(origem, 'cidade'),
+        uf: getUfFromCidadeId(valorEnderecoMudanca(origem, 'cidade')) || getUfSigla(valorEnderecoMudanca(origem, 'uf')) || valorEnderecoMudanca(origem, 'uf'),
+        complemento: valorEnderecoMudanca(origem, 'complemento'),
+        referencia: valorEnderecoMudanca(origem, 'referencia'),
+        id_condominio: valorEnderecoMudanca(origem, 'id_condominio')
+    };
+}
+
+function renderizarEnderecoAtualMudanca(contrato) {
+    const enderecoAtual = enderecoContratoAtual(contrato);
+    const campos = [
+        ['CEP', enderecoAtual.cep],
+        ['Endereco/Rua', enderecoAtual.endereco],
+        ['Numero', enderecoAtual.numero],
+        ['Bairro', enderecoAtual.bairro],
+        ['Cidade', enderecoAtual.cidade],
+        ['UF', enderecoAtual.uf],
+        ['Complemento', enderecoAtual.complemento],
+        ['Referencia', enderecoAtual.referencia],
+        ['Condominio/localidade', enderecoAtual.id_condominio ? `ID ${enderecoAtual.id_condominio}` : '']
+    ];
+
+    const grid = document.getElementById('endereco-atual-mudanca-grid');
+    grid.innerHTML = campos.map(([label, valor]) => `
+        <div class="col-md-4">
+            <label class="form-label">${label}</label>
+            <input type="text" class="form-control" value="${String(valor || 'Nao informado').replace(/"/g, '&quot;')}" readonly>
+        </div>
+    `).join('');
+}
+
+function prepararFormularioMudancaEndereco() {
+    resetFormularioCompleto();
+    const form = $('#venda-form');
+    form.attr('data-mode', 'mudanca-endereco');
+
+    $('#titulo-form-cadastro').text('Mudança de endereço');
+    $('#btn-finalizar-venda').text('Concluir').removeClass('btn-success btn-primary').addClass('btn-warning');
+
+    form.find('> fieldset.form-section').hide().find('input, select, textarea, button').prop('disabled', true).prop('required', false);
+    $('#bloco-endereco-atual-mudanca').removeClass('d-none').show();
+    $('#bloco-endereco-completo').show();
+    $('#bloco-endereco-completo fieldset').show();
+    $('#bloco-endereco-completo').find('input, button').prop('disabled', false);
+
+    $('#input-condominio-venda, #cep, #endereco, #numero, #bairro, #cidade, #uf, #complemento').prop('required', true);
+    $('#btn-complemento').attr('required', true).show().prop('disabled', false).text('Selecione o complemento...');
+    $('#chk-sem-condominio').prop('disabled', false).closest('.form-check').show();
+    $('#input-complemento-livre').hide().prop('disabled', true).val('');
+    $('#plano').prop('disabled', true).prop('required', false);
+
+    $('#observacoes_venda').prop('disabled', false).prop('required', false).closest('fieldset').show();
+    $('#form-validity-message').hide();
+}
+
+function iniciarMudancaEndereco(contratoId, contrato) {
+    idContratoMudancaEndereco = contratoId;
+    contratoMudancaEndereco = contrato;
+
+    $('#tela-1-consulta').hide();
+    $('#tela-2-cadastro').show();
+    window.scrollTo(0, 0);
+
+    prepararFormularioMudancaEndereco();
+    renderizarEnderecoAtualMudanca(contrato);
+    checkFormValidity();
+}
+
+async function executarMudancaEnderecoNoIXC(clientData) {
+    const submitButton = document.getElementById('btn-finalizar-venda');
+    const textoOriginal = submitButton.innerHTML;
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Atualizando endereco...';
+
+    const payload = {
+        contratoId: idContratoMudancaEndereco,
+        clienteId: clienteConsultado?.id,
+        usuario_intranet: clientData.usuario_intranet,
+        enderecoNovo: {
+            cep: clientData.cep,
+            endereco: clientData.endereco,
+            numero: clientData.numero,
+            bairro: clientData.bairro,
+            cidade: clientData.cidade,
+            uf: clientData.uf,
+            complemento: clientData.complemento,
+            bloco: clientData.bloco,
+            apartamento: clientData.apartamento,
+            referencia: clientData.referencia,
+            id_condominio: clientData.id_condominio,
+            localidade_nome: document.getElementById('input-condominio-venda').value.trim()
+        },
+        enderecoAntigo: enderecoContratoAtual(contratoMudancaEndereco),
+        observacoes: clientData.obs
+    };
+
+    try {
+        const response = await fetch('/api/v5/ixc/mudanca-endereco', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok || result.success === false) {
+            throw new Error(result.error || 'Nao foi possivel concluir a mudanca de endereco.');
+        }
+
+        const osId = result.osId || result.id_os;
+        if (!osId) {
+            showModal('Agendamento', 'Endereco alterado e chamado criado, mas nao foi possivel localizar a OS para agendamento.', 'warning');
+            return;
+        }
+
+        submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Abrindo agendamento...';
+        window.location.href = `/agendamento?os=${encodeURIComponent(osId)}&origem=cadastro-bandaLarga&tipo=mudanca-endereco`;
+    } catch (error) {
+        console.error('Erro na mudanca de endereco:', error);
+        showModal('Erro na mudanca de endereco', `Nao foi possivel concluir a mudanca de endereco.<br><strong>Motivo:</strong> ${error.message}`, 'danger');
+        submitButton.disabled = false;
+        submitButton.innerHTML = textoOriginal || 'Concluir';
+        checkFormValidity();
     }
 }
 
