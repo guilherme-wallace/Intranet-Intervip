@@ -1420,6 +1420,316 @@ async function buscarDetalhesContratoELoginAntigo(contratoId: string, loginSelec
     return { contratoAntigo, loginAntigo };
 }
 
+function valorTextoMudancaEndereco(valor: any): string {
+    return String(valor || '').trim();
+}
+
+function normalizarDataContratoParaPut(campo: string, valor: any): any {
+    if (typeof valor !== 'string' || !campo.toLowerCase().startsWith('data')) return valor;
+
+    const texto = valor.trim();
+    if (!texto || texto.startsWith('0000-00-00')) return '';
+
+    const dataYmd = texto.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!dataYmd) return valor;
+    return `${dataYmd[3]}/${dataYmd[2]}/${dataYmd[1]}`;
+}
+
+function montarPayloadContratoMudancaEndereco(contratoAtual: any, enderecoNovo: any): any {
+    const payload = Object.fromEntries(
+        Object.entries(contratoAtual || {}).map(([campo, valor]) => [
+            campo,
+            normalizarDataContratoParaPut(campo, valor)
+        ])
+    );
+
+    delete payload.id;
+    Object.keys(payload)
+        .filter(campo => campo.toLowerCase().includes('cancel'))
+        .forEach(campo => delete payload[campo]);
+
+    const condominioNovo = valorTextoMudancaEndereco(enderecoNovo?.id_condominio);
+    payload.condominio_novo = condominioNovo || valorTextoMudancaEndereco(contratoAtual?.condominio_novo);
+    payload.bloco_novo = valorTextoMudancaEndereco(enderecoNovo?.bloco);
+    payload.apartamento_novo = valorTextoMudancaEndereco(enderecoNovo?.apartamento);
+    payload.cep_novo = valorTextoMudancaEndereco(enderecoNovo?.cep);
+    payload.endereco_novo = valorTextoMudancaEndereco(enderecoNovo?.endereco);
+    payload.numero_novo = valorTextoMudancaEndereco(enderecoNovo?.numero);
+    payload.bairro_novo = valorTextoMudancaEndereco(enderecoNovo?.bairro);
+    payload.cidade_novo = valorTextoMudancaEndereco(enderecoNovo?.cidade);
+    payload.complemento_novo = valorTextoMudancaEndereco(enderecoNovo?.complemento);
+    payload.referencia_novo = valorTextoMudancaEndereco(enderecoNovo?.referencia);
+    payload.latitude_novo = valorTextoMudancaEndereco(enderecoNovo?.latitude)
+        || valorTextoMudancaEndereco(contratoAtual?.latitude_novo)
+        || valorTextoMudancaEndereco(contratoAtual?.latitude);
+    payload.longitude_novo = valorTextoMudancaEndereco(enderecoNovo?.longitude)
+        || valorTextoMudancaEndereco(contratoAtual?.longitude_novo)
+        || valorTextoMudancaEndereco(contratoAtual?.longitude);
+
+    return payload;
+}
+
+function formatarEnderecoMudancaEndereco(endereco: any): string {
+    if (!endereco) return 'Nao informado';
+    const linhaPrincipal = [
+        endereco.endereco,
+        endereco.numero,
+        endereco.bairro
+    ].filter(Boolean).join(', ');
+
+    return [
+        endereco.cep ? `CEP: ${endereco.cep}` : '',
+        linhaPrincipal,
+        endereco.cidade ? `Cidade/UF: ${endereco.cidade}${endereco.uf ? `/${endereco.uf}` : ''}` : '',
+        endereco.complemento ? `Complemento: ${endereco.complemento}` : '',
+        endereco.referencia ? `Referencia: ${endereco.referencia}` : '',
+        endereco.id_condominio ? `Condominio/localidade: ${endereco.id_condominio}` : '',
+        endereco.localidade_nome ? `Localidade informada: ${endereco.localidade_nome}` : ''
+    ].filter(Boolean).join('\r\n') || 'Nao informado';
+}
+
+async function buscarContratoIxcPorId(contratoId: string): Promise<any> {
+    const contratoResponse = await makeIxcRequest('POST', '/cliente_contrato', {
+        qtype: 'cliente_contrato.id',
+        query: contratoId,
+        oper: '=',
+        rp: '1'
+    });
+
+    const contrato = contratoResponse?.registros?.[0];
+    if (!contrato) throw new Error('Contrato nao encontrado no IXC.');
+    return contrato;
+}
+
+async function buscarLoginContratoMudancaEndereco(contratoId: string): Promise<string> {
+    const loginResponse = await makeIxcRequest('POST', '/radusuarios', {
+        qtype: 'radusuarios.id_contrato',
+        query: contratoId,
+        oper: '=',
+        rp: '100',
+        sortname: 'radusuarios.id',
+        sortorder: 'desc'
+    });
+
+    const logins = Array.isArray(loginResponse?.registros) ? loginResponse.registros : [];
+    const loginAtivo = logins.find((login: any) => String(login.ativo || '').toUpperCase() === 'S');
+    return String(loginAtivo?.id || logins[0]?.id || '');
+}
+
+async function obterAutorIxcMudancaEndereco(usuarioIntranet: string): Promise<{ idFuncionarioIxc: string; idUsuarioIxc: string }> {
+    if (!usuarioIntranet || usuarioIntranet === 'Visitante') {
+        throw new Error('Nao foi possivel identificar o colaborador logado para abrir o atendimento.');
+    }
+
+    const autor = await new Promise<any>((resolve, reject) => {
+        LOCALHOST.query(
+            `SELECT id_funcionario_ixc, id_usuario_ixc
+             FROM usuarios_intranet
+             WHERE usuario = ? AND ativo = 1
+             LIMIT 1`,
+            [usuarioIntranet],
+            (erro: any, resultados: any[]) => {
+                if (erro) return reject(erro);
+                resolve(resultados?.[0] || null);
+            }
+        );
+    });
+
+    const idFuncionarioIxc = valorTextoMudancaEndereco(autor?.id_funcionario_ixc);
+    if (!idFuncionarioIxc || idFuncionarioIxc === '138') {
+        throw new Error(`Colaborador "${usuarioIntranet}" sem funcionario IXC valido para abrir o atendimento.`);
+    }
+
+    return {
+        idFuncionarioIxc,
+        idUsuarioIxc: valorTextoMudancaEndereco(autor?.id_usuario_ixc) || '61'
+    };
+}
+
+async function atualizarEnderecoContratoIxc(contratoAtual: any, enderecoNovo: any): Promise<void> {
+    const payload = montarPayloadContratoMudancaEndereco(contratoAtual, enderecoNovo);
+
+    console.log('[Cadastro Banda Larga][Mudanca Endereco] Payload endereco contrato:', {
+        contratoId: contratoAtual.id,
+        id_cliente: contratoAtual.id_cliente,
+        etapa: 'montar_payload_contrato',
+        camposEnderecoNovo: {
+            condominio_novo: payload.condominio_novo,
+            cep_novo: payload.cep_novo,
+            endereco_novo: payload.endereco_novo,
+            numero_novo: payload.numero_novo,
+            bairro_novo: payload.bairro_novo,
+            cidade_novo: payload.cidade_novo,
+            complemento_novo: payload.complemento_novo ? '[informado]' : '',
+            referencia_novo: payload.referencia_novo ? '[informado]' : '',
+            bloco_novo: payload.bloco_novo ? '[informado]' : '',
+            apartamento_novo: payload.apartamento_novo ? '[informado]' : ''
+        }
+    });
+
+    console.log('[Cadastro Banda Larga][Mudanca Endereco] Atualizando contrato no IXC:', {
+        contratoId: contratoAtual.id,
+        etapa: 'atualizar_contrato',
+        endpoint: `/cliente_contrato/${contratoAtual.id}`
+    });
+    const response = await makeIxcRequest('PUT', `/cliente_contrato/${contratoAtual.id}`, payload, 'alterar');
+    if (response?.type === 'error') {
+        throw new Error(response.message || response.msg || 'IXC recusou a alteracao do endereco do contrato.');
+    }
+}
+
+async function abrirChamadoMudancaEndereco(clienteId: string, contratoId: string, contratoAtual: any, enderecoAntigo: any, enderecoNovo: any, usuarioIntranet: string, autorIxc: { idFuncionarioIxc: string; idUsuarioIxc: string }, loginId: string, observacoes: string): Promise<string> {
+    const mensagem = `
+Solicitacao de mudanca de endereco via Intranet
+
+Contrato: ${contratoId}
+Cliente: ${clienteId}
+Colaborador responsavel: ${usuarioIntranet || 'Nao informado'} (IXC ${autorIxc.idFuncionarioIxc})
+
+Endereco antigo:
+${formatarEnderecoMudancaEndereco(enderecoAntigo)}
+
+Endereco novo:
+${formatarEnderecoMudancaEndereco(enderecoNovo)}
+
+Observacoes:
+${observacoes || 'Nao informado'}
+    `.trim().replace(/\n/g, '\r\n');
+
+    const atendimentoPayload = {
+        id_cliente: clienteId,
+        id_login: loginId,
+        id_contrato: contratoId,
+        id_filial: contratoAtual.id_filial || '3',
+        id_assunto: '4',
+        titulo: 'MUDANÇA DE ENDEREÇO',
+        origem_endereco: 'CC',
+        id_wfl_processo: '9',
+        id_ticket_setor: '4',
+        id_responsavel_tecnico: autorIxc.idFuncionarioIxc,
+        id_ticket_origem: 'I',
+        id_usuarios: autorIxc.idUsuarioIxc,
+        tipo: 'C',
+        prioridade: 'M',
+        melhor_horario_reserva: 'Q',
+        interacao_pendente: 'N',
+        status: 'OSAB',
+        su_status: 'EP',
+        origem_cadastro: 'P',
+        menssagem: mensagem
+    };
+
+    console.log('[Cadastro Banda Larga][Mudanca Endereco] Payload atendimento:', {
+        etapa: 'abrir_atendimento',
+        tipo: atendimentoPayload.tipo,
+        id_cliente: atendimentoPayload.id_cliente,
+        id_login: atendimentoPayload.id_login || '',
+        id_contrato: atendimentoPayload.id_contrato,
+        id_filial: atendimentoPayload.id_filial,
+        id_assunto: atendimentoPayload.id_assunto,
+        id_wfl_processo: atendimentoPayload.id_wfl_processo,
+        id_ticket_setor: atendimentoPayload.id_ticket_setor,
+        id_responsavel_tecnico: atendimentoPayload.id_responsavel_tecnico,
+        id_usuarios: atendimentoPayload.id_usuarios,
+        origem_endereco: atendimentoPayload.origem_endereco
+    });
+
+    const response = await makeIxcRequest('POST', '/su_ticket', atendimentoPayload, 'incluir');
+    const ticketId = response?.id || response?.id_su_ticket;
+    if (!ticketId || response?.type === 'error') {
+        throw new Error(response?.message || response?.msg || 'IXC nao retornou o ticket da mudanca de endereco.');
+    }
+
+    return String(ticketId);
+}
+
+router.post('/mudanca-endereco', async (req, res) => {
+    const logPrefix = '[Cadastro Banda Larga][Mudanca Endereco]';
+    const { contratoId, clienteId, enderecoNovo, enderecoAntigo, usuario_intranet, observacoes } = req.body;
+
+    console.log(`${logPrefix} inicio`, { clienteId, contratoId, usuario: usuario_intranet || 'Nao informado', etapa: 'validacao' });
+
+    try {
+        if (!contratoId || !clienteId) {
+            return res.status(400).json({ success: false, error: 'Cliente e contrato sao obrigatorios.' });
+        }
+
+        const faltando = ['numero', 'complemento'].filter(campo => !valorTextoMudancaEndereco(enderecoNovo?.[campo]));
+        if (!valorTextoMudancaEndereco(enderecoNovo?.id_condominio) && !valorTextoMudancaEndereco(enderecoNovo?.localidade_nome)) {
+            faltando.push('localidade');
+        }
+        if (faltando.length > 0) {
+            return res.status(400).json({ success: false, error: `Campos obrigatorios faltando: ${faltando.join(', ')}` });
+        }
+
+        console.log(`${logPrefix} buscando contrato`, { clienteId, contratoId, usuario: usuario_intranet || 'Nao informado', etapa: 'buscar_contrato' });
+        const contratoAtual = await buscarContratoIxcPorId(String(contratoId));
+
+        if (String(contratoAtual.id_cliente) !== String(clienteId)) {
+            return res.status(400).json({ success: false, error: 'Contrato nao pertence ao cliente informado.' });
+        }
+
+        const statusContrato = String(contratoAtual.status || '').toUpperCase();
+        const statusInternet = String(contratoAtual.status_internet || '').toUpperCase();
+        if (statusContrato === 'C' || !['A', 'AA'].includes(statusInternet)) {
+            return res.status(400).json({
+                success: false,
+                error: `Contrato nao elegivel para mudanca de endereco (status ${statusContrato || 'N/A'}, internet ${statusInternet || 'N/A'}).`
+            });
+        }
+
+        const autorIxc = await obterAutorIxcMudancaEndereco(usuario_intranet);
+        const loginId = await buscarLoginContratoMudancaEndereco(String(contratoId));
+
+        console.log(`${logPrefix} montando payload do contrato`, { clienteId, contratoId, usuario: usuario_intranet || 'Nao informado', etapa: 'montar_payload_contrato' });
+        await atualizarEnderecoContratoIxc(contratoAtual, enderecoNovo);
+        console.log(`${logPrefix} contrato atualizado`, { clienteId, contratoId, usuario: usuario_intranet || 'Nao informado', etapa: 'contrato_atualizado' });
+
+        console.log(`${logPrefix} abrindo atendimento`, {
+            clienteId,
+            contratoId,
+            usuario: usuario_intranet || 'Nao informado',
+            idFuncionarioIxc: autorIxc.idFuncionarioIxc,
+            idUsuarioIxc: autorIxc.idUsuarioIxc,
+            loginId: loginId || 'Nao localizado',
+            etapa: 'abrir_atendimento'
+        });
+
+        const ticketId = await abrirChamadoMudancaEndereco(
+            String(clienteId),
+            String(contratoId),
+            contratoAtual,
+            enderecoAntigo,
+            enderecoNovo,
+            usuario_intranet,
+            autorIxc,
+            loginId,
+            observacoes
+        );
+        console.log(`${logPrefix} chamado criado`, { clienteId, contratoId, usuario: usuario_intranet || 'Nao informado', ticketId, etapa: 'chamado_criado' });
+
+        console.log(`${logPrefix} localizando OS`, { clienteId, contratoId, ticketId, etapa: 'localizar_os' });
+        const osMudancaEndereco = await buscarOsInstalacaoPorTicket(ticketId);
+        if (!osMudancaEndereco?.id) {
+            console.warn(`${logPrefix} OS nao localizada`, { clienteId, contratoId, usuario: usuario_intranet || 'Nao informado', ticketId, etapa: 'localizar_os' });
+            return res.status(202).json({ success: true, ticketId, osId: null, error: 'Endereco alterado e chamado criado, mas nao foi possivel localizar a OS para agendamento.' });
+        }
+
+        console.log(`${logPrefix} redirecionamento final`, { clienteId, contratoId, usuario: usuario_intranet || 'Nao informado', ticketId, osId: osMudancaEndereco.id, etapa: 'redirecionar_agendamento' });
+        res.status(201).json({
+            success: true,
+            message: 'Mudanca de endereco concluida com sucesso.',
+            clienteId,
+            contratoId,
+            ticketId,
+            osId: osMudancaEndereco.id
+        });
+    } catch (error: any) {
+        console.error(`${logPrefix} falha`, { clienteId, contratoId, usuario: usuario_intranet || 'Nao informado', erro: error.message });
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 async function transferirLoginPPPoE(
     loginAntigo: any, 
     novoClienteId: string, 
