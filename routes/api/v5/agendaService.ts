@@ -650,9 +650,14 @@ export class AgendaService {
                 tipoImovel = (osIxc.apartamento || osIxc.bloco) ? 'PRÉDIO' : 'CASA';
             }
 
+        
             let horarioExtraido = '12:00';
-            if (osIxc.data_agenda && osIxc.data_agenda.includes(' ')) horarioExtraido = osIxc.data_agenda.split(' ')[1].substring(0, 5);
-            let turnoInferred = (horarioExtraido >= '12:00' && horarioExtraido < '18:00') ? 'VESPERTINO' : (horarioExtraido >= '18:00' ? 'NOTURNO' : 'MATUTINO');
+
+            if (osIxc.data_agenda && String(osIxc.data_agenda).includes(' ')) {
+                horarioExtraido = String(osIxc.data_agenda).split(' ')[1].substring(0, 5);
+            }
+
+            const turnoInferred = this.normalizarTurnoAgenda(horarioExtraido);
 
             const statusIxcAtual = String(osIxc.status || '').toUpperCase();
             const novoStatus =
@@ -669,7 +674,7 @@ export class AgendaService {
                 setor: osIxc.setor,
                 tipo_imovel: tipoImovel,
                 is_rede_neutra: isRedeNeutra,
-                turno: ehPrioridadeFutura && osLocal ? osLocal.turno : turnoInferred,
+                turno: ehPrioridadeFutura && osLocal ? osLocal.turno : this.normalizarTurnoAgenda(turnoInferred),
                 status_interno: novoStatus,
                 ixc_tecnico_id: osIxc.id_tecnico,
                 nome_tecnico: dictTechs.get(String(osIxc.id_tecnico)) || `Técnico ${osIxc.id_tecnico}`,
@@ -734,7 +739,7 @@ export class AgendaService {
                             status_interno = ?
                         WHERE id = ?
                         `,
-                        [dataFiltro, turnoInferred, payloadFinal.ixc_contrato_id || '0', osIxc.id_tecnico, novoStatus, osLocal.id]
+                        [dataFiltro, this.normalizarTurnoAgenda(turnoInferred), payloadFinal.ixc_contrato_id || '0', osIxc.id_tecnico, novoStatus, osLocal.id]
                     );
 
                     listaFinal.push({
@@ -776,7 +781,7 @@ export class AgendaService {
                         tipoImovel,
                         cidadeCorreta,
                         dataFiltro,
-                        turnoInferred,
+                        this.normalizarTurnoAgenda(turnoInferred),
                         osIxc.id_tecnico,
                         novoStatus
                     ]
@@ -810,6 +815,21 @@ export class AgendaService {
         ]
             .map(valor => String(valor || '').trim())
             .filter(valor => /^\d+$/.test(valor));
+    }
+
+    private static normalizarTurnoAgenda(valor: any): 'MATUTINO' | 'VESPERTINO' {
+        const texto = String(valor || '').trim().toUpperCase();
+
+        if (texto === 'MATUTINO' || texto === 'MANHA' || texto === 'MANHÃ') return 'MATUTINO';
+        if (texto === 'VESPERTINO' || texto === 'TARDE') return 'VESPERTINO';
+
+        const matchHora = texto.match(/^(\d{2}):(\d{2})/);
+        if (matchHora) {
+            const hora = Number(matchHora[1]);
+            return hora >= 12 ? 'VESPERTINO' : 'MATUTINO';
+        }
+
+        return 'MATUTINO';
     }
 
     private static obterContratoOsIxc(osIxc: any, osLocal?: any): string | null {
