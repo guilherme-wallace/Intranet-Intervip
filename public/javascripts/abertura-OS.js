@@ -6,6 +6,7 @@ let ticketAtualDetalhes = null;
 let anexoPendente = null;
 let anexoOrigemModalTicket = false;
 let dadosEdicaoOriginais = null;
+let criandoAtendimento = false;
 
 const PROCESSOS_OCULTOS_ABERTURA = new Set(['3', '9', '13', '21', '24', '28', '29', '30', '33', '39', '45', '46', '51', '54']);
 const TERMOS_PROCESSOS_OCULTOS_ABERTURA = [
@@ -493,6 +494,50 @@ function validarDadosEdicao(dados) {
     return '';
 }
 
+function montarContextoInternoAbertura(assuntoTexto, observacao, idProcesso) {
+    const contatos = clienteAtual?.contatos || {};
+    return {
+        usuario_logado: window.usuarioLogado || '',
+        processo: {
+            id: idProcesso,
+            descricao: assuntoTexto || ''
+        },
+        cliente: {
+            id: clienteAtual?.id || '',
+            nome: clienteAtual?.nome || '',
+            contatos: {
+                fone: contatos.fone || '',
+                telefone_comercial: contatos.telefone_comercial || '',
+                telefone_celular: contatos.telefone_celular || '',
+                whatsapp: contatos.whatsapp || '',
+                email: contatos.email || '',
+                contato: contatos.contato || ''
+            }
+        },
+        contrato: contratoAtual ? {
+            id: contratoAtual.id || '',
+            endereco_completo: contratoAtual.endereco_completo || '',
+            condominio: contratoAtual.condominio || '',
+            plano_nome: contratoAtual.plano?.nome || '',
+            status: traduzirStatusContrato(contratoAtual.status || contratoAtual.plano?.status),
+            status_acesso: traduzirStatusAcesso(contratoAtual.status_internet),
+            bloqueio_automatico: simNao(contratoAtual.bloqueio_automatico)
+        } : {},
+        tecnico: contratoAtual ? {
+            login: contratoAtual.login?.user || '',
+            status: contratoAtual.login?.status || '',
+            ultima_queda: contratoAtual.login?.ultima_queda || '',
+            motivo_queda: contratoAtual.login?.motivo_queda || '',
+            onu_id: contratoAtual.onu?.id || '',
+            onu_mac: contratoAtual.onu?.mac || '',
+            onu_status: contratoAtual.onu?.status || '',
+            sinal_rx: contratoAtual.onu?.sinal_rx || '',
+            sinal_tx: contratoAtual.onu?.sinal_tx || ''
+        } : {},
+        observacao_triagem: observacao || ''
+    };
+}
+
 async function carregarBoletosContrato(idContrato) {
     const area = document.getElementById('area-boletos-contrato');
     if (!area || !idContrato) return;
@@ -674,6 +719,7 @@ function atualizarChecklist(e) {
 }
 
 async function gerarOS() {
+    if (criandoAtendimento) return;
     if (!clienteAtual) return showInfoModal("Busque e selecione um cliente primeiro.");
 
     const selectAssunto = document.getElementById('select-assunto');
@@ -703,6 +749,7 @@ async function gerarOS() {
     }
 
     const btn = document.getElementById('btn-gerar-os');
+    criandoAtendimento = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Criando Atendimento...';
     btn.disabled = true;
 
@@ -716,7 +763,9 @@ async function gerarOS() {
                 id_departamento: id_departamento,
                 id_processo: id_processo,
                 observacao: observacao,
-                titulo: assuntoTexto
+                titulo: assuntoTexto,
+                usuario_logado: window.usuarioLogado || '',
+                contexto_interno: montarContextoInternoAbertura(assuntoTexto, observacao, id_processo)
             })
         });
 
@@ -732,6 +781,11 @@ async function gerarOS() {
         const spanProtocolo = document.getElementById('sucesso-ticket-protocolo');
         if (spanProtocolo) {
             spanProtocolo.textContent = data.protocolo || '';
+        }
+        const avisoInterno = document.getElementById('aviso-mensagem-interna-abertura');
+        if (avisoInterno) {
+            avisoInterno.textContent = data.aviso_mensagem_interna || '';
+            avisoInterno.classList.toggle('d-none', !data.aviso_mensagem_interna);
         }
         if (anexoPendente) {
             try {
@@ -751,6 +805,7 @@ async function gerarOS() {
     } catch (error) {
         showInfoModal("Erro ao criar chamado: " + error.message);
     } finally {
+        criandoAtendimento = false;
         btn.innerHTML = '<i class="bi bi-file-earmark-plus me-2"></i>Continuar';
         btn.disabled = false;
     }

@@ -38,7 +38,12 @@
 
     <main class="ivp-main">
         <div class="container py-4">
-            <h3 class="mb-4 text-primary"><i class="bi bi-headset me-2"></i>Triagem e Abertura de Chamados</h3>
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+                <h3 class="mb-0 text-primary"><i class="bi bi-headset me-2"></i>Triagem e Abertura de Chamados</h3>
+                <button type="button" class="btn btn-outline-primary fw-bold btn-vagas-agenda">
+                    <i class="bi bi-calendar-week me-1"></i>Vagas Agenda
+                </button>
+            </div>
 
             <div class="row">
                 <div class="col-lg-4">
@@ -181,6 +186,7 @@
                     <div class="text-center mb-4">
                         <p class="fs-5 text-dark m-0">Chamado <strong>#<span id="sucesso-ticket-id"></span></strong> criado no IXC!</p>
                         <p class="fs-6 text-primary fw-bold m-0">Protocolo: <span id="sucesso-ticket-protocolo">Protocolo ainda não retornado pelo IXC</span></p>
+                        <div class="alert alert-warning small py-2 mt-3 mb-0 d-none" id="aviso-mensagem-interna-abertura"></div>
                         <p class="text-muted small">Selecione para onde deseja encaminhar este atendimento:</p>
                     </div>
                     
@@ -333,6 +339,7 @@
     <script src="javascripts/bootstrap-autocomplete.min.js"></script> 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.inputmask/5.0.9/jquery.inputmask.min.js"></script>
     <script src="javascripts/app-modal.js"></script>
+    <script src="javascripts/vagas-agenda.js"></script>
     <script src="javascripts/abertura-OS.js"></script>
 </body>
 </html>

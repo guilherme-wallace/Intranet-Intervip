@@ -14,6 +14,7 @@ const Express = require("express");
 const axios_1 = require("axios");
 const database_1 = require("../../../api/database");
 const agendaService_1 = require("./agendaService");
+const logger_1 = require("../../../api/logger");
 const router = Express.Router();
 const makeIxcRequest = (method, endpoint, data = null, operationType = null) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
@@ -49,6 +50,134 @@ function sanitizarTexto(valor, max = 255) {
 }
 function normalizarTelefone(valor) {
     return String(valor || '').replace(/[^\d+]/g, '').substring(0, 30);
+}
+function limitarTexto(valor, max = 1200) {
+    return String(valor || '')
+        .replace(/\r\n/g, '\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim()
+        .substring(0, max);
+}
+function textoOuNaoInformado(valor) {
+    const texto = limitarTexto(valor, 200);
+    return texto || 'Nao informado';
+}
+function montarLinha(label, valor) {
+    const texto = limitarTexto(valor, 800);
+    return texto ? `${label}: ${texto}` : '';
+}
+function normalizarTextoBusca(valor) {
+    return String(valor || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toUpperCase();
+}
+function montarResumoCampo(valor, max = 180) {
+    var _a, _b;
+    let texto = limitarTexto(valor, 600)
+        .replace(/\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/g, '[documento removido]')
+        .replace(/\b\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}\b/g, '[documento removido]')
+        .replace(/\b(senha|password|token|authorization|cpf|cnpj)\s*[:=]\s*\S+/gi, '$1: [removido]')
+        .replace(/\b(id_cliente|id_contrato|id_wfl_processo|id_assunto|ticket|protocolo)\s*[:#=]?\s*\d+/gi, '')
+        .replace(/\b(OS)\s*[:#=]?\s*\d+/gi, '');
+    texto = texto
+        .split(/\r?\n/)
+        .map(linha => linha.trim())
+        .find(Boolean) || '';
+    const fraseCurta = (_b = (_a = texto.match(/^.{1,180}[.!?](\s|$)/)) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.trim();
+    return limitarTexto(fraseCurta || texto, max);
+}
+function montarMensagemInicialCampo(payload) {
+    var _a, _b, _c;
+    const contexto = (payload === null || payload === void 0 ? void 0 : payload.contexto_interno) || {};
+    const processo = normalizarTextoBusca((payload === null || payload === void 0 ? void 0 : payload.titulo) || ((_a = contexto === null || contexto === void 0 ? void 0 : contexto.processo) === null || _a === void 0 ? void 0 : _a.descricao) || '');
+    const instalacao = processo.includes('INSTAL') || processo.includes('ATIVACAO');
+    const endereco = textoOuNaoInformado(((_b = contexto === null || contexto === void 0 ? void 0 : contexto.contrato) === null || _b === void 0 ? void 0 : _b.endereco_completo) || (contexto === null || contexto === void 0 ? void 0 : contexto.endereco_completo));
+    const referencia = montarResumoCampo(((_c = contexto === null || contexto === void 0 ? void 0 : contexto.contrato) === null || _c === void 0 ? void 0 : _c.referencia) || (contexto === null || contexto === void 0 ? void 0 : contexto.referencia), 140);
+    const observacaoCurta = montarResumoCampo(payload === null || payload === void 0 ? void 0 : payload.observacao, instalacao ? 160 : 180);
+    const linhas = instalacao
+        ? [
+            'Solicitação de instalação.',
+            '',
+            `Endereço de instalação:\n${endereco}`,
+            referencia ? `\nReferência:\n${referencia}` : '',
+            observacaoCurta ? `\nObservação para execução:\n${observacaoCurta}` : ''
+        ]
+        : [
+            'Solicitação de suporte técnico.',
+            '',
+            `Motivo informado:\n${observacaoCurta || 'Verificar atendimento solicitado pelo cliente.'}`,
+            '',
+            `Endereço:\n${endereco}`,
+            referencia ? `\nReferência:\n${referencia}` : ''
+        ];
+    return linhas.filter(Boolean).join('\n').trim();
+}
+function montarMensagemInternaCompleta(payload, resultadoIxc) {
+    const contexto = (payload === null || payload === void 0 ? void 0 : payload.contexto_interno) || {};
+    const cliente = (contexto === null || contexto === void 0 ? void 0 : contexto.cliente) || {};
+    const contrato = (contexto === null || contexto === void 0 ? void 0 : contexto.contrato) || {};
+    const tecnico = (contexto === null || contexto === void 0 ? void 0 : contexto.tecnico) || {};
+    const processo = (contexto === null || contexto === void 0 ? void 0 : contexto.processo) || {};
+    const contatos = (cliente === null || cliente === void 0 ? void 0 : cliente.contatos) || {};
+    return [
+        '[INFORMAÇÕES INTERNAS - INTRANET]',
+        '',
+        'Origem: Abertura-OS',
+        montarLinha('Colaborador', (payload === null || payload === void 0 ? void 0 : payload.usuario_logado) || (payload === null || payload === void 0 ? void 0 : payload.usuario_intranet) || (contexto === null || contexto === void 0 ? void 0 : contexto.usuario_logado)),
+        montarLinha('Cliente', `${(cliente === null || cliente === void 0 ? void 0 : cliente.nome) || 'Nao informado'} | ID IXC: ${(payload === null || payload === void 0 ? void 0 : payload.cliente_id) || (cliente === null || cliente === void 0 ? void 0 : cliente.id) || 'Nao informado'}`),
+        montarLinha('Contrato', (payload === null || payload === void 0 ? void 0 : payload.contrato_id) || (contrato === null || contrato === void 0 ? void 0 : contrato.id)),
+        montarLinha('Login', tecnico === null || tecnico === void 0 ? void 0 : tecnico.login),
+        montarLinha('Telefone/WhatsApp', [
+            contatos === null || contatos === void 0 ? void 0 : contatos.fone,
+            contatos === null || contatos === void 0 ? void 0 : contatos.telefone_comercial,
+            contatos === null || contatos === void 0 ? void 0 : contatos.telefone_celular,
+            contatos === null || contatos === void 0 ? void 0 : contatos.whatsapp,
+            contatos === null || contatos === void 0 ? void 0 : contatos.email,
+            contatos === null || contatos === void 0 ? void 0 : contatos.contato
+        ].filter(Boolean).join(' | ')),
+        '',
+        'Processo/Assunto:',
+        textoOuNaoInformado((processo === null || processo === void 0 ? void 0 : processo.descricao) || (payload === null || payload === void 0 ? void 0 : payload.titulo)),
+        '',
+        montarLinha('Tipo de serviço', (contexto === null || contexto === void 0 ? void 0 : contexto.tipo_servico) || (payload === null || payload === void 0 ? void 0 : payload.tipo_servico)),
+        '',
+        'Sintoma informado:',
+        textoOuNaoInformado(payload === null || payload === void 0 ? void 0 : payload.observacao),
+        '',
+        'Observação da triagem:',
+        textoOuNaoInformado((contexto === null || contexto === void 0 ? void 0 : contexto.observacao_triagem) || (payload === null || payload === void 0 ? void 0 : payload.observacao)),
+        '',
+        'Endereço completo:',
+        textoOuNaoInformado((contrato === null || contrato === void 0 ? void 0 : contrato.endereco_completo) || (contexto === null || contexto === void 0 ? void 0 : contexto.endereco_completo)),
+        '',
+        montarLinha('Condomínio/localidade', (contrato === null || contrato === void 0 ? void 0 : contrato.condominio) || (contexto === null || contexto === void 0 ? void 0 : contexto.condominio)),
+        montarLinha('Preferência de horário', contexto === null || contexto === void 0 ? void 0 : contexto.preferencia_horario),
+        '',
+        'Dados técnicos:',
+        montarLinha('Plano', contrato === null || contrato === void 0 ? void 0 : contrato.plano_nome),
+        montarLinha('Status contrato', contrato === null || contrato === void 0 ? void 0 : contrato.status),
+        montarLinha('Status acesso', contrato === null || contrato === void 0 ? void 0 : contrato.status_acesso),
+        montarLinha('Bloqueio automático', contrato === null || contrato === void 0 ? void 0 : contrato.bloqueio_automatico),
+        montarLinha('PPPoE', [
+            (tecnico === null || tecnico === void 0 ? void 0 : tecnico.login) ? `Login ${tecnico.login}` : '',
+            (tecnico === null || tecnico === void 0 ? void 0 : tecnico.status) ? `Status ${tecnico.status}` : '',
+            (tecnico === null || tecnico === void 0 ? void 0 : tecnico.ultima_queda) ? `Ultima queda ${tecnico.ultima_queda}` : '',
+            (tecnico === null || tecnico === void 0 ? void 0 : tecnico.motivo_queda) ? `Motivo ${tecnico.motivo_queda}` : ''
+        ].filter(Boolean).join(' | ')),
+        montarLinha('ONU', [
+            (tecnico === null || tecnico === void 0 ? void 0 : tecnico.onu_id) ? `ID ${tecnico.onu_id}` : '',
+            (tecnico === null || tecnico === void 0 ? void 0 : tecnico.onu_mac) ? `MAC ${tecnico.onu_mac}` : '',
+            (tecnico === null || tecnico === void 0 ? void 0 : tecnico.onu_status) ? `Status ${tecnico.onu_status}` : '',
+            (tecnico === null || tecnico === void 0 ? void 0 : tecnico.sinal_rx) ? `RX ${tecnico.sinal_rx}` : '',
+            (tecnico === null || tecnico === void 0 ? void 0 : tecnico.sinal_tx) ? `TX ${tecnico.sinal_tx}` : ''
+        ].filter(Boolean).join(' | ')),
+        '',
+        'Chamado/OS criada:',
+        montarLinha('Atendimento', resultadoIxc === null || resultadoIxc === void 0 ? void 0 : resultadoIxc.ticketId),
+        montarLinha('OS', resultadoIxc === null || resultadoIxc === void 0 ? void 0 : resultadoIxc.osId),
+        montarLinha('Protocolo', resultadoIxc === null || resultadoIxc === void 0 ? void 0 : resultadoIxc.protocolo)
+    ].filter(linha => linha !== '').join('\n');
 }
 function extrairBoundary(contentType) {
     const match = String(contentType || '').match(/boundary=(?:"([^"]+)"|([^;]+))/i);
@@ -196,6 +325,35 @@ function buscarTicketIxc(ticketId) {
             rp: '1'
         });
         return ((_a = ticketResp.registros) === null || _a === void 0 ? void 0 : _a[0]) || null;
+    });
+}
+function registrarMensagemAtendimento(ticketId, clienteId, mensagem) {
+    return __awaiter(this, void 0, void 0, function* () {
+        if (!ticketId)
+            throw new Error('Atendimento não informado para registrar mensagem interna.');
+        return makeIxcRequest('POST', '/su_mensagens', {
+            id_cliente: clienteId || '',
+            mensagem_ticket: mensagem,
+            mensagem,
+            visibilidade_mensagens: 'P',
+            su_status: 'P',
+            id_ticket: ticketId,
+            existe_pendencia_externa: 'E'
+        }, 'incluir');
+    });
+}
+function registrarMensagemInternaAbertura(payload, resultadoIxc) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const mensagemInterna = montarMensagemInternaCompleta(payload, resultadoIxc);
+        const usuarioLogado = (payload === null || payload === void 0 ? void 0 : payload.usuario_logado) || (payload === null || payload === void 0 ? void 0 : payload.usuario_intranet);
+        const resultados = { atendimento: null, os: null };
+        if (resultadoIxc === null || resultadoIxc === void 0 ? void 0 : resultadoIxc.ticketId) {
+            resultados.atendimento = yield registrarMensagemAtendimento(resultadoIxc.ticketId, payload === null || payload === void 0 ? void 0 : payload.cliente_id, mensagemInterna);
+        }
+        if (resultadoIxc === null || resultadoIxc === void 0 ? void 0 : resultadoIxc.osId) {
+            resultados.os = yield agendaService_1.AgendaService.registrarMensagemOs(String(resultadoIxc.osId), mensagemInterna, usuarioLogado, 'Abertura OS Mensagem Interna');
+        }
+        return resultados;
     });
 }
 function obterIdFuncionarioIxc(usuario_intranet) {
@@ -388,7 +546,7 @@ router.get('/busca-cliente/:termo', (req, res) => __awaiter(void 0, void 0, void
 }));
 router.post('/criar-os', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _f, _g, _h, _j;
-    const { cliente_id, contrato_id, id_departamento, id_processo, observacao, titulo } = req.body;
+    const { cliente_id, contrato_id, id_departamento, id_processo, observacao, titulo, usuario_logado, usuario_intranet } = req.body;
     //console.log("\n=== [DEBUG] INICIANDO CRIAÇÃO DE CHAMADO (IXC) ===");
     //console.log("1. Dados brutos recebidos do Frontend:", req.body);
     if (!cliente_id || !observacao || !id_processo) {
@@ -396,6 +554,13 @@ router.post('/criar-os', (req, res) => __awaiter(void 0, void 0, void 0, functio
         return res.status(400).json({ error: "Dados incompletos. Selecione um processo do IXC antes de continuar." });
     }
     try {
+        const mensagemInicialCampo = montarMensagemInicialCampo(req.body);
+        (0, logger_1.logInfo)('[Abertura OS][Mensagem Inicial]', 'Mensagem inicial de campo montada.', {
+            usuario: usuario_logado || usuario_intranet,
+            processo: id_processo,
+            cliente_id,
+            contrato_id
+        });
         const abertosResp = yield makeIxcRequest('POST', '/su_ticket', {
             qtype: 'su_ticket.id_cliente',
             query: String(cliente_id),
@@ -430,8 +595,8 @@ router.post('/criar-os', (req, res) => __awaiter(void 0, void 0, void 0, functio
             su_status: "N",
             prioridade: "M",
             su_ticket_origem: "I",
-            menssagem: observacao,
-            mensagem: observacao
+            menssagem: mensagemInicialCampo,
+            mensagem: mensagemInicialCampo
         };
         if (contrato_id && String(contrato_id).trim() !== "") {
             payloadTicket.id_contrato = contrato_id;
@@ -467,7 +632,40 @@ router.post('/criar-os', (req, res) => __awaiter(void 0, void 0, void 0, functio
                 osCriada
             });
         }
-        res.json({ success: true, ticket_id: ticketId, protocolo, message: "Atendimento criado com sucesso no IXC!" });
+        let avisoMensagemInterna = '';
+        try {
+            yield registrarMensagemInternaAbertura(req.body, {
+                ticketId,
+                osId: (osCriada === null || osCriada === void 0 ? void 0 : osCriada.id) || ixcResp.id_chamado || ixcResp.id_os || '',
+                protocolo
+            });
+            (0, logger_1.logInfo)('[Abertura OS][Mensagem Interna]', 'Mensagem interna completa registrada.', {
+                usuario: usuario_logado || usuario_intranet,
+                processo: id_processo,
+                cliente_id,
+                contrato_id,
+                ticket_id: ticketId,
+                os_id: (osCriada === null || osCriada === void 0 ? void 0 : osCriada.id) || ixcResp.id_chamado || ixcResp.id_os || ''
+            });
+        }
+        catch (mensagemInternaError) {
+            avisoMensagemInterna = 'Chamado criado com sucesso, mas não foi possível registrar as informações internas completas.';
+            (0, logger_1.logError)('[Abertura OS][Mensagem Interna]', mensagemInternaError, {
+                usuario: usuario_logado || usuario_intranet,
+                processo: id_processo,
+                cliente_id,
+                contrato_id,
+                ticket_id: ticketId,
+                os_id: (osCriada === null || osCriada === void 0 ? void 0 : osCriada.id) || ixcResp.id_chamado || ixcResp.id_os || ''
+            });
+        }
+        res.json({
+            success: true,
+            ticket_id: ticketId,
+            protocolo,
+            message: "Atendimento criado com sucesso no IXC!",
+            aviso_mensagem_interna: avisoMensagemInterna || undefined
+        });
         //console.log("=== CHAMADO CRIADO COM SUCESSO ===\n");
     }
     catch (error) {
