@@ -231,6 +231,50 @@ body.dark-mode .btn-outline-dark:hover {
     border-color: #f8f9fa !important;
 }
 
+.vagas-dia-card {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 0.85rem;
+    background: var(--card-bg);
+    min-height: 100%;
+}
+
+.vagas-slot {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 0.55rem 0.65rem;
+    background: rgba(248, 249, 250, 0.75);
+}
+
+.vagas-slot-disponivel {
+    border-left: 4px solid var(--success-color);
+}
+
+.vagas-slot-baixo {
+    border-left: 4px solid var(--warning-color);
+    background: rgba(255, 193, 7, 0.08);
+}
+
+.vagas-slot-lotado {
+    border-left: 4px solid var(--danger-color);
+    background: rgba(220, 53, 69, 0.08);
+}
+
+.dark-mode .vagas-dia-card,
+.dark-mode .vagas-slot {
+    background: var(--card-bg-dark);
+    border-color: var(--border-color);
+    color: var(--text-color);
+}
+
+.dark-mode .vagas-slot-baixo {
+    background: rgba(255, 193, 7, 0.12);
+}
+
+.dark-mode .vagas-slot-lotado {
+    background: rgba(220, 53, 69, 0.12);
+}
+
 .form-label {
     font-weight: 500;
     margin-bottom: 0.25rem;

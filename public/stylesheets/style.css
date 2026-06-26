@@ -369,3 +369,51 @@ html, body {
 .modern-card:nth-child(4) { animation-delay: 0.4s; }
 .modern-card:nth-child(5) { animation-delay: 0.5s; }
 .modern-card:nth-child(6) { animation-delay: 0.6s; }
+.vagas-dia-card {
+    border: 1px solid rgba(13, 110, 253, 0.18);
+    border-radius: 8px;
+    background: #fff;
+    padding: 12px;
+    min-height: 100%;
+}
+
+.vagas-dia-passado {
+    opacity: 0.62;
+}
+
+.vagas-slot {
+    border: 1px solid #e9ecef;
+    border-left-width: 4px;
+    border-radius: 6px;
+    padding: 8px 10px;
+    background: #f8f9fa;
+}
+
+.vagas-slot-disponivel {
+    border-left-color: #198754;
+}
+
+.vagas-slot-baixo {
+    border-left-color: #ffc107;
+    background: #fff9e6;
+}
+
+.vagas-slot-lotado {
+    border-left-color: #dc3545;
+    background: #fff5f5;
+}
+
+.dark-mode .vagas-dia-card,
+.dark-mode .vagas-slot {
+    background: #1f2933;
+    border-color: #334155;
+    color: #e5e7eb;
+}
+
+.dark-mode .vagas-slot-baixo {
+    background: #302a16;
+}
+
+.dark-mode .vagas-slot-lotado {
+    background: #331d21;
+}
