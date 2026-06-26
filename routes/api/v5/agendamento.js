@@ -14,12 +14,15 @@ const Express = require("express");
 const axios_1 = require("axios");
 const database_1 = require("../../../api/database");
 const agendaService_1 = require("./agendaService");
+const logger_1 = require("../../../api/logger");
 const router = Express.Router();
 const executeDb = (query, params = []) => {
     return new Promise((resolve, reject) => {
         database_1.LOCALHOST.query(query, params, (err, results) => {
-            if (err)
+            if (err) {
+                (0, logger_1.logError)('DB.executeDb.agendamento', err, { query, params });
                 return reject(err);
+            }
             resolve(results);
         });
     });
@@ -516,7 +519,9 @@ router.get('/os-por-ticket/:id_ticket', (req, res) => __awaiter(void 0, void 0, 
     }
 }));
 router.post('/confirmar', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _b;
+    var _b, _c, _d, _e, _f;
+    const startedAt = Date.now();
+    const reqAny = req;
     const { id_ticket, id_os, os_id, id_chamado, cliente_id, contrato_id, municipio, tipo_servico, tipo_imovel, data_agendamento, turno, aceita_encaixe, usuario_logado, tag_ids, reagendar_existente, abrir_chamado_duvida, modo_reagendamento, modo } = req.body;
     const preferenciaHorarioTipo = String(req.body.preferencia_horario_tipo || 'SEM_PREFERENCIA').toUpperCase();
     const preferenciaHorarioInicio = String(req.body.preferencia_horario_inicio || '').substring(0, 5);
@@ -525,6 +530,19 @@ router.post('/confirmar', (req, res) => __awaiter(void 0, void 0, void 0, functi
     const solicitaPrioridadeAtiva = 0;
     console.log(`[DEBUG HUB AGENDAMENTO] Nova O.S. -> Ticket: ${id_ticket} | Contrato Capturado: ${contrato_id || 'VAZIO'} | Serviço: ${tipo_servico}`);
     try {
+        (0, logger_1.logInfo)('Agendamento.confirmar', 'Inicio da confirmacao de agendamento.', {
+            requestId: reqAny.requestId,
+            method: req.method,
+            url: req.originalUrl,
+            ip: req.ip,
+            usuario: usuario_logado || ((_b = reqAny.user) === null || _b === void 0 ? void 0 : _b.username) || ((_c = reqAny.session) === null || _c === void 0 ? void 0 : _c.username) || 'Visitante',
+            id_ticket,
+            id_os,
+            cliente_id,
+            contrato_id,
+            data_agendamento,
+            turno
+        });
         if (typeof aceita_encaixe !== 'boolean') {
             return res.status(400).json({ error: 'Informe se o cliente aceita encaixe antes de confirmar.' });
         }
@@ -782,6 +800,7 @@ router.post('/confirmar', (req, res) => __awaiter(void 0, void 0, void 0, functi
             throw new Error('Esta OS já está atribuída a um técnico no IXC e não pode ser agendada novamente por esta tela.');
         }
         const janelaSegura = agendaService_1.AgendaService.obterJanelaAgendamentoSegura(data_agendamento, turno);
+        const turnoNormalizadoAgenda = janelaSegura.turnoNormalizado;
         const dataFormatada = janelaSegura.dataBr;
         const usuarioIxc = yield agendaService_1.AgendaService.obterUsuarioIxcLogado(usuario_logado);
         let protocoloDuvida = '';
@@ -790,7 +809,7 @@ router.post('/confirmar', (req, res) => __awaiter(void 0, void 0, void 0, functi
             protocoloDuvida = chamadoDuvida.protocolo;
         }
         const preferenciaTexto = formatarPreferenciaHorario(req.body);
-        const msgAgendamento = `AGENDADO VIA INTRANET\nData: ${dataFormatada}\nTurno: ${turno}\nAceita Encaixe: ${aceita_encaixe ? 'SIM' : 'NÃO'}${preferenciaTexto ? `\nPreferência de horário: ${preferenciaTexto}` : ''}${protocoloDuvida ? `\nChamado de dúvida/protocolo relacionado: ${protocoloDuvida}` : ''}\nColaborador responsável: ${usuarioIxc.nome}`;
+        const msgAgendamento = `AGENDADO VIA INTRANET\nData: ${dataFormatada}\nTurno: ${turnoNormalizadoAgenda}\nAceita Encaixe: ${aceita_encaixe ? 'SIM' : 'NÃO'}${preferenciaTexto ? `\nPreferência de horário: ${preferenciaTexto}` : ''}${protocoloDuvida ? `\nChamado de dúvida/protocolo relacionado: ${protocoloDuvida}` : ''}\nColaborador responsável: ${usuarioIxc.nome}`;
         const dataInteracao = janelaSegura.dataInteracao;
         const payloadAgendar = {
             "id_chamado": String(ixc_os_id),
@@ -811,7 +830,7 @@ router.post('/confirmar', (req, res) => __awaiter(void 0, void 0, void 0, functi
         };
         console.log(`\n--- [DEBUG AGENDAMENTO IXC] INICIANDO AGENDAMENTO VIA POST (su_oss_chamado_reagendar) ---`);
         console.log(`[DEBUG AGENDAMENTO IXC] OS ID: ${ixc_os_id} | Usuário: ${usuario_logado || 'não informado'} | Técnico destino: 138`);
-        console.log('[DEBUG AGENDAMENTO IXC] Data/turno selecionados:', { data_agendamento, turno });
+        console.log('[DEBUG AGENDAMENTO IXC] Data/turno selecionados:', { data_agendamento, turno: turnoNormalizadoAgenda, turno_original: turno });
         console.log('[DEBUG AGENDAMENTO IXC] Janela segura calculada:', janelaSegura);
         console.log(`[DEBUG AGENDAMENTO IXC] Payload final:`, JSON.stringify(payloadAgendar, null, 2));
         const respAgendar = yield makeIxcRequest('POST', `/su_oss_chamado_reagendar`, payloadAgendar, 'incluir');
@@ -832,7 +851,7 @@ router.post('/confirmar', (req, res) => __awaiter(void 0, void 0, void 0, functi
                  SET data_agendamento = ?, turno = ?, aceita_encaixe = ?, solicita_prioridade = 0, ixc_tecnico_id = 138, status_interno = 'AGUARDANDO_LOGISTICA',
                      preferencia_horario_tipo = ?, preferencia_horario_inicio = ?, preferencia_horario_fim = ?, preferencia_horario_obs = ?,
                      updated_at = CURRENT_TIMESTAMP
-                 WHERE id = ?`, [data_agendamento, turno, aceita_encaixe ? 1 : 0, preferenciaHorarioTipo, preferenciaHorarioInicio || null, preferenciaHorarioFim || null, preferenciaHorarioObs || null, idAgendaLocal]);
+                 WHERE id = ?`, [data_agendamento, turnoNormalizadoAgenda, aceita_encaixe ? 1 : 0, preferenciaHorarioTipo, preferenciaHorarioInicio || null, preferenciaHorarioFim || null, preferenciaHorarioObs || null, idAgendaLocal]);
             yield marcarDuplicatasLocaisMesmaOs(registrosLocaisMesmaOs || [], idAgendaLocal);
         }
         else {
@@ -848,7 +867,7 @@ router.post('/confirmar', (req, res) => __awaiter(void 0, void 0, void 0, functi
                 aceita_encaixe ? 1 : 0,
                 solicitaPrioridadeAtiva,
                 data_agendamento,
-                turno,
+                turnoNormalizadoAgenda,
                 preferenciaHorarioTipo,
                 preferenciaHorarioInicio || null,
                 preferenciaHorarioFim || null,
@@ -867,7 +886,7 @@ router.post('/confirmar', (req, res) => __awaiter(void 0, void 0, void 0, functi
             agendaAnterior,
             agendaNova: {
                 data: data_agendamento,
-                turno,
+                turno: turnoNormalizadoAgenda,
                 tecnico: 138,
                 status: 'AGUARDANDO_LOGISTICA'
             }
@@ -880,15 +899,218 @@ router.post('/confirmar', (req, res) => __awaiter(void 0, void 0, void 0, functi
             yield executeDb('INSERT IGNORE INTO ivp_agenda_os_tags (id_agenda_os, id_tag) VALUES (?, ?)', [idAgendaLocal, idTag]);
         }
         console.log(`--- [DEBUG AGENDAMENTO IXC] SINCRONIZAÇÃO CONCLUÍDA COM SUCESSO ---\n`);
-        res.json({ success: true, message: "Agendamento confirmado com sucesso!" });
+        (0, logger_1.logInfo)('Agendamento.confirmar', 'Confirmacao de agendamento concluida.', {
+            requestId: reqAny.requestId,
+            ixc_os_id,
+            idAgendaLocal,
+            duracaoMs: Date.now() - startedAt
+        });
+        res.json({ success: true, message: "Agendamento confirmado com sucesso!", requestId: reqAny.requestId });
     }
     catch (error) {
         console.error("[Erro Agendamento Confirmar]:", error.message);
-        console.error("[DEBUG AGENDAMENTO IXC] Erro completo:", ((_b = error.response) === null || _b === void 0 ? void 0 : _b.data) || error.message);
-        res.status(500).json({ error: error.message });
+        console.error("[DEBUG AGENDAMENTO IXC] Erro completo:", ((_d = error.response) === null || _d === void 0 ? void 0 : _d.data) || error.message);
+        (0, logger_1.logError)('Agendamento.confirmar', error, {
+            requestId: reqAny.requestId,
+            method: req.method,
+            url: req.originalUrl,
+            ip: req.ip,
+            usuario: usuario_logado || ((_e = reqAny.user) === null || _e === void 0 ? void 0 : _e.username) || ((_f = reqAny.session) === null || _f === void 0 ? void 0 : _f.username) || 'Visitante',
+            id_ticket,
+            id_os,
+            cliente_id,
+            contrato_id,
+            data_agendamento,
+            turno,
+            duracaoMs: Date.now() - startedAt
+        });
+        res.status(500).json({
+            error: process.env.NODE_ENV === 'production' ? 'Erro interno ao processar solicitação.' : error.message,
+            requestId: reqAny.requestId
+        });
     }
 }));
+function dataHojeSaoPaulo() {
+    return new Intl.DateTimeFormat('sv-SE', {
+        timeZone: 'America/Sao_Paulo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    }).format(new Date());
+}
+function ymdFromDateLocal(date) {
+    const ano = date.getFullYear();
+    const mes = String(date.getMonth() + 1).padStart(2, '0');
+    const dia = String(date.getDate()).padStart(2, '0');
+    return `${ano}-${mes}-${dia}`;
+}
+function obterInicioSemanaYmd(valor) {
+    const baseTexto = String(valor || '').trim() || dataHojeSaoPaulo();
+    const base = new Date(`${baseTexto.substring(0, 10)}T12:00:00`);
+    if (isNaN(base.getTime()))
+        return obterInicioSemanaYmd(dataHojeSaoPaulo());
+    const dia = base.getDay();
+    const diffSegunda = dia === 0 ? -6 : 1 - dia;
+    base.setDate(base.getDate() + diffSegunda);
+    return ymdFromDateLocal(base);
+}
+function addDiasYmd(ymd, dias) {
+    const data = new Date(`${ymd}T12:00:00`);
+    data.setDate(data.getDate() + dias);
+    return ymdFromDateLocal(data);
+}
+function labelDiaSemana(ymd) {
+    const data = new Date(`${ymd}T12:00:00`);
+    return new Intl.DateTimeFormat('pt-BR', {
+        weekday: 'long',
+        timeZone: 'America/Sao_Paulo'
+    }).format(data);
+}
+function normalizarFiltroVagas(valor, padrao = 'TODOS') {
+    return String(valor || padrao)
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toUpperCase();
+}
+function criarSlotVaga(total) {
+    const totalNum = Number(total || 0);
+    return {
+        usadas: 0,
+        total: totalNum,
+        disponiveis: Math.max(0, totalNum)
+    };
+}
+function aplicarUsoSlot(slot) {
+    slot.usadas += 1;
+    slot.disponiveis = Math.max(0, Number(slot.total || 0) - slot.usadas);
+}
+function deveExibirCategoriaVagas(chave, municipio, tipo) {
+    const isInstalacao = chave.startsWith('instalacao_');
+    if (tipo === 'SUPORTE' && isInstalacao)
+        return false;
+    if (tipo === 'INSTALACAO' && !isInstalacao)
+        return false;
+    if (municipio === 'SERRA')
+        return !chave.includes('_outros_');
+    if (municipio === 'VV_VIX_CCA')
+        return !chave.includes('_serra_');
+    return true;
+}
+function classificarOsParaVaga(os) {
+    const turno = agendaService_1.AgendaService.normalizarTurnoAgenda(os.turno);
+    const sufixo = turno === 'MATUTINO' ? 'm' : 't';
+    const municipio = normalizarFiltroVagas(os.municipio_base || os.cidade_real || '');
+    const tipoServico = normalizarFiltroVagas(os.tipo_servico || '');
+    const tipoImovel = normalizarFiltroVagas(os.tipo_imovel || '');
+    const isSerra = municipio.includes('SERRA');
+    const isInstalacao = tipoServico.includes('INSTALA');
+    const isPredio = tipoImovel.includes('PREDIO');
+    if (isInstalacao)
+        return `instalacao_${isSerra ? 'serra' : 'outros'}_${sufixo}`;
+    if (isPredio)
+        return `manutencao_predio_${isSerra ? 'serra' : 'outros'}_${sufixo}`;
+    return `manutencao_casa_${sufixo}`;
+}
+function responderVagasSemanaCompleta(req, res) {
+    var _a, _b, _c, _d;
+    return __awaiter(this, void 0, void 0, function* () {
+        const reqAny = req;
+        const inicio = obterInicioSemanaYmd(req.query.inicio);
+        const fim = addDiasYmd(inicio, 6);
+        const municipio = normalizarFiltroVagas(req.query.municipio, 'TODOS');
+        const tipo = normalizarFiltroVagas(req.query.tipo, 'TODOS');
+        try {
+            (0, logger_1.logInfo)('[Vagas Agenda]', 'Consulta semanal iniciada.', {
+                requestId: reqAny.requestId,
+                inicio,
+                fim,
+                municipio,
+                tipo,
+                usuario: ((_a = reqAny.user) === null || _a === void 0 ? void 0 : _a.username) || ((_b = reqAny.session) === null || _b === void 0 ? void 0 : _b.username) || 'Visitante'
+            });
+            for (let i = 0; i < 7; i++) {
+                yield agendaService_1.AgendaService.garantirCapacidadeDia(addDiasYmd(inicio, i));
+            }
+            const capacidades = yield executeDb(`SELECT * FROM ivp_agenda_capacidade WHERE data >= ? AND data <= ? ORDER BY data ASC`, [inicio, fim]);
+            const agendamentos = yield executeDb(`SELECT data_agendamento, turno, tipo_servico, tipo_imovel, municipio_base, status_interno, ixc_tecnico_id
+             FROM ivp_agenda_os
+             WHERE data_agendamento >= ?
+               AND data_agendamento <= ?
+               AND data_agendamento IS NOT NULL
+               AND turno IN ('MATUTINO', 'VESPERTINO')
+               AND (status_interno IS NULL OR status_interno NOT IN ('CANCELADO', 'FINALIZADO', 'VISITA_CANCELADA'))`, [inicio, fim]);
+            const formatDbDate = (valor) => String(valor instanceof Date ? ymdFromDateLocal(valor) : valor).substring(0, 10);
+            const mapaCapacidade = new Map((capacidades || []).map((cap) => [formatDbDate(cap.data), cap]));
+            const dias = [];
+            for (let i = 0; i < 7; i++) {
+                const data = addDiasYmd(inicio, i);
+                const cap = mapaCapacidade.get(data) || {};
+                dias.push({
+                    data,
+                    label: labelDiaSemana(data),
+                    passado: data < dataHojeSaoPaulo(),
+                    capacidades: {
+                        manutencao_casa_m: criarSlotVaga(cap.casa_m),
+                        manutencao_casa_t: criarSlotVaga(cap.casa_t),
+                        manutencao_predio_serra_m: criarSlotVaga(cap.predio_serra_m),
+                        manutencao_predio_serra_t: criarSlotVaga(cap.predio_serra_t),
+                        manutencao_predio_outros_m: criarSlotVaga(cap.predio_outros_m),
+                        manutencao_predio_outros_t: criarSlotVaga(cap.predio_outros_t),
+                        instalacao_serra_m: criarSlotVaga(cap.inst_serra_m),
+                        instalacao_serra_t: criarSlotVaga(cap.inst_serra_t),
+                        instalacao_outros_m: criarSlotVaga(cap.inst_outros_m),
+                        instalacao_outros_t: criarSlotVaga(cap.inst_outros_t)
+                    }
+                });
+            }
+            const diasPorData = new Map(dias.map((dia) => [dia.data, dia]));
+            for (const os of agendamentos || []) {
+                const data = formatDbDate(os.data_agendamento);
+                const dia = diasPorData.get(data);
+                if (!dia)
+                    continue;
+                const chave = classificarOsParaVaga(os);
+                if (chave && dia.capacidades[chave])
+                    aplicarUsoSlot(dia.capacidades[chave]);
+            }
+            dias.forEach((dia) => {
+                Object.keys(dia.capacidades).forEach(chave => {
+                    if (!deveExibirCategoriaVagas(chave, municipio, tipo)) {
+                        delete dia.capacidades[chave];
+                    }
+                });
+            });
+            (0, logger_1.logInfo)('[Vagas Agenda]', 'Consulta semanal concluida.', {
+                requestId: reqAny.requestId,
+                inicio,
+                fim,
+                municipio,
+                tipo,
+                dias: dias.length
+            });
+            res.json({ success: true, inicio, fim, municipio, tipo, dias });
+        }
+        catch (error) {
+            (0, logger_1.logError)('[Vagas Agenda]', error, {
+                requestId: reqAny.requestId,
+                inicio,
+                fim,
+                municipio,
+                tipo,
+                usuario: ((_c = reqAny.user) === null || _c === void 0 ? void 0 : _c.username) || ((_d = reqAny.session) === null || _d === void 0 ? void 0 : _d.username) || 'Visitante'
+            });
+            res.status(500).json({
+                success: false,
+                error: 'Erro ao consultar vagas da agenda.',
+                requestId: reqAny.requestId
+            });
+        }
+    });
+}
 router.get('/vagas-semana', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    if (req.query.inicio || !req.query.data_inicio) {
+        return responderVagasSemanaCompleta(req, res);
+    }
     const { data_inicio, data_fim, municipio, tipo_servico, tipo_imovel } = req.query;
     try {
         const inicio = new Date(String(data_inicio) + 'T12:00:00');
@@ -900,8 +1122,10 @@ router.get('/vagas-semana', (req, res) => __awaiter(void 0, void 0, void 0, func
             cursor.setDate(cursor.getDate() + 1);
         }
         const capResult = yield executeDb('SELECT * FROM ivp_agenda_capacidade WHERE data >= ? AND data <= ?', [data_inicio, data_fim]);
-        const agendamentos = yield executeDb(`SELECT * FROM ivp_agenda_os
+        const agendamentos = yield executeDb(`SELECT data_agendamento, turno, tipo_servico, tipo_imovel, municipio_base, status_interno
+             FROM ivp_agenda_os
              WHERE data_agendamento >= ? AND data_agendamento <= ?
+               AND turno IN ('MATUTINO', 'VESPERTINO')
                AND (status_interno IS NULL OR status_interno NOT IN ('CANCELADO', 'FINALIZADO', 'VISITA_CANCELADA'))`, [data_inicio, data_fim]);
         const isInstalacao = String(tipo_servico).toUpperCase().includes('INSTALA');
         const isSerra = String(municipio).toUpperCase().includes('SERRA');

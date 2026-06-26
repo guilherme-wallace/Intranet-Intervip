@@ -13,12 +13,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AgendaService = void 0;
 const axios_1 = require("axios");
 const database_1 = require("../../../api/database");
+const logger_1 = require("../../../api/logger");
 class AgendaService {
     static executeDb(query, params = []) {
         return new Promise((resolve, reject) => {
             database_1.LOCALHOST.query(query, params, (err, results) => {
-                if (err)
+                if (err) {
+                    (0, logger_1.logError)('DB.executeDb', err, { query, params });
                     return reject(err);
+                }
                 resolve(results);
             });
         });
@@ -91,7 +94,7 @@ class AgendaService {
     static obterJanelaAgendamentoSegura(dataAgendamento, turno) {
         const dataYmd = this.normalizarDataParaYmd(dataAgendamento);
         const dataBr = this.formatarYmdParaBr(dataYmd);
-        const turnoNormalizado = String(turno || 'MATUTINO').toUpperCase() === 'VESPERTINO' ? 'VESPERTINO' : 'MATUTINO';
+        const turnoNormalizado = this.normalizarTurnoAgenda(turno);
         let horaInicio = turnoNormalizado === 'VESPERTINO' ? '13:00:00' : '08:00:00';
         let horaFim = turnoNormalizado === 'VESPERTINO' ? '18:00:00' : '12:00:00';
         const agoraSaoPaulo = this.dataHoraAtualSaoPaulo();
@@ -542,116 +545,119 @@ class AgendaService {
             const dictConds = new Map(condominiosLocais.map((c) => [String(c.condominioId), c.condominio]));
             const dictTechs = new Map(techsLocais.map((u) => [String(u.id_funcionario_ixc), u.nome]));
             const listaFinal = [];
+            const errosOs = [];
             for (const osIxc of agendamentosIxc) {
-                let osLocal = todosLocais.find(item => String(item.ixc_os_id) === String(osIxc.id) ||
-                    String(item.ixc_os_id) === String(osIxc.id_ticket));
-                if (!osLocal) {
-                    const localExistente = yield this.executeDb('SELECT * FROM ivp_agenda_os WHERE ixc_os_id = ? LIMIT 1', [osIxc.id]);
-                    if (localExistente && localExistente.length > 0) {
-                        osLocal = localExistente[0];
+                try {
+                    let osLocal = todosLocais.find(item => String(item.ixc_os_id) === String(osIxc.id) ||
+                        String(item.ixc_os_id) === String(osIxc.id_ticket));
+                    if (!osLocal) {
+                        const localExistente = yield this.executeDb('SELECT * FROM ivp_agenda_os WHERE ixc_os_id = ? LIMIT 1', [osIxc.id]);
+                        if (localExistente && localExistente.length > 0) {
+                            osLocal = localExistente[0];
+                        }
                     }
-                }
-                const statusLocalAtual = String((osLocal === null || osLocal === void 0 ? void 0 : osLocal.status_interno) || '').toUpperCase();
-                const retornoParaFilaLocal = osLocal &&
-                    ['AGUARDANDO_LOGISTICA', 'AGUARDANDO_REAGENDAMENTO'].includes(statusLocalAtual) &&
-                    !osLocal.data_agendamento;
-                if (retornoParaFilaLocal) {
-                    continue;
-                }
-                const dataLocalYmd = osLocal ? this.dataParaYmdSaoPaulo(osLocal.data_agendamento) : '';
-                const ehPrioridadeFutura = osLocal &&
-                    priorityIds.includes(String(osIxc.id)) &&
-                    dataLocalYmd > dataFiltro;
-                const idCondBusca = osIxc.id_condominio || (osLocal === null || osLocal === void 0 ? void 0 : osLocal.ixc_condominio_id) || '';
-                const idCidStr = String(osIxc.id_cidade || osIxc.id_estrutura || '');
-                let cidadeCorreta = (osLocal === null || osLocal === void 0 ? void 0 : osLocal.municipio_base) || osIxc.cidade || osIxc.bairro || 'Serra';
-                if (['3172', '3112', '3124', '3173'].includes(idCidStr)) {
-                    cidadeCorreta = idCidStr === '3172' ? 'Vila Velha' : (idCidStr === '3173' ? 'Vitória' : (idCidStr === '3112' ? 'Cariacica' : 'Guarapari'));
-                }
-                else if (idCidStr === '3165') {
-                    cidadeCorreta = 'Serra';
-                }
-                const nomeCondominio = String(dictConds.get(String(idCondBusca)) || '');
-                const nomeSetor = dictSetores.get(String(osIxc.setor)) || 'Não Informado';
-                //console.log(`[Roteamento OS ${osIxc.id}] ID Cid: ${idCidStr} | Nome IXC: ${dictCidades.get(idCidStr) || 'N/A'} | Condomínio: ${nomeCondominio} => Gaveta: ${cidadeCorreta}`);
-                const mensagemUpper = (osIxc.mensagem || '').toUpperCase();
-                let tipoImovel = 'CASA';
-                let isRedeNeutra = false;
-                if (mensagemUpper.includes('CORPORATIVO') || nomeSetor.toUpperCase().includes('CORPORATIVO')) {
-                    tipoImovel = 'CORPORATIVO';
-                }
-                else if (nomeCondominio) {
-                    const upperCond = nomeCondominio.toUpperCase();
-                    tipoImovel = ['SEA', 'VTA', 'VVA', 'CCA', 'GRI'].some(prefix => upperCond.startsWith(prefix)) ? 'CASA' : 'PRÉDIO';
-                    isRedeNeutra = upperCond.includes('RDNT');
-                }
-                else {
-                    tipoImovel = (osIxc.apartamento || osIxc.bloco) ? 'PRÉDIO' : 'CASA';
-                }
-                let horarioExtraido = '12:00';
-                if (osIxc.data_agenda && osIxc.data_agenda.includes(' '))
-                    horarioExtraido = osIxc.data_agenda.split(' ')[1].substring(0, 5);
-                let turnoInferred = (horarioExtraido >= '12:00' && horarioExtraido < '18:00') ? 'VESPERTINO' : (horarioExtraido >= '18:00' ? 'NOTURNO' : 'MATUTINO');
-                const statusIxcAtual = String(osIxc.status || '').toUpperCase();
-                const novoStatus = statusIxcAtual === 'F' ? 'FINALIZADO' :
-                    statusIxcAtual === 'C' ? 'CANCELADO' :
-                        (osIxc.id_tecnico && osIxc.id_tecnico !== '0' && String(osIxc.id_tecnico) !== '138') ? 'ATRIBUIDO' : 'AGUARDANDO_LOGISTICA';
-                const tipoServicoSinc = nomeSetor.toUpperCase().includes('INSTALA') || osIxc.setor === '5' ? 'INSTALACAO' : 'SUPORTE';
-                const payloadFinal = {
-                    ixc_os_id: osIxc.id,
-                    ixc_cliente_id: osIxc.id_cliente,
-                    tipo_servico: osLocal ? osLocal.tipo_servico : tipoServicoSinc,
-                    setor: osIxc.setor,
-                    tipo_imovel: tipoImovel,
-                    is_rede_neutra: isRedeNeutra,
-                    turno: ehPrioridadeFutura && osLocal ? osLocal.turno : turnoInferred,
-                    status_interno: novoStatus,
-                    ixc_tecnico_id: osIxc.id_tecnico,
-                    nome_tecnico: dictTechs.get(String(osIxc.id_tecnico)) || `Técnico ${osIxc.id_tecnico}`,
-                    sintoma_relatado: (osIxc.mensagem || '').replace(/(<([^>]+)>)/gi, ""),
-                    ixc_status: osIxc.status,
-                    horario_agendado: horarioExtraido,
-                    data_hora_deslocamento: osIxc.data_hora_deslocamento || osIxc.data_inicio_deslocamento || osIxc.data_deslocamento || osIxc.inicio_deslocamento || null,
-                    data_inicio_deslocamento: osIxc.data_inicio_deslocamento || null,
-                    data_deslocamento: osIxc.data_deslocamento || null,
-                    inicio_deslocamento: osIxc.inicio_deslocamento || null,
-                    data_hora_execucao: osIxc.data_hora_execucao,
-                    bairro_real: osIxc.bairro || '',
-                    cidade_real: cidadeCorreta,
-                    municipio_base: osLocal ? osLocal.municipio_base : cidadeCorreta,
-                    nome_setor: nomeSetor,
-                    nome_condominio: nomeCondominio || (osLocal === null || osLocal === void 0 ? void 0 : osLocal.nome_condominio) || '',
-                    is_futuro_prioridade: !!ehPrioridadeFutura,
-                    aceita_encaixe: osLocal ? osLocal.aceita_encaixe : 0,
-                    solicita_prioridade: osLocal ? osLocal.solicita_prioridade : 0,
-                    contato_status: osLocal ? (osLocal.contato_status || 'PENDENTE') : 'PENDENTE',
-                    contato_confirmado_em: osLocal ? osLocal.contato_confirmado_em : null,
-                    observacao_logistica: osLocal ? (osLocal.observacao_logistica || '') : '',
-                    espera_cliente_ate: osLocal ? osLocal.espera_cliente_ate : null,
-                    prioridade_logistica: osLocal ? Number(osLocal.prioridade_logistica || 0) : 0,
-                    prioridade_logistica_obs: osLocal ? (osLocal.prioridade_logistica_obs || '') : '',
-                    preferencia_horario_tipo: osLocal ? (osLocal.preferencia_horario_tipo || 'SEM_PREFERENCIA') : 'SEM_PREFERENCIA',
-                    preferencia_horario_inicio: osLocal ? osLocal.preferencia_horario_inicio : null,
-                    preferencia_horario_fim: osLocal ? osLocal.preferencia_horario_fim : null,
-                    preferencia_horario_obs: osLocal ? (osLocal.preferencia_horario_obs || '') : '',
-                    ixc_contrato_id: this.obterContratoOsIxc(osIxc, osLocal),
-                    plano_id: osIxc.plano_id || osIxc.id_plano || osIxc.planId || null,
-                    id_plano: osIxc.id_plano || null,
-                    id_plano_local: osIxc.plano_id || osIxc.id_plano || osIxc.planId || null,
-                };
-                if (osLocal) {
-                    if (ehPrioridadeFutura) {
-                        yield this.executeDb(`
+                    const statusLocalAtual = String((osLocal === null || osLocal === void 0 ? void 0 : osLocal.status_interno) || '').toUpperCase();
+                    const retornoParaFilaLocal = osLocal &&
+                        ['AGUARDANDO_LOGISTICA', 'AGUARDANDO_REAGENDAMENTO'].includes(statusLocalAtual) &&
+                        !osLocal.data_agendamento;
+                    if (retornoParaFilaLocal) {
+                        continue;
+                    }
+                    const dataLocalYmd = osLocal ? this.dataParaYmdSaoPaulo(osLocal.data_agendamento) : '';
+                    const ehPrioridadeFutura = osLocal &&
+                        priorityIds.includes(String(osIxc.id)) &&
+                        dataLocalYmd > dataFiltro;
+                    const idCondBusca = osIxc.id_condominio || (osLocal === null || osLocal === void 0 ? void 0 : osLocal.ixc_condominio_id) || '';
+                    const idCidStr = String(osIxc.id_cidade || osIxc.id_estrutura || '');
+                    let cidadeCorreta = (osLocal === null || osLocal === void 0 ? void 0 : osLocal.municipio_base) || osIxc.cidade || osIxc.bairro || 'Serra';
+                    if (['3172', '3112', '3124', '3173'].includes(idCidStr)) {
+                        cidadeCorreta = idCidStr === '3172' ? 'Vila Velha' : (idCidStr === '3173' ? 'Vitória' : (idCidStr === '3112' ? 'Cariacica' : 'Guarapari'));
+                    }
+                    else if (idCidStr === '3165') {
+                        cidadeCorreta = 'Serra';
+                    }
+                    const nomeCondominio = String(dictConds.get(String(idCondBusca)) || '');
+                    const nomeSetor = dictSetores.get(String(osIxc.setor)) || 'Não Informado';
+                    //console.log(`[Roteamento OS ${osIxc.id}] ID Cid: ${idCidStr} | Nome IXC: ${dictCidades.get(idCidStr) || 'N/A'} | Condomínio: ${nomeCondominio} => Gaveta: ${cidadeCorreta}`);
+                    const mensagemUpper = (osIxc.mensagem || '').toUpperCase();
+                    let tipoImovel = 'CASA';
+                    let isRedeNeutra = false;
+                    if (mensagemUpper.includes('CORPORATIVO') || nomeSetor.toUpperCase().includes('CORPORATIVO')) {
+                        tipoImovel = 'CORPORATIVO';
+                    }
+                    else if (nomeCondominio) {
+                        const upperCond = nomeCondominio.toUpperCase();
+                        tipoImovel = ['SEA', 'VTA', 'VVA', 'CCA', 'GRI'].some(prefix => upperCond.startsWith(prefix)) ? 'CASA' : 'PRÉDIO';
+                        isRedeNeutra = upperCond.includes('RDNT');
+                    }
+                    else {
+                        tipoImovel = (osIxc.apartamento || osIxc.bloco) ? 'PRÉDIO' : 'CASA';
+                    }
+                    let horarioExtraido = '12:00';
+                    if (osIxc.data_agenda && String(osIxc.data_agenda).includes(' ')) {
+                        horarioExtraido = String(osIxc.data_agenda).split(' ')[1].substring(0, 5);
+                    }
+                    const turnoInferred = this.normalizarTurnoAgenda(horarioExtraido);
+                    const statusIxcAtual = String(osIxc.status || '').toUpperCase();
+                    const novoStatus = statusIxcAtual === 'F' ? 'FINALIZADO' :
+                        statusIxcAtual === 'C' ? 'CANCELADO' :
+                            (osIxc.id_tecnico && osIxc.id_tecnico !== '0' && String(osIxc.id_tecnico) !== '138') ? 'ATRIBUIDO' : 'AGUARDANDO_LOGISTICA';
+                    const tipoServicoSinc = nomeSetor.toUpperCase().includes('INSTALA') || osIxc.setor === '5' ? 'INSTALACAO' : 'SUPORTE';
+                    const payloadFinal = {
+                        ixc_os_id: osIxc.id,
+                        ixc_cliente_id: osIxc.id_cliente,
+                        tipo_servico: osLocal ? osLocal.tipo_servico : tipoServicoSinc,
+                        setor: osIxc.setor,
+                        tipo_imovel: tipoImovel,
+                        is_rede_neutra: isRedeNeutra,
+                        turno: ehPrioridadeFutura && osLocal ? this.normalizarTurnoAgenda(osLocal.turno) : this.normalizarTurnoAgenda(turnoInferred),
+                        status_interno: novoStatus,
+                        ixc_tecnico_id: osIxc.id_tecnico,
+                        nome_tecnico: dictTechs.get(String(osIxc.id_tecnico)) || `Técnico ${osIxc.id_tecnico}`,
+                        sintoma_relatado: (osIxc.mensagem || '').replace(/(<([^>]+)>)/gi, ""),
+                        ixc_status: osIxc.status,
+                        horario_agendado: horarioExtraido,
+                        data_hora_deslocamento: osIxc.data_hora_deslocamento || osIxc.data_inicio_deslocamento || osIxc.data_deslocamento || osIxc.inicio_deslocamento || null,
+                        data_inicio_deslocamento: osIxc.data_inicio_deslocamento || null,
+                        data_deslocamento: osIxc.data_deslocamento || null,
+                        inicio_deslocamento: osIxc.inicio_deslocamento || null,
+                        data_hora_execucao: osIxc.data_hora_execucao,
+                        bairro_real: osIxc.bairro || '',
+                        cidade_real: cidadeCorreta,
+                        municipio_base: osLocal ? osLocal.municipio_base : cidadeCorreta,
+                        nome_setor: nomeSetor,
+                        nome_condominio: nomeCondominio || (osLocal === null || osLocal === void 0 ? void 0 : osLocal.nome_condominio) || '',
+                        is_futuro_prioridade: !!ehPrioridadeFutura,
+                        aceita_encaixe: osLocal ? osLocal.aceita_encaixe : 0,
+                        solicita_prioridade: osLocal ? osLocal.solicita_prioridade : 0,
+                        contato_status: osLocal ? (osLocal.contato_status || 'PENDENTE') : 'PENDENTE',
+                        contato_confirmado_em: osLocal ? osLocal.contato_confirmado_em : null,
+                        observacao_logistica: osLocal ? (osLocal.observacao_logistica || '') : '',
+                        espera_cliente_ate: osLocal ? osLocal.espera_cliente_ate : null,
+                        prioridade_logistica: osLocal ? Number(osLocal.prioridade_logistica || 0) : 0,
+                        prioridade_logistica_obs: osLocal ? (osLocal.prioridade_logistica_obs || '') : '',
+                        preferencia_horario_tipo: osLocal ? (osLocal.preferencia_horario_tipo || 'SEM_PREFERENCIA') : 'SEM_PREFERENCIA',
+                        preferencia_horario_inicio: osLocal ? osLocal.preferencia_horario_inicio : null,
+                        preferencia_horario_fim: osLocal ? osLocal.preferencia_horario_fim : null,
+                        preferencia_horario_obs: osLocal ? (osLocal.preferencia_horario_obs || '') : '',
+                        ixc_contrato_id: this.obterContratoOsIxc(osIxc, osLocal),
+                        plano_id: osIxc.plano_id || osIxc.id_plano || osIxc.planId || null,
+                        id_plano: osIxc.id_plano || null,
+                        id_plano_local: osIxc.plano_id || osIxc.id_plano || osIxc.planId || null,
+                    };
+                    if (osLocal) {
+                        if (ehPrioridadeFutura) {
+                            yield this.executeDb(`
                         UPDATE ivp_agenda_os
                         SET ixc_contrato_id = COALESCE(NULLIF(?, '0'), ixc_contrato_id),
                             ixc_tecnico_id = ?,
                             status_interno = ?
                         WHERE id = ?
                         `, [payloadFinal.ixc_contrato_id || '0', osIxc.id_tecnico, novoStatus, osLocal.id]);
-                        listaFinal.push(Object.assign({ id: osLocal.id, data_agendamento_original: osLocal.data_agendamento }, payloadFinal));
-                    }
-                    else {
-                        yield this.executeDb(`
+                            listaFinal.push(Object.assign({ id: osLocal.id, data_agendamento_original: osLocal.data_agendamento }, payloadFinal));
+                        }
+                        else {
+                            yield this.executeDb(`
                         UPDATE ivp_agenda_os
                         SET data_agendamento = ?,
                             turno = ?,
@@ -659,15 +665,15 @@ class AgendaService {
                             ixc_tecnico_id = ?,
                             status_interno = ?
                         WHERE id = ?
-                        `, [dataFiltro, turnoInferred, payloadFinal.ixc_contrato_id || '0', osIxc.id_tecnico, novoStatus, osLocal.id]);
-                        listaFinal.push(Object.assign({ id: osLocal.id, data_agendamento_original: dataFiltro }, payloadFinal));
+                        `, [dataFiltro, this.normalizarTurnoAgenda(turnoInferred), payloadFinal.ixc_contrato_id || '0', osIxc.id_tecnico, novoStatus, osLocal.id]);
+                            listaFinal.push(Object.assign({ id: osLocal.id, data_agendamento_original: dataFiltro }, payloadFinal));
+                        }
                     }
-                }
-                else {
-                    if (!osIxc.data_agenda || !osIxc.data_agenda.startsWith(dataFiltro)) {
-                        continue;
-                    }
-                    const insertRes = yield this.executeDb(`
+                    else {
+                        if (!osIxc.data_agenda || !osIxc.data_agenda.startsWith(dataFiltro)) {
+                            continue;
+                        }
+                        const insertRes = yield this.executeDb(`
                     INSERT INTO ivp_agenda_os
                     (
                         ixc_os_id,
@@ -686,19 +692,55 @@ class AgendaService {
                     )
                     VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, 'SINC_IXC')
                     `, [
-                        osIxc.id,
-                        osIxc.id_cliente,
-                        payloadFinal.ixc_contrato_id || 0,
-                        tipoServicoSinc,
-                        tipoImovel,
-                        cidadeCorreta,
-                        dataFiltro,
-                        turnoInferred,
-                        osIxc.id_tecnico,
-                        novoStatus
-                    ]);
-                    listaFinal.push(Object.assign({ id: insertRes.insertId, data_agendamento_original: dataFiltro }, payloadFinal));
+                            osIxc.id,
+                            osIxc.id_cliente,
+                            payloadFinal.ixc_contrato_id || 0,
+                            tipoServicoSinc,
+                            tipoImovel,
+                            cidadeCorreta,
+                            dataFiltro,
+                            this.normalizarTurnoAgenda(turnoInferred),
+                            osIxc.id_tecnico,
+                            novoStatus
+                        ]);
+                        listaFinal.push(Object.assign({ id: insertRes.insertId, data_agendamento_original: dataFiltro }, payloadFinal));
+                    }
                 }
+                catch (error) {
+                    errosOs.push({
+                        os: osIxc === null || osIxc === void 0 ? void 0 : osIxc.id,
+                        cliente: osIxc === null || osIxc === void 0 ? void 0 : osIxc.id_cliente,
+                        contrato: (osIxc === null || osIxc === void 0 ? void 0 : osIxc.id_contrato) || (osIxc === null || osIxc === void 0 ? void 0 : osIxc.id_contrato_kit),
+                        data_agenda: osIxc === null || osIxc === void 0 ? void 0 : osIxc.data_agenda,
+                        status: osIxc === null || osIxc === void 0 ? void 0 : osIxc.status,
+                        erro: error === null || error === void 0 ? void 0 : error.message
+                    });
+                    (0, logger_1.logError)('AgendaService.obterAgendamentos.OSIndividual', error, {
+                        dataFiltro,
+                        municipioBase,
+                        statusFiltro,
+                        os: osIxc === null || osIxc === void 0 ? void 0 : osIxc.id,
+                        cliente: osIxc === null || osIxc === void 0 ? void 0 : osIxc.id_cliente,
+                        contrato: (osIxc === null || osIxc === void 0 ? void 0 : osIxc.id_contrato) || (osIxc === null || osIxc === void 0 ? void 0 : osIxc.id_contrato_kit),
+                        data_agenda: osIxc === null || osIxc === void 0 ? void 0 : osIxc.data_agenda,
+                        status: osIxc === null || osIxc === void 0 ? void 0 : osIxc.status
+                    });
+                    continue;
+                }
+            }
+            if (errosOs.length > 0) {
+                (0, logger_1.logWarn)('AgendaService.obterAgendamentos', `${errosOs.length} OS(s) pulada(s) por erro individual.`, {
+                    dataFiltro,
+                    municipioBase,
+                    statusFiltro,
+                    errosOs
+                });
+            }
+            else {
+                (0, logger_1.logInfo)('AgendaService.obterAgendamentos', 'Processamento concluido sem OS individual pulada.', {
+                    dataFiltro,
+                    total: listaFinal.length
+                });
             }
             const tagsPorAgenda = yield this.carregarTagsPorAgendaIds(listaFinal.map((os) => String(os.id)));
             listaFinal.forEach((os) => {
@@ -719,6 +761,25 @@ class AgendaService {
         ]
             .map(valor => String(valor || '').trim())
             .filter(valor => /^\d+$/.test(valor));
+    }
+    static normalizarTurnoAgenda(valor) {
+        const texto = String(valor || '')
+            .trim()
+            .toUpperCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+        if (texto === 'MATUTINO' || texto === 'MANHA')
+            return 'MATUTINO';
+        if (texto === 'VESPERTINO' || texto === 'TARDE')
+            return 'VESPERTINO';
+        const matchHora = texto.match(/^(\d{1,2}):(\d{2})/);
+        if (matchHora) {
+            const hora = Number(matchHora[1]);
+            return hora >= 12 ? 'VESPERTINO' : 'MATUTINO';
+        }
+        if (texto === 'NOTURNO' || texto === 'NOITE' || texto === 'INTEGRAL')
+            return 'VESPERTINO';
+        return 'MATUTINO';
     }
     static obterContratoOsIxc(osIxc, osLocal) {
         const contratoId = [
@@ -921,7 +982,7 @@ class AgendaService {
                      preferencia_horario_obs = COALESCE(?, preferencia_horario_obs)
                  WHERE id = ?`, [
                     payload.nova_data,
-                    payload.novo_turno,
+                    this.normalizarTurnoAgenda(payload.novo_turno),
                     payload.preferencia_horario_tipo || null,
                     payload.preferencia_horario_inicio || null,
                     payload.preferencia_horario_fim || null,

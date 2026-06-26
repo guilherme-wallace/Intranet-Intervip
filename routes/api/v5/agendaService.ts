@@ -2,6 +2,7 @@
 
 import axios, { Method } from 'axios';
 import { LOCALHOST } from '../../../api/database';
+import { logError, logInfo, logWarn } from '../../../api/logger';
 
 interface IxcResponse { type?: string; message?: string; total?: string; registros?: any[]; }
 
@@ -10,7 +11,10 @@ export class AgendaService {
     public static executeDb(query: string, params: any[] = []): Promise<any> {
         return new Promise((resolve, reject) => {
             LOCALHOST.query(query, params, (err, results) => {
-                if (err) return reject(err);
+                if (err) {
+                    logError('DB.executeDb', err, { query, params });
+                    return reject(err);
+                }
                 resolve(results);
             });
         });
@@ -83,7 +87,7 @@ export class AgendaService {
     public static obterJanelaAgendamentoSegura(dataAgendamento: any, turno: string) {
         const dataYmd = this.normalizarDataParaYmd(dataAgendamento);
         const dataBr = this.formatarYmdParaBr(dataYmd);
-        const turnoNormalizado = String(turno || 'MATUTINO').toUpperCase() === 'VESPERTINO' ? 'VESPERTINO' : 'MATUTINO';
+        const turnoNormalizado = this.normalizarTurnoAgenda(turno);
         let horaInicio = turnoNormalizado === 'VESPERTINO' ? '13:00:00' : '08:00:00';
         let horaFim = turnoNormalizado === 'VESPERTINO' ? '18:00:00' : '12:00:00';
 
@@ -586,8 +590,10 @@ export class AgendaService {
         const dictTechs = new Map(techsLocais.map((u: any) => [String(u.id_funcionario_ixc), u.nome]));
 
         const listaFinal = [];
+        const errosOs: any[] = [];
 
         for (const osIxc of agendamentosIxc) {
+            try {
             let osLocal = todosLocais.find(
                 item =>
                     String(item.ixc_os_id) === String(osIxc.id) ||
@@ -674,7 +680,7 @@ export class AgendaService {
                 setor: osIxc.setor,
                 tipo_imovel: tipoImovel,
                 is_rede_neutra: isRedeNeutra,
-                turno: ehPrioridadeFutura && osLocal ? osLocal.turno : this.normalizarTurnoAgenda(turnoInferred),
+                turno: ehPrioridadeFutura && osLocal ? this.normalizarTurnoAgenda(osLocal.turno) : this.normalizarTurnoAgenda(turnoInferred),
                 status_interno: novoStatus,
                 ixc_tecnico_id: osIxc.id_tecnico,
                 nome_tecnico: dictTechs.get(String(osIxc.id_tecnico)) || `Técnico ${osIxc.id_tecnico}`,
@@ -793,6 +799,42 @@ export class AgendaService {
                     ...payloadFinal
                 });
             }
+            } catch (error: any) {
+                errosOs.push({
+                    os: osIxc?.id,
+                    cliente: osIxc?.id_cliente,
+                    contrato: osIxc?.id_contrato || osIxc?.id_contrato_kit,
+                    data_agenda: osIxc?.data_agenda,
+                    status: osIxc?.status,
+                    erro: error?.message
+                });
+
+                logError('AgendaService.obterAgendamentos.OSIndividual', error, {
+                    dataFiltro,
+                    municipioBase,
+                    statusFiltro,
+                    os: osIxc?.id,
+                    cliente: osIxc?.id_cliente,
+                    contrato: osIxc?.id_contrato || osIxc?.id_contrato_kit,
+                    data_agenda: osIxc?.data_agenda,
+                    status: osIxc?.status
+                });
+                continue;
+            }
+        }
+
+        if (errosOs.length > 0) {
+            logWarn('AgendaService.obterAgendamentos', `${errosOs.length} OS(s) pulada(s) por erro individual.`, {
+                dataFiltro,
+                municipioBase,
+                statusFiltro,
+                errosOs
+            });
+        } else {
+            logInfo('AgendaService.obterAgendamentos', 'Processamento concluido sem OS individual pulada.', {
+                dataFiltro,
+                total: listaFinal.length
+            });
         }
 
         const tagsPorAgenda = await this.carregarTagsPorAgendaIds(listaFinal.map((os: any) => String(os.id)));
@@ -817,17 +859,23 @@ export class AgendaService {
             .filter(valor => /^\d+$/.test(valor));
     }
 
-    private static normalizarTurnoAgenda(valor: any): 'MATUTINO' | 'VESPERTINO' {
-        const texto = String(valor || '').trim().toUpperCase();
+    public static normalizarTurnoAgenda(valor: any): 'MATUTINO' | 'VESPERTINO' {
+        const texto = String(valor || '')
+            .trim()
+            .toUpperCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
 
-        if (texto === 'MATUTINO' || texto === 'MANHA' || texto === 'MANHÃ') return 'MATUTINO';
+        if (texto === 'MATUTINO' || texto === 'MANHA') return 'MATUTINO';
         if (texto === 'VESPERTINO' || texto === 'TARDE') return 'VESPERTINO';
 
-        const matchHora = texto.match(/^(\d{2}):(\d{2})/);
+        const matchHora = texto.match(/^(\d{1,2}):(\d{2})/);
         if (matchHora) {
             const hora = Number(matchHora[1]);
             return hora >= 12 ? 'VESPERTINO' : 'MATUTINO';
         }
+
+        if (texto === 'NOTURNO' || texto === 'NOITE' || texto === 'INTEGRAL') return 'VESPERTINO';
 
         return 'MATUTINO';
     }
@@ -1057,7 +1105,7 @@ export class AgendaService {
                  WHERE id = ?`,
                 [
                     payload.nova_data,
-                    payload.novo_turno,
+                    this.normalizarTurnoAgenda(payload.novo_turno),
                     payload.preferencia_horario_tipo || null,
                     payload.preferencia_horario_inicio || null,
                     payload.preferencia_horario_fim || null,
