@@ -38,14 +38,17 @@ const analise_de_risco_1 = require("./routes/api/v5/analise-de-risco");
 const abertura_OS_1 = require("./routes/api/v5/abertura-OS");
 const agendamento_1 = require("./routes/api/v5/agendamento");
 const painel_logistica_1 = require("./routes/api/v5/painel-logistica");
+const logger_1 = require("./api/logger");
 const jwt = require("jsonwebtoken");
 process.on('uncaughtException', (error) => {
     console.error('--- ERRO NÃO CAPTURADO (Uncaught Exception) ---');
     console.error(error);
+    (0, logger_1.logError)('App.uncaughtException', error);
 });
 process.on('unhandledRejection', (reason, promise) => {
     console.error('--- REJEIÇÃO DE PROMISE NÃO CAPTURADA (Unhandled Rejection) ---');
     console.error('Razão:', reason);
+    (0, logger_1.logError)('App.unhandledRejection', reason, { promise: String(promise) });
 });
 const APP = Express();
 // =======================================================
@@ -77,6 +80,11 @@ const limiter = (0, express_rate_limit_1.default)({
     message: 'Muitas requisições enviadas deste IP, por favor, tente novamente após 15 minutos.'
 });
 APP.use(limiter);
+APP.use((req, res, next) => {
+    req.requestId = (0, logger_1.createRequestId)();
+    res.setHeader('X-Request-Id', req.requestId);
+    next();
+});
 APP.use(bodyParser.json());
 APP.use(bodyParser.urlencoded({ extended: true }));
 require('express-file-logger')(APP, {
@@ -618,12 +626,28 @@ APP.use((_request, _response, next) => {
     e['status'] = 404;
     next(e);
 });
-APP.use((e, _req, res, _next) => {
+APP.use((e, req, res, _next) => {
+    var _a, _b;
     if (e.status == 404) {
         res.status(e.status || 500);
         res.sendFile('not-found.html', { root: 'views' });
     }
     else {
+        const requestId = req.requestId || (0, logger_1.createRequestId)();
+        (0, logger_1.logError)('App.expressError', e, {
+            requestId,
+            method: req.method,
+            url: req.originalUrl || req.url,
+            ip: req.ip,
+            usuario: ((_a = req.user) === null || _a === void 0 ? void 0 : _a.username) || ((_b = req.session) === null || _b === void 0 ? void 0 : _b.username) || 'Visitante',
+            query: req.query
+        });
+        if ((req.originalUrl || req.url || '').startsWith('/api/')) {
+            return res.status(e.status || 500).json({
+                error: 'Erro interno ao processar solicitação.',
+                requestId
+            });
+        }
         res.status(500);
         res.sendFile('internal-error.html', { root: 'views' });
     }
