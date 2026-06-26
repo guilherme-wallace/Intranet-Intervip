@@ -229,6 +229,37 @@ function mudarData(offset) {
     carregarAgenda();
 }
 
+function mostrarAvisoAgenda(mensagem, requestId) {
+    let aviso = document.getElementById('aviso-agenda-logistica');
+    if (!aviso) {
+        aviso = document.createElement('div');
+        aviso.id = 'aviso-agenda-logistica';
+        aviso.className = 'alert alert-warning py-2 px-3 small mx-3 my-2';
+        const quadro = document.querySelector('.kanban-board') || document.querySelector('.container-fluid') || document.body;
+        quadro.prepend(aviso);
+    }
+    aviso.textContent = requestId ? `${mensagem} RequestId: ${requestId}` : mensagem;
+    aviso.classList.remove('d-none');
+}
+
+function limparAvisoAgenda() {
+    document.getElementById('aviso-agenda-logistica')?.classList.add('d-none');
+}
+
+function renderizarErroCarregamentoAgenda() {
+    document.querySelectorAll('.column-body').forEach(el => {
+        el.innerHTML = `
+            <div class="alert alert-danger small m-2">
+                <div>Erro de Conexão</div>
+                <button type="button" class="btn btn-sm btn-outline-danger mt-2 btn-tentar-novamente-agenda">Tentar novamente</button>
+            </div>
+        `;
+    });
+    document.querySelectorAll('.btn-tentar-novamente-agenda').forEach(btn => {
+        btn.addEventListener('click', carregarAgenda);
+    });
+}
+
 function getPrimeiroUltimoNome(nomeCompleto) {
     if (!nomeCompleto) return 'Técnico';
     const partes = nomeCompleto.trim().split(' ');
@@ -271,19 +302,38 @@ async function carregarAgenda() {
 
     await construirColunasTecnicos(data);
 
-    document.querySelectorAll('.column-body').forEach(el => {
-        el.innerHTML = '<div class="text-muted text-center small p-3"><span class="spinner-border spinner-border-sm mb-1"></span><br>Carregando...</div>';
-    });
+    const possuiAgendaAnterior = Array.isArray(todosAgendamentosGlobais) && todosAgendamentosGlobais.length > 0;
+    if (!possuiAgendaAnterior) {
+        document.querySelectorAll('.column-body').forEach(el => {
+            el.innerHTML = '<div class="text-muted text-center small p-3"><span class="spinner-border spinner-border-sm mb-1"></span><br>Carregando...</div>';
+        });
+    }
 
     try {
         const response = await fetch(`/api/v5/painel-logistica/agendamentos?data=${data}&municipio=TODOS&status=${encodeURIComponent(statusFiltro)}`);
-        todosAgendamentosGlobais = await response.json();
+        const payload = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            console.error('Erro ao carregar agenda:', payload);
+            const erro = new Error('Erro de Conexão');
+            erro.payload = payload;
+            throw erro;
+        }
+
+        todosAgendamentosGlobais = Array.isArray(payload) ? payload : [];
+        limparAvisoAgenda();
         
         renderizarQuadro();
     } catch (error) {
-        document.querySelectorAll('.column-body').forEach(el => {
-            el.innerHTML = '<div class="alert alert-danger small m-2">Erro de Conexão.</div>';
-        });
+        console.error('Erro ao carregar agenda:', error?.payload || error);
+        const requestId = error?.payload?.requestId;
+        if (possuiAgendaAnterior) {
+            mostrarAvisoAgenda('Erro de Conexão. Mantendo última agenda carregada.', requestId);
+            renderizarQuadro();
+            return;
+        }
+        mostrarAvisoAgenda('Erro de Conexão.', requestId);
+        renderizarErroCarregamentoAgenda();
     }
 }
 
@@ -721,14 +771,26 @@ async function autoRefreshSilencioso() {
 
     try {
         const response = await fetch(`/api/v5/painel-logistica/agendamentos?data=${data}&municipio=TODOS&status=${encodeURIComponent(statusFiltro)}`);
-        const novaLista = await response.json();
+        const payload = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            console.error('Falha no refresh silencioso:', payload);
+            mostrarAvisoAgenda('Atualização automática falhou. Mantendo última versão carregada.', payload?.requestId);
+            return;
+        }
+
+        const novaLista = Array.isArray(payload) ? payload : [];
         
         if (JSON.stringify(novaLista) !== JSON.stringify(todosAgendamentosGlobais)) {
             todosAgendamentosGlobais = novaLista;
+            limparAvisoAgenda();
             renderizarQuadro();
             if(usuarioPodeEditar) carregarFilaLogistica(); 
         }
-    } catch (e) { console.error("Falha no refresh silencioso"); }
+    } catch (e) {
+        console.error("Falha no refresh silencioso", e);
+        mostrarAvisoAgenda('Atualização automática falhou. Mantendo última versão carregada.');
+    }
 }
 
 function atualizarTimers() {

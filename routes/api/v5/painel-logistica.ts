@@ -1,6 +1,7 @@
 ﻿// routes/api/v5/painel-logistica.ts
 import * as Express from 'express';
 import { AgendaService } from './agendaService';
+import { createRequestId, logError, logInfo } from '../../../api/logger';
 
 const router = Express.Router();
 
@@ -175,20 +176,103 @@ async function exigirLogisticaOuNoc(req: Express.Request, res: Express.Response)
 }
 
 router.get('/agendamentos', async (req, res) => {
+    const startedAt = Date.now();
+    const reqAny = req as any;
+    const requestId = reqAny.requestId || createRequestId();
     const data = req.query.data as string;
     const municipio = req.query.municipio as string;
     const status = req.query.status as string;
+    const metaBase = {
+        requestId,
+        data,
+        municipio,
+        status,
+        method: req.method,
+        url: req.originalUrl,
+        ip: req.ip,
+        usuario: reqAny.user?.username || reqAny.session?.username || 'Visitante',
+        query: req.query
+    };
 
     if (!data) return res.status(400).json({ error: "A data de filtro é obrigatória" });
 
     try {
+        logInfo('PainelLogistica.agendamentos', 'Inicio da consulta de agendamentos.', metaBase);
         await AgendaService.garantirCapacidadeDia(data);
         
         const agendamentos = await AgendaService.obterAgendamentos(data, municipio, status);
+        logInfo('PainelLogistica.agendamentos', 'Consulta de agendamentos concluida.', {
+            ...metaBase,
+            quantidade: Array.isArray(agendamentos) ? agendamentos.length : 0,
+            duracaoMs: Date.now() - startedAt
+        });
         res.json(agendamentos);
     } catch (error: any) {
-        console.error("[Logistica Controller] Erro na rota /agendamentos:", error);
-        res.status(500).json({ error: error.message });
+        logError('PainelLogistica.agendamentos', error, {
+            ...metaBase,
+            duracaoMs: Date.now() - startedAt
+        });
+        res.status(500).json({
+            success: false,
+            error: 'Erro ao carregar agenda.',
+            ...(process.env.NODE_ENV !== 'production' ? { detail: error.message } : {}),
+            requestId
+        });
+    }
+});
+
+router.get('/debug-agendamentos', async (req, res) => {
+    const reqAny = req as any;
+    const grupo = normalizarGrupoPermissao(reqAny.user?.group || reqAny.session?.group || '');
+    if (process.env.NODE_ENV === 'production' && !grupo.includes('ADMIN')) {
+        return res.status(403).json({ error: 'Endpoint disponível apenas para admin.' });
+    }
+
+    const data = String(req.query.data || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+        return res.status(400).json({ error: 'Informe data no formato YYYY-MM-DD.' });
+    }
+
+    try {
+        const registros = await AgendaService.executeDb(
+            `SELECT id, ixc_os_id, ixc_cliente_id, ixc_contrato_id, data_agendamento, turno, LENGTH(turno) tamanho_turno, status_interno
+             FROM ivp_agenda_os
+             WHERE data_agendamento = ?
+             ORDER BY id ASC`,
+            [data]
+        );
+        const turnosInvalidos = registros.filter((row: any) => {
+            const turno = String(row.turno || '');
+            return !turno || !['MATUTINO', 'VESPERTINO'].includes(turno);
+        });
+        const semClienteContrato = registros.filter((row: any) => !row.ixc_cliente_id || !row.ixc_contrato_id);
+        const statusEstranhos = registros.filter((row: any) => {
+            const status = String(row.status_interno || '');
+            return status && ![
+                'AGUARDANDO_LOGISTICA',
+                'ATRIBUIDO',
+                'FINALIZADO',
+                'CANCELADO',
+                'VISITA_CANCELADA',
+                'AGUARDANDO_REAGENDAMENTO'
+            ].includes(status);
+        });
+
+        res.json({
+            success: true,
+            data,
+            total: registros.length,
+            turnos_invalidos: turnosInvalidos,
+            sem_cliente_ou_contrato: semClienteContrato,
+            status_estranhos: statusEstranhos
+        });
+    } catch (error: any) {
+        logError('PainelLogistica.debugAgendamentos', error, {
+            requestId: reqAny.requestId,
+            data,
+            usuario: reqAny.user?.username || reqAny.session?.username || 'Visitante'
+        });
+        res.status(500).json({ error: 'Erro ao consultar diagnostico.', requestId: reqAny.requestId });
     }
 });
 
@@ -546,7 +630,7 @@ router.post('/tratar-prioridade', async (req, res) => {
         }
 
         const osLocal = rows[0];
-        const turno = osLocal.turno || 'MATUTINO';
+        const turno = AgendaService.normalizarTurnoAgenda(osLocal.turno || 'MATUTINO');
 
         const hojeYmd = new Intl.DateTimeFormat('sv-SE', {
             timeZone: 'America/Sao_Paulo',
