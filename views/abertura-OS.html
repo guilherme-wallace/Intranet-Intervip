@@ -131,10 +131,18 @@
                             <form id="form-triagem">
                                 <div class="row g-3">
                                     <div class="col-md-12">
-                                        <label class="form-label fw-bold">Processo / Assunto do Atendimento <span class="text-danger">*</span></label>
+                                        <label class="form-label fw-bold">Assunto do Atendimento <span class="text-danger">*</span></label>
                                         <select class="form-select mb-3" id="select-assunto" required>
-                                            <option value="">Carregando processos do IXC...</option>
+                                            <option value="">Carregando assuntos do IXC...</option>
                                         </select>
+                                    </div>
+
+                                    <div class="col-md-12 d-none" id="area-login-atendimento">
+                                        <label class="form-label fw-bold" for="select-login-atendimento">Login do contrato <span class="text-danger">*</span></label>
+                                        <select class="form-select" id="select-login-atendimento" required disabled>
+                                            <option value="">Selecione um contrato primeiro</option>
+                                        </select>
+                                        <div class="form-text text-muted" id="status-login-atendimento">O login será carregado após a seleção do contrato.</div>
                                     </div>
 
                                     <div class="col-12 bg-light p-3 rounded border d-none" id="area-checklist">

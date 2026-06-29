@@ -32,7 +32,13 @@ const makeIxcRequest = async (
         const response = await axios({ method, url, headers, data });
         return response.data;
     } catch (error: any) {
-        console.error(`[IXC Err] ${endpoint}:`, error.response?.data || error.message);
+        logError('[Abertura OS][IXC]', error, {
+            endpoint,
+            method,
+            operationType,
+            payload: data,
+            resposta: error.response?.data
+        });
         throw error;
     }
 };
@@ -81,6 +87,167 @@ function normalizarTextoBusca(valor: any): string {
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
         .toUpperCase();
+}
+
+function normalizarIdIxc(valor: any): string {
+    const id = String(valor || '').trim();
+    return /^\d+$/.test(id) && id !== '0' ? id : '';
+}
+
+function obterMapaAssuntoProcessoConfigurado(): Record<string, string> {
+    const mapa: Record<string, string> = { '220': '1' };
+    const configuracao = String(process.env.IXC_ASSUNTO_PROCESSO_MAP || '').trim();
+    if (!configuracao) return mapa;
+
+    try {
+        const json = JSON.parse(configuracao);
+        Object.entries(json || {}).forEach(([assuntoId, processoId]) => {
+            const assunto = normalizarIdIxc(assuntoId);
+            const processo = normalizarIdIxc(processoId);
+            if (assunto && processo) mapa[assunto] = processo;
+        });
+    } catch {
+        configuracao.split(',').forEach(item => {
+            const [assuntoId, processoId] = item.split(':');
+            const assunto = normalizarIdIxc(assuntoId);
+            const processo = normalizarIdIxc(processoId);
+            if (assunto && processo) mapa[assunto] = processo;
+        });
+    }
+    return mapa;
+}
+
+function extrairIdProcessoAssunto(assunto: any): string {
+    const candidatos = [
+        assunto?.id_wfl_processo,
+        assunto?.id_processo,
+        assunto?.id_wfl_param_os,
+        assunto?.processo?.id,
+        assunto?.wfl_processo?.id
+    ];
+    const processoIxc = candidatos.map(normalizarIdIxc).find(Boolean);
+    if (processoIxc) return processoIxc;
+    return obterMapaAssuntoProcessoConfigurado()[normalizarIdIxc(assunto?.id)] || '';
+}
+
+function obterTituloAssunto(assunto: any): string {
+    return sanitizarTexto(
+        assunto?.assunto || assunto?.descricao || assunto?.titulo || assunto?.nome || `Assunto #${assunto?.id}`,
+        255
+    );
+}
+
+function assuntoPermitidoNaAbertura(assunto: any): boolean {
+    const texto = normalizarTextoBusca(obterTituloAssunto(assunto));
+    return ![
+        'INSTALACAO',
+        'MUDANCA DE ENDERECO',
+        'ALTERACAO DE TITULARIDADE',
+        'RAZAO SOCIAL',
+        'NAO USAR'
+    ].some(termo => texto.includes(termo));
+}
+
+const PROCESSOS_OCULTOS_ABERTURA = new Set(['3', '9', '13', '21', '24', '28', '29', '30', '33', '39', '45', '46', '51', '54']);
+
+function processoPermitidoNaAbertura(idProcesso: any, processo: any): boolean {
+    const id = normalizarIdIxc(idProcesso);
+    if (id && PROCESSOS_OCULTOS_ABERTURA.has(id)) return false;
+    const texto = normalizarTextoBusca(
+        processo?.descricao || processo?.nome || processo?.processo || processo?.titulo || ''
+    );
+    return ![
+        'INSTALACAO',
+        'ATIVACAO',
+        'MUDANCA DE ENDERECO',
+        'ALTERACAO DE TITULARIDADE',
+        'RAZAO SOCIAL',
+        'NAO USAR'
+    ].some(termo => texto.includes(termo));
+}
+
+function loginIxcEstaAtivo(login: any): boolean {
+    const status = String(login?.ativo ?? login?.status ?? 'S').trim().toUpperCase();
+    return !['N', 'I', 'D', 'C', 'INATIVO', 'DESATIVADO', 'CANCELADO'].includes(status);
+}
+
+function resumirLoginIxc(login: any) {
+    return {
+        id: normalizarIdIxc(login?.id),
+        login: sanitizarTexto(login?.login || login?.usuario || login?.user, 150),
+        id_contrato: normalizarIdIxc(login?.id_contrato),
+        id_cliente: normalizarIdIxc(login?.id_cliente),
+        ativo: loginIxcEstaAtivo(login)
+    };
+}
+
+async function obterLoginsPorContratoOuCliente(clienteId: any, contratoId: any): Promise<any[]> {
+    const cliente = normalizarIdIxc(clienteId);
+    const contrato = normalizarIdIxc(contratoId);
+    let registros: any[] = [];
+
+    if (contrato) {
+        const respContrato = await makeIxcRequest('POST', '/radusuarios', {
+            qtype: 'radusuarios.id_contrato',
+            query: contrato,
+            oper: '=',
+            page: '1',
+            rp: '100',
+            sortname: 'radusuarios.id',
+            sortorder: 'desc'
+        });
+        registros = respContrato.registros || [];
+    }
+
+    if (registros.length === 0 && cliente) {
+        const respCliente = await makeIxcRequest('POST', '/radusuarios', {
+            qtype: 'radusuarios.id_cliente',
+            query: cliente,
+            oper: '=',
+            page: '1',
+            rp: '100',
+            sortname: 'radusuarios.id',
+            sortorder: 'desc'
+        });
+        registros = (respCliente.registros || []).filter((login: any) => {
+            const contratoLogin = normalizarIdIxc(login?.id_contrato);
+            return !contrato || !contratoLogin || contratoLogin === contrato;
+        });
+    }
+
+    const vistos = new Set<string>();
+    return registros.filter(loginIxcEstaAtivo).filter(login => {
+        const id = normalizarIdIxc(login?.id);
+        if (!id || vistos.has(id)) return false;
+        vistos.add(id);
+        return true;
+    });
+}
+
+async function buscarAssuntoIxc(assuntoId: any): Promise<any | null> {
+    const id = normalizarIdIxc(assuntoId);
+    if (!id) return null;
+    const resp = await makeIxcRequest('POST', '/su_oss_assunto', {
+        qtype: 'su_oss_assunto.id',
+        query: id,
+        oper: '=',
+        page: '1',
+        rp: '1'
+    });
+    return resp.registros?.[0] || null;
+}
+
+async function buscarProcessoIxc(processoId: any): Promise<any | null> {
+    const id = normalizarIdIxc(processoId);
+    if (!id) return null;
+    const resp = await makeIxcRequest('POST', '/wfl_processo', {
+        qtype: 'wfl_processo.id',
+        query: id,
+        oper: '=',
+        page: '1',
+        rp: '1'
+    });
+    return resp.registros?.[0] || null;
 }
 
 function montarResumoCampo(valor: any, max = 180): string {
@@ -143,7 +310,8 @@ function montarMensagemInternaCompleta(payload: any, resultadoIxc: any): string 
         montarLinha('Colaborador', payload?.usuario_logado || payload?.usuario_intranet || contexto?.usuario_logado),
         montarLinha('Cliente', `${cliente?.nome || 'Nao informado'} | ID IXC: ${payload?.cliente_id || cliente?.id || 'Nao informado'}`),
         montarLinha('Contrato', payload?.contrato_id || contrato?.id),
-        montarLinha('Login', tecnico?.login),
+        montarLinha('Login vinculado', tecnico?.login || payload?.login_nome),
+        montarLinha('ID login IXC', payload?.id_login),
         montarLinha('Telefone/WhatsApp', [
             contatos?.fone,
             contatos?.telefone_comercial,
@@ -153,8 +321,11 @@ function montarMensagemInternaCompleta(payload: any, resultadoIxc: any): string 
             contatos?.contato
         ].filter(Boolean).join(' | ')),
         '',
-        'Processo/Assunto:',
-        textoOuNaoInformado(processo?.descricao || payload?.titulo),
+        'Assunto do atendimento:',
+        textoOuNaoInformado(payload?.titulo || processo?.descricao),
+        montarLinha('ID assunto IXC', payload?.id_assunto),
+        montarLinha('Processo vinculado', processo?.descricao || payload?.titulo),
+        montarLinha('ID processo IXC', payload?.id_wfl_processo || payload?.id_processo || processo?.id),
         '',
         montarLinha('Tipo de serviço', contexto?.tipo_servico || payload?.tipo_servico),
         '',
@@ -346,9 +517,9 @@ async function buscarTicketIxc(ticketId: string): Promise<any> {
     return ticketResp.registros?.[0] || null;
 }
 
-async function registrarMensagemAtendimento(ticketId: any, clienteId: any, mensagem: string) {
+async function registrarMensagemAtendimento(ticketId: any, clienteId: any, mensagem: string, idUsuarioIxc?: string) {
     if (!ticketId) throw new Error('Atendimento não informado para registrar mensagem interna.');
-    return makeIxcRequest('POST', '/su_mensagens', {
+    const payloadMensagem: any = {
         id_cliente: clienteId || '',
         mensagem_ticket: mensagem,
         mensagem,
@@ -356,16 +527,24 @@ async function registrarMensagemAtendimento(ticketId: any, clienteId: any, mensa
         su_status: 'P',
         id_ticket: ticketId,
         existe_pendencia_externa: 'E'
-    }, 'incluir');
+    };
+    if (idUsuarioIxc) payloadMensagem.id_usuarios = idUsuarioIxc;
+    return makeIxcRequest('POST', '/su_mensagens', payloadMensagem, 'incluir');
 }
 
 async function registrarMensagemInternaAbertura(payload: any, resultadoIxc: any) {
     const mensagemInterna = montarMensagemInternaCompleta(payload, resultadoIxc);
     const usuarioLogado = payload?.usuario_logado || payload?.usuario_intranet;
+    const usuarioIxc = await AgendaService.obterUsuarioIxcLogado(usuarioLogado);
     const resultados: any = { atendimento: null, os: null };
 
-    if (resultadoIxc?.ticketId) {
-        resultados.atendimento = await registrarMensagemAtendimento(resultadoIxc.ticketId, payload?.cliente_id, mensagemInterna);
+    if (resultadoIxc?.ticketId && usuarioIxc.id_usuario_ixc) {
+        resultados.atendimento = await registrarMensagemAtendimento(
+            resultadoIxc.ticketId,
+            payload?.cliente_id,
+            mensagemInterna,
+            usuarioIxc.id_usuario_ixc
+        );
     }
 
     if (resultadoIxc?.osId) {
@@ -375,6 +554,10 @@ async function registrarMensagemInternaAbertura(payload: any, resultadoIxc: any)
             usuarioLogado,
             'Abertura OS Mensagem Interna'
         );
+    }
+
+    if (!resultados.atendimento && !resultados.os) {
+        throw new Error('Não foi possível identificar o colaborador IXC do usuário logado para registrar a mensagem interna.');
     }
 
     return resultados;
@@ -439,6 +622,7 @@ router.get('/busca-cliente/:termo', async (req, res) => {
             let planoNome = 'Não informado';
             let nomeCondominio = '';
             let loginData = null;
+            let loginsData: any[] = [];
             let onuData = null;
             let historicoPppoe = null;
             let valorContrato = contrato.valor_contrato || '0.00';
@@ -463,9 +647,9 @@ router.get('/busca-cliente/:termo', async (req, res) => {
             }
 
             try {
-                const logResp = await makeIxcRequest('POST', '/radusuarios', { qtype: 'radusuarios.id_contrato', query: String(contrato.id), oper: '=', rp: '1' });
-                if (logResp.registros?.length > 0) {
-                    loginData = logResp.registros[0];
+                loginsData = await obterLoginsPorContratoOuCliente(clienteEncontrado.id, contrato.id);
+                if (loginsData.length > 0) {
+                    loginData = loginsData[0];
                     
                     if (loginData.login) {
                         const acctResp = await makeIxcRequest('POST', '/radacct', { qtype: 'radacct.username', query: loginData.login, oper: '=', page: '1', rp: '1', sortname: 'radacctid', sortorder: 'desc' });
@@ -537,6 +721,7 @@ router.get('/busca-cliente/:termo', async (req, res) => {
                     uptime: historicoPppoe?.acctsessiontime || '0',
                     id: loginData.id
                 } : null,
+                logins: loginsData.map(resumirLoginIxc),
                 onu: onuData ? {
                     id: onuData.id,
                     mac: onuData.mac,
@@ -571,23 +756,117 @@ router.get('/busca-cliente/:termo', async (req, res) => {
 });
 
 router.post('/criar-os', async (req, res) => {
-    const { cliente_id, contrato_id, id_departamento, id_processo, observacao, titulo, usuario_logado, usuario_intranet } = req.body;
+    const {
+        cliente_id,
+        contrato_id,
+        id_departamento,
+        id_assunto,
+        id_login,
+        observacao,
+        usuario_logado,
+        usuario_intranet
+    } = req.body;
+    let payloadTicketLog: any = null;
 
     //console.log("\n=== [DEBUG] INICIANDO CRIAÇÃO DE CHAMADO (IXC) ===");
     //console.log("1. Dados brutos recebidos do Frontend:", req.body);
 
-    if (!cliente_id || !observacao || !id_processo) {
-        console.error("-> Erro: Dados incompletos. Faltando processo.");
-        return res.status(400).json({ error: "Dados incompletos. Selecione um processo do IXC antes de continuar." });
+    if (!cliente_id || !contrato_id || !observacao) {
+        return res.status(400).json({ error: 'Cliente, contrato e observação são obrigatórios.' });
+    }
+    if (!normalizarIdIxc(id_assunto)) {
+        return res.status(400).json({ error: 'Selecione o assunto do atendimento.' });
+    }
+    if (!normalizarIdIxc(id_login)) {
+        return res.status(400).json({ error: 'Selecione ou confirme o login vinculado ao contrato antes de abrir o atendimento.' });
     }
 
     try {
-        const mensagemInicialCampo = montarMensagemInicialCampo(req.body);
+        const assuntoIxc = await buscarAssuntoIxc(id_assunto);
+        if (!assuntoIxc || String(assuntoIxc.ativo || 'S').toUpperCase() === 'N') {
+            return res.status(400).json({ error: 'O IXC exige um assunto válido. Selecione um assunto do atendimento.' });
+        }
+
+        const assuntoId = normalizarIdIxc(assuntoIxc.id);
+        const assuntoTitulo = obterTituloAssunto(assuntoIxc);
+        const idProcesso = extrairIdProcessoAssunto(assuntoIxc);
+        if (!idProcesso) {
+            logInfo('[Abertura OS][Assuntos]', 'Assunto sem processo vinculado.', {
+                assunto_id: assuntoId,
+                assunto: assuntoTitulo,
+                cliente_id,
+                contrato_id,
+                usuario: usuario_logado || usuario_intranet
+            });
+            return res.status(400).json({ error: 'O assunto selecionado não possui processo vinculado no IXC.' });
+        }
+
+        const processoIxc = await buscarProcessoIxc(idProcesso).catch(() => null);
+        if (!assuntoPermitidoNaAbertura(assuntoIxc) || !processoPermitidoNaAbertura(idProcesso, processoIxc)) {
+            return res.status(400).json({ error: 'O assunto selecionado pertence a um fluxo específico e não pode ser aberto por esta tela.' });
+        }
+        const processoDescricao = sanitizarTexto(
+            processoIxc?.descricao || processoIxc?.nome || processoIxc?.processo || `Processo #${idProcesso}`,
+            255
+        );
+        const loginsDisponiveis = await obterLoginsPorContratoOuCliente(cliente_id, contrato_id);
+        const loginSelecionado = loginsDisponiveis.find(login => normalizarIdIxc(login?.id) === normalizarIdIxc(id_login));
+        if (!loginSelecionado) {
+            logInfo('[Abertura OS][Login]', 'Login ausente ou incompatível com cliente/contrato.', {
+                cliente_id,
+                contrato_id,
+                id_login,
+                logins_encontrados: loginsDisponiveis.map(resumirLoginIxc),
+                usuario: usuario_logado || usuario_intranet
+            });
+            return res.status(400).json({ error: 'Selecione ou confirme o login vinculado ao contrato antes de abrir o atendimento.' });
+        }
+
+        const loginResumo = resumirLoginIxc(loginSelecionado);
+        const usuarioIxc = await AgendaService.obterUsuarioIxcLogado(usuario_logado || usuario_intranet);
+        logInfo('[Abertura OS][Login]', 'Login validado para o atendimento.', {
+            cliente_id,
+            contrato_id,
+            id_login: loginResumo.id,
+            login: loginResumo.login,
+            usuario: usuario_logado || usuario_intranet
+        });
+        const contextoInterno = {
+            ...(req.body.contexto_interno || {}),
+            processo: {
+                id: idProcesso,
+                descricao: processoDescricao
+            },
+            assunto: {
+                id: assuntoId,
+                titulo: assuntoTitulo
+            },
+            tecnico: {
+                ...(req.body.contexto_interno?.tecnico || {}),
+                login: loginResumo.login,
+                id_login: loginResumo.id
+            }
+        };
+        const dadosAbertura = {
+            ...req.body,
+            id_assunto: assuntoId,
+            id_wfl_processo: idProcesso,
+            id_processo: idProcesso,
+            id_login: loginResumo.id,
+            login_nome: loginResumo.login,
+            titulo: assuntoTitulo,
+            contexto_interno: contextoInterno
+        };
+
+        const mensagemInicialCampo = montarMensagemInicialCampo(dadosAbertura);
         logInfo('[Abertura OS][Mensagem Inicial]', 'Mensagem inicial de campo montada.', {
             usuario: usuario_logado || usuario_intranet,
-            processo: id_processo,
+            assunto_id: assuntoId,
+            assunto: assuntoTitulo,
+            processo: idProcesso,
             cliente_id,
-            contrato_id
+            contrato_id,
+            id_login: loginResumo.id
         });
 
         const abertosResp = await makeIxcRequest('POST', '/su_ticket', {
@@ -603,8 +882,9 @@ router.post('/criar-os', async (req, res) => {
         const atendimentoDuplicado = (abertosResp.registros || []).find((ticket: any) => {
             const statusAberto = !['F', 'C'].includes(String(ticket.status || '').toUpperCase());
             const mesmoContrato = !contrato_id || !ticket.id_contrato || String(ticket.id_contrato) === String(contrato_id);
-            const mesmoProcesso = !ticket.id_wfl_processo || String(ticket.id_wfl_processo) === String(id_processo);
-            return statusAberto && mesmoContrato && mesmoProcesso;
+            const mesmoAssunto = !ticket.id_assunto || String(ticket.id_assunto) === assuntoId;
+            const mesmoProcesso = !ticket.id_wfl_processo || String(ticket.id_wfl_processo) === idProcesso;
+            return statusAberto && mesmoContrato && mesmoAssunto && mesmoProcesso;
         });
 
         if (atendimentoDuplicado) {
@@ -618,21 +898,37 @@ router.post('/criar-os', async (req, res) => {
 
         const payloadTicket: any = {
             id_cliente: cliente_id,
-            titulo: titulo || "Atendimento via Intranet",
-            id_ticket_setor: id_departamento || "4",
-            id_wfl_processo: id_processo,
-            origem_endereco: "CC",
+            id_contrato: contrato_id,
+            id_login: loginResumo.id,
+            id_assunto: assuntoId,
+            titulo: assuntoTitulo,
+            id_ticket_setor: processoIxc?.id_setor || processoIxc?.id_ticket_setor || assuntoIxc?.id_setor || id_departamento || "4",
+            id_wfl_processo: idProcesso,
+            origem_endereco: "L",
             tipo: "C", 
             status: "A", 
             su_status: "N", 
             prioridade: "M", 
-            su_ticket_origem: "I", 
+            id_ticket_origem: "I",
+            origem_cadastro: "P",
+            interacao_pendente: "N",
+            melhor_horario_reserva: "Q",
             menssagem: mensagemInicialCampo,
             mensagem: mensagemInicialCampo
         };
-        if (contrato_id && String(contrato_id).trim() !== "") {
-            payloadTicket.id_contrato = contrato_id;
-        }
+        if (usuarioIxc.id_usuario_ixc) payloadTicket.id_usuarios = usuarioIxc.id_usuario_ixc;
+        payloadTicketLog = payloadTicket;
+
+        logInfo('[Abertura OS][Criar Atendimento]', 'Enviando atendimento ao IXC.', {
+            usuario: usuario_logado || usuario_intranet,
+            assunto_id: assuntoId,
+            assunto: assuntoTitulo,
+            processo: idProcesso,
+            cliente_id,
+            contrato_id,
+            id_login: loginResumo.id,
+            origem_endereco: payloadTicket.origem_endereco
+        });
 
         //console.log("2. Payload final montado:", payloadTicket);
 
@@ -641,10 +937,17 @@ router.post('/criar-os', async (req, res) => {
         //console.log("3. Resposta recebida do IXC:", ixcResp);
 
         if (ixcResp.type === 'error') {
-            throw new Error(ixcResp.message || "Erro desconhecido retornado pelo IXC");
+            const erroRespostaIxc: any = new Error(ixcResp.message || "Erro desconhecido retornado pelo IXC");
+            erroRespostaIxc.respostaIxc = ixcResp;
+            throw erroRespostaIxc;
         }
 
         const ticketId = ixcResp.id || ixcResp.id_su_ticket || ixcResp.ticket_id;
+        if (!normalizarIdIxc(ticketId)) {
+            const erroSemTicket: any = new Error('O IXC não retornou o ID do atendimento criado.');
+            erroSemTicket.respostaIxc = ixcResp;
+            throw erroSemTicket;
+        }
         let ticketCriado: any = null;
         if (ticketId) {
             ticketCriado = await buscarTicketIxc(String(ticketId)).catch(() => null);
@@ -674,16 +977,18 @@ router.post('/criar-os', async (req, res) => {
 
         let avisoMensagemInterna = '';
         try {
-            await registrarMensagemInternaAbertura(req.body, {
+            await registrarMensagemInternaAbertura(dadosAbertura, {
                 ticketId,
                 osId: osCriada?.id || ixcResp.id_chamado || ixcResp.id_os || '',
                 protocolo
             });
             logInfo('[Abertura OS][Mensagem Interna]', 'Mensagem interna completa registrada.', {
                 usuario: usuario_logado || usuario_intranet,
-                processo: id_processo,
+                assunto_id: assuntoId,
+                processo: idProcesso,
                 cliente_id,
                 contrato_id,
+                id_login: loginResumo.id,
                 ticket_id: ticketId,
                 os_id: osCriada?.id || ixcResp.id_chamado || ixcResp.id_os || ''
             });
@@ -691,9 +996,11 @@ router.post('/criar-os', async (req, res) => {
             avisoMensagemInterna = 'Chamado criado com sucesso, mas não foi possível registrar as informações internas completas.';
             logError('[Abertura OS][Mensagem Interna]', mensagemInternaError, {
                 usuario: usuario_logado || usuario_intranet,
-                processo: id_processo,
+                assunto_id: assuntoId,
+                processo: idProcesso,
                 cliente_id,
                 contrato_id,
+                id_login: loginResumo.id,
                 ticket_id: ticketId,
                 os_id: osCriada?.id || ixcResp.id_chamado || ixcResp.id_os || ''
             });
@@ -706,16 +1013,38 @@ router.post('/criar-os', async (req, res) => {
             message: "Atendimento criado com sucesso no IXC!",
             aviso_mensagem_interna: avisoMensagemInterna || undefined
         });
+        logInfo('[Abertura OS][Criar Atendimento]', 'Atendimento criado no IXC.', {
+            usuario: usuario_logado || usuario_intranet,
+            assunto_id: assuntoId,
+            processo: idProcesso,
+            cliente_id,
+            contrato_id,
+            id_login: loginResumo.id,
+            ticket_id: ticketId,
+            os_id: osCriada?.id || ixcResp.id_chamado || ixcResp.id_os || '',
+            protocolo,
+            resposta_ixc: ixcResp
+        });
         //console.log("=== CHAMADO CRIADO COM SUCESSO ===\n");
 
     } catch (error: any) {
-        //console.error("4. [ERRO FATAL] Falha ao criar OS no IXC:");
-        console.error(error.message);
-        const erroIxc = error.response?.data?.message || error.response?.data || error.message;
+        const erroIxc = error.response?.data?.message || error.respostaIxc?.message || error.response?.data || error.message;
+        logError('[Abertura OS][Criar Atendimento]', error, {
+            usuario: usuario_logado || usuario_intranet,
+            cliente_id,
+            contrato_id,
+            id_assunto,
+            id_login,
+            payload_ixc: payloadTicketLog,
+            resposta_ixc: error.response?.data || error.respostaIxc
+        });
         if (String(erroIxc || '').toLowerCase().includes('assunto')) {
-            return res.status(500).json({ error: 'O IXC recusou a criação sem id_assunto. A tela agora envia processo; verifique se o IXC permite abertura por processo/texto ou configure um vínculo obrigatório.' });
+            return res.status(400).json({ error: 'O IXC exige um assunto válido. Selecione um assunto do atendimento.' });
         }
-        res.status(500).json({ error: error.message });
+        if (String(erroIxc || '').toLowerCase().includes('login')) {
+            return res.status(400).json({ error: 'Selecione ou confirme o login vinculado ao contrato antes de abrir o atendimento.' });
+        }
+        res.status(500).json({ error: 'Não foi possível criar o atendimento no IXC.' });
     }
 });
 
@@ -746,22 +1075,58 @@ router.get('/processos', async (req, res) => {
 
 router.get('/assuntos', async (req, res) => {
     try {
-        const resp = await makeIxcRequest('POST', '/su_oss_assunto', {
-            qtype: 'su_oss_assunto.ativo',
-            query: 'S', 
-            oper: '=', 
-            page: '1', 
-            rp: '1000',
-            sortname: 'assunto',
-            sortorder: 'asc'
+        const [respAssuntos, respProcessos] = await Promise.all([
+            makeIxcRequest('POST', '/su_oss_assunto', {
+                qtype: 'su_oss_assunto.ativo',
+                query: 'S',
+                oper: '=',
+                page: '1',
+                rp: '1000',
+                sortname: 'assunto',
+                sortorder: 'asc'
+            }),
+            makeIxcRequest('POST', '/wfl_processo', {
+                page: '1',
+                rp: '1000',
+                sortname: 'descricao',
+                sortorder: 'asc'
+            }, 'listar').catch(() => ({ registros: [] }))
+        ]);
+
+        const processos = new Map((respProcessos.registros || []).map((processo: any) => [
+            normalizarIdIxc(processo.id),
+            processo
+        ]));
+        const assuntosAtivos = (respAssuntos.registros || [])
+            .filter((assunto: any) => String(assunto.ativo || 'S').toUpperCase() !== 'N')
+            .map((assunto: any) => {
+                const id = normalizarIdIxc(assunto.id);
+                const idProcesso = extrairIdProcessoAssunto(assunto);
+                const processo: any = processos.get(idProcesso);
+                return {
+                    id,
+                    titulo: obterTituloAssunto(assunto),
+                    id_wfl_processo: idProcesso,
+                    processo: processo?.descricao || processo?.nome || processo?.processo || '',
+                    id_setor: processo?.id_setor || processo?.id_ticket_setor || assunto.id_setor || assunto.id_ticket_setor || '',
+                    ativo: true,
+                    permitido_abertura: assuntoPermitidoNaAbertura(assunto) && processoPermitidoNaAbertura(idProcesso, processo)
+                };
+            })
+            .filter((assunto: any) => assunto.id && assunto.permitido_abertura)
+            .map(({ permitido_abertura, ...assunto }: any) => assunto);
+
+        logInfo('[Abertura OS][Assuntos]', 'Assuntos ativos carregados do IXC.', {
+            usuario: (req as any).user?.usuario || (req as any).session?.user?.usuario,
+            quantidade: assuntosAtivos.length,
+            sem_processo: assuntosAtivos.filter((assunto: any) => !assunto.id_wfl_processo).length
         });
-
-        const assuntosAtivos = (resp.registros || []).filter((a: any) => a.ativo === 'S');
-
         res.json(assuntosAtivos);
     } catch (error: any) {
-        console.error("Erro ao buscar assuntos:", error.message);
-        res.status(500).json({ error: error.message });
+        logError('[Abertura OS][Assuntos]', error, {
+            usuario: (req as any).user?.usuario || (req as any).session?.user?.usuario
+        });
+        res.status(500).json({ error: 'Não foi possível carregar os assuntos do IXC.' });
     }
 });
 

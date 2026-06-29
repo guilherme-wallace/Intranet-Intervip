@@ -8,9 +8,9 @@ let anexoOrigemModalTicket = false;
 let dadosEdicaoOriginais = null;
 let criandoAtendimento = false;
 
-const PROCESSOS_OCULTOS_ABERTURA = new Set(['3', '9', '13', '21', '24', '28', '29', '30', '33', '39', '45', '46', '51', '54']);
-const TERMOS_PROCESSOS_OCULTOS_ABERTURA = [
+const TERMOS_ASSUNTOS_OCULTOS_ABERTURA = [
     'INSTALACAO',
+    'ATIVACAO',
     'MUDANCA DE ENDERECO',
     'ALTERACAO DE TITULARIDADE',
     'RAZAO SOCIAL',
@@ -24,11 +24,9 @@ function normalizarTextoAbertura(valor) {
         .toUpperCase();
 }
 
-function deveOcultarProcessoAbertura(processo) {
-    const id = String(processo?.id || '').trim();
-    if (PROCESSOS_OCULTOS_ABERTURA.has(id)) return true;
-    const nome = normalizarTextoAbertura(processo?.descricao || processo?.nome || processo?.processo || processo?.titulo || '');
-    return TERMOS_PROCESSOS_OCULTOS_ABERTURA.some(termo => nome.includes(termo));
+function deveOcultarAssuntoAbertura(assunto) {
+    const nome = normalizarTextoAbertura(assunto?.titulo || assunto?.assunto || assunto?.descricao || assunto?.nome || '');
+    return TERMOS_ASSUNTOS_OCULTOS_ABERTURA.some(termo => nome.includes(termo));
 }
 
 function traduzirStatusContrato(status) {
@@ -97,6 +95,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     document.getElementById('select-contrato').addEventListener('change', (e) => {
         if (window.renderizarDetalhesContrato) window.renderizarDetalhesContrato(e.target.value);
     });
+    document.getElementById('select-login-atendimento')?.addEventListener('change', atualizarStatusLoginAtendimento);
 
     document.getElementById('btn-gerar-os').addEventListener('click', gerarOS);
     
@@ -111,23 +110,26 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 async function carregarAssuntosIXC() {
     try {
-        const response = await fetch('/api/v5/abertura-OS/processos');
-        const processos = await response.json();
+        const response = await fetch('/api/v5/abertura-OS/assuntos');
+        const assuntos = await response.json();
+        if (!response.ok) throw new Error(assuntos.error || 'Falha ao carregar assuntos.');
         const select = document.getElementById('select-assunto');
         
-        select.innerHTML = '<option value="">Selecione o Processo...</option>';
+        select.innerHTML = '<option value="">Selecione o assunto...</option>';
 
-        processos.filter(p => !deveOcultarProcessoAbertura(p)).forEach(p => {
-            const nome = p.descricao || p.nome || p.processo || p.titulo || `Processo #${p.id}`;
+        assuntos.filter(a => !deveOcultarAssuntoAbertura(a)).forEach(a => {
+            const nome = a.titulo || a.assunto || a.descricao || a.nome || `Assunto #${a.id}`;
             const option = document.createElement('option');
-            option.value = p.id;
-            option.dataset.processo = p.id;
-            option.dataset.departamento = p.id_setor || p.id_departamento || '4';
-            option.textContent = nome;
+            option.value = a.id;
+            option.dataset.assunto = a.id;
+            option.dataset.processo = a.id_wfl_processo || '';
+            option.dataset.processoDescricao = a.processo || '';
+            option.dataset.departamento = a.id_setor || a.id_departamento || '4';
+            option.textContent = a.id_wfl_processo ? nome : `${nome} (sem processo vinculado)`;
             select.appendChild(option);
         });
     } catch (e) {
-        document.getElementById('select-assunto').innerHTML = '<option value="">Erro ao carregar processos</option>';
+        document.getElementById('select-assunto').innerHTML = '<option value="">Erro ao carregar assuntos</option>';
     }
 }
 
@@ -145,6 +147,8 @@ async function realizarBusca(termo) {
     btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
     btn.disabled = true;
     document.getElementById('painel-detalhes-tecnicos').style.display = 'none';
+    contratoAtual = null;
+    atualizarSeletorLoginAtendimento(null);
 
     try {
         const response = await fetch(`/api/v5/abertura-OS/busca-cliente/${encodeURIComponent(termo)}`);
@@ -166,6 +170,7 @@ async function realizarBusca(termo) {
         selectContrato.innerHTML = '';
         if (cardsContratos) cardsContratos.innerHTML = '';
         contratoAtual = null;
+        atualizarSeletorLoginAtendimento(null);
         
         if (data.contratos && data.contratos.length > 0) {
             alertaInativo.classList.add('d-none');
@@ -212,11 +217,76 @@ async function realizarBusca(termo) {
     }
 }
 
+function obterLoginsContrato(contrato) {
+    if (Array.isArray(contrato?.logins) && contrato.logins.length > 0) return contrato.logins;
+    if (contrato?.login?.id) {
+        return [{
+            id: contrato.login.id,
+            login: contrato.login.user || '',
+            ativo: true
+        }];
+    }
+    return [];
+}
+
+function atualizarSeletorLoginAtendimento(contrato) {
+    const area = document.getElementById('area-login-atendimento');
+    const select = document.getElementById('select-login-atendimento');
+    const status = document.getElementById('status-login-atendimento');
+    if (!area || !select || !status) return;
+
+    select.innerHTML = '';
+    const logins = obterLoginsContrato(contrato).filter(login => login.ativo !== false && login.id);
+    area.classList.remove('d-none');
+
+    if (!contrato) {
+        select.add(new Option('Selecione um contrato primeiro', ''));
+        select.disabled = true;
+        status.textContent = 'O login será carregado após a seleção do contrato.';
+        status.className = 'form-text text-muted';
+        return;
+    }
+
+    if (logins.length === 0) {
+        select.add(new Option('Nenhum login vinculado localizado', ''));
+        select.disabled = true;
+        status.textContent = 'Não foi encontrado login vinculado ao contrato selecionado.';
+        status.className = 'form-text text-danger fw-bold';
+        return;
+    }
+
+    select.disabled = false;
+    if (logins.length > 1) select.add(new Option('Selecione o login correto...', ''));
+    logins.forEach(login => {
+        const option = new Option(login.login || `Login IXC #${login.id}`, login.id);
+        option.dataset.login = login.login || '';
+        select.add(option);
+    });
+    if (logins.length === 1) select.value = String(logins[0].id);
+    atualizarStatusLoginAtendimento();
+}
+
+function atualizarStatusLoginAtendimento() {
+    const select = document.getElementById('select-login-atendimento');
+    const status = document.getElementById('status-login-atendimento');
+    if (!select || !status || !select.value) {
+        if (status && !select?.disabled) {
+            status.textContent = 'Selecione o login vinculado a este atendimento.';
+            status.className = 'form-text text-warning fw-bold';
+        }
+        return;
+    }
+    const login = select.options[select.selectedIndex]?.dataset.login || select.options[select.selectedIndex]?.text || '';
+    status.textContent = `Login vinculado: ${login}`;
+    status.className = 'form-text text-success fw-bold';
+}
+
 window.renderizarDetalhesContrato = function(contratoId) {
     if (!clienteAtual || !clienteAtual.contratos) return;
     const c = clienteAtual.contratos.find(x => String(x.id) === String(contratoId));
     if (!c) return;
     contratoAtual = c;
+    atualizarSeletorLoginAtendimento(c);
     document.getElementById('painel-detalhes-tecnicos').style.display = 'flex';
     document.querySelectorAll('.card-contrato-opcao').forEach(card => {
         card.classList.toggle('border-primary', String(card.dataset.contratoId) === String(contratoId));
@@ -494,13 +564,17 @@ function validarDadosEdicao(dados) {
     return '';
 }
 
-function montarContextoInternoAbertura(assuntoTexto, observacao, idProcesso) {
+function montarContextoInternoAbertura(assuntoTexto, observacao, idProcesso, idAssunto, loginSelecionado) {
     const contatos = clienteAtual?.contatos || {};
     return {
         usuario_logado: window.usuarioLogado || '',
         processo: {
             id: idProcesso,
-            descricao: assuntoTexto || ''
+            descricao: document.getElementById('select-assunto')?.selectedOptions?.[0]?.dataset.processoDescricao || ''
+        },
+        assunto: {
+            id: idAssunto,
+            titulo: assuntoTexto || ''
         },
         cliente: {
             id: clienteAtual?.id || '',
@@ -524,7 +598,8 @@ function montarContextoInternoAbertura(assuntoTexto, observacao, idProcesso) {
             bloqueio_automatico: simNao(contratoAtual.bloqueio_automatico)
         } : {},
         tecnico: contratoAtual ? {
-            login: contratoAtual.login?.user || '',
+            login: loginSelecionado?.nome || contratoAtual.login?.user || '',
+            id_login: loginSelecionado?.id || '',
             status: contratoAtual.login?.status || '',
             ultima_queda: contratoAtual.login?.ultima_queda || '',
             motivo_queda: contratoAtual.login?.motivo_queda || '',
@@ -725,9 +800,13 @@ async function gerarOS() {
     const selectAssunto = document.getElementById('select-assunto');
     const assuntoTexto = selectAssunto.options[selectAssunto.selectedIndex]?.text; 
     const id_departamento = selectAssunto.options[selectAssunto.selectedIndex]?.dataset.departamento;
-    
+    const id_assunto = selectAssunto.value;
     const id_processo = selectAssunto.options[selectAssunto.selectedIndex]?.dataset.processo;
-    
+    const selectLogin = document.getElementById('select-login-atendimento');
+    const id_login = selectLogin?.value || '';
+    const loginNome = selectLogin?.options[selectLogin.selectedIndex]?.dataset.login
+        || selectLogin?.options[selectLogin.selectedIndex]?.text
+        || '';
     const id_contrato = document.getElementById('select-contrato').value;
     const observacao = document.getElementById('obs-triagem').value;
 
@@ -735,10 +814,15 @@ async function gerarOS() {
         return showInfoModal('Selecione o contrato correto antes de continuar.', 'Contrato obrigatório', 'warning');
     }
 
-    if (!id_processo) return showInfoModal("Selecione um processo.");
-    
+    if (!id_assunto) return showInfoModal('Selecione o assunto do atendimento.', 'Assunto obrigatório', 'warning');
     if (!id_processo) {
-        return showInfoModal("ERRO DE CONFIGURAÇÃO NO IXC: Este assunto não possui um Processo (Workflow) vinculado a ele no IXC. Peça ao gestor para vincular!");
+        return showInfoModal('O assunto selecionado não possui processo vinculado. Verifique a configuração no IXC.', 'Processo não configurado', 'warning');
+    }
+    if (!id_login) {
+        const mensagemLogin = selectLogin?.disabled
+            ? 'Não foi encontrado login vinculado ao contrato selecionado.'
+            : 'Selecione ou confirme o login vinculado ao contrato antes de abrir o atendimento.';
+        return showInfoModal(mensagemLogin, 'Login obrigatório', 'warning');
     }
     
     if (!observacao) return showInfoModal("Preencha as observações da triagem.");
@@ -761,11 +845,21 @@ async function gerarOS() {
                 cliente_id: clienteAtual.id,
                 contrato_id: id_contrato || null,
                 id_departamento: id_departamento,
+                id_assunto: id_assunto,
+                id_wfl_processo: id_processo,
                 id_processo: id_processo,
+                id_login: id_login,
+                login_nome: loginNome,
                 observacao: observacao,
                 titulo: assuntoTexto,
                 usuario_logado: window.usuarioLogado || '',
-                contexto_interno: montarContextoInternoAbertura(assuntoTexto, observacao, id_processo)
+                contexto_interno: montarContextoInternoAbertura(
+                    assuntoTexto,
+                    observacao,
+                    id_processo,
+                    id_assunto,
+                    { id: id_login, nome: loginNome }
+                )
             })
         });
 
