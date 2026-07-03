@@ -46,6 +46,7 @@ function formatarNomePlano(nomeOriginal) {
     return nomeOriginal;
 }
 const router = Express.Router();
+const ID_ASSUNTO_MUDANCA_TITULARIDADE = '218';
 const makeIxcRequest = (method, endpoint, data = null, operationType = null) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b, _c;
     const url = `${process.env.IXC_API_URL}/webservice/v1${endpoint}`;
@@ -669,6 +670,7 @@ function abrirTicketProcesso46(clienteId, contratoId, loginId, isNovoCliente, no
         }
         const atendimentoPayload = {
             "id_cliente": clienteId,
+            "id_assunto": ID_ASSUNTO_MUDANCA_TITULARIDADE,
             "titulo": "ALTERAÇÃO DE TITULARIDADE / RAZÃO SOCIAL",
             "id_wfl_processo": "46",
             "id_ticket_setor": "4",
@@ -682,9 +684,38 @@ function abrirTicketProcesso46(clienteId, contratoId, loginId, isNovoCliente, no
             "id_login": loginId || '',
             "id_contrato": contratoId || ''
         };
-        const response = yield makeIxcRequest('POST', '/su_ticket', atendimentoPayload, 'incluir');
+        if (!atendimentoPayload.id_assunto) {
+            throw new Error('Assunto obrigatório não definido para mudança de titularidade.');
+        }
+        const payloadLog = {
+            id_cliente: atendimentoPayload.id_cliente,
+            id_contrato: atendimentoPayload.id_contrato,
+            id_login: atendimentoPayload.id_login,
+            id_assunto: atendimentoPayload.id_assunto,
+            id_wfl_processo: atendimentoPayload.id_wfl_processo,
+            id_ticket_setor: atendimentoPayload.id_ticket_setor,
+            id_responsavel_tecnico: atendimentoPayload.id_responsavel_tecnico,
+            id_usuarios: atendimentoPayload.id_usuarios || null,
+            origem_endereco: atendimentoPayload.origem_endereco || null,
+            usuario: clientData.usuario_intranet || 'Não informado',
+            cliente_novo: isNovoCliente
+        };
+        (0, logger_1.logInfo)('Cadastro Banda Larga.Mudanca Titularidade', '[Cadastro Banda Larga][Mudanca Titularidade] abrindo atendimento', payloadLog);
+        (0, logger_1.logInfo)('Cadastro Banda Larga.Mudanca Titularidade', '[Cadastro Banda Larga][Mudanca Titularidade] Payload atendimento', payloadLog);
+        const response = yield makeIxcRequest('POST', '/su_ticket', atendimentoPayload, 'incluir').catch((error) => {
+            (0, logger_1.logError)('[Cadastro Banda Larga][Mudanca Titularidade] falha ao abrir atendimento', error, Object.assign({ etapa: 'abrir_atendimento' }, payloadLog));
+            if (String((error === null || error === void 0 ? void 0 : error.message) || '').toLowerCase().includes('assunto')) {
+                throw new Error('Não foi possível abrir o atendimento de mudança de titularidade porque o IXC recusou o assunto informado. Verifique a configuração do assunto 218 no IXC.');
+            }
+            throw error;
+        });
         const ticketId = response.id || response.id_su_ticket;
         if (!ticketId || response.type === 'error') {
+            const erroResposta = new Error(`Falha ao abrir ticket: ${response.message || 'ID não retornado.'}`);
+            (0, logger_1.logError)('[Cadastro Banda Larga][Mudanca Titularidade] falha ao abrir atendimento', erroResposta, Object.assign({ etapa: 'validar_resposta_atendimento' }, payloadLog));
+            if (String(response.message || '').toLowerCase().includes('assunto')) {
+                throw new Error('Não foi possível abrir o atendimento de mudança de titularidade porque o IXC recusou o assunto informado. Verifique a configuração do assunto 218 no IXC.');
+            }
             throw new Error(`Falha ao abrir ticket: ${response.message || 'ID não retornado.'}`);
         }
         //console.log(`Ticket Processo 46 criado: ${ticketId}. Aguardando OS inicial nascer...`);
