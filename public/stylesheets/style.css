@@ -417,3 +417,33 @@ html, body {
 .dark-mode .vagas-slot-lotado {
     background: #331d21;
 }
+
+.processo-os-card {
+    min-width: 0;
+}
+
+.badge-processo-os {
+    display: flex;
+    align-items: center;
+    max-width: 100%;
+    padding: 0.35rem 0.5rem;
+    border: 1px solid #d8dee5;
+    border-radius: 6px;
+    background: #f8f9fa;
+    color: #344054;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.processo-os-texto {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dark-mode .badge-processo-os {
+    border-color: #475569;
+    background: #273444;
+    color: #e5e7eb;
+}

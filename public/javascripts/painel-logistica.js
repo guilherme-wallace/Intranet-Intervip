@@ -531,6 +531,16 @@ function criarCardOS(os) {
         optionsHtml += `<option value="${os.ixc_tecnico_id}" selected>${os.nome_tecnico} (Fora Escala)</option>`;
     }
 
+    const nomeProcessoSeguro = escapeHtmlLogistica(normalizarNomeProcessoCard(os.nome_processo));
+    const processoHtml = nomeProcessoSeguro ? `
+        <div class="processo-os-card mt-3" title="${nomeProcessoSeguro}">
+            <span class="badge-processo-os">
+                <i class="bi bi-diagram-3 me-1" aria-hidden="true"></i>
+                <span class="processo-os-texto">${nomeProcessoSeguro}</span>
+            </span>
+        </div>
+    ` : '';
+
     card.innerHTML = `
         <div class="mb-2 cursor-pointer click-os-detalhes">${badgesHtml}</div>
         <div class="os-title cursor-pointer click-os-detalhes" style="font-size:0.85rem; line-height: 1.4; font-weight: bold; color: #212529;">
@@ -540,7 +550,8 @@ function criarCardOS(os) {
             <span class="text-truncate small"><i class="bi bi-geo-alt me-1 text-danger"></i>${os.cidade_real || os.municipio_base}</span>
             <span class="text-muted small fw-bold">#${os.ixc_os_id}</span>
         </div>
-        <div class="mt-3 border-top pt-2">
+        ${processoHtml}
+        <div class="mt-2 border-top pt-2">
             <select class="form-select form-select-sm border-secondary fw-bold select-atribuir-tecnico" 
                 style="background-color: #f8f9fa;" 
                 data-id-agenda="${os.id}" 
@@ -556,6 +567,20 @@ function criarCardOS(os) {
 
     card.querySelectorAll('.click-os-detalhes').forEach(el => el.addEventListener('click', () => abrirModalDetalhes(os)));
     return card;
+}
+
+function normalizarNomeProcessoCard(valor) {
+    const nome = String(valor || '').trim();
+    return /^PROCESSO\s*#\s*\d+$/i.test(nome) ? '' : nome;
+}
+
+function escapeHtmlLogistica(valor) {
+    return String(valor ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
 
 function formatarPreferenciaHorario(os) {
@@ -859,7 +884,18 @@ async function carregarFilaLogistica() {
 
     try {
         const res = await fetch('/api/v5/painel-logistica/fila-pendentes');
-        const fila = await res.json();
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(payload.error || 'Erro ao carregar a fila de O.S.');
+
+        const filaRecebida = Array.isArray(payload) ? payload : [];
+        const grupoNormalizado = normalizarGrupoUsuario(window.grupoUsuarioLogado || '');
+        const deveOcultarSetor19 = grupoNormalizado.includes('LOGISTICA') || grupoNormalizado.includes('FIBRA');
+        const obterSetorFila = os => [os.setor, os.id_setor, os.id_ticket_setor, os.id_setor_atual]
+            .map(valor => String(valor || '').trim())
+            .find(Boolean) || '';
+        const fila = deveOcultarSetor19
+            ? filaRecebida.filter(os => obterSetorFila(os) !== '19')
+            : filaRecebida;
 
         contador.textContent = fila.length;
 

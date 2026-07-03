@@ -277,11 +277,56 @@ router.get('/debug-agendamentos', async (req, res) => {
 });
 
 router.get('/fila-pendentes', async (req, res) => {
+    const reqAny = req as any;
+    const requestId = reqAny.requestId || createRequestId();
+    reqAny.requestId = requestId;
+
     try {
-        const fila = await AgendaService.obterFilaPendentes();
+        const filaCompleta = await AgendaService.obterFilaPendentes();
+        const usuario = reqAny.user?.username || reqAny.session?.username || 'Visitante';
+        let grupo = String(reqAny.user?.group || reqAny.session?.group || '').trim();
+        if (!grupo && usuario !== 'Visitante') {
+            const usuarios = await AgendaService.executeDb(
+                'SELECT grupo FROM usuarios_intranet WHERE ativo = 1 AND usuario = ? LIMIT 1',
+                [usuario]
+            ).catch(() => []);
+            grupo = usuarios?.[0]?.grupo || '';
+        }
+        const grupoNormalizado = normalizarGrupoPermissao(grupo);
+        const deveOcultarSetor19 = grupoNormalizado.includes('LOGISTICA') || grupoNormalizado.includes('FIBRA');
+        const obterSetor = (os: any) => [
+            os?.setor,
+            os?.id_setor,
+            os?.id_ticket_setor,
+            os?.id_setor_atual
+        ].map(valor => String(valor || '').trim()).find(Boolean) || '';
+        const fila = deveOcultarSetor19
+            ? filaCompleta.filter((os: any) => obterSetor(os) !== '19')
+            : filaCompleta;
+
+        if (deveOcultarSetor19) {
+            logInfo(
+                'PainelLogistica.filaPendentes',
+                '[Painel Logistica][Fila Pendentes] ocultando setor 19 para grupo LOGISTICA/FIBRA',
+                {
+                    requestId,
+                    usuario,
+                    grupo: grupoNormalizado,
+                    totalAntes: filaCompleta.length,
+                    totalDepois: fila.length,
+                    totalOcultado: filaCompleta.length - fila.length
+                }
+            );
+        }
+
         res.json(fila);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        logError('PainelLogistica.filaPendentes', error, {
+            requestId,
+            usuario: reqAny.user?.username || reqAny.session?.username || 'Visitante',
+            grupo: normalizarGrupoPermissao(reqAny.user?.group || reqAny.session?.group || '')
+        });
+        res.status(500).json({ error: 'Erro ao carregar fila de O.S. pendentes.', requestId });
     }
 });
 

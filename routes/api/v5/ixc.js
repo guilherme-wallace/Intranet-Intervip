@@ -24,6 +24,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const Express = require("express");
 const axios_1 = require("axios");
 const database_1 = require("../../../api/database");
+const logger_1 = require("../../../api/logger");
 function formatarNomePlano(nomeOriginal) {
     if (!nomeOriginal)
         return 'Não informado';
@@ -46,7 +47,7 @@ function formatarNomePlano(nomeOriginal) {
 }
 const router = Express.Router();
 const makeIxcRequest = (method, endpoint, data = null, operationType = null) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b;
+    var _a, _b, _c;
     const url = `${process.env.IXC_API_URL}/webservice/v1${endpoint}`;
     const token = process.env.IXC_API_TOKEN;
     if (!url || !token) {
@@ -74,8 +75,7 @@ const makeIxcRequest = (method, endpoint, data = null, operationType = null) => 
         return response.data;
     }
     catch (error) {
-        console.error(`Erro ao chamar API IXC (${endpoint}):`, ((_a = error.response) === null || _a === void 0 ? void 0 : _a.data) || error.message);
-        const ixcError = (_b = error.response) === null || _b === void 0 ? void 0 : _b.data;
+        const ixcError = (_a = error.response) === null || _a === void 0 ? void 0 : _a.data;
         let ixcErrorMessage = "Erro desconhecido";
         if (typeof ixcError === 'object' && ixcError !== null) {
             ixcErrorMessage = ixcError.mensagem || ixcError.message || ixcError.msg || JSON.stringify(ixcError);
@@ -84,7 +84,21 @@ const makeIxcRequest = (method, endpoint, data = null, operationType = null) => 
             ixcErrorMessage = ixcError;
         }
         ixcErrorMessage = ixcErrorMessage.replace(/<br \/>/g, ' ').replace(/<br>/g, ' ');
-        throw new Error(`Falha ao comunicar com o IXC: ${ixcErrorMessage}`);
+        console.error(`Erro ao chamar API IXC (${endpoint}) HTTP ${((_b = error.response) === null || _b === void 0 ? void 0 : _b.status) || 'N/A'}. Consulte logs/error.log.`);
+        (0, logger_1.logError)('IXC.makeIxcRequest', error, {
+            endpoint,
+            method,
+            operationType,
+            payload: data,
+            resposta_ixc: ixcError,
+            http_status: (_c = error.response) === null || _c === void 0 ? void 0 : _c.status
+        });
+        const erroIxc = new Error(`Falha ao comunicar com o IXC: ${ixcErrorMessage}`);
+        erroIxc.ixcResponse = ixcError;
+        erroIxc.ixcEndpoint = endpoint;
+        if (error.stack)
+            erroIxc.stack = `${erroIxc.stack}\nCausado por: ${error.stack}`;
+        throw erroIxc;
     }
 });
 const getIxcDate = () => {
@@ -922,7 +936,7 @@ function ajustarFinanceiroContrato(contratoId, valorAcordadoStr, idPlano) {
     });
 }
 router.post('/cliente', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const _c = req.body, { existingClientId, condominio_novo_nome } = _c, clientData = __rest(_c, ["existingClientId", "condominio_novo_nome"]);
+    const _d = req.body, { existingClientId, condominio_novo_nome } = _d, clientData = __rest(_d, ["existingClientId", "condominio_novo_nome"]);
     const dataCadastro = getIxcDate();
     let novoClienteId;
     try {
@@ -993,7 +1007,7 @@ Condomínio ID: ${clientData.id_condominio}
     }
 }));
 router.post('/cliente-corporativo', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const _d = req.body, { existingClientId } = _d, clientData = __rest(_d, ["existingClientId"]);
+    const _e = req.body, { existingClientId } = _e, clientData = __rest(_e, ["existingClientId"]);
     const dataCadastro = getIxcDate();
     let novoClienteId;
     const FILIAL_CORPORATIVO = '1';
@@ -1300,6 +1314,13 @@ function buscarDetalhesContratoELoginAntigo(contratoId, loginSelecionadoId) {
 function valorTextoMudancaEndereco(valor) {
     return String(valor || '').trim();
 }
+function validarRespostaAlteracaoEnderecoIxc(response, mensagemPadrao) {
+    if (response && response.type !== 'error' && response.success !== false)
+        return;
+    const erroResposta = new Error((response === null || response === void 0 ? void 0 : response.message) || (response === null || response === void 0 ? void 0 : response.mensagem) || (response === null || response === void 0 ? void 0 : response.msg) || mensagemPadrao);
+    erroResposta.ixcResponse = response;
+    throw erroResposta;
+}
 function normalizarDataContratoParaPut(campo, valor) {
     if (typeof valor !== 'string' || !campo.toLowerCase().startsWith('data'))
         return valor;
@@ -1321,19 +1342,33 @@ function montarPayloadContratoMudancaEndereco(contratoAtual, enderecoNovo) {
         .filter(campo => campo.toLowerCase().includes('cancel'))
         .forEach(campo => delete payload[campo]);
     const condominioNovo = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.id_condominio);
+    payload.id_condominio = condominioNovo || valorTextoMudancaEndereco(contratoAtual === null || contratoAtual === void 0 ? void 0 : contratoAtual.id_condominio);
     payload.condominio_novo = condominioNovo || valorTextoMudancaEndereco(contratoAtual === null || contratoAtual === void 0 ? void 0 : contratoAtual.condominio_novo);
+    payload.bloco = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.bloco);
     payload.bloco_novo = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.bloco);
+    payload.apartamento = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.apartamento);
     payload.apartamento_novo = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.apartamento);
+    payload.cep = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.cep);
     payload.cep_novo = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.cep);
+    payload.endereco = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.endereco);
     payload.endereco_novo = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.endereco);
+    payload.numero = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.numero);
     payload.numero_novo = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.numero);
+    payload.bairro = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.bairro);
     payload.bairro_novo = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.bairro);
+    payload.cidade = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.cidade);
     payload.cidade_novo = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.cidade);
+    payload.complemento = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.complemento);
     payload.complemento_novo = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.complemento);
+    payload.referencia = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.referencia);
     payload.referencia_novo = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.referencia);
+    payload.latitude = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.latitude)
+        || valorTextoMudancaEndereco(contratoAtual === null || contratoAtual === void 0 ? void 0 : contratoAtual.latitude);
     payload.latitude_novo = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.latitude)
         || valorTextoMudancaEndereco(contratoAtual === null || contratoAtual === void 0 ? void 0 : contratoAtual.latitude_novo)
         || valorTextoMudancaEndereco(contratoAtual === null || contratoAtual === void 0 ? void 0 : contratoAtual.latitude);
+    payload.longitude = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.longitude)
+        || valorTextoMudancaEndereco(contratoAtual === null || contratoAtual === void 0 ? void 0 : contratoAtual.longitude);
     payload.longitude_novo = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.longitude)
         || valorTextoMudancaEndereco(contratoAtual === null || contratoAtual === void 0 ? void 0 : contratoAtual.longitude_novo)
         || valorTextoMudancaEndereco(contratoAtual === null || contratoAtual === void 0 ? void 0 : contratoAtual.longitude);
@@ -1357,6 +1392,61 @@ function formatarEnderecoMudancaEndereco(endereco) {
         endereco.localidade_nome ? `Localidade informada: ${endereco.localidade_nome}` : ''
     ].filter(Boolean).join('\r\n') || 'Nao informado';
 }
+function resolverCidadeUfParaMensagemMudancaEndereco(endereco) {
+    var _a, _b;
+    return __awaiter(this, void 0, void 0, function* () {
+        const cidadeInformada = valorTextoMudancaEndereco(endereco === null || endereco === void 0 ? void 0 : endereco.cidade);
+        const ufInformada = valorTextoMudancaEndereco(endereco === null || endereco === void 0 ? void 0 : endereco.uf);
+        let cidadeNome = /^\d+$/.test(cidadeInformada) ? '' : cidadeInformada;
+        let ufSigla = /^\d+$/.test(ufInformada) ? '' : ufInformada.toUpperCase();
+        try {
+            let cidadeRegistro = cidadesCache.find(cidade => String(cidade.id) === cidadeInformada);
+            if (!cidadeRegistro && /^\d+$/.test(cidadeInformada)) {
+                const cidadeResponse = yield makeIxcRequest('POST', '/cidade', {
+                    qtype: 'cidade.id',
+                    query: cidadeInformada,
+                    oper: '=',
+                    rp: '1'
+                }, 'listar');
+                const cidadeIxc = (_a = cidadeResponse === null || cidadeResponse === void 0 ? void 0 : cidadeResponse.registros) === null || _a === void 0 ? void 0 : _a[0];
+                if (cidadeIxc) {
+                    cidadeRegistro = { id: cidadeIxc.id, nome: cidadeIxc.nome, uf: cidadeIxc.uf };
+                    cidadesCache.push(cidadeRegistro);
+                }
+            }
+            cidadeNome = valorTextoMudancaEndereco(cidadeRegistro === null || cidadeRegistro === void 0 ? void 0 : cidadeRegistro.nome) || cidadeNome;
+            const ufReferencia = ufInformada || valorTextoMudancaEndereco(cidadeRegistro === null || cidadeRegistro === void 0 ? void 0 : cidadeRegistro.uf);
+            let ufRegistro = ufsCache.find(uf => String(uf.id) === ufReferencia || String(uf.sigla).toUpperCase() === ufReferencia.toUpperCase());
+            if (!ufRegistro && /^\d+$/.test(ufReferencia)) {
+                const ufResponse = yield makeIxcRequest('POST', '/uf', {
+                    qtype: 'uf.id',
+                    query: ufReferencia,
+                    oper: '=',
+                    rp: '1'
+                }, 'listar');
+                const ufIxc = (_b = ufResponse === null || ufResponse === void 0 ? void 0 : ufResponse.registros) === null || _b === void 0 ? void 0 : _b[0];
+                if (ufIxc) {
+                    ufRegistro = { id: ufIxc.id, sigla: ufIxc.sigla, nome: ufIxc.nome };
+                    ufsCache.push(ufRegistro);
+                }
+            }
+            ufSigla = valorTextoMudancaEndereco(ufRegistro === null || ufRegistro === void 0 ? void 0 : ufRegistro.sigla)
+                || (!/^\d+$/.test(ufReferencia) ? ufReferencia.toUpperCase() : ufSigla);
+        }
+        catch (error) {
+            console.warn('[Cadastro Banda Larga][Mudanca Endereco] nao foi possivel traduzir cidade/UF para a mensagem', {
+                cidadeId: cidadeInformada,
+                ufId: ufInformada,
+                etapa: 'resolver_cidade_uf_mensagem'
+            });
+            (0, logger_1.logError)('Cadastro Banda Larga.Mudanca Endereco.CidadeUF', error, {
+                cidade_id: cidadeInformada,
+                uf_id: ufInformada
+            });
+        }
+        return Object.assign(Object.assign({}, endereco), { cidade: cidadeNome || 'Cidade nao identificada', uf: ufSigla || 'UF nao identificada' });
+    });
+}
 function buscarContratoIxcPorId(contratoId) {
     var _a;
     return __awaiter(this, void 0, void 0, function* () {
@@ -1372,8 +1462,85 @@ function buscarContratoIxcPorId(contratoId) {
         return contrato;
     });
 }
-function buscarLoginContratoMudancaEndereco(contratoId) {
+function buscarClienteIxcPorId(clienteId) {
     var _a;
+    return __awaiter(this, void 0, void 0, function* () {
+        const clienteResponse = yield makeIxcRequest('POST', '/cliente', {
+            qtype: 'cliente.id',
+            query: clienteId,
+            oper: '=',
+            rp: '1'
+        });
+        const cliente = (_a = clienteResponse === null || clienteResponse === void 0 ? void 0 : clienteResponse.registros) === null || _a === void 0 ? void 0 : _a[0];
+        if (!cliente)
+            throw new Error('Cliente nao encontrado no IXC para atualizar o endereco padrao.');
+        return cliente;
+    });
+}
+function montarPayloadClienteMudancaEndereco(clienteAtual, enderecoNovo) {
+    const payload = Object.fromEntries(Object.entries(clienteAtual || {}).map(([campo, valor]) => [
+        campo,
+        normalizarDataContratoParaPut(campo, valor)
+    ]));
+    delete payload.id;
+    Object.keys(payload)
+        .filter(campo => campo.toLowerCase().includes('cancel'))
+        .forEach(campo => delete payload[campo]);
+    payload.cep = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.cep);
+    payload.endereco = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.endereco);
+    payload.numero = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.numero);
+    payload.bairro = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.bairro);
+    payload.cidade = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.cidade);
+    payload.uf = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.uf);
+    payload.complemento = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.complemento);
+    payload.referencia = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.referencia);
+    payload.id_condominio = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.id_condominio);
+    payload.bloco = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.bloco);
+    payload.apartamento = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.apartamento);
+    payload.latitude = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.latitude)
+        || valorTextoMudancaEndereco(clienteAtual === null || clienteAtual === void 0 ? void 0 : clienteAtual.latitude);
+    payload.longitude = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.longitude)
+        || valorTextoMudancaEndereco(clienteAtual === null || clienteAtual === void 0 ? void 0 : clienteAtual.longitude);
+    return payload;
+}
+function atualizarEnderecoClienteIxc(clienteAtual, enderecoNovo) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const payload = montarPayloadClienteMudancaEndereco(clienteAtual, enderecoNovo);
+        console.log('[Cadastro Banda Larga][Mudanca Endereco] atualizando cliente', {
+            clienteId: clienteAtual.id,
+            etapa: 'atualizar_cliente',
+            camposEndereco: {
+                cep: payload.cep,
+                endereco: payload.endereco,
+                numero: payload.numero,
+                bairro: payload.bairro,
+                cidade: payload.cidade,
+                uf: payload.uf,
+                complemento: payload.complemento ? '[informado]' : '',
+                referencia: payload.referencia ? '[informado]' : '',
+                id_condominio: payload.id_condominio
+            }
+        });
+        const response = yield makeIxcRequest('PUT', `/cliente/${clienteAtual.id}`, payload, 'alterar');
+        validarRespostaAlteracaoEnderecoIxc(response, 'IXC nao confirmou a alteracao do endereco do cliente.');
+    });
+}
+function buscarContratosValidosClienteMudancaEndereco(clienteId) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const response = yield makeIxcRequest('POST', '/cliente_contrato', {
+            qtype: 'cliente_contrato.id_cliente',
+            query: clienteId,
+            oper: '=',
+            page: '1',
+            rp: '1000',
+            sortname: 'cliente_contrato.id',
+            sortorder: 'desc'
+        });
+        const contratos = Array.isArray(response === null || response === void 0 ? void 0 : response.registros) ? response.registros : [];
+        return contratos.filter((contrato) => !['C', 'I'].includes(String((contrato === null || contrato === void 0 ? void 0 : contrato.status) || '').toUpperCase()));
+    });
+}
+function buscarLoginContratoMudancaEndereco(contratoId) {
     return __awaiter(this, void 0, void 0, function* () {
         const loginResponse = yield makeIxcRequest('POST', '/radusuarios', {
             qtype: 'radusuarios.id_contrato',
@@ -1385,7 +1552,54 @@ function buscarLoginContratoMudancaEndereco(contratoId) {
         });
         const logins = Array.isArray(loginResponse === null || loginResponse === void 0 ? void 0 : loginResponse.registros) ? loginResponse.registros : [];
         const loginAtivo = logins.find((login) => String(login.ativo || '').toUpperCase() === 'S');
-        return String((loginAtivo === null || loginAtivo === void 0 ? void 0 : loginAtivo.id) || ((_a = logins[0]) === null || _a === void 0 ? void 0 : _a.id) || '');
+        return loginAtivo || logins[0] || null;
+    });
+}
+function montarPayloadLoginMudancaEndereco(loginAtual, enderecoNovo) {
+    const payload = Object.fromEntries(Object.entries(loginAtual || {}).map(([campo, valor]) => [
+        campo,
+        normalizarDataContratoParaPut(campo, valor)
+    ]));
+    payload.cep = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.cep);
+    payload.endereco = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.endereco);
+    payload.numero = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.numero);
+    payload.bairro = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.bairro);
+    payload.cidade = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.cidade);
+    payload.complemento = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.complemento);
+    payload.referencia = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.referencia);
+    payload.id_condominio = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.id_condominio);
+    payload.bloco = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.bloco);
+    payload.apartamento = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.apartamento);
+    payload.latitude = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.latitude)
+        || valorTextoMudancaEndereco(loginAtual === null || loginAtual === void 0 ? void 0 : loginAtual.latitude);
+    payload.longitude = valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.longitude)
+        || valorTextoMudancaEndereco(loginAtual === null || loginAtual === void 0 ? void 0 : loginAtual.longitude);
+    return payload;
+}
+function atualizarEnderecoLoginIxc(loginAtual, enderecoNovo) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const loginId = valorTextoMudancaEndereco(loginAtual === null || loginAtual === void 0 ? void 0 : loginAtual.id);
+        if (!loginId)
+            throw new Error('Login do contrato sem ID valido para atualizar o endereco.');
+        const payload = montarPayloadLoginMudancaEndereco(loginAtual, enderecoNovo);
+        console.log('[Cadastro Banda Larga][Mudanca Endereco] atualizando login', {
+            loginId,
+            contratoId: loginAtual.id_contrato,
+            clienteId: loginAtual.id_cliente,
+            etapa: 'atualizar_login',
+            camposEndereco: {
+                cep: payload.cep,
+                endereco: payload.endereco,
+                numero: payload.numero,
+                bairro: payload.bairro,
+                cidade: payload.cidade,
+                complemento: payload.complemento ? '[informado]' : '',
+                referencia: payload.referencia ? '[informado]' : '',
+                id_condominio: payload.id_condominio
+            }
+        });
+        const response = yield makeIxcRequest('PUT', `/radusuarios/${loginId}`, payload, 'alterar');
+        validarRespostaAlteracaoEnderecoIxc(response, 'IXC nao confirmou a alteracao do endereco do login.');
     });
 }
 function obterAutorIxcMudancaEndereco(usuarioIntranet) {
@@ -1439,25 +1653,24 @@ function atualizarEnderecoContratoIxc(contratoAtual, enderecoNovo) {
             endpoint: `/cliente_contrato/${contratoAtual.id}`
         });
         const response = yield makeIxcRequest('PUT', `/cliente_contrato/${contratoAtual.id}`, payload, 'alterar');
-        if ((response === null || response === void 0 ? void 0 : response.type) === 'error') {
-            throw new Error(response.message || response.msg || 'IXC recusou a alteracao do endereco do contrato.');
-        }
+        validarRespostaAlteracaoEnderecoIxc(response, 'IXC nao confirmou a alteracao do endereco do contrato.');
     });
 }
-function abrirChamadoMudancaEndereco(clienteId, contratoId, contratoAtual, enderecoAntigo, enderecoNovo, usuarioIntranet, autorIxc, loginId, observacoes) {
+function abrirChamadoMudancaEndereco(clienteId, contratoId, contratoAtual, enderecoAntigo, enderecoNovo, usuarioIntranet, autorIxc, loginId, observacoes, regraEnderecoCliente) {
     return __awaiter(this, void 0, void 0, function* () {
+        if (!valorTextoMudancaEndereco(loginId)) {
+            throw new Error('Não foi encontrado login vinculado ao contrato selecionado.');
+        }
+        const enderecoNovoMensagem = yield resolverCidadeUfParaMensagemMudancaEndereco(enderecoNovo);
         const mensagem = `
-Solicitacao de mudanca de endereco via Intranet
 
 Contrato: ${contratoId}
+Login: ${loginId}
 Cliente: ${clienteId}
 Colaborador responsavel: ${usuarioIntranet || 'Nao informado'} (IXC ${autorIxc.idFuncionarioIxc})
 
-Endereco antigo:
-${formatarEnderecoMudancaEndereco(enderecoAntigo)}
-
 Endereco novo:
-${formatarEnderecoMudancaEndereco(enderecoNovo)}
+${formatarEnderecoMudancaEndereco(enderecoNovoMensagem)}
 
 Observacoes:
 ${observacoes || 'Nao informado'}
@@ -1469,7 +1682,7 @@ ${observacoes || 'Nao informado'}
             id_filial: contratoAtual.id_filial || '3',
             id_assunto: '4',
             titulo: 'MUDANÇA DE ENDEREÇO',
-            origem_endereco: 'CC',
+            origem_endereco: 'L',
             id_wfl_processo: '9',
             id_ticket_setor: '4',
             id_responsavel_tecnico: autorIxc.idFuncionarioIxc,
@@ -1484,6 +1697,13 @@ ${observacoes || 'Nao informado'}
             origem_cadastro: 'P',
             menssagem: mensagem
         };
+        console.log('[Cadastro Banda Larga][Mudanca Endereco] origem_endereco definida como L por assunto com login obrigatório', {
+            clienteId,
+            contratoId,
+            loginId,
+            origem_endereco: atendimentoPayload.origem_endereco,
+            etapa: 'abrir_atendimento'
+        });
         console.log('[Cadastro Banda Larga][Mudanca Endereco] Payload atendimento:', {
             etapa: 'abrir_atendimento',
             tipo: atendimentoPayload.tipo,
@@ -1498,30 +1718,51 @@ ${observacoes || 'Nao informado'}
             id_usuarios: atendimentoPayload.id_usuarios,
             origem_endereco: atendimentoPayload.origem_endereco
         });
-        const response = yield makeIxcRequest('POST', '/su_ticket', atendimentoPayload, 'incluir');
-        const ticketId = (response === null || response === void 0 ? void 0 : response.id) || (response === null || response === void 0 ? void 0 : response.id_su_ticket);
-        if (!ticketId || (response === null || response === void 0 ? void 0 : response.type) === 'error') {
-            throw new Error((response === null || response === void 0 ? void 0 : response.message) || (response === null || response === void 0 ? void 0 : response.msg) || 'IXC nao retornou o ticket da mudanca de endereco.');
+        try {
+            const response = yield makeIxcRequest('POST', '/su_ticket', atendimentoPayload, 'incluir');
+            const ticketId = (response === null || response === void 0 ? void 0 : response.id) || (response === null || response === void 0 ? void 0 : response.id_su_ticket);
+            if (!ticketId || (response === null || response === void 0 ? void 0 : response.type) === 'error') {
+                const erroResposta = new Error((response === null || response === void 0 ? void 0 : response.message) || (response === null || response === void 0 ? void 0 : response.msg) || 'IXC nao retornou o ticket da mudanca de endereco.');
+                erroResposta.ixcResponse = response;
+                throw erroResposta;
+            }
+            return String(ticketId);
         }
-        return String(ticketId);
+        catch (error) {
+            error.atendimentoPayload = atendimentoPayload;
+            throw error;
+        }
     });
 }
 router.post('/mudanca-endereco', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const logPrefix = '[Cadastro Banda Larga][Mudanca Endereco]';
     const { contratoId, clienteId, enderecoNovo, enderecoAntigo, usuario_intranet, observacoes } = req.body;
+    let clienteAtualizado = false;
+    let contratoAtualizado = false;
+    let loginAtualizado = false;
+    let loginIdLog = '';
+    let enderecoPadraoCliente = false;
+    let enderecoPadraoLogin = false;
+    let clienteComApenasUmContrato = false;
+    let quantidadeContratosValidos = 0;
+    let etapaAtual = 'validacao';
+    let atendimentoCriado = false;
+    let ticketIdLog = '';
     console.log(`${logPrefix} inicio`, { clienteId, contratoId, usuario: usuario_intranet || 'Nao informado', etapa: 'validacao' });
     try {
         if (!contratoId || !clienteId) {
             return res.status(400).json({ success: false, error: 'Cliente e contrato sao obrigatorios.' });
         }
-        const faltando = ['numero', 'complemento'].filter(campo => !valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo[campo]));
+        const faltando = ['cep', 'endereco', 'numero', 'bairro', 'cidade', 'uf', 'complemento']
+            .filter(campo => !valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo[campo]));
         if (!valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.id_condominio) && !valorTextoMudancaEndereco(enderecoNovo === null || enderecoNovo === void 0 ? void 0 : enderecoNovo.localidade_nome)) {
             faltando.push('localidade');
         }
         if (faltando.length > 0) {
             return res.status(400).json({ success: false, error: `Campos obrigatorios faltando: ${faltando.join(', ')}` });
         }
-        console.log(`${logPrefix} buscando contrato`, { clienteId, contratoId, usuario: usuario_intranet || 'Nao informado', etapa: 'buscar_contrato' });
+        etapaAtual = 'buscar_contrato';
+        console.log(`${logPrefix} buscando contrato`, { clienteId, contratoId, usuario: usuario_intranet || 'Nao informado', etapa: etapaAtual });
         const contratoAtual = yield buscarContratoIxcPorId(String(contratoId));
         if (String(contratoAtual.id_cliente) !== String(clienteId)) {
             return res.status(400).json({ success: false, error: 'Contrato nao pertence ao cliente informado.' });
@@ -1534,11 +1775,75 @@ router.post('/mudanca-endereco', (req, res) => __awaiter(void 0, void 0, void 0,
                 error: `Contrato nao elegivel para mudanca de endereco (status ${statusContrato || 'N/A'}, internet ${statusInternet || 'N/A'}).`
             });
         }
+        etapaAtual = 'buscar_login';
+        console.log(`${logPrefix} buscando login`, { clienteId, contratoId, usuario: usuario_intranet || 'Nao informado', etapa: etapaAtual });
+        const loginAtual = yield buscarLoginContratoMudancaEndereco(String(contratoId));
+        const loginId = valorTextoMudancaEndereco(loginAtual === null || loginAtual === void 0 ? void 0 : loginAtual.id);
+        loginIdLog = loginId;
+        if (!loginAtual || !loginId) {
+            console.warn(`${logPrefix} bloqueado sem login`, {
+                clienteId,
+                contratoId,
+                usuario: usuario_intranet || 'Nao informado',
+                etapa: etapaAtual
+            });
+            return res.status(400).json({
+                success: false,
+                error: 'Não foi encontrado login vinculado ao contrato selecionado.'
+            });
+        }
+        etapaAtual = 'buscar_contratos_cliente';
+        console.log(`${logPrefix} buscando contratos do cliente`, {
+            clienteId,
+            contratoId,
+            etapa: etapaAtual
+        });
+        const contratosValidosCliente = yield buscarContratosValidosClienteMudancaEndereco(String(clienteId));
+        quantidadeContratosValidos = contratosValidosCliente.length;
+        clienteComApenasUmContrato = quantidadeContratosValidos === 1;
+        enderecoPadraoCliente = String(contratoAtual.endereco_padrao_cliente || '').toUpperCase() === 'S';
+        enderecoPadraoLogin = String(loginAtual.endereco_padrao_cliente || '').toUpperCase() === 'S';
+        const deveAtualizarCadastroCliente = enderecoPadraoCliente || enderecoPadraoLogin || clienteComApenasUmContrato;
+        etapaAtual = 'verificar_endereco_padrao_cliente';
+        console.log(`${logPrefix} verificando endereco padrao do cliente`, {
+            clienteId,
+            contratoId,
+            endereco_padrao_cliente: enderecoPadraoCliente ? 'S' : String(contratoAtual.endereco_padrao_cliente || 'N'),
+            endereco_padrao_login: enderecoPadraoLogin ? 'S' : String(loginAtual.endereco_padrao_cliente || 'N'),
+            quantidade_contratos_validos: quantidadeContratosValidos,
+            cliente_com_apenas_um_contrato: clienteComApenasUmContrato,
+            atualizar_cadastro_cliente: deveAtualizarCadastroCliente,
+            etapa: etapaAtual
+        });
         const autorIxc = yield obterAutorIxcMudancaEndereco(usuario_intranet);
-        const loginId = yield buscarLoginContratoMudancaEndereco(String(contratoId));
+        let enderecoAntigoEfetivo = enderecoAntigo;
+        if (deveAtualizarCadastroCliente) {
+            etapaAtual = 'buscar_cliente';
+            console.log(`${logPrefix} buscando cliente`, { clienteId, contratoId, etapa: etapaAtual });
+            const clienteAtual = yield buscarClienteIxcPorId(String(clienteId));
+            if (enderecoPadraoCliente || enderecoPadraoLogin)
+                enderecoAntigoEfetivo = clienteAtual;
+            etapaAtual = 'atualizar_cliente';
+            yield atualizarEnderecoClienteIxc(clienteAtual, enderecoNovo);
+            clienteAtualizado = true;
+            console.log(`${logPrefix} cliente atualizado`, { clienteId, contratoId, etapa: etapaAtual });
+        }
+        etapaAtual = 'atualizar_contrato';
         console.log(`${logPrefix} montando payload do contrato`, { clienteId, contratoId, usuario: usuario_intranet || 'Nao informado', etapa: 'montar_payload_contrato' });
         yield atualizarEnderecoContratoIxc(contratoAtual, enderecoNovo);
+        contratoAtualizado = true;
         console.log(`${logPrefix} contrato atualizado`, { clienteId, contratoId, usuario: usuario_intranet || 'Nao informado', etapa: 'contrato_atualizado' });
+        etapaAtual = 'atualizar_login';
+        yield atualizarEnderecoLoginIxc(loginAtual, enderecoNovo);
+        loginAtualizado = true;
+        console.log(`${logPrefix} login atualizado`, {
+            clienteId,
+            contratoId,
+            loginId,
+            usuario: usuario_intranet || 'Nao informado',
+            etapa: 'login_atualizado'
+        });
+        etapaAtual = 'abrir_atendimento';
         console.log(`${logPrefix} abrindo atendimento`, {
             clienteId,
             contratoId,
@@ -1548,8 +1853,16 @@ router.post('/mudanca-endereco', (req, res) => __awaiter(void 0, void 0, void 0,
             loginId: loginId || 'Nao localizado',
             etapa: 'abrir_atendimento'
         });
-        const ticketId = yield abrirChamadoMudancaEndereco(String(clienteId), String(contratoId), contratoAtual, enderecoAntigo, enderecoNovo, usuario_intranet, autorIxc, loginId, observacoes);
+        const ticketId = yield abrirChamadoMudancaEndereco(String(clienteId), String(contratoId), contratoAtual, enderecoAntigoEfetivo, enderecoNovo, usuario_intranet, autorIxc, loginId, observacoes, {
+            contratoUsavaEnderecoCliente: enderecoPadraoCliente,
+            loginUsavaEnderecoCliente: enderecoPadraoLogin,
+            clienteTinhaApenasUmContrato: clienteComApenasUmContrato,
+            clienteAtualizado
+        });
+        atendimentoCriado = true;
+        ticketIdLog = ticketId;
         console.log(`${logPrefix} chamado criado`, { clienteId, contratoId, usuario: usuario_intranet || 'Nao informado', ticketId, etapa: 'chamado_criado' });
+        etapaAtual = 'localizar_os';
         console.log(`${logPrefix} localizando OS`, { clienteId, contratoId, ticketId, etapa: 'localizar_os' });
         const osMudancaEndereco = yield buscarOsInstalacaoPorTicket(ticketId);
         if (!(osMudancaEndereco === null || osMudancaEndereco === void 0 ? void 0 : osMudancaEndereco.id)) {
@@ -1563,11 +1876,65 @@ router.post('/mudanca-endereco', (req, res) => __awaiter(void 0, void 0, void 0,
             clienteId,
             contratoId,
             ticketId,
-            osId: osMudancaEndereco.id
+            osId: osMudancaEndereco.id,
+            clienteAtualizado,
+            contratoAtualizado,
+            loginAtualizado
         });
     }
     catch (error) {
-        console.error(`${logPrefix} falha`, { clienteId, contratoId, usuario: usuario_intranet || 'Nao informado', erro: error.message });
+        const falhaParcial = clienteAtualizado || contratoAtualizado || loginAtualizado;
+        const metaErro = {
+            clienteId,
+            contratoId,
+            loginId: loginIdLog || 'Nao localizado',
+            usuario: usuario_intranet || 'Nao informado',
+            endereco_padrao_cliente: enderecoPadraoCliente ? 'S' : 'N',
+            endereco_padrao_login: enderecoPadraoLogin ? 'S' : 'N',
+            quantidade_contratos_validos: quantidadeContratosValidos,
+            cliente_com_apenas_um_contrato: clienteComApenasUmContrato,
+            cliente_atualizado: clienteAtualizado,
+            contrato_atualizado: contratoAtualizado,
+            login_atualizado: loginAtualizado,
+            falha_parcial: falhaParcial,
+            atendimento_criado: atendimentoCriado,
+            ticket_id: ticketIdLog,
+            etapa_falha: etapaAtual,
+            etapa: 'falha',
+            payload_atendimento: error.atendimentoPayload,
+            endpoint_ixc: error.ixcEndpoint,
+            resposta_ixc: error.ixcResponse
+        };
+        console.error(`${logPrefix} falha`, {
+            clienteId,
+            contratoId,
+            loginId: loginIdLog || 'Nao localizado',
+            cliente_atualizado: clienteAtualizado,
+            contrato_atualizado: contratoAtualizado,
+            login_atualizado: loginAtualizado,
+            atendimento_criado: atendimentoCriado,
+            etapa_falha: etapaAtual,
+            erro: 'Consulte logs/error.log para detalhes sanitizados.'
+        });
+        (0, logger_1.logError)('Cadastro Banda Larga.Mudanca Endereco', error, metaErro);
+        if (falhaParcial) {
+            const mensagemFalhaParcial = atendimentoCriado
+                ? 'Endereço atualizado e atendimento criado no IXC, mas houve erro ao localizar a OS. Verifique o atendimento antes de tentar novamente.'
+                : etapaAtual === 'abrir_atendimento'
+                    ? 'Endereço atualizado no IXC, mas houve erro ao abrir o atendimento. Verifique o contrato/cliente no IXC antes de tentar novamente.'
+                    : 'Endereço atualizado parcialmente no IXC, mas não foi possível concluir o fluxo. Verifique o contrato/cliente no IXC antes de tentar novamente.';
+            return res.status(502).json({
+                success: false,
+                partial_success: true,
+                endereco_atualizado: true,
+                cliente_atualizado: clienteAtualizado,
+                contrato_atualizado: contratoAtualizado,
+                login_atualizado: loginAtualizado,
+                atendimento_criado: atendimentoCriado,
+                ticketId: ticketIdLog || undefined,
+                error: mensagemFalhaParcial
+            });
+        }
         res.status(500).json({ success: false, error: error.message });
     }
 }));
@@ -1732,7 +2099,7 @@ function cancelarContratoAntigo(contratoId) {
     });
 }
 router.post('/mudanca-titularidade', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const _e = req.body, { contratoAntigoId, existingClientId, loginSelecionadoId, isTransferenciaParcial } = _e, clientData = __rest(_e, ["contratoAntigoId", "existingClientId", "loginSelecionadoId", "isTransferenciaParcial"]);
+    const _f = req.body, { contratoAntigoId, existingClientId, loginSelecionadoId, isTransferenciaParcial } = _f, clientData = __rest(_f, ["contratoAntigoId", "existingClientId", "loginSelecionadoId", "isTransferenciaParcial"]);
     const dataCadastro = getIxcDate();
     try {
         const { contratoAntigo, loginAntigo } = yield buscarDetalhesContratoELoginAntigo(contratoAntigoId, loginSelecionadoId);

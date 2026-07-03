@@ -374,6 +374,92 @@ class AgendaService {
             return results;
         });
     }
+    static limparNomeProcesso(valor) {
+        const nome = String(valor || '')
+            .replace(/\s+/g, ' ')
+            .replace(/[.\-\u2013\u2014\s]+$/g, '')
+            .trim()
+            .toUpperCase();
+        return /^PROCESSO\s*#\s*\d+$/i.test(nome) ? '' : nome;
+    }
+    static extrairProcessoDaMensagemOs(mensagem) {
+        const texto = String(mensagem || '').trim();
+        if (!texto)
+            return '';
+        const matchPrincipal = texto.match(/Processo:\s*(.*?)\s*[.\-\u2013\u2014]?\s*Tarefa:/i);
+        if (matchPrincipal === null || matchPrincipal === void 0 ? void 0 : matchPrincipal[1])
+            return this.limparNomeProcesso(matchPrincipal[1]);
+        const matchLinha = texto.match(/Processo:\s*([^\n\r]+)/i);
+        if (!(matchLinha === null || matchLinha === void 0 ? void 0 : matchLinha[1]))
+            return '';
+        return this.limparNomeProcesso(matchLinha[1].split(/Tarefa:/i)[0]);
+    }
+    static resolverDescricaoProcesso(idProcesso, cacheProcessos, meta = {}) {
+        var _a, _b;
+        return __awaiter(this, void 0, void 0, function* () {
+            const id = String(idProcesso || '').trim();
+            if (!id)
+                return '';
+            if (cacheProcessos.has(id))
+                return cacheProcessos.get(id) || '';
+            try {
+                const resposta = yield this.makeIxcRequest('POST', '/wfl_processo', {
+                    qtype: 'wfl_processo.id',
+                    query: id,
+                    oper: '=',
+                    rp: '1'
+                });
+                const nome = this.limparNomeProcesso((_b = (_a = resposta === null || resposta === void 0 ? void 0 : resposta.registros) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.descricao);
+                cacheProcessos.set(id, nome);
+                return nome;
+            }
+            catch (error) {
+                cacheProcessos.set(id, '');
+                (0, logger_1.logError)('[Painel Logistica][Processo OS] falha ao resolver processo', error, {
+                    osId: meta.osId,
+                    idTicket: meta.idTicket,
+                    idProcesso: id,
+                    origem: 'wfl_processo'
+                });
+                return '';
+            }
+        });
+    }
+    static resolverProcessoPorTicket(idTicket, cacheTickets, cacheProcessos, osId) {
+        var _a;
+        return __awaiter(this, void 0, void 0, function* () {
+            const ticketId = String(idTicket || '').trim();
+            if (!ticketId || ticketId === '0')
+                return '';
+            if (cacheTickets.has(ticketId))
+                return cacheTickets.get(ticketId) || '';
+            try {
+                const respostaTicket = yield this.makeIxcRequest('POST', '/su_ticket', {
+                    qtype: 'su_ticket.id',
+                    query: ticketId,
+                    oper: '=',
+                    rp: '1'
+                });
+                const ticket = (_a = respostaTicket === null || respostaTicket === void 0 ? void 0 : respostaTicket.registros) === null || _a === void 0 ? void 0 : _a[0];
+                const idProcesso = String((ticket === null || ticket === void 0 ? void 0 : ticket.id_wfl_processo) || '').trim();
+                const nome = yield this.resolverDescricaoProcesso(idProcesso, cacheProcessos, {
+                    osId,
+                    idTicket: ticketId
+                });
+                cacheTickets.set(ticketId, nome);
+                return nome;
+            }
+            catch (error) {
+                cacheTickets.set(ticketId, '');
+                (0, logger_1.logError)('[Painel Logistica][Processo OS] falha ao resolver processo', error, {
+                    osId,
+                    idTicket: ticketId,
+                    origem: 'su_ticket'
+                });
+                return '';
+            }
+        });
+    }
     static normalizarTextoLocal(valor) {
         return String(valor || '').trim().toUpperCase();
     }
@@ -536,8 +622,29 @@ class AgendaService {
                 });
             }
             const idSetores = [...new Set(agendamentosIxc.map(o => o.setor))];
-            const [setoresIxc, condominiosLocais, techsLocais] = yield Promise.all([
+            const processosPorMensagem = new Map();
+            const ticketsParaResolver = new Map();
+            agendamentosIxc.forEach((os) => {
+                const osId = String((os === null || os === void 0 ? void 0 : os.id) || '').trim();
+                const nomeMensagem = this.extrairProcessoDaMensagemOs(os === null || os === void 0 ? void 0 : os.mensagem);
+                processosPorMensagem.set(osId, nomeMensagem);
+                if (nomeMensagem)
+                    return;
+                const idTicket = String((os === null || os === void 0 ? void 0 : os.id_ticket) || '').trim();
+                if (idTicket && idTicket !== '0' && !ticketsParaResolver.has(idTicket)) {
+                    ticketsParaResolver.set(idTicket, osId);
+                }
+            });
+            const cacheTickets = new Map();
+            const cacheProcessos = new Map();
+            const carregarFallbacksTicket = () => __awaiter(this, void 0, void 0, function* () {
+                for (const [idTicket, osId] of ticketsParaResolver) {
+                    yield this.resolverProcessoPorTicket(idTicket, cacheTickets, cacheProcessos, osId);
+                }
+            });
+            const [setoresIxc, , condominiosLocais, techsLocais] = yield Promise.all([
                 idSetores.length > 0 ? this.makeIxcRequest('POST', '/su_ticket_setor', { qtype: 'su_ticket_setor.id', query: idSetores.join(','), oper: 'in', rp: '2000' }) : { registros: [] },
+                carregarFallbacksTicket(),
                 this.executeDb('SELECT condominioId, condominio FROM condominio').catch(() => []),
                 this.executeDb('SELECT id_funcionario_ixc, nome FROM usuarios_intranet WHERE ativo = 1 AND id_funcionario_ixc IS NOT NULL').catch(() => [])
             ]);
@@ -603,6 +710,30 @@ class AgendaService {
                         statusIxcAtual === 'C' ? 'CANCELADO' :
                             (osIxc.id_tecnico && osIxc.id_tecnico !== '0' && String(osIxc.id_tecnico) !== '138') ? 'ATRIBUIDO' : 'AGUARDANDO_LOGISTICA';
                     const tipoServicoSinc = nomeSetor.toUpperCase().includes('INSTALA') || osIxc.setor === '5' ? 'INSTALACAO' : 'SUPORTE';
+                    const idAssunto = String(osIxc.id_assunto || '').trim();
+                    const idProcessoBruto = String(osIxc.id_wfl_param_os || '').trim();
+                    const idProcesso = idProcessoBruto === '0' ? '' : idProcessoBruto;
+                    const idTicket = String(osIxc.id_ticket || '').trim();
+                    const assuntoOs = String(osIxc.assunto ||
+                        osIxc.titulo_assunto ||
+                        osIxc.descricao_assunto ||
+                        osIxc.nome_assunto ||
+                        '').trim();
+                    const tituloOs = String(osIxc.titulo || '').trim();
+                    const nomeMensagem = processosPorMensagem.get(String(osIxc.id)) || '';
+                    const nomeProcesso = nomeMensagem || cacheTickets.get(idTicket) || '';
+                    const origemProcesso = nomeMensagem ? 'mensagem' : (nomeProcesso ? 'ticket' : 'nao_resolvido');
+                    const mensagemLog = origemProcesso === 'mensagem'
+                        ? '[Painel Logistica][Processo OS] resolvido por mensagem'
+                        : origemProcesso === 'ticket'
+                            ? '[Painel Logistica][Processo OS] resolvido por ticket'
+                            : '[Painel Logistica][Processo OS] nao resolvido';
+                    (0, logger_1.logInfo)('[Painel Logistica][Processo OS]', mensagemLog, {
+                        osId: osIxc.id,
+                        idTicket,
+                        nomeProcesso,
+                        origem: origemProcesso
+                    });
                     const payloadFinal = {
                         ixc_os_id: osIxc.id,
                         ixc_cliente_id: osIxc.id_cliente,
@@ -626,6 +757,12 @@ class AgendaService {
                         cidade_real: cidadeCorreta,
                         municipio_base: osLocal ? osLocal.municipio_base : cidadeCorreta,
                         nome_setor: nomeSetor,
+                        id_wfl_processo: osIxc.id_wfl_processo || null,
+                        id_wfl_param_os: idProcesso || null,
+                        id_assunto: idAssunto || null,
+                        assunto: assuntoOs || null,
+                        titulo: tituloOs || null,
+                        nome_processo: nomeProcesso,
                         nome_condominio: nomeCondominio || (osLocal === null || osLocal === void 0 ? void 0 : osLocal.nome_condominio) || '',
                         is_futuro_prioridade: !!ehPrioridadeFutura,
                         aceita_encaixe: osLocal ? osLocal.aceita_encaixe : 0,

@@ -243,12 +243,48 @@ router.get('/debug-agendamentos', (req, res) => __awaiter(void 0, void 0, void 0
     }
 }));
 router.get('/fila-pendentes', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _g, _h, _j, _k, _l, _m, _o, _p, _q;
+    const reqAny = req;
+    const requestId = reqAny.requestId || (0, logger_1.createRequestId)();
+    reqAny.requestId = requestId;
     try {
-        const fila = yield agendaService_1.AgendaService.obterFilaPendentes();
+        const filaCompleta = yield agendaService_1.AgendaService.obterFilaPendentes();
+        const usuario = ((_g = reqAny.user) === null || _g === void 0 ? void 0 : _g.username) || ((_h = reqAny.session) === null || _h === void 0 ? void 0 : _h.username) || 'Visitante';
+        let grupo = String(((_j = reqAny.user) === null || _j === void 0 ? void 0 : _j.group) || ((_k = reqAny.session) === null || _k === void 0 ? void 0 : _k.group) || '').trim();
+        if (!grupo && usuario !== 'Visitante') {
+            const usuarios = yield agendaService_1.AgendaService.executeDb('SELECT grupo FROM usuarios_intranet WHERE ativo = 1 AND usuario = ? LIMIT 1', [usuario]).catch(() => []);
+            grupo = ((_l = usuarios === null || usuarios === void 0 ? void 0 : usuarios[0]) === null || _l === void 0 ? void 0 : _l.grupo) || '';
+        }
+        const grupoNormalizado = normalizarGrupoPermissao(grupo);
+        const deveOcultarSetor19 = grupoNormalizado.includes('LOGISTICA') || grupoNormalizado.includes('FIBRA');
+        const obterSetor = (os) => [
+            os === null || os === void 0 ? void 0 : os.setor,
+            os === null || os === void 0 ? void 0 : os.id_setor,
+            os === null || os === void 0 ? void 0 : os.id_ticket_setor,
+            os === null || os === void 0 ? void 0 : os.id_setor_atual
+        ].map(valor => String(valor || '').trim()).find(Boolean) || '';
+        const fila = deveOcultarSetor19
+            ? filaCompleta.filter((os) => obterSetor(os) !== '19')
+            : filaCompleta;
+        if (deveOcultarSetor19) {
+            (0, logger_1.logInfo)('PainelLogistica.filaPendentes', '[Painel Logistica][Fila Pendentes] ocultando setor 19 para grupo LOGISTICA/FIBRA', {
+                requestId,
+                usuario,
+                grupo: grupoNormalizado,
+                totalAntes: filaCompleta.length,
+                totalDepois: fila.length,
+                totalOcultado: filaCompleta.length - fila.length
+            });
+        }
         res.json(fila);
     }
     catch (error) {
-        res.status(500).json({ error: error.message });
+        (0, logger_1.logError)('PainelLogistica.filaPendentes', error, {
+            requestId,
+            usuario: ((_m = reqAny.user) === null || _m === void 0 ? void 0 : _m.username) || ((_o = reqAny.session) === null || _o === void 0 ? void 0 : _o.username) || 'Visitante',
+            grupo: normalizarGrupoPermissao(((_p = reqAny.user) === null || _p === void 0 ? void 0 : _p.group) || ((_q = reqAny.session) === null || _q === void 0 ? void 0 : _q.group) || '')
+        });
+        res.status(500).json({ error: 'Erro ao carregar fila de O.S. pendentes.', requestId });
     }
 }));
 router.get('/tecnicos', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -330,7 +366,7 @@ router.post('/salvar-configuracoes', (req, res) => __awaiter(void 0, void 0, voi
     }
 }));
 router.put('/atribuir-tecnico', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _g, _h, _j;
+    var _r, _s, _t;
     const { id_agenda, ixc_tecnico_id, ixc_os_id, data_agendamento, turno, usuario_logado } = req.body;
     try {
         if (!ixc_os_id) {
@@ -396,9 +432,9 @@ router.put('/atribuir-tecnico', (req, res) => __awaiter(void 0, void 0, void 0, 
         });
     }
     catch (error) {
-        console.error('[Logistica] Erro ao atribuir técnico:', ((_g = error.response) === null || _g === void 0 ? void 0 : _g.data) || error.message);
+        console.error('[Logistica] Erro ao atribuir técnico:', ((_r = error.response) === null || _r === void 0 ? void 0 : _r.data) || error.message);
         res.status(500).json({
-            error: ((_j = (_h = error.response) === null || _h === void 0 ? void 0 : _h.data) === null || _j === void 0 ? void 0 : _j.message) || error.message
+            error: ((_t = (_s = error.response) === null || _s === void 0 ? void 0 : _s.data) === null || _t === void 0 ? void 0 : _t.message) || error.message
         });
     }
 }));
@@ -418,7 +454,7 @@ router.put('/reagendar', (req, res) => __awaiter(void 0, void 0, void 0, functio
     }
 }));
 router.post('/cancelar-visita', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _k, _l, _m;
+    var _u, _v, _w;
     const { id_local, ixc_os_id, motivo, usuario_logado } = req.body;
     try {
         if (!ixc_os_id)
@@ -482,8 +518,8 @@ router.post('/cancelar-visita', (req, res) => __awaiter(void 0, void 0, void 0, 
         res.json({ success: true, status_interno: statusLocal, ixc_tecnico_id: tecnicoHub });
     }
     catch (error) {
-        console.error('[Painel Logistica][Cancelar Visita]', ((_k = error.response) === null || _k === void 0 ? void 0 : _k.data) || error.message);
-        res.status(500).json({ error: ((_m = (_l = error.response) === null || _l === void 0 ? void 0 : _l.data) === null || _m === void 0 ? void 0 : _m.message) || error.message });
+        console.error('[Painel Logistica][Cancelar Visita]', ((_u = error.response) === null || _u === void 0 ? void 0 : _u.data) || error.message);
+        res.status(500).json({ error: ((_w = (_v = error.response) === null || _v === void 0 ? void 0 : _v.data) === null || _w === void 0 ? void 0 : _w.message) || error.message });
     }
 }));
 router.put('/fechar-os', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -537,7 +573,7 @@ router.put('/fechar-os', (req, res) => __awaiter(void 0, void 0, void 0, functio
     }
 }));
 router.post('/tratar-prioridade', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _o, _p, _q;
+    var _x, _y, _z;
     const { id_local, acao, ixc_os_id, usuario_logado } = req.body;
     try {
         if (!(yield exigirLogisticaOuNoc(req, res)))
@@ -632,9 +668,9 @@ router.post('/tratar-prioridade', (req, res) => __awaiter(void 0, void 0, void 0
         return res.status(400).json({ error: 'Ação inválida. Use aceitar ou recusar.' });
     }
     catch (error) {
-        console.error('[Logistica] Erro ao tratar prioridade:', ((_o = error.response) === null || _o === void 0 ? void 0 : _o.data) || error.message);
+        console.error('[Logistica] Erro ao tratar prioridade:', ((_x = error.response) === null || _x === void 0 ? void 0 : _x.data) || error.message);
         return res.status(500).json({
-            error: ((_q = (_p = error.response) === null || _p === void 0 ? void 0 : _p.data) === null || _q === void 0 ? void 0 : _q.message) || error.message
+            error: ((_z = (_y = error.response) === null || _y === void 0 ? void 0 : _y.data) === null || _z === void 0 ? void 0 : _z.message) || error.message
         });
     }
 }));
@@ -765,7 +801,7 @@ router.get('/os-detalhes/:id', (req, res) => __awaiter(void 0, void 0, void 0, f
     }
 }));
 router.post('/contato-cliente', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _r, _s, _t;
+    var _0, _1, _2;
     const { id_local, ixc_os_id, status_contato, mensagem, usuario_logado } = req.body;
     try {
         if (!(yield exigirLogisticaOuNoc(req, res)))
@@ -790,7 +826,7 @@ router.post('/contato-cliente', (req, res) => __awaiter(void 0, void 0, void 0, 
         }
         catch (error) {
             aviso = 'Confirmação salva localmente. O IXC recusou o registro da mensagem.';
-            console.warn('[IXC Mensagem Simples] fallback local ativado:', ((_r = error.response) === null || _r === void 0 ? void 0 : _r.data) || error.message);
+            console.warn('[IXC Mensagem Simples] fallback local ativado:', ((_0 = error.response) === null || _0 === void 0 ? void 0 : _0.data) || error.message);
         }
         yield agendaService_1.AgendaService.executeDb(`UPDATE ivp_agenda_os SET contato_status = ?, contato_confirmado_em = ? WHERE id = ?`, [status, dataInteracao, id_local]);
         if (!registradoIxc) {
@@ -799,7 +835,7 @@ router.post('/contato-cliente', (req, res) => __awaiter(void 0, void 0, void 0, 
         res.json({ success: true, registrado_ixc: registradoIxc, aviso });
     }
     catch (error) {
-        res.status(500).json({ error: ((_t = (_s = error.response) === null || _s === void 0 ? void 0 : _s.data) === null || _t === void 0 ? void 0 : _t.message) || error.message });
+        res.status(500).json({ error: ((_2 = (_1 = error.response) === null || _1 === void 0 ? void 0 : _1.data) === null || _2 === void 0 ? void 0 : _2.message) || error.message });
     }
 }));
 router.post('/aguardar-cliente', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -844,7 +880,7 @@ router.post('/parar-espera-cliente', (req, res) => __awaiter(void 0, void 0, voi
     }
 }));
 router.post('/observacao-logistica', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _u, _v, _w;
+    var _3, _4, _5;
     const { id_local, ixc_os_id, mensagem, usuario_logado } = req.body;
     try {
         if (!id_local || !ixc_os_id || !mensagem || !String(mensagem).trim()) {
@@ -861,13 +897,13 @@ router.post('/observacao-logistica', (req, res) => __awaiter(void 0, void 0, voi
         }
         catch (error) {
             aviso = 'Observação salva localmente. O IXC recusou o registro da mensagem.';
-            console.warn('[IXC Mensagem Simples] fallback local ativado:', ((_u = error.response) === null || _u === void 0 ? void 0 : _u.data) || error.message);
+            console.warn('[IXC Mensagem Simples] fallback local ativado:', ((_3 = error.response) === null || _3 === void 0 ? void 0 : _3.data) || error.message);
         }
         yield agendaService_1.AgendaService.executeDb(`UPDATE ivp_agenda_os SET observacao_logistica = CONCAT(COALESCE(observacao_logistica, ''), ?, '\n') WHERE id = ?`, [`[${dataInteracao}] ${registradoIxc ? '[IXC]' : '[LOCAL]'} ${texto}`, id_local]);
         res.json({ success: true, registrado_ixc: registradoIxc, aviso });
     }
     catch (error) {
-        res.status(500).json({ error: ((_w = (_v = error.response) === null || _v === void 0 ? void 0 : _v.data) === null || _w === void 0 ? void 0 : _w.message) || error.message });
+        res.status(500).json({ error: ((_5 = (_4 = error.response) === null || _4 === void 0 ? void 0 : _4.data) === null || _5 === void 0 ? void 0 : _5.message) || error.message });
     }
 }));
 router.get('/tags', (_req, res) => __awaiter(void 0, void 0, void 0, function* () {

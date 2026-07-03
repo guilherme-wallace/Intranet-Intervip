@@ -1627,6 +1627,7 @@ async function enviarChamadoSuporte() {
 
 let idContratoMudancaEndereco = null;
 let contratoMudancaEndereco = null;
+let mudancaEnderecoEmAndamento = false;
 
 function valorEnderecoMudanca(obj, campo) {
     if (!obj) return '';
@@ -1710,10 +1711,14 @@ function iniciarMudancaEndereco(contratoId, contrato) {
 }
 
 async function executarMudancaEnderecoNoIXC(clientData) {
+    if (mudancaEnderecoEmAndamento) return;
+    mudancaEnderecoEmAndamento = true;
+
     const submitButton = document.getElementById('btn-finalizar-venda');
     const textoOriginal = submitButton.innerHTML;
     submitButton.disabled = true;
     submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Atualizando endereco...';
+    let redirecionandoAgendamento = false;
 
     const payload = {
         contratoId: idContratoMudancaEndereco,
@@ -1746,7 +1751,11 @@ async function executarMudancaEnderecoNoIXC(clientData) {
         const result = await response.json().catch(() => ({}));
 
         if (!response.ok || result.success === false) {
-            throw new Error(result.error || 'Nao foi possivel concluir a mudanca de endereco.');
+            const erroBackend = new Error(result.error || 'Nao foi possivel concluir a mudanca de endereco.');
+            erroBackend.falhaParcial = result.partial_success === true || result.endereco_atualizado === true;
+            erroBackend.atendimentoCriado = result.atendimento_criado === true;
+            erroBackend.ticketId = result.ticketId || '';
+            throw erroBackend;
         }
 
         const osId = result.osId || result.id_os;
@@ -1756,13 +1765,29 @@ async function executarMudancaEnderecoNoIXC(clientData) {
         }
 
         submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Abrindo agendamento...';
+        redirecionandoAgendamento = true;
         window.location.href = `/agendamento?os=${encodeURIComponent(osId)}&origem=cadastro-bandaLarga&tipo=mudanca-endereco`;
     } catch (error) {
         console.error('Erro na mudanca de endereco:', error);
-        showModal('Erro na mudanca de endereco', `Nao foi possivel concluir a mudanca de endereco.<br><strong>Motivo:</strong> ${error.message}`, 'danger');
-        submitButton.disabled = false;
-        submitButton.innerHTML = textoOriginal || 'Concluir';
-        checkFormValidity();
+        if (error.falhaParcial) {
+            const complementoTicket = error.atendimentoCriado && error.ticketId
+                ? `<br><strong>Atendimento criado:</strong> #${error.ticketId}`
+                : '';
+            showModal(
+                'Mudança de endereço parcialmente concluída',
+                `Endereço atualizado, mas o atendimento não foi aberto ou localizado corretamente. Verifique no IXC antes de tentar novamente.${complementoTicket}<br><strong>Detalhe:</strong> ${error.message}`,
+                'warning'
+            );
+        } else {
+            showModal('Erro na mudanca de endereco', `Nao foi possivel concluir a mudanca de endereco.<br><strong>Motivo:</strong> ${error.message}`, 'danger');
+        }
+    } finally {
+        if (!redirecionandoAgendamento) {
+            mudancaEnderecoEmAndamento = false;
+            submitButton.disabled = false;
+            submitButton.innerHTML = textoOriginal || 'Concluir';
+            checkFormValidity();
+        }
     }
 }
 
