@@ -10,10 +10,46 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AgendaService = void 0;
+exports.AgendaService = exports.isErroTemporarioIxc = void 0;
 const axios_1 = require("axios");
+const http = require("http");
+const https = require("https");
 const database_1 = require("../../../api/database");
 const logger_1 = require("../../../api/logger");
+const timeoutIxcConfigurado = Number(process.env.IXC_TIMEOUT_MS || 15000);
+const timeoutIxc = Number.isFinite(timeoutIxcConfigurado) ? Math.max(1000, timeoutIxcConfigurado) : 15000;
+const baseUrlIxc = `${String(process.env.IXC_API_URL || '').replace(/\/+$/, '')}/webservice/v1`;
+const httpAgentIxc = new http.Agent({ keepAlive: true, maxSockets: 50 });
+const httpsAgentIxc = new https.Agent({ keepAlive: true, maxSockets: 50 });
+const ixcClient = axios_1.default.create({
+    baseURL: baseUrlIxc,
+    timeout: timeoutIxc,
+    httpAgent: httpAgentIxc,
+    httpsAgent: httpsAgentIxc
+});
+function isErroTemporarioIxc(error) {
+    var _a, _b, _c;
+    if ((error === null || error === void 0 ? void 0 : error.response) || ((_a = error === null || error === void 0 ? void 0 : error.cause) === null || _a === void 0 ? void 0 : _a.response))
+        return false;
+    const code = String((error === null || error === void 0 ? void 0 : error.code) || ((_b = error === null || error === void 0 ? void 0 : error.cause) === null || _b === void 0 ? void 0 : _b.code) || '').toUpperCase();
+    const message = String((error === null || error === void 0 ? void 0 : error.message) || ((_c = error === null || error === void 0 ? void 0 : error.cause) === null || _c === void 0 ? void 0 : _c.message) || '').toUpperCase();
+    return [
+        'EAI_AGAIN',
+        'ENOTFOUND',
+        'ECONNRESET',
+        'ETIMEDOUT',
+        'ECONNABORTED',
+        'EHOSTUNREACH',
+        'ENETUNREACH'
+    ].includes(code)
+        || message.includes('GETADDRINFO EAI_AGAIN')
+        || message.includes('NETWORK ERROR')
+        || message.includes('TIMEOUT');
+}
+exports.isErroTemporarioIxc = isErroTemporarioIxc;
+function aguardar(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 class AgendaService {
     static executeDb(query, params = []) {
         return new Promise((resolve, reject) => {
@@ -26,10 +62,8 @@ class AgendaService {
             });
         });
     }
-    static makeIxcRequest(method, endpoint, data = null, operationType = null) {
-        var _a;
+    static makeIxcRequest(method, endpoint, data = null, operationType = null, context = {}) {
         return __awaiter(this, void 0, void 0, function* () {
-            const url = `${process.env.IXC_API_URL}/webservice/v1${endpoint}`;
             const headers = {
                 'Authorization': `Basic ${process.env.IXC_API_TOKEN}`,
                 'Content-Type': 'application/json'
@@ -40,14 +74,71 @@ class AgendaService {
                 headers['ixcsoft'] = 'listar';
                 method = 'POST';
             }
-            try {
-                const response = yield (0, axios_1.default)({ method, url, headers, data });
-                return response.data;
+            const delaysRetry = [500, 1000];
+            const maxTentativas = delaysRetry.length + 1;
+            const inicioRequisicao = Date.now();
+            for (let tentativa = 1; tentativa <= maxTentativas; tentativa++) {
+                const inicioTentativa = Date.now();
+                try {
+                    const response = yield ixcClient.request({ method, url: endpoint, headers, data });
+                    if (tentativa > 1) {
+                        (0, logger_1.logInfo)('IXC.Request.Retry', 'Chamada ao IXC recuperada após nova tentativa.', {
+                            endpoint,
+                            method,
+                            tentativa,
+                            retriesRealizados: tentativa - 1,
+                            duracaoMs: Date.now() - inicioRequisicao,
+                            requestId: context.requestId,
+                            usuario: context.usuario
+                        });
+                    }
+                    return response.data;
+                }
+                catch (error) {
+                    error.ixcEndpoint = endpoint;
+                    error.ixcTentativas = tentativa;
+                    const temporario = isErroTemporarioIxc(error);
+                    const deveTentarNovamente = temporario && tentativa < maxTentativas;
+                    if (deveTentarNovamente) {
+                        const proximaTentativaEmMs = delaysRetry[tentativa - 1];
+                        (0, logger_1.logWarn)('IXC.Request.Retry', 'Falha temporária no IXC, tentando novamente.', {
+                            endpoint,
+                            method,
+                            tentativa,
+                            proximaTentativa: tentativa + 1,
+                            proximaTentativaEmMs,
+                            code: error === null || error === void 0 ? void 0 : error.code,
+                            message: error === null || error === void 0 ? void 0 : error.message,
+                            duracaoTentativaMs: Date.now() - inicioTentativa,
+                            requestId: context.requestId,
+                            usuario: context.usuario
+                        });
+                        yield aguardar(proximaTentativaEmMs);
+                        continue;
+                    }
+                    const chaveLog = `${endpoint}|${String((error === null || error === void 0 ? void 0 : error.code) || 'SEM_CODIGO')}`;
+                    const agora = Date.now();
+                    const ultimoLog = this.ultimoLogErroIxc.get(chaveLog) || 0;
+                    if (agora - ultimoLog >= 30000) {
+                        this.ultimoLogErroIxc.set(chaveLog, agora);
+                        (0, logger_1.logError)('AgendaService.makeIxcRequest', error, {
+                            endpoint,
+                            method,
+                            operationType,
+                            timeout: timeoutIxc,
+                            temporario,
+                            tentativa,
+                            retriesRealizados: tentativa - 1,
+                            duracaoMs: Date.now() - inicioRequisicao,
+                            requestId: context.requestId,
+                            usuario: context.usuario
+                        });
+                    }
+                    console.error(`[IXC Err] ${endpoint}:`, error.code || error.message);
+                    throw error;
+                }
             }
-            catch (error) {
-                console.error(`[IXC Err] ${endpoint}:`, ((_a = error.response) === null || _a === void 0 ? void 0 : _a.data) || error.message);
-                throw error;
-            }
+            throw new Error(`Falha inesperada ao consultar o IXC em ${endpoint}.`);
         });
     }
     static dataHoraAtualSaoPaulo() {
@@ -574,7 +665,7 @@ class AgendaService {
         }
         return '';
     }
-    static obterAgendamentos(dataFiltro, municipioBase, statusFiltro = 'PENDENTES') {
+    static obterAgendamentos(dataFiltro, municipioBase, statusFiltro = 'PENDENTES', context = {}) {
         return __awaiter(this, void 0, void 0, function* () {
             let queryLocal = `SELECT * FROM ivp_agenda_os WHERE data_agendamento = ? AND (status_interno IS NULL OR status_interno NOT IN ('FINALIZADO', 'CANCELADO', 'VISITA_CANCELADA'))`;
             let params = [dataFiltro];
@@ -593,7 +684,7 @@ class AgendaService {
             const setoresPermitidos = ['5', '9', '19'];
             const ixcRespGeral = yield this.makeIxcRequest('POST', '/su_oss_chamado', {
                 qtype: 'su_oss_chamado.data_agenda', query: dataFiltro, oper: 'L', page: '1', rp: '500'
-            }).catch(() => ({ registros: [] }));
+            }, null, context);
             const agendamentosIxc = (ixcRespGeral.registros || []).filter((os) => {
                 return os.data_agenda && os.data_agenda.startsWith(dataFiltro) && setoresPermitidos.includes(String(os.setor));
             });
@@ -601,7 +692,7 @@ class AgendaService {
                 // Falhas no quadro: apenas OSs RAG do dia filtrado, nos setores de agenda, sem técnico ou no HUB.
                 const ragResp = yield this.makeIxcRequest('POST', '/su_oss_chamado', {
                     qtype: 'su_oss_chamado.status', query: 'RAG', oper: '=', page: '1', rp: '120', sortname: 'id', sortorder: 'desc'
-                }).catch(() => ({ registros: [] }));
+                }, null, context);
                 (ragResp.registros || []).forEach((os) => {
                     const dataOs = os.data_agenda ? String(os.data_agenda).split(' ')[0] : '';
                     const semTecnicoOuHub = !os.id_tecnico || os.id_tecnico === '0' || String(os.id_tecnico) === '138';
@@ -886,6 +977,43 @@ class AgendaService {
             yield this.aplicarPlanosLocais(listaFinal);
             yield this.aplicarDistancias(listaFinal);
             return this.ordenarAgendamentos(listaFinal);
+        });
+    }
+    static obterAgendamentosLocaisFallback(dataFiltro, municipioBase, statusFiltro = 'PENDENTES') {
+        return __awaiter(this, void 0, void 0, function* () {
+            let query = `
+            SELECT a.*, u.nome AS nome_tecnico_local
+            FROM ivp_agenda_os a
+            LEFT JOIN usuarios_intranet u
+              ON u.id_funcionario_ixc = a.ixc_tecnico_id AND u.ativo = 1
+            WHERE a.data_agendamento = ?
+              AND (a.status_interno IS NULL OR a.status_interno NOT IN ('FINALIZADO', 'CANCELADO', 'VISITA_CANCELADA'))
+        `;
+            const params = [dataFiltro];
+            if (municipioBase === 'SERRA') {
+                query += ` AND a.municipio_base = 'Serra'`;
+            }
+            else if (municipioBase === 'VV_VIX_CCA') {
+                query += ` AND a.municipio_base IN ('Vitoria', 'Vitória', 'Vila Velha', 'Cariacica')`;
+            }
+            const statusNormalizado = String(statusFiltro || '').toUpperCase();
+            if (statusNormalizado === 'FALHAS') {
+                query += ` AND a.status_interno = 'AGUARDANDO_REAGENDAMENTO'`;
+            }
+            query += ` ORDER BY a.turno ASC, a.id ASC`;
+            const registros = yield this.executeDb(query, params);
+            const lista = (registros || []).map((local) => {
+                const ehFalha = String(local.status_interno || '').toUpperCase() === 'AGUARDANDO_REAGENDAMENTO';
+                const tipoServico = String(local.tipo_servico || 'SUPORTE').toUpperCase();
+                return Object.assign(Object.assign({}, local), { id: local.id, ixc_os_id: local.ixc_os_id, ixc_cliente_id: local.ixc_cliente_id, ixc_contrato_id: local.ixc_contrato_id, tipo_servico: tipoServico, setor: local.setor || (tipoServico === 'INSTALACAO' ? '5' : '9'), tipo_imovel: local.tipo_imovel || 'DESCONHECIDO', turno: this.normalizarTurnoAgenda(local.turno), status_interno: local.status_interno || 'AGUARDANDO_LOGISTICA', ixc_tecnico_id: local.ixc_tecnico_id, nome_tecnico: local.nome_tecnico_local || (local.ixc_tecnico_id ? `Técnico ${local.ixc_tecnico_id}` : 'Não atribuído'), sintoma_relatado: local.sintoma_relatado || '', ixc_status: ehFalha ? 'RAG' : 'A', horario_agendado: this.normalizarTurnoAgenda(local.turno) === 'VESPERTINO' ? '13:00' : '08:00', bairro_real: local.bairro_real || '', cidade_real: local.municipio_base || '', municipio_base: local.municipio_base || '', nome_setor: tipoServico === 'INSTALACAO' ? 'Instalação' : 'Suporte', nome_condominio: local.nome_condominio || '', data_agendamento_original: local.data_agendamento, nome_processo: '', _origem_local_fallback: true });
+            });
+            const tagsPorAgenda = yield this.carregarTagsPorAgendaIds(lista.map((os) => String(os.id)));
+            lista.forEach((os) => {
+                os.tags = tagsPorAgenda.get(String(os.id)) || [];
+            });
+            yield this.aplicarPlanosLocais(lista);
+            yield this.aplicarDistancias(lista);
+            return this.ordenarAgendamentos(lista);
         });
     }
     static obterCandidatosPlano(os) {
@@ -1183,13 +1311,13 @@ class AgendaService {
             yield this.executeDb(`INSERT INTO ivp_agenda_capacidade (data, casa_m, casa_t, predio_serra_m, predio_serra_t, predio_outros_m, predio_outros_t, inst_serra_m, inst_serra_t, inst_outros_m, inst_outros_t) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [data, t.casa_m, t.casa_t, t.predio_serra_m, t.predio_serra_t, t.predio_outros_m, t.predio_outros_t, t.inst_serra_m, t.inst_serra_t, t.inst_outros_m, t.inst_outros_t]);
         });
     }
-    static obterFilaPendentes() {
+    static obterFilaPendentes(context = {}) {
         return __awaiter(this, void 0, void 0, function* () {
             const [respA, respEN, respRAG, respAG] = yield Promise.all([
-                this.makeIxcRequest('POST', '/su_oss_chamado', { qtype: 'su_oss_chamado.status', query: 'A', oper: '=', page: '1', rp: '200', sortname: 'id', sortorder: 'desc' }),
-                this.makeIxcRequest('POST', '/su_oss_chamado', { qtype: 'su_oss_chamado.status', query: 'EN', oper: '=', page: '1', rp: '200', sortname: 'id', sortorder: 'desc' }),
-                this.makeIxcRequest('POST', '/su_oss_chamado', { qtype: 'su_oss_chamado.status', query: 'RAG', oper: '=', page: '1', rp: '100', sortname: 'id', sortorder: 'desc' }),
-                this.makeIxcRequest('POST', '/su_oss_chamado', { qtype: 'su_oss_chamado.id_tecnico', query: '138', oper: '=', page: '1', rp: '150', sortname: 'id', sortorder: 'desc' })
+                this.makeIxcRequest('POST', '/su_oss_chamado', { qtype: 'su_oss_chamado.status', query: 'A', oper: '=', page: '1', rp: '200', sortname: 'id', sortorder: 'desc' }, null, context),
+                this.makeIxcRequest('POST', '/su_oss_chamado', { qtype: 'su_oss_chamado.status', query: 'EN', oper: '=', page: '1', rp: '200', sortname: 'id', sortorder: 'desc' }, null, context),
+                this.makeIxcRequest('POST', '/su_oss_chamado', { qtype: 'su_oss_chamado.status', query: 'RAG', oper: '=', page: '1', rp: '100', sortname: 'id', sortorder: 'desc' }, null, context),
+                this.makeIxcRequest('POST', '/su_oss_chamado', { qtype: 'su_oss_chamado.id_tecnico', query: '138', oper: '=', page: '1', rp: '150', sortname: 'id', sortorder: 'desc' }, null, context)
             ]);
             const allOpen = [...(respA.registros || []), ...(respEN.registros || []), ...(respRAG.registros || []), ...(respAG.registros || [])];
             const setoresPermitidos = ['5', '9', '19'];
@@ -1262,3 +1390,4 @@ class AgendaService {
     }
 }
 exports.AgendaService = AgendaService;
+AgendaService.ultimoLogErroIxc = new Map();

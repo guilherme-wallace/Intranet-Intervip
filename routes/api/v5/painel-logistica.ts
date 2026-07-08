@@ -1,13 +1,55 @@
 ﻿// routes/api/v5/painel-logistica.ts
 import * as Express from 'express';
-import { AgendaService } from './agendaService';
-import { createRequestId, logError, logInfo } from '../../../api/logger';
+import { AgendaService, isErroTemporarioIxc as isErroTemporarioIxcCentral } from './agendaService';
+import { createRequestId, logError, logInfo, logWarn } from '../../../api/logger';
 
 const router = Express.Router();
 
 const TURNOS_ESCALA_VALIDOS = new Set(['INTEGRAL', 'MATUTINO', 'VESPERTINO']);
 const REGIOES_ESCALA_VALIDAS = new Set(['TODAS', 'SERRA', 'VV_VIX_CCA']);
 const IMOVEIS_ESCALA_VALIDOS = new Set(['AMBOS', 'CASA', 'PREDIO']);
+const CACHE_PAINEL_TTL_MS = 10 * 60 * 1000;
+
+type CachePainelEntry = {
+    updatedAt: string;
+    payload: any[];
+};
+
+const cacheAgendamentos = new Map<string, CachePainelEntry>();
+const cacheFilaPendentes = new Map<string, CachePainelEntry>();
+
+function isErroTemporarioIxc(error: any): boolean {
+    const endpointIxc = String(error?.ixcEndpoint || error?.cause?.ixcEndpoint || '').trim();
+    const requestUrl = String(error?.config?.url || error?.cause?.config?.url || '');
+    const origemIxc = Boolean(endpointIxc) || requestUrl.includes('/webservice/v1');
+
+    if (!origemIxc) return false;
+
+    return isErroTemporarioIxcCentral(error);
+}
+
+function idadeCacheMs(cache?: CachePainelEntry): number | null {
+    if (!cache) return null;
+    const timestamp = new Date(cache.updatedAt).getTime();
+    return Number.isFinite(timestamp) ? Math.max(0, Date.now() - timestamp) : null;
+}
+
+function cacheEstaDentroTtl(cache?: CachePainelEntry): boolean {
+    const idade = idadeCacheMs(cache);
+    return idade !== null && idade <= CACHE_PAINEL_TTL_MS;
+}
+
+function montarErroIxcIndisponivel(message: string, requestId: string) {
+    return {
+        success: false,
+        partial: true,
+        ixcIndisponivel: true,
+        error: 'IXC temporariamente indisponível.',
+        message,
+        detail: 'Não foi possível consultar o IXC neste momento. Tente novamente em instantes.',
+        requestId
+    };
+}
 
 function normalizarTextoEscala(valor: any, padrao: string): string {
     return String(valor || padrao)
@@ -182,6 +224,7 @@ router.get('/agendamentos', async (req, res) => {
     const data = req.query.data as string;
     const municipio = req.query.municipio as string;
     const status = req.query.status as string;
+    const cacheKey = `${data || ''}|${municipio || 'TODOS'}|${status || 'PENDENTES'}`;
     const metaBase = {
         requestId,
         data,
@@ -200,7 +243,14 @@ router.get('/agendamentos', async (req, res) => {
         logInfo('PainelLogistica.agendamentos', 'Inicio da consulta de agendamentos.', metaBase);
         await AgendaService.garantirCapacidadeDia(data);
         
-        const agendamentos = await AgendaService.obterAgendamentos(data, municipio, status);
+        const agendamentos = await AgendaService.obterAgendamentos(data, municipio, status, {
+            requestId,
+            usuario: metaBase.usuario
+        });
+        cacheAgendamentos.set(cacheKey, {
+            updatedAt: new Date().toISOString(),
+            payload: agendamentos
+        });
         logInfo('PainelLogistica.agendamentos', 'Consulta de agendamentos concluida.', {
             ...metaBase,
             quantidade: Array.isArray(agendamentos) ? agendamentos.length : 0,
@@ -208,6 +258,64 @@ router.get('/agendamentos', async (req, res) => {
         });
         res.json(agendamentos);
     } catch (error: any) {
+        if (isErroTemporarioIxc(error)) {
+            const cache = cacheAgendamentos.get(cacheKey);
+            const idade = idadeCacheMs(cache);
+            let agendamentos = cache?.payload || [];
+            let fallbackLocal = false;
+
+            if (!cache) {
+                try {
+                    agendamentos = await AgendaService.obterAgendamentosLocaisFallback(data, municipio, status);
+                    fallbackLocal = true;
+                } catch (fallbackError: any) {
+                    logError('PainelLogistica.agendamentos.fallbackLocal', fallbackError, {
+                        ...metaBase,
+                        erroIxcCode: error?.code,
+                        erroIxcEndpoint: error?.ixcEndpoint
+                    });
+                    return res.status(500).json({
+                        success: false,
+                        error: 'Erro interno ao carregar dados locais da agenda.',
+                        requestId
+                    });
+                }
+            }
+
+            logWarn(
+                'PainelLogistica.agendamentos',
+                'IXC indisponível, retornando fallback local/parcial.',
+                {
+                    ...metaBase,
+                    code: error?.code,
+                    message: error?.message,
+                    endpointIxc: error?.ixcEndpoint,
+                    usouCache: !!cache,
+                    cacheDentroTtl: cacheEstaDentroTtl(cache),
+                    idadeCacheMs: idade,
+                    fallbackLocal,
+                    quantidade: agendamentos.length,
+                    duracaoMs: Date.now() - startedAt
+                }
+            );
+
+            return res.status(200).json({
+                success: true,
+                partial: true,
+                ixcIndisponivel: true,
+                stale: !!cache,
+                cacheUpdatedAt: cache?.updatedAt || null,
+                cacheAgeMs: idade,
+                cacheExpired: cache ? !cacheEstaDentroTtl(cache) : false,
+                fallbackLocal,
+                warning: cache
+                    ? 'IXC temporariamente indisponível. Exibindo a última versão disponível.'
+                    : 'IXC temporariamente indisponível. Exibindo dados locais.',
+                agendamentos,
+                requestId
+            });
+        }
+
         logError('PainelLogistica.agendamentos', error, {
             ...metaBase,
             duracaoMs: Date.now() - startedAt
@@ -280,29 +388,35 @@ router.get('/fila-pendentes', async (req, res) => {
     const reqAny = req as any;
     const requestId = reqAny.requestId || createRequestId();
     reqAny.requestId = requestId;
+    const usuario = reqAny.user?.username || reqAny.session?.username || 'Visitante';
+    let grupo = String(reqAny.user?.group || reqAny.session?.group || '').trim();
+    if (!grupo && usuario !== 'Visitante') {
+        const usuarios = await AgendaService.executeDb(
+            'SELECT grupo FROM usuarios_intranet WHERE ativo = 1 AND usuario = ? LIMIT 1',
+            [usuario]
+        ).catch(() => []);
+        grupo = usuarios?.[0]?.grupo || '';
+    }
+    const grupoNormalizado = normalizarGrupoPermissao(grupo);
+    const deveOcultarSetor19 = grupoNormalizado.includes('LOGISTICA') || grupoNormalizado.includes('FIBRA');
+    const cacheKey = deveOcultarSetor19 ? 'oculta-setor-19' : 'todos-setores';
+    const obterSetor = (os: any) => [
+        os?.setor,
+        os?.id_setor,
+        os?.id_ticket_setor,
+        os?.id_setor_atual
+    ].map(valor => String(valor || '').trim()).find(Boolean) || '';
 
     try {
-        const filaCompleta = await AgendaService.obterFilaPendentes();
-        const usuario = reqAny.user?.username || reqAny.session?.username || 'Visitante';
-        let grupo = String(reqAny.user?.group || reqAny.session?.group || '').trim();
-        if (!grupo && usuario !== 'Visitante') {
-            const usuarios = await AgendaService.executeDb(
-                'SELECT grupo FROM usuarios_intranet WHERE ativo = 1 AND usuario = ? LIMIT 1',
-                [usuario]
-            ).catch(() => []);
-            grupo = usuarios?.[0]?.grupo || '';
-        }
-        const grupoNormalizado = normalizarGrupoPermissao(grupo);
-        const deveOcultarSetor19 = grupoNormalizado.includes('LOGISTICA') || grupoNormalizado.includes('FIBRA');
-        const obterSetor = (os: any) => [
-            os?.setor,
-            os?.id_setor,
-            os?.id_ticket_setor,
-            os?.id_setor_atual
-        ].map(valor => String(valor || '').trim()).find(Boolean) || '';
+        const filaCompleta = await AgendaService.obterFilaPendentes({ requestId, usuario });
         const fila = deveOcultarSetor19
             ? filaCompleta.filter((os: any) => obterSetor(os) !== '19')
             : filaCompleta;
+
+        cacheFilaPendentes.set(cacheKey, {
+            updatedAt: new Date().toISOString(),
+            payload: fila
+        });
 
         if (deveOcultarSetor19) {
             logInfo(
@@ -321,10 +435,40 @@ router.get('/fila-pendentes', async (req, res) => {
 
         res.json(fila);
     } catch (error: any) {
+        if (isErroTemporarioIxc(error)) {
+            const cache = cacheFilaPendentes.get(cacheKey);
+            const items = cache?.payload || [];
+            logWarn('PainelLogistica.filaPendentes', 'IXC temporariamente indisponível.', {
+                requestId,
+                usuario,
+                grupo: grupoNormalizado,
+                endpointIxc: error?.ixcEndpoint,
+                code: error?.code,
+                message: error?.message,
+                usouCache: !!cache,
+                cacheDentroTtl: cacheEstaDentroTtl(cache),
+                idadeCacheMs: idadeCacheMs(cache),
+                quantidade: items.length
+            });
+            return res.status(200).json({
+                ...montarErroIxcIndisponivel(
+                    cache
+                        ? 'Não foi possível atualizar a fila agora. Exibindo a última versão disponível.'
+                        : 'Não foi possível carregar a fila de O.S. pendentes agora.',
+                    requestId
+                ),
+                stale: !!cache,
+                cacheUpdatedAt: cache?.updatedAt || null,
+                cacheAgeMs: idadeCacheMs(cache),
+                cacheExpired: cache ? !cacheEstaDentroTtl(cache) : false,
+                items
+            });
+        }
+
         logError('PainelLogistica.filaPendentes', error, {
             requestId,
-            usuario: reqAny.user?.username || reqAny.session?.username || 'Visitante',
-            grupo: normalizarGrupoPermissao(reqAny.user?.group || reqAny.session?.group || '')
+            usuario,
+            grupo: grupoNormalizado
         });
         res.status(500).json({ error: 'Erro ao carregar fila de O.S. pendentes.', requestId });
     }

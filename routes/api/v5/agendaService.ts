@@ -1,12 +1,51 @@
 // routes/api/v5/agendaService.ts
 
 import axios, { Method } from 'axios';
+import * as http from 'http';
+import * as https from 'https';
 import { LOCALHOST } from '../../../api/database';
 import { logError, logInfo, logWarn } from '../../../api/logger';
 
 interface IxcResponse { type?: string; message?: string; total?: string; registros?: any[]; }
+interface IxcRequestContext { requestId?: string; usuario?: string; }
+
+const timeoutIxcConfigurado = Number(process.env.IXC_TIMEOUT_MS || 15000);
+const timeoutIxc = Number.isFinite(timeoutIxcConfigurado) ? Math.max(1000, timeoutIxcConfigurado) : 15000;
+const baseUrlIxc = `${String(process.env.IXC_API_URL || '').replace(/\/+$/, '')}/webservice/v1`;
+const httpAgentIxc = new http.Agent({ keepAlive: true, maxSockets: 50 });
+const httpsAgentIxc = new https.Agent({ keepAlive: true, maxSockets: 50 });
+const ixcClient = axios.create({
+    baseURL: baseUrlIxc,
+    timeout: timeoutIxc,
+    httpAgent: httpAgentIxc,
+    httpsAgent: httpsAgentIxc
+});
+
+export function isErroTemporarioIxc(error: any): boolean {
+    if (error?.response || error?.cause?.response) return false;
+
+    const code = String(error?.code || error?.cause?.code || '').toUpperCase();
+    const message = String(error?.message || error?.cause?.message || '').toUpperCase();
+    return [
+        'EAI_AGAIN',
+        'ENOTFOUND',
+        'ECONNRESET',
+        'ETIMEDOUT',
+        'ECONNABORTED',
+        'EHOSTUNREACH',
+        'ENETUNREACH'
+    ].includes(code)
+        || message.includes('GETADDRINFO EAI_AGAIN')
+        || message.includes('NETWORK ERROR')
+        || message.includes('TIMEOUT');
+}
+
+function aguardar(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 export class AgendaService {
+    private static ultimoLogErroIxc = new Map<string, number>();
     
     public static executeDb(query: string, params: any[] = []): Promise<any> {
         return new Promise((resolve, reject) => {
@@ -20,8 +59,13 @@ export class AgendaService {
         });
     }
 
-    public static async makeIxcRequest(method: Method, endpoint: string, data: any = null, operationType: 'listar' | 'incluir' | 'alterar' | 'integracao' | null = null): Promise<IxcResponse> {
-        const url = `${process.env.IXC_API_URL}/webservice/v1${endpoint}`;
+    public static async makeIxcRequest(
+        method: Method,
+        endpoint: string,
+        data: any = null,
+        operationType: 'listar' | 'incluir' | 'alterar' | 'integracao' | null = null,
+        context: IxcRequestContext = {}
+    ): Promise<IxcResponse> {
         const headers: any = {
             'Authorization': `Basic ${process.env.IXC_API_TOKEN}`,
             'Content-Type': 'application/json'
@@ -30,13 +74,74 @@ export class AgendaService {
         if (operationType) headers['ixcsoft'] = operationType;
         else if (data && data.qtype) { headers['ixcsoft'] = 'listar'; method = 'POST'; }
 
-        try {
-            const response = await axios({ method, url, headers, data });
-            return response.data;
-        } catch (error: any) {
-            console.error(`[IXC Err] ${endpoint}:`, error.response?.data || error.message);
-            throw error;
+        const delaysRetry = [500, 1000];
+        const maxTentativas = delaysRetry.length + 1;
+        const inicioRequisicao = Date.now();
+
+        for (let tentativa = 1; tentativa <= maxTentativas; tentativa++) {
+            const inicioTentativa = Date.now();
+            try {
+                const response = await ixcClient.request({ method, url: endpoint, headers, data });
+                if (tentativa > 1) {
+                    logInfo('IXC.Request.Retry', 'Chamada ao IXC recuperada após nova tentativa.', {
+                        endpoint,
+                        method,
+                        tentativa,
+                        retriesRealizados: tentativa - 1,
+                        duracaoMs: Date.now() - inicioRequisicao,
+                        requestId: context.requestId,
+                        usuario: context.usuario
+                    });
+                }
+                return response.data;
+            } catch (error: any) {
+                error.ixcEndpoint = endpoint;
+                error.ixcTentativas = tentativa;
+                const temporario = isErroTemporarioIxc(error);
+                const deveTentarNovamente = temporario && tentativa < maxTentativas;
+
+                if (deveTentarNovamente) {
+                    const proximaTentativaEmMs = delaysRetry[tentativa - 1];
+                    logWarn('IXC.Request.Retry', 'Falha temporária no IXC, tentando novamente.', {
+                        endpoint,
+                        method,
+                        tentativa,
+                        proximaTentativa: tentativa + 1,
+                        proximaTentativaEmMs,
+                        code: error?.code,
+                        message: error?.message,
+                        duracaoTentativaMs: Date.now() - inicioTentativa,
+                        requestId: context.requestId,
+                        usuario: context.usuario
+                    });
+                    await aguardar(proximaTentativaEmMs);
+                    continue;
+                }
+
+                const chaveLog = `${endpoint}|${String(error?.code || 'SEM_CODIGO')}`;
+                const agora = Date.now();
+                const ultimoLog = this.ultimoLogErroIxc.get(chaveLog) || 0;
+                if (agora - ultimoLog >= 30000) {
+                    this.ultimoLogErroIxc.set(chaveLog, agora);
+                    logError('AgendaService.makeIxcRequest', error, {
+                        endpoint,
+                        method,
+                        operationType,
+                        timeout: timeoutIxc,
+                        temporario,
+                        tentativa,
+                        retriesRealizados: tentativa - 1,
+                        duracaoMs: Date.now() - inicioRequisicao,
+                        requestId: context.requestId,
+                        usuario: context.usuario
+                    });
+                }
+                console.error(`[IXC Err] ${endpoint}:`, error.code || error.message);
+                throw error;
+            }
         }
+
+        throw new Error(`Falha inesperada ao consultar o IXC em ${endpoint}.`);
     }
 
     public static dataHoraAtualSaoPaulo(): string {
@@ -608,7 +713,12 @@ export class AgendaService {
         return '';
     }
 
-    public static async obterAgendamentos(dataFiltro: string, municipioBase: string | null, statusFiltro: string | null = 'PENDENTES') {
+    public static async obterAgendamentos(
+        dataFiltro: string,
+        municipioBase: string | null,
+        statusFiltro: string | null = 'PENDENTES',
+        context: IxcRequestContext = {}
+    ) {
         let queryLocal = `SELECT * FROM ivp_agenda_os WHERE data_agendamento = ? AND (status_interno IS NULL OR status_interno NOT IN ('FINALIZADO', 'CANCELADO', 'VISITA_CANCELADA'))`;
         let params: any[] = [dataFiltro];
 
@@ -632,7 +742,7 @@ export class AgendaService {
 
         const ixcRespGeral = await this.makeIxcRequest('POST', '/su_oss_chamado', {
             qtype: 'su_oss_chamado.data_agenda', query: dataFiltro, oper: 'L', page: '1', rp: '500'
-        }).catch(() => ({ registros: [] }));
+        }, null, context);
 
         const agendamentosIxc = (ixcRespGeral.registros || []).filter((os: any) => {
             return os.data_agenda && os.data_agenda.startsWith(dataFiltro) && setoresPermitidos.includes(String(os.setor));
@@ -642,7 +752,7 @@ export class AgendaService {
             // Falhas no quadro: apenas OSs RAG do dia filtrado, nos setores de agenda, sem técnico ou no HUB.
             const ragResp = await this.makeIxcRequest('POST', '/su_oss_chamado', {
                 qtype: 'su_oss_chamado.status', query: 'RAG', oper: '=', page: '1', rp: '120', sortname: 'id', sortorder: 'desc'
-            }).catch(() => ({ registros: [] }));
+            }, null, context);
 
             (ragResp.registros || []).forEach((os: any) => {
                 const dataOs = os.data_agenda ? String(os.data_agenda).split(' ')[0] : '';
@@ -988,6 +1098,73 @@ export class AgendaService {
         return this.ordenarAgendamentos(listaFinal);
     }
 
+    public static async obterAgendamentosLocaisFallback(
+        dataFiltro: string,
+        municipioBase: string | null,
+        statusFiltro: string | null = 'PENDENTES'
+    ): Promise<any[]> {
+        let query = `
+            SELECT a.*, u.nome AS nome_tecnico_local
+            FROM ivp_agenda_os a
+            LEFT JOIN usuarios_intranet u
+              ON u.id_funcionario_ixc = a.ixc_tecnico_id AND u.ativo = 1
+            WHERE a.data_agendamento = ?
+              AND (a.status_interno IS NULL OR a.status_interno NOT IN ('FINALIZADO', 'CANCELADO', 'VISITA_CANCELADA'))
+        `;
+        const params: any[] = [dataFiltro];
+
+        if (municipioBase === 'SERRA') {
+            query += ` AND a.municipio_base = 'Serra'`;
+        } else if (municipioBase === 'VV_VIX_CCA') {
+            query += ` AND a.municipio_base IN ('Vitoria', 'Vitória', 'Vila Velha', 'Cariacica')`;
+        }
+
+        const statusNormalizado = String(statusFiltro || '').toUpperCase();
+        if (statusNormalizado === 'FALHAS') {
+            query += ` AND a.status_interno = 'AGUARDANDO_REAGENDAMENTO'`;
+        }
+
+        query += ` ORDER BY a.turno ASC, a.id ASC`;
+        const registros = await this.executeDb(query, params);
+        const lista = (registros || []).map((local: any) => {
+            const ehFalha = String(local.status_interno || '').toUpperCase() === 'AGUARDANDO_REAGENDAMENTO';
+            const tipoServico = String(local.tipo_servico || 'SUPORTE').toUpperCase();
+            return {
+                ...local,
+                id: local.id,
+                ixc_os_id: local.ixc_os_id,
+                ixc_cliente_id: local.ixc_cliente_id,
+                ixc_contrato_id: local.ixc_contrato_id,
+                tipo_servico: tipoServico,
+                setor: local.setor || (tipoServico === 'INSTALACAO' ? '5' : '9'),
+                tipo_imovel: local.tipo_imovel || 'DESCONHECIDO',
+                turno: this.normalizarTurnoAgenda(local.turno),
+                status_interno: local.status_interno || 'AGUARDANDO_LOGISTICA',
+                ixc_tecnico_id: local.ixc_tecnico_id,
+                nome_tecnico: local.nome_tecnico_local || (local.ixc_tecnico_id ? `Técnico ${local.ixc_tecnico_id}` : 'Não atribuído'),
+                sintoma_relatado: local.sintoma_relatado || '',
+                ixc_status: ehFalha ? 'RAG' : 'A',
+                horario_agendado: this.normalizarTurnoAgenda(local.turno) === 'VESPERTINO' ? '13:00' : '08:00',
+                bairro_real: local.bairro_real || '',
+                cidade_real: local.municipio_base || '',
+                municipio_base: local.municipio_base || '',
+                nome_setor: tipoServico === 'INSTALACAO' ? 'Instalação' : 'Suporte',
+                nome_condominio: local.nome_condominio || '',
+                data_agendamento_original: local.data_agendamento,
+                nome_processo: '',
+                _origem_local_fallback: true
+            };
+        });
+
+        const tagsPorAgenda = await this.carregarTagsPorAgendaIds(lista.map((os: any) => String(os.id)));
+        lista.forEach((os: any) => {
+            os.tags = tagsPorAgenda.get(String(os.id)) || [];
+        });
+        await this.aplicarPlanosLocais(lista);
+        await this.aplicarDistancias(lista);
+        return this.ordenarAgendamentos(lista);
+    }
+
     private static obterCandidatosPlano(os: any): string[] {
         return [
             os?.id_plano_local,
@@ -1315,12 +1492,12 @@ export class AgendaService {
         );
     }
 
-    public static async obterFilaPendentes() {
+    public static async obterFilaPendentes(context: IxcRequestContext = {}) {
         const [respA, respEN, respRAG, respAG] = await Promise.all([
-            this.makeIxcRequest('POST', '/su_oss_chamado', { qtype: 'su_oss_chamado.status', query: 'A', oper: '=', page: '1', rp: '200', sortname: 'id', sortorder: 'desc' }),
-            this.makeIxcRequest('POST', '/su_oss_chamado', { qtype: 'su_oss_chamado.status', query: 'EN', oper: '=', page: '1', rp: '200', sortname: 'id', sortorder: 'desc' }),
-            this.makeIxcRequest('POST', '/su_oss_chamado', { qtype: 'su_oss_chamado.status', query: 'RAG', oper: '=', page: '1', rp: '100', sortname: 'id', sortorder: 'desc' }),
-            this.makeIxcRequest('POST', '/su_oss_chamado', { qtype: 'su_oss_chamado.id_tecnico', query: '138', oper: '=', page: '1', rp: '150', sortname: 'id', sortorder: 'desc' })
+            this.makeIxcRequest('POST', '/su_oss_chamado', { qtype: 'su_oss_chamado.status', query: 'A', oper: '=', page: '1', rp: '200', sortname: 'id', sortorder: 'desc' }, null, context),
+            this.makeIxcRequest('POST', '/su_oss_chamado', { qtype: 'su_oss_chamado.status', query: 'EN', oper: '=', page: '1', rp: '200', sortname: 'id', sortorder: 'desc' }, null, context),
+            this.makeIxcRequest('POST', '/su_oss_chamado', { qtype: 'su_oss_chamado.status', query: 'RAG', oper: '=', page: '1', rp: '100', sortname: 'id', sortorder: 'desc' }, null, context),
+            this.makeIxcRequest('POST', '/su_oss_chamado', { qtype: 'su_oss_chamado.id_tecnico', query: '138', oper: '=', page: '1', rp: '150', sortname: 'id', sortorder: 'desc' }, null, context)
         ]);
 
         const allOpen = [ ...(respA.registros || []), ...(respEN.registros || []), ...(respRAG.registros || []), ...(respAG.registros || []) ];

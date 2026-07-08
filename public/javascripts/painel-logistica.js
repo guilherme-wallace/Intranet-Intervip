@@ -229,7 +229,7 @@ function mudarData(offset) {
     carregarAgenda();
 }
 
-function mostrarAvisoAgenda(mensagem, requestId) {
+function mostrarAvisoAgenda(mensagem, requestId, permitirRetry = false) {
     let aviso = document.getElementById('aviso-agenda-logistica');
     if (!aviso) {
         aviso = document.createElement('div');
@@ -238,7 +238,18 @@ function mostrarAvisoAgenda(mensagem, requestId) {
         const quadro = document.querySelector('.kanban-board') || document.querySelector('.container-fluid') || document.body;
         quadro.prepend(aviso);
     }
-    aviso.textContent = requestId ? `${mensagem} RequestId: ${requestId}` : mensagem;
+    aviso.replaceChildren();
+    const texto = document.createElement('span');
+    texto.textContent = requestId ? `${mensagem} RequestId: ${requestId}` : mensagem;
+    aviso.appendChild(texto);
+    if (permitirRetry) {
+        const botao = document.createElement('button');
+        botao.type = 'button';
+        botao.className = 'btn btn-sm btn-outline-warning ms-2 py-0 btn-retry-aviso-agenda';
+        botao.textContent = 'Tentar novamente';
+        botao.addEventListener('click', carregarAgenda);
+        aviso.appendChild(botao);
+    }
     aviso.classList.remove('d-none');
 }
 
@@ -246,12 +257,12 @@ function limparAvisoAgenda() {
     document.getElementById('aviso-agenda-logistica')?.classList.add('d-none');
 }
 
-function renderizarErroCarregamentoAgenda() {
+function renderizarErroCarregamentoAgenda(mensagem = 'Erro de Conexão', tipo = 'danger') {
     document.querySelectorAll('.column-body').forEach(el => {
         el.innerHTML = `
-            <div class="alert alert-danger small m-2">
-                <div>Erro de Conexão</div>
-                <button type="button" class="btn btn-sm btn-outline-danger mt-2 btn-tentar-novamente-agenda">Tentar novamente</button>
+            <div class="alert alert-${tipo} small m-2">
+                <div>${mensagem}</div>
+                <button type="button" class="btn btn-sm btn-outline-${tipo} mt-2 btn-tentar-novamente-agenda">Tentar novamente</button>
             </div>
         `;
     });
@@ -320,6 +331,22 @@ async function carregarAgenda() {
             throw erro;
         }
 
+        if (payload?.partial || payload?.ixcIndisponivel) {
+            const listaParcial = Array.isArray(payload.agendamentos) ? payload.agendamentos : [];
+            const aviso = payload.warning || 'IXC temporariamente indisponível. Mantendo última versão carregada.';
+            mostrarAvisoAgenda(aviso, payload.requestId, true);
+
+            if (listaParcial.length > 0) {
+                todosAgendamentosGlobais = listaParcial;
+                renderizarQuadro();
+            } else if (possuiAgendaAnterior) {
+                renderizarQuadro();
+            } else {
+                renderizarErroCarregamentoAgenda('IXC temporariamente indisponível. Não foi possível carregar a agenda agora.', 'warning');
+            }
+            return;
+        }
+
         todosAgendamentosGlobais = Array.isArray(payload) ? payload : [];
         limparAvisoAgenda();
         
@@ -328,11 +355,11 @@ async function carregarAgenda() {
         console.error('Erro ao carregar agenda:', error?.payload || error);
         const requestId = error?.payload?.requestId;
         if (possuiAgendaAnterior) {
-            mostrarAvisoAgenda('Erro de Conexão. Mantendo última agenda carregada.', requestId);
+            mostrarAvisoAgenda('Não foi possível atualizar os dados. Mantendo última agenda carregada.', requestId, true);
             renderizarQuadro();
             return;
         }
-        mostrarAvisoAgenda('Erro de Conexão.', requestId);
+        mostrarAvisoAgenda('Não foi possível atualizar os dados agora.', requestId, true);
         renderizarErroCarregamentoAgenda();
     }
 }
@@ -804,6 +831,25 @@ async function autoRefreshSilencioso() {
             return;
         }
 
+        if (payload?.partial || payload?.ixcIndisponivel) {
+            const listaParcial = Array.isArray(payload.agendamentos) ? payload.agendamentos : [];
+            console.warn('IXC indisponível no refresh silencioso:', {
+                requestId: payload.requestId,
+                fallbackLocal: payload.fallbackLocal,
+                stale: payload.stale
+            });
+            mostrarAvisoAgenda(
+                payload.warning || 'Atualização automática indisponível. Mantendo última versão carregada.',
+                payload.requestId,
+                true
+            );
+            if (todosAgendamentosGlobais.length === 0 && listaParcial.length > 0) {
+                todosAgendamentosGlobais = listaParcial;
+                renderizarQuadro();
+            }
+            return;
+        }
+
         const novaLista = Array.isArray(payload) ? payload : [];
         
         if (JSON.stringify(novaLista) !== JSON.stringify(todosAgendamentosGlobais)) {
@@ -872,6 +918,44 @@ function atualizarTimers() {
     });
 }
 
+function mostrarAvisoFilaLogistica(mensagem, requestId) {
+    const container = document.getElementById('container-fila-logistica');
+    if (!container) return;
+    let aviso = document.getElementById('aviso-fila-logistica');
+    if (!aviso) {
+        aviso = document.createElement('div');
+        aviso.id = 'aviso-fila-logistica';
+        aviso.className = 'alert alert-warning py-2 px-3 small mb-2';
+        container.prepend(aviso);
+    }
+    aviso.replaceChildren();
+    const texto = document.createElement('span');
+    texto.textContent = requestId ? `${mensagem} RequestId: ${requestId}` : mensagem;
+    const botao = document.createElement('button');
+    botao.type = 'button';
+    botao.className = 'btn btn-sm btn-outline-warning ms-2 py-0';
+    botao.textContent = 'Tentar novamente';
+    botao.addEventListener('click', carregarFilaLogistica);
+    aviso.append(texto, botao);
+    aviso.classList.remove('d-none');
+}
+
+function limparAvisoFilaLogistica() {
+    document.getElementById('aviso-fila-logistica')?.classList.add('d-none');
+}
+
+function renderizarFilaIndisponivel(tbody) {
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="6" class="text-center text-warning py-4">
+                <div>IXC temporariamente indisponível. Não foi possível carregar a fila agora.</div>
+                <button type="button" class="btn btn-sm btn-outline-warning mt-2 btn-retry-fila-logistica">Tentar novamente</button>
+            </td>
+        </tr>
+    `;
+    tbody.querySelector('.btn-retry-fila-logistica')?.addEventListener('click', carregarFilaLogistica);
+}
+
 async function carregarFilaLogistica() {
     if (!usuarioPodeEditar) return;
 
@@ -881,13 +965,32 @@ async function carregarFilaLogistica() {
     
     if(!container) return;
     container.classList.remove('d-none');
+    const possuiaFilaAnterior = !!tbody?.querySelector('[data-fila-os-id]');
 
     try {
         const res = await fetch('/api/v5/painel-logistica/fila-pendentes');
         const payload = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(payload.error || 'Erro ao carregar a fila de O.S.');
+        if (!res.ok && !payload?.partial) {
+            const erro = new Error(payload.error || 'Erro ao carregar a fila de O.S.');
+            erro.payload = payload;
+            throw erro;
+        }
 
-        const filaRecebida = Array.isArray(payload) ? payload : [];
+        const filaRecebida = Array.isArray(payload) ? payload : (Array.isArray(payload.items) ? payload.items : []);
+        if (payload?.partial || payload?.ixcIndisponivel) {
+            mostrarAvisoFilaLogistica(
+                payload.message || 'IXC temporariamente indisponível. Mantendo última fila carregada.',
+                payload.requestId
+            );
+            if (filaRecebida.length === 0 && possuiaFilaAnterior) return;
+            if (filaRecebida.length === 0) {
+                contador.textContent = '0';
+                renderizarFilaIndisponivel(tbody);
+                return;
+            }
+        } else {
+            limparAvisoFilaLogistica();
+        }
         const grupoNormalizado = normalizarGrupoUsuario(window.grupoUsuarioLogado || '');
         const deveOcultarSetor19 = grupoNormalizado.includes('LOGISTICA') || grupoNormalizado.includes('FIBRA');
         const obterSetorFila = os => [os.setor, os.id_setor, os.id_ticket_setor, os.id_setor_atual]
@@ -952,7 +1055,9 @@ async function carregarFilaLogistica() {
         tbody.innerHTML = html;
 
     } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-4">Erro ao carregar a fila de O.S.</td></tr>';
+        console.error('Erro ao carregar a fila de O.S.:', e?.payload || e);
+        mostrarAvisoFilaLogistica('Não foi possível atualizar a fila. Mantendo última versão carregada.', e?.payload?.requestId);
+        if (!possuiaFilaAnterior) renderizarFilaIndisponivel(tbody);
     }
 }
 

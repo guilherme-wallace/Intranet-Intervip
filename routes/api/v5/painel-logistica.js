@@ -17,6 +17,39 @@ const router = Express.Router();
 const TURNOS_ESCALA_VALIDOS = new Set(['INTEGRAL', 'MATUTINO', 'VESPERTINO']);
 const REGIOES_ESCALA_VALIDAS = new Set(['TODAS', 'SERRA', 'VV_VIX_CCA']);
 const IMOVEIS_ESCALA_VALIDOS = new Set(['AMBOS', 'CASA', 'PREDIO']);
+const CACHE_PAINEL_TTL_MS = 10 * 60 * 1000;
+const cacheAgendamentos = new Map();
+const cacheFilaPendentes = new Map();
+function isErroTemporarioIxc(error) {
+    var _a, _b, _c, _d;
+    const endpointIxc = String((error === null || error === void 0 ? void 0 : error.ixcEndpoint) || ((_a = error === null || error === void 0 ? void 0 : error.cause) === null || _a === void 0 ? void 0 : _a.ixcEndpoint) || '').trim();
+    const requestUrl = String(((_b = error === null || error === void 0 ? void 0 : error.config) === null || _b === void 0 ? void 0 : _b.url) || ((_d = (_c = error === null || error === void 0 ? void 0 : error.cause) === null || _c === void 0 ? void 0 : _c.config) === null || _d === void 0 ? void 0 : _d.url) || '');
+    const origemIxc = Boolean(endpointIxc) || requestUrl.includes('/webservice/v1');
+    if (!origemIxc)
+        return false;
+    return (0, agendaService_1.isErroTemporarioIxc)(error);
+}
+function idadeCacheMs(cache) {
+    if (!cache)
+        return null;
+    const timestamp = new Date(cache.updatedAt).getTime();
+    return Number.isFinite(timestamp) ? Math.max(0, Date.now() - timestamp) : null;
+}
+function cacheEstaDentroTtl(cache) {
+    const idade = idadeCacheMs(cache);
+    return idade !== null && idade <= CACHE_PAINEL_TTL_MS;
+}
+function montarErroIxcIndisponivel(message, requestId) {
+    return {
+        success: false,
+        partial: true,
+        ixcIndisponivel: true,
+        error: 'IXC temporariamente indisponível.',
+        message,
+        detail: 'Não foi possível consultar o IXC neste momento. Tente novamente em instantes.',
+        requestId
+    };
+}
 function normalizarTextoEscala(valor, padrao) {
     return String(valor || padrao)
         .trim()
@@ -167,6 +200,7 @@ router.get('/agendamentos', (req, res) => __awaiter(void 0, void 0, void 0, func
     const data = req.query.data;
     const municipio = req.query.municipio;
     const status = req.query.status;
+    const cacheKey = `${data || ''}|${municipio || 'TODOS'}|${status || 'PENDENTES'}`;
     const metaBase = {
         requestId,
         data,
@@ -183,11 +217,54 @@ router.get('/agendamentos', (req, res) => __awaiter(void 0, void 0, void 0, func
     try {
         (0, logger_1.logInfo)('PainelLogistica.agendamentos', 'Inicio da consulta de agendamentos.', metaBase);
         yield agendaService_1.AgendaService.garantirCapacidadeDia(data);
-        const agendamentos = yield agendaService_1.AgendaService.obterAgendamentos(data, municipio, status);
+        const agendamentos = yield agendaService_1.AgendaService.obterAgendamentos(data, municipio, status, {
+            requestId,
+            usuario: metaBase.usuario
+        });
+        cacheAgendamentos.set(cacheKey, {
+            updatedAt: new Date().toISOString(),
+            payload: agendamentos
+        });
         (0, logger_1.logInfo)('PainelLogistica.agendamentos', 'Consulta de agendamentos concluida.', Object.assign(Object.assign({}, metaBase), { quantidade: Array.isArray(agendamentos) ? agendamentos.length : 0, duracaoMs: Date.now() - startedAt }));
         res.json(agendamentos);
     }
     catch (error) {
+        if (isErroTemporarioIxc(error)) {
+            const cache = cacheAgendamentos.get(cacheKey);
+            const idade = idadeCacheMs(cache);
+            let agendamentos = (cache === null || cache === void 0 ? void 0 : cache.payload) || [];
+            let fallbackLocal = false;
+            if (!cache) {
+                try {
+                    agendamentos = yield agendaService_1.AgendaService.obterAgendamentosLocaisFallback(data, municipio, status);
+                    fallbackLocal = true;
+                }
+                catch (fallbackError) {
+                    (0, logger_1.logError)('PainelLogistica.agendamentos.fallbackLocal', fallbackError, Object.assign(Object.assign({}, metaBase), { erroIxcCode: error === null || error === void 0 ? void 0 : error.code, erroIxcEndpoint: error === null || error === void 0 ? void 0 : error.ixcEndpoint }));
+                    return res.status(500).json({
+                        success: false,
+                        error: 'Erro interno ao carregar dados locais da agenda.',
+                        requestId
+                    });
+                }
+            }
+            (0, logger_1.logWarn)('PainelLogistica.agendamentos', 'IXC indisponível, retornando fallback local/parcial.', Object.assign(Object.assign({}, metaBase), { code: error === null || error === void 0 ? void 0 : error.code, message: error === null || error === void 0 ? void 0 : error.message, endpointIxc: error === null || error === void 0 ? void 0 : error.ixcEndpoint, usouCache: !!cache, cacheDentroTtl: cacheEstaDentroTtl(cache), idadeCacheMs: idade, fallbackLocal, quantidade: agendamentos.length, duracaoMs: Date.now() - startedAt }));
+            return res.status(200).json({
+                success: true,
+                partial: true,
+                ixcIndisponivel: true,
+                stale: !!cache,
+                cacheUpdatedAt: (cache === null || cache === void 0 ? void 0 : cache.updatedAt) || null,
+                cacheAgeMs: idade,
+                cacheExpired: cache ? !cacheEstaDentroTtl(cache) : false,
+                fallbackLocal,
+                warning: cache
+                    ? 'IXC temporariamente indisponível. Exibindo a última versão disponível.'
+                    : 'IXC temporariamente indisponível. Exibindo dados locais.',
+                agendamentos,
+                requestId
+            });
+        }
         (0, logger_1.logError)('PainelLogistica.agendamentos', error, Object.assign(Object.assign({}, metaBase), { duracaoMs: Date.now() - startedAt }));
         res.status(500).json(Object.assign(Object.assign({ success: false, error: 'Erro ao carregar agenda.' }, (process.env.NODE_ENV !== 'production' ? { detail: error.message } : {})), { requestId }));
     }
@@ -243,29 +320,34 @@ router.get('/debug-agendamentos', (req, res) => __awaiter(void 0, void 0, void 0
     }
 }));
 router.get('/fila-pendentes', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _g, _h, _j, _k, _l, _m, _o, _p, _q;
+    var _g, _h, _j, _k, _l;
     const reqAny = req;
     const requestId = reqAny.requestId || (0, logger_1.createRequestId)();
     reqAny.requestId = requestId;
+    const usuario = ((_g = reqAny.user) === null || _g === void 0 ? void 0 : _g.username) || ((_h = reqAny.session) === null || _h === void 0 ? void 0 : _h.username) || 'Visitante';
+    let grupo = String(((_j = reqAny.user) === null || _j === void 0 ? void 0 : _j.group) || ((_k = reqAny.session) === null || _k === void 0 ? void 0 : _k.group) || '').trim();
+    if (!grupo && usuario !== 'Visitante') {
+        const usuarios = yield agendaService_1.AgendaService.executeDb('SELECT grupo FROM usuarios_intranet WHERE ativo = 1 AND usuario = ? LIMIT 1', [usuario]).catch(() => []);
+        grupo = ((_l = usuarios === null || usuarios === void 0 ? void 0 : usuarios[0]) === null || _l === void 0 ? void 0 : _l.grupo) || '';
+    }
+    const grupoNormalizado = normalizarGrupoPermissao(grupo);
+    const deveOcultarSetor19 = grupoNormalizado.includes('LOGISTICA') || grupoNormalizado.includes('FIBRA');
+    const cacheKey = deveOcultarSetor19 ? 'oculta-setor-19' : 'todos-setores';
+    const obterSetor = (os) => [
+        os === null || os === void 0 ? void 0 : os.setor,
+        os === null || os === void 0 ? void 0 : os.id_setor,
+        os === null || os === void 0 ? void 0 : os.id_ticket_setor,
+        os === null || os === void 0 ? void 0 : os.id_setor_atual
+    ].map(valor => String(valor || '').trim()).find(Boolean) || '';
     try {
-        const filaCompleta = yield agendaService_1.AgendaService.obterFilaPendentes();
-        const usuario = ((_g = reqAny.user) === null || _g === void 0 ? void 0 : _g.username) || ((_h = reqAny.session) === null || _h === void 0 ? void 0 : _h.username) || 'Visitante';
-        let grupo = String(((_j = reqAny.user) === null || _j === void 0 ? void 0 : _j.group) || ((_k = reqAny.session) === null || _k === void 0 ? void 0 : _k.group) || '').trim();
-        if (!grupo && usuario !== 'Visitante') {
-            const usuarios = yield agendaService_1.AgendaService.executeDb('SELECT grupo FROM usuarios_intranet WHERE ativo = 1 AND usuario = ? LIMIT 1', [usuario]).catch(() => []);
-            grupo = ((_l = usuarios === null || usuarios === void 0 ? void 0 : usuarios[0]) === null || _l === void 0 ? void 0 : _l.grupo) || '';
-        }
-        const grupoNormalizado = normalizarGrupoPermissao(grupo);
-        const deveOcultarSetor19 = grupoNormalizado.includes('LOGISTICA') || grupoNormalizado.includes('FIBRA');
-        const obterSetor = (os) => [
-            os === null || os === void 0 ? void 0 : os.setor,
-            os === null || os === void 0 ? void 0 : os.id_setor,
-            os === null || os === void 0 ? void 0 : os.id_ticket_setor,
-            os === null || os === void 0 ? void 0 : os.id_setor_atual
-        ].map(valor => String(valor || '').trim()).find(Boolean) || '';
+        const filaCompleta = yield agendaService_1.AgendaService.obterFilaPendentes({ requestId, usuario });
         const fila = deveOcultarSetor19
             ? filaCompleta.filter((os) => obterSetor(os) !== '19')
             : filaCompleta;
+        cacheFilaPendentes.set(cacheKey, {
+            updatedAt: new Date().toISOString(),
+            payload: fila
+        });
         if (deveOcultarSetor19) {
             (0, logger_1.logInfo)('PainelLogistica.filaPendentes', '[Painel Logistica][Fila Pendentes] ocultando setor 19 para grupo LOGISTICA/FIBRA', {
                 requestId,
@@ -279,10 +361,29 @@ router.get('/fila-pendentes', (req, res) => __awaiter(void 0, void 0, void 0, fu
         res.json(fila);
     }
     catch (error) {
+        if (isErroTemporarioIxc(error)) {
+            const cache = cacheFilaPendentes.get(cacheKey);
+            const items = (cache === null || cache === void 0 ? void 0 : cache.payload) || [];
+            (0, logger_1.logWarn)('PainelLogistica.filaPendentes', 'IXC temporariamente indisponível.', {
+                requestId,
+                usuario,
+                grupo: grupoNormalizado,
+                endpointIxc: error === null || error === void 0 ? void 0 : error.ixcEndpoint,
+                code: error === null || error === void 0 ? void 0 : error.code,
+                message: error === null || error === void 0 ? void 0 : error.message,
+                usouCache: !!cache,
+                cacheDentroTtl: cacheEstaDentroTtl(cache),
+                idadeCacheMs: idadeCacheMs(cache),
+                quantidade: items.length
+            });
+            return res.status(200).json(Object.assign(Object.assign({}, montarErroIxcIndisponivel(cache
+                ? 'Não foi possível atualizar a fila agora. Exibindo a última versão disponível.'
+                : 'Não foi possível carregar a fila de O.S. pendentes agora.', requestId)), { stale: !!cache, cacheUpdatedAt: (cache === null || cache === void 0 ? void 0 : cache.updatedAt) || null, cacheAgeMs: idadeCacheMs(cache), cacheExpired: cache ? !cacheEstaDentroTtl(cache) : false, items }));
+        }
         (0, logger_1.logError)('PainelLogistica.filaPendentes', error, {
             requestId,
-            usuario: ((_m = reqAny.user) === null || _m === void 0 ? void 0 : _m.username) || ((_o = reqAny.session) === null || _o === void 0 ? void 0 : _o.username) || 'Visitante',
-            grupo: normalizarGrupoPermissao(((_p = reqAny.user) === null || _p === void 0 ? void 0 : _p.group) || ((_q = reqAny.session) === null || _q === void 0 ? void 0 : _q.group) || '')
+            usuario,
+            grupo: grupoNormalizado
         });
         res.status(500).json({ error: 'Erro ao carregar fila de O.S. pendentes.', requestId });
     }
@@ -366,7 +467,7 @@ router.post('/salvar-configuracoes', (req, res) => __awaiter(void 0, void 0, voi
     }
 }));
 router.put('/atribuir-tecnico', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _r, _s, _t;
+    var _m, _o, _p;
     const { id_agenda, ixc_tecnico_id, ixc_os_id, data_agendamento, turno, usuario_logado } = req.body;
     try {
         if (!ixc_os_id) {
@@ -432,9 +533,9 @@ router.put('/atribuir-tecnico', (req, res) => __awaiter(void 0, void 0, void 0, 
         });
     }
     catch (error) {
-        console.error('[Logistica] Erro ao atribuir técnico:', ((_r = error.response) === null || _r === void 0 ? void 0 : _r.data) || error.message);
+        console.error('[Logistica] Erro ao atribuir técnico:', ((_m = error.response) === null || _m === void 0 ? void 0 : _m.data) || error.message);
         res.status(500).json({
-            error: ((_t = (_s = error.response) === null || _s === void 0 ? void 0 : _s.data) === null || _t === void 0 ? void 0 : _t.message) || error.message
+            error: ((_p = (_o = error.response) === null || _o === void 0 ? void 0 : _o.data) === null || _p === void 0 ? void 0 : _p.message) || error.message
         });
     }
 }));
@@ -454,7 +555,7 @@ router.put('/reagendar', (req, res) => __awaiter(void 0, void 0, void 0, functio
     }
 }));
 router.post('/cancelar-visita', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _u, _v, _w;
+    var _q, _r, _s;
     const { id_local, ixc_os_id, motivo, usuario_logado } = req.body;
     try {
         if (!ixc_os_id)
@@ -518,8 +619,8 @@ router.post('/cancelar-visita', (req, res) => __awaiter(void 0, void 0, void 0, 
         res.json({ success: true, status_interno: statusLocal, ixc_tecnico_id: tecnicoHub });
     }
     catch (error) {
-        console.error('[Painel Logistica][Cancelar Visita]', ((_u = error.response) === null || _u === void 0 ? void 0 : _u.data) || error.message);
-        res.status(500).json({ error: ((_w = (_v = error.response) === null || _v === void 0 ? void 0 : _v.data) === null || _w === void 0 ? void 0 : _w.message) || error.message });
+        console.error('[Painel Logistica][Cancelar Visita]', ((_q = error.response) === null || _q === void 0 ? void 0 : _q.data) || error.message);
+        res.status(500).json({ error: ((_s = (_r = error.response) === null || _r === void 0 ? void 0 : _r.data) === null || _s === void 0 ? void 0 : _s.message) || error.message });
     }
 }));
 router.put('/fechar-os', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -573,7 +674,7 @@ router.put('/fechar-os', (req, res) => __awaiter(void 0, void 0, void 0, functio
     }
 }));
 router.post('/tratar-prioridade', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _x, _y, _z;
+    var _t, _u, _v;
     const { id_local, acao, ixc_os_id, usuario_logado } = req.body;
     try {
         if (!(yield exigirLogisticaOuNoc(req, res)))
@@ -668,9 +769,9 @@ router.post('/tratar-prioridade', (req, res) => __awaiter(void 0, void 0, void 0
         return res.status(400).json({ error: 'Ação inválida. Use aceitar ou recusar.' });
     }
     catch (error) {
-        console.error('[Logistica] Erro ao tratar prioridade:', ((_x = error.response) === null || _x === void 0 ? void 0 : _x.data) || error.message);
+        console.error('[Logistica] Erro ao tratar prioridade:', ((_t = error.response) === null || _t === void 0 ? void 0 : _t.data) || error.message);
         return res.status(500).json({
-            error: ((_z = (_y = error.response) === null || _y === void 0 ? void 0 : _y.data) === null || _z === void 0 ? void 0 : _z.message) || error.message
+            error: ((_v = (_u = error.response) === null || _u === void 0 ? void 0 : _u.data) === null || _v === void 0 ? void 0 : _v.message) || error.message
         });
     }
 }));
@@ -801,7 +902,7 @@ router.get('/os-detalhes/:id', (req, res) => __awaiter(void 0, void 0, void 0, f
     }
 }));
 router.post('/contato-cliente', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _0, _1, _2;
+    var _w, _x, _y;
     const { id_local, ixc_os_id, status_contato, mensagem, usuario_logado } = req.body;
     try {
         if (!(yield exigirLogisticaOuNoc(req, res)))
@@ -826,7 +927,7 @@ router.post('/contato-cliente', (req, res) => __awaiter(void 0, void 0, void 0, 
         }
         catch (error) {
             aviso = 'Confirmação salva localmente. O IXC recusou o registro da mensagem.';
-            console.warn('[IXC Mensagem Simples] fallback local ativado:', ((_0 = error.response) === null || _0 === void 0 ? void 0 : _0.data) || error.message);
+            console.warn('[IXC Mensagem Simples] fallback local ativado:', ((_w = error.response) === null || _w === void 0 ? void 0 : _w.data) || error.message);
         }
         yield agendaService_1.AgendaService.executeDb(`UPDATE ivp_agenda_os SET contato_status = ?, contato_confirmado_em = ? WHERE id = ?`, [status, dataInteracao, id_local]);
         if (!registradoIxc) {
@@ -835,7 +936,7 @@ router.post('/contato-cliente', (req, res) => __awaiter(void 0, void 0, void 0, 
         res.json({ success: true, registrado_ixc: registradoIxc, aviso });
     }
     catch (error) {
-        res.status(500).json({ error: ((_2 = (_1 = error.response) === null || _1 === void 0 ? void 0 : _1.data) === null || _2 === void 0 ? void 0 : _2.message) || error.message });
+        res.status(500).json({ error: ((_y = (_x = error.response) === null || _x === void 0 ? void 0 : _x.data) === null || _y === void 0 ? void 0 : _y.message) || error.message });
     }
 }));
 router.post('/aguardar-cliente', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -880,7 +981,7 @@ router.post('/parar-espera-cliente', (req, res) => __awaiter(void 0, void 0, voi
     }
 }));
 router.post('/observacao-logistica', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _3, _4, _5;
+    var _z, _0, _1;
     const { id_local, ixc_os_id, mensagem, usuario_logado } = req.body;
     try {
         if (!id_local || !ixc_os_id || !mensagem || !String(mensagem).trim()) {
@@ -897,13 +998,13 @@ router.post('/observacao-logistica', (req, res) => __awaiter(void 0, void 0, voi
         }
         catch (error) {
             aviso = 'Observação salva localmente. O IXC recusou o registro da mensagem.';
-            console.warn('[IXC Mensagem Simples] fallback local ativado:', ((_3 = error.response) === null || _3 === void 0 ? void 0 : _3.data) || error.message);
+            console.warn('[IXC Mensagem Simples] fallback local ativado:', ((_z = error.response) === null || _z === void 0 ? void 0 : _z.data) || error.message);
         }
         yield agendaService_1.AgendaService.executeDb(`UPDATE ivp_agenda_os SET observacao_logistica = CONCAT(COALESCE(observacao_logistica, ''), ?, '\n') WHERE id = ?`, [`[${dataInteracao}] ${registradoIxc ? '[IXC]' : '[LOCAL]'} ${texto}`, id_local]);
         res.json({ success: true, registrado_ixc: registradoIxc, aviso });
     }
     catch (error) {
-        res.status(500).json({ error: ((_5 = (_4 = error.response) === null || _4 === void 0 ? void 0 : _4.data) === null || _5 === void 0 ? void 0 : _5.message) || error.message });
+        res.status(500).json({ error: ((_1 = (_0 = error.response) === null || _0 === void 0 ? void 0 : _0.data) === null || _1 === void 0 ? void 0 : _1.message) || error.message });
     }
 }));
 router.get('/tags', (_req, res) => __awaiter(void 0, void 0, void 0, function* () {
