@@ -137,7 +137,18 @@ function obterTituloAssunto(assunto: any): string {
     );
 }
 
+const ASSUNTOS_OCULTOS_ABERTURA = new Set(['14']);
+
+function assuntoCancelamentoInternetBandaLarga(assunto: any, idProcesso?: any): boolean {
+    const idAssunto = normalizarIdIxc(assunto?.id);
+    const processo = normalizarIdIxc(idProcesso || assunto?.id_wfl_processo || assunto?.id_processo);
+    const titulo = normalizarTextoBusca(obterTituloAssunto(assunto));
+    return idAssunto === '14'
+        || (processo === '6' && titulo.includes('CANCELAMENTO') && titulo.includes('INTERNET BANDA LARGA'));
+}
+
 function assuntoPermitidoNaAbertura(assunto: any): boolean {
+    if (ASSUNTOS_OCULTOS_ABERTURA.has(normalizarIdIxc(assunto?.id))) return false;
     const texto = normalizarTextoBusca(obterTituloAssunto(assunto));
     return ![
         'INSTALACAO',
@@ -1103,6 +1114,7 @@ router.get('/assuntos', async (req, res) => {
                 const id = normalizarIdIxc(assunto.id);
                 const idProcesso = extrairIdProcessoAssunto(assunto);
                 const processo: any = processos.get(idProcesso);
+                const ocultarCancelamento = assuntoCancelamentoInternetBandaLarga(assunto, idProcesso);
                 return {
                     id,
                     titulo: obterTituloAssunto(assunto),
@@ -1110,7 +1122,7 @@ router.get('/assuntos', async (req, res) => {
                     processo: processo?.descricao || processo?.nome || processo?.processo || '',
                     id_setor: processo?.id_setor || processo?.id_ticket_setor || assunto.id_setor || assunto.id_ticket_setor || '',
                     ativo: true,
-                    permitido_abertura: assuntoPermitidoNaAbertura(assunto) && processoPermitidoNaAbertura(idProcesso, processo)
+                    permitido_abertura: !ocultarCancelamento && assuntoPermitidoNaAbertura(assunto) && processoPermitidoNaAbertura(idProcesso, processo)
                 };
             })
             .filter((assunto: any) => assunto.id && assunto.permitido_abertura)

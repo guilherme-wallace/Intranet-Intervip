@@ -16,6 +16,7 @@ const TERMOS_ASSUNTOS_OCULTOS_ABERTURA = [
     'RAZAO SOCIAL',
     'NAO USAR'
 ];
+const IDS_ASSUNTOS_OCULTOS_ABERTURA = new Set(['14']);
 
 function normalizarTextoAbertura(valor) {
     return String(valor || '')
@@ -25,7 +26,11 @@ function normalizarTextoAbertura(valor) {
 }
 
 function deveOcultarAssuntoAbertura(assunto) {
+    const idAssunto = String(assunto?.id || '').trim();
+    const idProcesso = String(assunto?.id_wfl_processo || assunto?.id_processo || '').trim();
     const nome = normalizarTextoAbertura(assunto?.titulo || assunto?.assunto || assunto?.descricao || assunto?.nome || '');
+    if (IDS_ASSUNTOS_OCULTOS_ABERTURA.has(idAssunto)) return true;
+    if (idProcesso === '6' && nome.includes('CANCELAMENTO') && nome.includes('INTERNET BANDA LARGA')) return true;
     return TERMOS_ASSUNTOS_OCULTOS_ABERTURA.some(termo => nome.includes(termo));
 }
 

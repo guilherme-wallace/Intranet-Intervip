@@ -135,7 +135,17 @@ function extrairIdProcessoAssunto(assunto) {
 function obterTituloAssunto(assunto) {
     return sanitizarTexto((assunto === null || assunto === void 0 ? void 0 : assunto.assunto) || (assunto === null || assunto === void 0 ? void 0 : assunto.descricao) || (assunto === null || assunto === void 0 ? void 0 : assunto.titulo) || (assunto === null || assunto === void 0 ? void 0 : assunto.nome) || `Assunto #${assunto === null || assunto === void 0 ? void 0 : assunto.id}`, 255);
 }
+const ASSUNTOS_OCULTOS_ABERTURA = new Set(['14']);
+function assuntoCancelamentoInternetBandaLarga(assunto, idProcesso) {
+    const idAssunto = normalizarIdIxc(assunto === null || assunto === void 0 ? void 0 : assunto.id);
+    const processo = normalizarIdIxc(idProcesso || (assunto === null || assunto === void 0 ? void 0 : assunto.id_wfl_processo) || (assunto === null || assunto === void 0 ? void 0 : assunto.id_processo));
+    const titulo = normalizarTextoBusca(obterTituloAssunto(assunto));
+    return idAssunto === '14'
+        || (processo === '6' && titulo.includes('CANCELAMENTO') && titulo.includes('INTERNET BANDA LARGA'));
+}
 function assuntoPermitidoNaAbertura(assunto) {
+    if (ASSUNTOS_OCULTOS_ABERTURA.has(normalizarIdIxc(assunto === null || assunto === void 0 ? void 0 : assunto.id)))
+        return false;
     const texto = normalizarTextoBusca(obterTituloAssunto(assunto));
     return ![
         'INSTALACAO',
@@ -1031,6 +1041,7 @@ router.get('/assuntos', (req, res) => __awaiter(void 0, void 0, void 0, function
             const id = normalizarIdIxc(assunto.id);
             const idProcesso = extrairIdProcessoAssunto(assunto);
             const processo = processos.get(idProcesso);
+            const ocultarCancelamento = assuntoCancelamentoInternetBandaLarga(assunto, idProcesso);
             return {
                 id,
                 titulo: obterTituloAssunto(assunto),
@@ -1038,7 +1049,7 @@ router.get('/assuntos', (req, res) => __awaiter(void 0, void 0, void 0, function
                 processo: (processo === null || processo === void 0 ? void 0 : processo.descricao) || (processo === null || processo === void 0 ? void 0 : processo.nome) || (processo === null || processo === void 0 ? void 0 : processo.processo) || '',
                 id_setor: (processo === null || processo === void 0 ? void 0 : processo.id_setor) || (processo === null || processo === void 0 ? void 0 : processo.id_ticket_setor) || assunto.id_setor || assunto.id_ticket_setor || '',
                 ativo: true,
-                permitido_abertura: assuntoPermitidoNaAbertura(assunto) && processoPermitidoNaAbertura(idProcesso, processo)
+                permitido_abertura: !ocultarCancelamento && assuntoPermitidoNaAbertura(assunto) && processoPermitidoNaAbertura(idProcesso, processo)
             };
         })
             .filter((assunto) => assunto.id && assunto.permitido_abertura)
