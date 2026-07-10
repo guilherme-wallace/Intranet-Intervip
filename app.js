@@ -187,7 +187,7 @@ const PERMISSOES_SISTEMA = {
     'card-agendamento': ['NOC', 'Fibra', 'Logistica', 'Financeiro', 'Helpdesk', 'CRI', 'Corporativo', 'Comercial', 'ADMIN', 'Qualidade'],
     'card-painel-logistica': ['NOC', 'Fibra', 'Logistica', 'Financeiro', 'Helpdesk', 'CRI', 'Corporativo', 'Comercial', 'ADMIN', 'Qualidade'],
     'card-cadastro-bandaLarga': ['NOC', 'Comercial', 'Almoxarifado', 'Corporativo', 'ADMIN', 'Fibra', 'Financeiro', 'Helpdesk', 'CRI', 'Logistica', 'Qualidade'],
-    'card-cadastro-corporativo': ['NOC', 'Corporativo', 'ADMIN', 'Financeiro'],
+    'card-cadastro-corporativo': ['NOC', 'Corporativo', 'ADMIN', 'Financeiro', 'Qualidade'],
     'card-cadastro-redeNeutra': ['NOC', 'conectmais', 'conectja', 'seliga', 'nv7', 'netplanety', 'villaggionet', 'supernet', 'Corporativo', 'Financeiro', 'ADMIN'],
     'card-demo-redeNeutra': ['NOC', 'ADMIN'],
 };
