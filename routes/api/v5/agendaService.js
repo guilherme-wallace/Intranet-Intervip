@@ -259,6 +259,15 @@ class AgendaService {
             return { id_funcionario_ixc: '138', id_usuario_ixc: '', nome: 'Hub Intervip', usuario: usuarioLogado };
         });
     }
+    static isOsRecolhimento(os) {
+        const setor = String((os === null || os === void 0 ? void 0 : os.setor) || (os === null || os === void 0 ? void 0 : os.id_setor) || (os === null || os === void 0 ? void 0 : os.id_ticket_setor) || (os === null || os === void 0 ? void 0 : os.id_setor_atual) || '').trim();
+        const tipoServico = String((os === null || os === void 0 ? void 0 : os.tipo_servico) || '').toUpperCase();
+        const mensagem = String((os === null || os === void 0 ? void 0 : os.mensagem) || (os === null || os === void 0 ? void 0 : os.sintoma_relatado) || (os === null || os === void 0 ? void 0 : os.nome_processo) || (os === null || os === void 0 ? void 0 : os.assunto) || (os === null || os === void 0 ? void 0 : os.titulo) || '').toUpperCase();
+        return setor === '19' ||
+            tipoServico.includes('RECOLHIMENTO') ||
+            mensagem.includes('CANCELAR - RECOLHER EQUIPAMENTOS') ||
+            mensagem.includes('CANCELAMENTO - INTERNET BANDA LARGA');
+    }
     static validarRespostaIxc(resp, mensagemPadrao) {
         if ((resp === null || resp === void 0 ? void 0 : resp.type) === 'error') {
             throw new Error(resp.message || mensagemPadrao);
@@ -800,7 +809,10 @@ class AgendaService {
                     const novoStatus = statusIxcAtual === 'F' ? 'FINALIZADO' :
                         statusIxcAtual === 'C' ? 'CANCELADO' :
                             (osIxc.id_tecnico && osIxc.id_tecnico !== '0' && String(osIxc.id_tecnico) !== '138') ? 'ATRIBUIDO' : 'AGUARDANDO_LOGISTICA';
-                    const tipoServicoSinc = nomeSetor.toUpperCase().includes('INSTALA') || osIxc.setor === '5' ? 'INSTALACAO' : 'SUPORTE';
+                    const ehRecolhimento = this.isOsRecolhimento(Object.assign(Object.assign({}, osIxc), { nome_setor: nomeSetor }));
+                    const tipoServicoSinc = ehRecolhimento
+                        ? 'RECOLHIMENTO'
+                        : (nomeSetor.toUpperCase().includes('INSTALA') || osIxc.setor === '5' ? 'INSTALACAO' : 'SUPORTE');
                     const idAssunto = String(osIxc.id_assunto || '').trim();
                     const idProcessoBruto = String(osIxc.id_wfl_param_os || '').trim();
                     const idProcesso = idProcessoBruto === '0' ? '' : idProcessoBruto;
@@ -828,7 +840,7 @@ class AgendaService {
                     const payloadFinal = {
                         ixc_os_id: osIxc.id,
                         ixc_cliente_id: osIxc.id_cliente,
-                        tipo_servico: osLocal ? osLocal.tipo_servico : tipoServicoSinc,
+                        tipo_servico: ehRecolhimento ? 'RECOLHIMENTO' : (osLocal ? osLocal.tipo_servico : tipoServicoSinc),
                         setor: osIxc.setor,
                         tipo_imovel: tipoImovel,
                         is_rede_neutra: isRedeNeutra,
@@ -877,11 +889,12 @@ class AgendaService {
                         if (ehPrioridadeFutura) {
                             yield this.executeDb(`
                         UPDATE ivp_agenda_os
-                        SET ixc_contrato_id = COALESCE(NULLIF(?, '0'), ixc_contrato_id),
+                        SET tipo_servico = ?,
+                            ixc_contrato_id = COALESCE(NULLIF(?, '0'), ixc_contrato_id),
                             ixc_tecnico_id = ?,
                             status_interno = ?
                         WHERE id = ?
-                        `, [payloadFinal.ixc_contrato_id || '0', osIxc.id_tecnico, novoStatus, osLocal.id]);
+                        `, [payloadFinal.tipo_servico, payloadFinal.ixc_contrato_id || '0', osIxc.id_tecnico, novoStatus, osLocal.id]);
                             listaFinal.push(Object.assign({ id: osLocal.id, data_agendamento_original: osLocal.data_agendamento }, payloadFinal));
                         }
                         else {
@@ -889,11 +902,12 @@ class AgendaService {
                         UPDATE ivp_agenda_os
                         SET data_agendamento = ?,
                             turno = ?,
+                            tipo_servico = ?,
                             ixc_contrato_id = COALESCE(NULLIF(?, '0'), ixc_contrato_id),
                             ixc_tecnico_id = ?,
                             status_interno = ?
                         WHERE id = ?
-                        `, [dataFiltro, this.normalizarTurnoAgenda(turnoInferred), payloadFinal.ixc_contrato_id || '0', osIxc.id_tecnico, novoStatus, osLocal.id]);
+                        `, [dataFiltro, this.normalizarTurnoAgenda(turnoInferred), payloadFinal.tipo_servico, payloadFinal.ixc_contrato_id || '0', osIxc.id_tecnico, novoStatus, osLocal.id]);
                             listaFinal.push(Object.assign({ id: osLocal.id, data_agendamento_original: dataFiltro }, payloadFinal));
                         }
                     }
@@ -923,7 +937,7 @@ class AgendaService {
                             osIxc.id,
                             osIxc.id_cliente,
                             payloadFinal.ixc_contrato_id || 0,
-                            tipoServicoSinc,
+                            payloadFinal.tipo_servico,
                             tipoImovel,
                             cidadeCorreta,
                             dataFiltro,
@@ -1005,7 +1019,7 @@ class AgendaService {
             const lista = (registros || []).map((local) => {
                 const ehFalha = String(local.status_interno || '').toUpperCase() === 'AGUARDANDO_REAGENDAMENTO';
                 const tipoServico = String(local.tipo_servico || 'SUPORTE').toUpperCase();
-                return Object.assign(Object.assign({}, local), { id: local.id, ixc_os_id: local.ixc_os_id, ixc_cliente_id: local.ixc_cliente_id, ixc_contrato_id: local.ixc_contrato_id, tipo_servico: tipoServico, setor: local.setor || (tipoServico === 'INSTALACAO' ? '5' : '9'), tipo_imovel: local.tipo_imovel || 'DESCONHECIDO', turno: this.normalizarTurnoAgenda(local.turno), status_interno: local.status_interno || 'AGUARDANDO_LOGISTICA', ixc_tecnico_id: local.ixc_tecnico_id, nome_tecnico: local.nome_tecnico_local || (local.ixc_tecnico_id ? `Técnico ${local.ixc_tecnico_id}` : 'Não atribuído'), sintoma_relatado: local.sintoma_relatado || '', ixc_status: ehFalha ? 'RAG' : 'A', horario_agendado: this.normalizarTurnoAgenda(local.turno) === 'VESPERTINO' ? '13:00' : '08:00', bairro_real: local.bairro_real || '', cidade_real: local.municipio_base || '', municipio_base: local.municipio_base || '', nome_setor: tipoServico === 'INSTALACAO' ? 'Instalação' : 'Suporte', nome_condominio: local.nome_condominio || '', data_agendamento_original: local.data_agendamento, nome_processo: '', _origem_local_fallback: true });
+                return Object.assign(Object.assign({}, local), { id: local.id, ixc_os_id: local.ixc_os_id, ixc_cliente_id: local.ixc_cliente_id, ixc_contrato_id: local.ixc_contrato_id, tipo_servico: tipoServico, setor: local.setor || (tipoServico === 'RECOLHIMENTO' ? '19' : (tipoServico === 'INSTALACAO' ? '5' : '9')), tipo_imovel: local.tipo_imovel || 'DESCONHECIDO', turno: this.normalizarTurnoAgenda(local.turno), status_interno: local.status_interno || 'AGUARDANDO_LOGISTICA', ixc_tecnico_id: local.ixc_tecnico_id, nome_tecnico: local.nome_tecnico_local || (local.ixc_tecnico_id ? `Técnico ${local.ixc_tecnico_id}` : 'Não atribuído'), sintoma_relatado: local.sintoma_relatado || '', ixc_status: ehFalha ? 'RAG' : 'A', horario_agendado: this.normalizarTurnoAgenda(local.turno) === 'VESPERTINO' ? '13:00' : '08:00', bairro_real: local.bairro_real || '', cidade_real: local.municipio_base || '', municipio_base: local.municipio_base || '', nome_setor: tipoServico === 'RECOLHIMENTO' ? 'Recolhimento' : (tipoServico === 'INSTALACAO' ? 'Instalação' : 'Suporte'), nome_condominio: local.nome_condominio || '', data_agendamento_original: local.data_agendamento, nome_processo: '', _origem_local_fallback: true });
             });
             const tagsPorAgenda = yield this.carregarTagsPorAgendaIds(lista.map((os) => String(os.id)));
             lista.forEach((os) => {
@@ -1194,11 +1208,15 @@ class AgendaService {
         });
     }
     static reagendarOs(payload) {
+        var _a;
         return __awaiter(this, void 0, void 0, function* () {
             const janelaSegura = this.obterJanelaAgendamentoSegura(payload.nova_data, payload.novo_turno);
             const dataFormatada = janelaSegura.dataBr;
             const dataInteracao = janelaSegura.dataInteracao;
             const tecnicoDestino = payload.id_tecnico || "138";
+            const estadoAnterior = !String(payload.id_agenda_local).startsWith('ixc-')
+                ? (_a = (yield this.executeDb('SELECT status_interno, ixc_tecnico_id FROM ivp_agenda_os WHERE id = ? LIMIT 1', [payload.id_agenda_local]).catch(() => []))) === null || _a === void 0 ? void 0 : _a[0]
+                : null;
             const colaboradorAcao = yield this.obterUsuarioIxcLogado(payload.usuario_logado);
             const preferencia = this.formatarPreferenciaHorario(payload);
             let protocoloDuvida = '';
@@ -1254,6 +1272,16 @@ class AgendaService {
                     payload.preferencia_horario_obs || null,
                     payload.id_agenda_local
                 ]);
+                const tecnicoAnterior = String((estadoAnterior === null || estadoAnterior === void 0 ? void 0 : estadoAnterior.ixc_tecnico_id) || '').trim();
+                const estavaAtribuida = String((estadoAnterior === null || estadoAnterior === void 0 ? void 0 : estadoAnterior.status_interno) || '').toUpperCase() === 'ATRIBUIDO'
+                    || (!!tecnicoAnterior && !['0', '138'].includes(tecnicoAnterior));
+                if (tecnicoDestino === '138' && estavaAtribuida) {
+                    yield this.registrarRetornoFila(payload.ixc_os_id, 'Reagendamento devolveu a OS para a fila da logística.', payload.usuario_logado, estadoAnterior === null || estadoAnterior === void 0 ? void 0 : estadoAnterior.status_interno, 'AGUARDANDO_LOGISTICA').catch((error) => (0, logger_1.logWarn)('[Painel Logistica][Retorno Fila]', 'Não foi possível registrar o retorno do reagendamento.', {
+                        os: payload.ixc_os_id,
+                        code: error === null || error === void 0 ? void 0 : error.code,
+                        message: error === null || error === void 0 ? void 0 : error.message
+                    }));
+                }
             }
         });
     }
@@ -1279,7 +1307,9 @@ class AgendaService {
         return 'Preferência de horário informada';
     }
     static garantirCapacidadeDia(data) {
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v;
         return __awaiter(this, void 0, void 0, function* () {
+            yield this.garantirSchemaRecolhimento();
             const existe = yield this.executeDb('SELECT data FROM ivp_agenda_capacidade WHERE data = ?', [data]);
             if (existe.length > 0)
                 return;
@@ -1287,7 +1317,9 @@ class AgendaService {
             const dataObj = new Date(`${data}T12:00:00`);
             const diaSemana = dataObj.getDay(); // 0 domingo, 6 sábado
             if (diaSemana === 0) {
-                yield this.executeDb(`INSERT INTO ivp_agenda_capacidade (data, casa_m, casa_t, predio_serra_m, predio_serra_t, predio_outros_m, predio_outros_t, inst_serra_m, inst_serra_t, inst_outros_m, inst_outros_t) VALUES (?, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)`, [data]);
+                yield this.executeDb(`INSERT INTO ivp_agenda_capacidade
+                    (data, casa_m, casa_t, predio_serra_m, predio_serra_t, predio_outros_m, predio_outros_t, inst_serra_m, inst_serra_t, inst_outros_m, inst_outros_t, inst_casa_serra_m, inst_casa_serra_t, inst_predio_serra_m, inst_predio_serra_t, inst_casa_outros_m, inst_casa_outros_t, inst_predio_outros_m, inst_predio_outros_t, recolhimento_serra_m, recolhimento_serra_t, recolhimento_outros_m, recolhimento_outros_t)
+                 VALUES (?, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)`, [data]);
                 return;
             }
             const templateId = diaSemana === 6 ? 2 : 1;
@@ -1304,11 +1336,307 @@ class AgendaService {
                         inst_serra_m: diaSemana === 6 ? 2 : 3,
                         inst_serra_t: diaSemana === 6 ? 0 : 3,
                         inst_outros_m: diaSemana === 6 ? 2 : 3,
-                        inst_outros_t: diaSemana === 6 ? 0 : 3
+                        inst_outros_t: diaSemana === 6 ? 0 : 3,
+                        inst_casa_serra_m: diaSemana === 6 ? 2 : 3,
+                        inst_casa_serra_t: diaSemana === 6 ? 0 : 3,
+                        inst_predio_serra_m: diaSemana === 6 ? 2 : 3,
+                        inst_predio_serra_t: diaSemana === 6 ? 0 : 3,
+                        inst_casa_outros_m: diaSemana === 6 ? 2 : 3,
+                        inst_casa_outros_t: diaSemana === 6 ? 0 : 3,
+                        inst_predio_outros_m: diaSemana === 6 ? 2 : 3,
+                        inst_predio_outros_t: diaSemana === 6 ? 0 : 3,
+                        recolhimento_serra_m: diaSemana === 6 ? 2 : 3,
+                        recolhimento_serra_t: diaSemana === 6 ? 0 : 3,
+                        recolhimento_outros_m: diaSemana === 6 ? 2 : 3,
+                        recolhimento_outros_t: diaSemana === 6 ? 0 : 3
                     }];
             }
             const t = template[0];
-            yield this.executeDb(`INSERT INTO ivp_agenda_capacidade (data, casa_m, casa_t, predio_serra_m, predio_serra_t, predio_outros_m, predio_outros_t, inst_serra_m, inst_serra_t, inst_outros_m, inst_outros_t) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [data, t.casa_m, t.casa_t, t.predio_serra_m, t.predio_serra_t, t.predio_outros_m, t.predio_outros_t, t.inst_serra_m, t.inst_serra_t, t.inst_outros_m, t.inst_outros_t]);
+            yield this.executeDb(`INSERT INTO ivp_agenda_capacidade
+                (data, casa_m, casa_t, predio_serra_m, predio_serra_t, predio_outros_m, predio_outros_t, inst_serra_m, inst_serra_t, inst_outros_m, inst_outros_t, inst_casa_serra_m, inst_casa_serra_t, inst_predio_serra_m, inst_predio_serra_t, inst_casa_outros_m, inst_casa_outros_t, inst_predio_outros_m, inst_predio_outros_t, recolhimento_serra_m, recolhimento_serra_t, recolhimento_outros_m, recolhimento_outros_t)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
+                data,
+                t.casa_m,
+                t.casa_t,
+                t.predio_serra_m,
+                t.predio_serra_t,
+                t.predio_outros_m,
+                t.predio_outros_t,
+                t.inst_serra_m,
+                t.inst_serra_t,
+                t.inst_outros_m,
+                t.inst_outros_t,
+                (_b = (_a = t.inst_casa_serra_m) !== null && _a !== void 0 ? _a : t.inst_serra_m) !== null && _b !== void 0 ? _b : 3,
+                (_d = (_c = t.inst_casa_serra_t) !== null && _c !== void 0 ? _c : t.inst_serra_t) !== null && _d !== void 0 ? _d : 3,
+                (_f = (_e = t.inst_predio_serra_m) !== null && _e !== void 0 ? _e : t.inst_serra_m) !== null && _f !== void 0 ? _f : 3,
+                (_h = (_g = t.inst_predio_serra_t) !== null && _g !== void 0 ? _g : t.inst_serra_t) !== null && _h !== void 0 ? _h : 3,
+                (_k = (_j = t.inst_casa_outros_m) !== null && _j !== void 0 ? _j : t.inst_outros_m) !== null && _k !== void 0 ? _k : 3,
+                (_m = (_l = t.inst_casa_outros_t) !== null && _l !== void 0 ? _l : t.inst_outros_t) !== null && _m !== void 0 ? _m : 3,
+                (_p = (_o = t.inst_predio_outros_m) !== null && _o !== void 0 ? _o : t.inst_outros_m) !== null && _p !== void 0 ? _p : 3,
+                (_r = (_q = t.inst_predio_outros_t) !== null && _q !== void 0 ? _q : t.inst_outros_t) !== null && _r !== void 0 ? _r : 3,
+                (_s = t.recolhimento_serra_m) !== null && _s !== void 0 ? _s : 3,
+                (_t = t.recolhimento_serra_t) !== null && _t !== void 0 ? _t : 3,
+                (_u = t.recolhimento_outros_m) !== null && _u !== void 0 ? _u : 3,
+                (_v = t.recolhimento_outros_t) !== null && _v !== void 0 ? _v : 3
+            ]);
+        });
+    }
+    static garantirSchemaRecolhimento() {
+        if (!this.schemaRecolhimentoPromise) {
+            this.schemaRecolhimentoPromise = (() => __awaiter(this, void 0, void 0, function* () {
+                yield this.executeDb(`ALTER TABLE ivp_agenda_os
+                     MODIFY COLUMN tipo_servico enum('SUPORTE','INSTALACAO','RECOLHIMENTO') NOT NULL`).catch((error) => {
+                    (0, logger_1.logWarn)('[Agendamento][Recolhimento]', 'Nao foi possivel ajustar enum tipo_servico automaticamente.', {
+                        code: error === null || error === void 0 ? void 0 : error.code,
+                        message: error === null || error === void 0 ? void 0 : error.message
+                    });
+                });
+                yield this.executeDb(`ALTER TABLE ivp_agenda_capacidade
+                        ADD COLUMN IF NOT EXISTS inst_casa_serra_m INT(11) DEFAULT 3,
+                        ADD COLUMN IF NOT EXISTS inst_casa_serra_t INT(11) DEFAULT 3,
+                        ADD COLUMN IF NOT EXISTS inst_predio_serra_m INT(11) DEFAULT 3,
+                        ADD COLUMN IF NOT EXISTS inst_predio_serra_t INT(11) DEFAULT 3,
+                        ADD COLUMN IF NOT EXISTS inst_casa_outros_m INT(11) DEFAULT 3,
+                        ADD COLUMN IF NOT EXISTS inst_casa_outros_t INT(11) DEFAULT 3,
+                        ADD COLUMN IF NOT EXISTS inst_predio_outros_m INT(11) DEFAULT 3,
+                        ADD COLUMN IF NOT EXISTS inst_predio_outros_t INT(11) DEFAULT 3,
+                        ADD COLUMN IF NOT EXISTS recolhimento_serra_m INT(11) DEFAULT 3,
+                        ADD COLUMN IF NOT EXISTS recolhimento_serra_t INT(11) DEFAULT 3,
+                        ADD COLUMN IF NOT EXISTS recolhimento_outros_m INT(11) DEFAULT 3,
+                        ADD COLUMN IF NOT EXISTS recolhimento_outros_t INT(11) DEFAULT 3`).catch((error) => {
+                    (0, logger_1.logWarn)('[Vagas Agenda][Recolhimento]', 'Nao foi possivel criar colunas de recolhimento automaticamente.', {
+                        code: error === null || error === void 0 ? void 0 : error.code,
+                        message: error === null || error === void 0 ? void 0 : error.message
+                    });
+                });
+                yield this.executeDb(`ALTER TABLE ivp_agenda_capacidade_templates
+                        ADD COLUMN IF NOT EXISTS inst_casa_serra_m INT(11) DEFAULT 3,
+                        ADD COLUMN IF NOT EXISTS inst_casa_serra_t INT(11) DEFAULT 3,
+                        ADD COLUMN IF NOT EXISTS inst_predio_serra_m INT(11) DEFAULT 3,
+                        ADD COLUMN IF NOT EXISTS inst_predio_serra_t INT(11) DEFAULT 3,
+                        ADD COLUMN IF NOT EXISTS inst_casa_outros_m INT(11) DEFAULT 3,
+                        ADD COLUMN IF NOT EXISTS inst_casa_outros_t INT(11) DEFAULT 3,
+                        ADD COLUMN IF NOT EXISTS inst_predio_outros_m INT(11) DEFAULT 3,
+                        ADD COLUMN IF NOT EXISTS inst_predio_outros_t INT(11) DEFAULT 3,
+                        ADD COLUMN IF NOT EXISTS recolhimento_serra_m INT(11) DEFAULT 3,
+                        ADD COLUMN IF NOT EXISTS recolhimento_serra_t INT(11) DEFAULT 3,
+                        ADD COLUMN IF NOT EXISTS recolhimento_outros_m INT(11) DEFAULT 3,
+                        ADD COLUMN IF NOT EXISTS recolhimento_outros_t INT(11) DEFAULT 3`).catch((error) => {
+                    (0, logger_1.logWarn)('[Vagas Agenda][Recolhimento]', 'Nao foi possivel criar colunas de recolhimento nos modelos automaticamente.', {
+                        code: error === null || error === void 0 ? void 0 : error.code,
+                        message: error === null || error === void 0 ? void 0 : error.message
+                    });
+                });
+            }))().catch((error) => {
+                this.schemaRecolhimentoPromise = null;
+                throw error;
+            });
+        }
+        return this.schemaRecolhimentoPromise;
+    }
+    static normalizarFiltroVagas(valor, padrao = 'TODOS') {
+        return String(valor || padrao)
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toUpperCase();
+    }
+    static adicionarDiasYmd(dataYmd, dias) {
+        const [ano, mes, dia] = dataYmd.split('-').map(Number);
+        const data = new Date(Date.UTC(ano, mes - 1, dia + dias));
+        return data.toISOString().substring(0, 10);
+    }
+    static criarSlotVaga(total) {
+        const totalNum = Number(total || 0);
+        return { usadas: 0, total: totalNum, disponiveis: Math.max(0, totalNum) };
+    }
+    static classificarOsParaVaga(os) {
+        const turno = this.normalizarTurnoAgenda(os.turno);
+        const sufixo = turno === 'MATUTINO' ? 'm' : 't';
+        const municipio = this.normalizarFiltroVagas(os.municipio_base || os.cidade_real || '');
+        const tipoServico = this.normalizarFiltroVagas(os.tipo_servico || '');
+        const tipoImovel = this.normalizarFiltroVagas(os.tipo_imovel || '');
+        const regiao = municipio.includes('SERRA') ? 'serra' : 'outros';
+        if (tipoServico.includes('RECOLHIMENTO'))
+            return `recolhimento_${regiao}_${sufixo}`;
+        if (tipoServico.includes('INSTALA')) {
+            const imovelInstalacao = tipoImovel.includes('PREDIO') ? 'predio' : 'casa';
+            return `instalacao_${imovelInstalacao}_${regiao}_${sufixo}`;
+        }
+        if (tipoImovel.includes('PREDIO'))
+            return `manutencao_predio_${regiao}_${sufixo}`;
+        return `manutencao_casa_${sufixo}`;
+    }
+    static deveExibirCategoriaVagas(chave, municipio, tipo) {
+        const isInstalacao = chave.startsWith('instalacao_');
+        const isRecolhimento = chave.startsWith('recolhimento_');
+        if (tipo === 'SUPORTE' && (isInstalacao || isRecolhimento))
+            return false;
+        if (tipo === 'INSTALACAO' && !isInstalacao)
+            return false;
+        if (tipo === 'RECOLHIMENTO' && !isRecolhimento)
+            return false;
+        if (municipio === 'SERRA')
+            return !chave.includes('_outros_');
+        if (municipio === 'VV_VIX_CCA')
+            return !chave.includes('_serra_');
+        return true;
+    }
+    static aplicarEncerramentoTurnos(resumoPorData) {
+        const agoraSaoPaulo = this.dataHoraAtualSaoPaulo();
+        const hoje = agoraSaoPaulo.substring(0, 10);
+        const horaAtual = agoraSaoPaulo.substring(11, 19);
+        Object.entries(resumoPorData).forEach(([data, resumo]) => {
+            Object.entries(resumo).forEach(([chave, slot]) => {
+                const matutino = chave.endsWith('_m');
+                const horarioLimite = matutino ? '11:30:00' : '17:30:00';
+                const encerrado = data < hoje || (data === hoje && horaAtual >= horarioLimite);
+                if (!encerrado)
+                    return;
+                slot.disponiveis = 0;
+                slot.encerrado = true;
+                slot.motivo = 'Turno encerrado para novos agendamentos.';
+            });
+        });
+    }
+    static obterResumoVagasPeriodo(inicio, fim, municipioFiltro = 'TODOS', tipoFiltro = 'TODOS') {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(inicio) || !/^\d{4}-\d{2}-\d{2}$/.test(fim) || inicio > fim) {
+                throw new Error('Período inválido para consulta de capacidade.');
+            }
+            const municipio = this.normalizarFiltroVagas(municipioFiltro, 'TODOS');
+            const tipo = this.normalizarFiltroVagas(tipoFiltro, 'TODOS');
+            const datas = [];
+            for (let data = inicio; data <= fim; data = this.adicionarDiasYmd(data, 1)) {
+                datas.push(data);
+                yield this.garantirCapacidadeDia(data);
+            }
+            const [capacidades, agendamentos] = yield Promise.all([
+                this.executeDb('SELECT * FROM ivp_agenda_capacidade WHERE data >= ? AND data <= ? ORDER BY data ASC', [inicio, fim]),
+                this.executeDb(`SELECT data_agendamento, turno, tipo_servico, tipo_imovel, municipio_base, status_interno
+                 FROM ivp_agenda_os
+                 WHERE data_agendamento >= ?
+                   AND data_agendamento <= ?
+                   AND data_agendamento IS NOT NULL
+                   AND turno IN ('MATUTINO', 'VESPERTINO')
+                   AND (status_interno IS NULL OR status_interno NOT IN ('CANCELADO', 'VISITA_CANCELADA'))`, [inicio, fim])
+            ]);
+            const capacidadePorData = new Map((capacidades || []).map((cap) => [this.dataParaYmdSaoPaulo(cap.data), cap]));
+            const resumoPorData = {};
+            datas.forEach(data => {
+                var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _0, _1, _2, _3;
+                const cap = capacidadePorData.get(data) || {};
+                resumoPorData[data] = {
+                    manutencao_casa_m: this.criarSlotVaga(cap.casa_m),
+                    manutencao_casa_t: this.criarSlotVaga(cap.casa_t),
+                    manutencao_predio_serra_m: this.criarSlotVaga(cap.predio_serra_m),
+                    manutencao_predio_serra_t: this.criarSlotVaga(cap.predio_serra_t),
+                    manutencao_predio_outros_m: this.criarSlotVaga(cap.predio_outros_m),
+                    manutencao_predio_outros_t: this.criarSlotVaga(cap.predio_outros_t),
+                    instalacao_casa_serra_m: this.criarSlotVaga((_a = cap.inst_casa_serra_m) !== null && _a !== void 0 ? _a : cap.inst_serra_m),
+                    instalacao_casa_serra_t: this.criarSlotVaga((_b = cap.inst_casa_serra_t) !== null && _b !== void 0 ? _b : cap.inst_serra_t),
+                    instalacao_predio_serra_m: this.criarSlotVaga((_c = cap.inst_predio_serra_m) !== null && _c !== void 0 ? _c : cap.inst_serra_m),
+                    instalacao_predio_serra_t: this.criarSlotVaga((_d = cap.inst_predio_serra_t) !== null && _d !== void 0 ? _d : cap.inst_serra_t),
+                    instalacao_casa_outros_m: this.criarSlotVaga((_e = cap.inst_casa_outros_m) !== null && _e !== void 0 ? _e : cap.inst_outros_m),
+                    instalacao_casa_outros_t: this.criarSlotVaga((_f = cap.inst_casa_outros_t) !== null && _f !== void 0 ? _f : cap.inst_outros_t),
+                    instalacao_predio_outros_m: this.criarSlotVaga((_g = cap.inst_predio_outros_m) !== null && _g !== void 0 ? _g : cap.inst_outros_m),
+                    instalacao_predio_outros_t: this.criarSlotVaga((_h = cap.inst_predio_outros_t) !== null && _h !== void 0 ? _h : cap.inst_outros_t),
+                    instalacao_serra_m: this.criarSlotVaga(Number((_k = (_j = cap.inst_casa_serra_m) !== null && _j !== void 0 ? _j : cap.inst_serra_m) !== null && _k !== void 0 ? _k : 0) + Number((_m = (_l = cap.inst_predio_serra_m) !== null && _l !== void 0 ? _l : cap.inst_serra_m) !== null && _m !== void 0 ? _m : 0)),
+                    instalacao_serra_t: this.criarSlotVaga(Number((_p = (_o = cap.inst_casa_serra_t) !== null && _o !== void 0 ? _o : cap.inst_serra_t) !== null && _p !== void 0 ? _p : 0) + Number((_r = (_q = cap.inst_predio_serra_t) !== null && _q !== void 0 ? _q : cap.inst_serra_t) !== null && _r !== void 0 ? _r : 0)),
+                    instalacao_outros_m: this.criarSlotVaga(Number((_t = (_s = cap.inst_casa_outros_m) !== null && _s !== void 0 ? _s : cap.inst_outros_m) !== null && _t !== void 0 ? _t : 0) + Number((_v = (_u = cap.inst_predio_outros_m) !== null && _u !== void 0 ? _u : cap.inst_outros_m) !== null && _v !== void 0 ? _v : 0)),
+                    instalacao_outros_t: this.criarSlotVaga(Number((_x = (_w = cap.inst_casa_outros_t) !== null && _w !== void 0 ? _w : cap.inst_outros_t) !== null && _x !== void 0 ? _x : 0) + Number((_z = (_y = cap.inst_predio_outros_t) !== null && _y !== void 0 ? _y : cap.inst_outros_t) !== null && _z !== void 0 ? _z : 0)),
+                    recolhimento_serra_m: this.criarSlotVaga((_0 = cap.recolhimento_serra_m) !== null && _0 !== void 0 ? _0 : 3),
+                    recolhimento_serra_t: this.criarSlotVaga((_1 = cap.recolhimento_serra_t) !== null && _1 !== void 0 ? _1 : 3),
+                    recolhimento_outros_m: this.criarSlotVaga((_2 = cap.recolhimento_outros_m) !== null && _2 !== void 0 ? _2 : 3),
+                    recolhimento_outros_t: this.criarSlotVaga((_3 = cap.recolhimento_outros_t) !== null && _3 !== void 0 ? _3 : 3)
+                };
+            });
+            (agendamentos || []).forEach((os) => {
+                var _a, _b;
+                const data = this.dataParaYmdSaoPaulo(os.data_agendamento);
+                const chave = this.classificarOsParaVaga(os);
+                const slot = (_a = resumoPorData[data]) === null || _a === void 0 ? void 0 : _a[chave];
+                if (!slot)
+                    return;
+                slot.usadas += 1;
+                slot.disponiveis = Math.max(0, Number(slot.total || 0) - slot.usadas);
+                const matchInstalacao = chave.match(/^instalacao_(?:casa|predio)_(serra|outros)_([mt])$/);
+                if (matchInstalacao) {
+                    const chaveAgregada = `instalacao_${matchInstalacao[1]}_${matchInstalacao[2]}`;
+                    const slotAgregado = (_b = resumoPorData[data]) === null || _b === void 0 ? void 0 : _b[chaveAgregada];
+                    if (slotAgregado) {
+                        slotAgregado.usadas += 1;
+                        slotAgregado.disponiveis = Math.max(0, Number(slotAgregado.total || 0) - slotAgregado.usadas);
+                    }
+                }
+            });
+            this.aplicarEncerramentoTurnos(resumoPorData);
+            Object.values(resumoPorData).forEach((resumo) => {
+                Object.keys(resumo).forEach(chave => {
+                    if (!this.deveExibirCategoriaVagas(chave, municipio, tipo))
+                        delete resumo[chave];
+                });
+            });
+            return { municipio, tipo, resumoPorData };
+        });
+    }
+    static garantirTabelaRetornoFila() {
+        if (!this.tabelaRetornoFilaPromise) {
+            this.tabelaRetornoFilaPromise = this.executeDb(`CREATE TABLE IF NOT EXISTS ivp_agenda_retorno_fila (
+                    ixc_os_id INT NOT NULL,
+                    retornou_fila_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    retornou_fila_motivo VARCHAR(255) DEFAULT NULL,
+                    retornou_fila_usuario VARCHAR(100) DEFAULT NULL,
+                    status_anterior VARCHAR(50) DEFAULT NULL,
+                    status_novo VARCHAR(50) DEFAULT NULL,
+                    quantidade_retornos INT NOT NULL DEFAULT 1,
+                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    PRIMARY KEY (ixc_os_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`).then(() => undefined).catch((error) => {
+                this.tabelaRetornoFilaPromise = null;
+                throw error;
+            });
+        }
+        return this.tabelaRetornoFilaPromise;
+    }
+    static registrarRetornoFila(ixcOsId, motivo, usuario, statusAnterior, statusNovo = 'AGUARDANDO_LOGISTICA') {
+        return __awaiter(this, void 0, void 0, function* () {
+            const osId = String(ixcOsId || '').trim();
+            if (!/^\d+$/.test(osId))
+                return;
+            yield this.garantirTabelaRetornoFila();
+            yield this.executeDb(`INSERT INTO ivp_agenda_retorno_fila
+                (ixc_os_id, retornou_fila_em, retornou_fila_motivo, retornou_fila_usuario, status_anterior, status_novo)
+             VALUES (?, NOW(), ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+                retornou_fila_em = NOW(),
+                retornou_fila_motivo = VALUES(retornou_fila_motivo),
+                retornou_fila_usuario = VALUES(retornou_fila_usuario),
+                status_anterior = VALUES(status_anterior),
+                status_novo = VALUES(status_novo),
+                quantidade_retornos = quantidade_retornos + 1`, [
+                osId,
+                String(motivo || 'OS retornada para a fila da logística.').substring(0, 255),
+                String(usuario || 'Não informado').substring(0, 100),
+                String(statusAnterior || '').substring(0, 50) || null,
+                String(statusNovo || '').substring(0, 50) || null
+            ]);
+            (0, logger_1.logInfo)('[Painel Logistica][Retorno Fila]', 'Retorno da OS registrado.', {
+                os: osId,
+                motivo: String(motivo || ''),
+                usuario: usuario || 'Não informado',
+                statusAnterior: statusAnterior || null,
+                statusNovo: statusNovo || null
+            });
+        });
+    }
+    static obterRetornosFila(idsOs) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (idsOs.length === 0)
+                return [];
+            yield this.garantirTabelaRetornoFila();
+            return this.executeDb(`SELECT ixc_os_id, retornou_fila_em, retornou_fila_motivo, status_anterior, status_novo, quantidade_retornos
+             FROM ivp_agenda_retorno_fila
+             WHERE ixc_os_id IN (${idsOs.map(() => '?').join(',')})`, idsOs);
         });
     }
     static obterFilaPendentes(context = {}) {
@@ -1356,7 +1684,9 @@ class AgendaService {
                 sintoma_relatado AS mensagem,
                 NULL AS data_abertura,
                 ixc_tecnico_id AS id_tecnico,
-                status_interno
+                status_interno,
+                visita_cancelada_em,
+                visita_cancelada_motivo
             FROM ivp_agenda_os
             WHERE status_interno IN ('AGUARDANDO_LOGISTICA', 'AGUARDANDO_REAGENDAMENTO')
               AND (ixc_tecnico_id IS NULL OR ixc_tecnico_id = 138)
@@ -1372,6 +1702,43 @@ class AgendaService {
                 mapIds.add(idOs);
                 fila.push(Object.assign(Object.assign({}, local), { id: idOs, id_tecnico: local.id_tecnico || '138', status: 'A', setor: local.setor || '', _origem_local_logistica: true }));
             }
+            const idsFila = [...new Set(fila.map(os => String(os.id || '').trim()).filter(Boolean))];
+            const historicoLocal = idsFila.length > 0
+                ? yield this.executeDb(`SELECT ixc_os_id, status_interno, visita_cancelada_em, visita_cancelada_motivo
+                 FROM ivp_agenda_os
+                 WHERE ixc_os_id IN (${idsFila.map(() => '?').join(',')})
+                 ORDER BY visita_cancelada_em DESC, id DESC`, idsFila).catch(() => [])
+                : [];
+            const retornoPorOs = new Map();
+            (historicoLocal || []).forEach((local) => {
+                const idOs = String(local.ixc_os_id || '').trim();
+                if (!idOs || retornoPorOs.has(idOs))
+                    return;
+                const status = String(local.status_interno || '').toUpperCase();
+                const retornouFila = !!local.visita_cancelada_em || status === 'AGUARDANDO_REAGENDAMENTO';
+                if (retornouFila) {
+                    retornoPorOs.set(idOs, {
+                        em: local.visita_cancelada_em || null,
+                        motivo: local.visita_cancelada_motivo || 'OS aguardando reagendamento.'
+                    });
+                }
+            });
+            const retornosRegistrados = yield this.obterRetornosFila(idsFila).catch((error) => {
+                (0, logger_1.logWarn)('[Painel Logistica][Retorno Fila]', 'Histórico dedicado indisponível; usando campos locais existentes.', {
+                    code: error === null || error === void 0 ? void 0 : error.code,
+                    message: error === null || error === void 0 ? void 0 : error.message
+                });
+                return [];
+            });
+            (retornosRegistrados || []).forEach((retorno) => {
+                const idOs = String(retorno.ixc_os_id || '').trim();
+                if (!idOs)
+                    return;
+                retornoPorOs.set(idOs, {
+                    em: retorno.retornou_fila_em || null,
+                    motivo: retorno.retornou_fila_motivo || 'OS retornada para a fila da logística.'
+                });
+            });
             const idClientes = fila.map(o => o.id_cliente);
             const clientesData = yield this.fetchIxcInBatches('/cliente', 'cliente', idClientes, 5);
             const dictClientes = new Map(clientesData.map(c => [String(c.id), c]));
@@ -1384,10 +1751,13 @@ class AgendaService {
             const dictSetores = new Map((setoresData.registros || []).map((s) => [String(s.id), s.descricao || s.setor || `Setor ${s.id}`]));
             return fila.map(os => {
                 const cliente = dictClientes.get(String(os.id_cliente));
-                return Object.assign(Object.assign({}, os), { nome_cliente: cliente ? (cliente.razao || cliente.nome) : 'Desconhecido', nome_setor: dictSetores.get(String(os.setor)) || os.tipo_servico || 'Desconhecido', endereco_formatado: cliente ? `${cliente.endereco || ''}, ${cliente.numero || 'S/N'} - ${cliente.bairro || ''}` : '', cidade_real: (cliente === null || cliente === void 0 ? void 0 : cliente.cidade) || os.municipio_base || '', municipio_base: os.municipio_base || (cliente === null || cliente === void 0 ? void 0 : cliente.cidade) || '' });
+                const retorno = retornoPorOs.get(String(os.id));
+                return Object.assign(Object.assign({}, os), { nome_cliente: cliente ? (cliente.razao || cliente.nome) : 'Desconhecido', nome_setor: dictSetores.get(String(os.setor)) || os.tipo_servico || 'Desconhecido', endereco_formatado: cliente ? `${cliente.endereco || ''}, ${cliente.numero || 'S/N'} - ${cliente.bairro || ''}` : '', cidade_real: (cliente === null || cliente === void 0 ? void 0 : cliente.cidade) || os.municipio_base || '', municipio_base: os.municipio_base || (cliente === null || cliente === void 0 ? void 0 : cliente.cidade) || '', retornou_fila: !!retorno, retornou_fila_em: (retorno === null || retorno === void 0 ? void 0 : retorno.em) || null, retornou_fila_motivo: (retorno === null || retorno === void 0 ? void 0 : retorno.motivo) || '' });
             });
         });
     }
 }
 exports.AgendaService = AgendaService;
 AgendaService.ultimoLogErroIxc = new Map();
+AgendaService.tabelaRetornoFilaPromise = null;
+AgendaService.schemaRecolhimentoPromise = null;
