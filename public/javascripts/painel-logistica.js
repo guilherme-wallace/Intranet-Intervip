@@ -7,6 +7,7 @@ let duplaCounter = 0;
 let tagsLogisticaGlobal = [];
 let capacidadeResumoDiaGlobal = null;
 let capacidadeResumoDataGlobal = '';
+let usuarioConfiguracaoSomenteRecolhimento = false;
 
 const CHAVE_CAPACIDADE_POR_COLUNA = {
     'col-manut-casa-matutino': 'manutencao_casa_m',
@@ -15,12 +16,16 @@ const CHAVE_CAPACIDADE_POR_COLUNA = {
     'col-manut-predio-serra-vespertino': 'manutencao_predio_serra_t',
     'col-manut-predio-outros-matutino': 'manutencao_predio_outros_m',
     'col-manut-predio-outros-vespertino': 'manutencao_predio_outros_t',
-    'col-inst-serra-matutino': 'instalacao_serra_m',
-    'col-inst-serra-vespertino': 'instalacao_serra_t',
-    'col-inst-outros-matutino': 'instalacao_outros_m',
-    'col-inst-outros-vespertino': 'instalacao_outros_t',
-    'col-recolhimento-matutino': 'recolhimento_serra_m',
-    'col-recolhimento-vespertino': 'recolhimento_serra_t'
+    'col-inst-casa-serra-matutino': 'instalacao_casa_serra_m',
+    'col-inst-casa-serra-vespertino': 'instalacao_casa_serra_t',
+    'col-inst-predio-serra-matutino': 'instalacao_predio_serra_m',
+    'col-inst-predio-serra-vespertino': 'instalacao_predio_serra_t',
+    'col-inst-casa-outros-matutino': 'instalacao_casa_outros_m',
+    'col-inst-casa-outros-vespertino': 'instalacao_casa_outros_t',
+    'col-inst-predio-outros-matutino': 'instalacao_predio_outros_m',
+    'col-inst-predio-outros-vespertino': 'instalacao_predio_outros_t',
+    'col-recolhimento-matutino': 'recolhimento_m',
+    'col-recolhimento-vespertino': 'recolhimento_t'
 };
 
 const CAMPOS_CAPACIDADE_LOGISTICA = [
@@ -58,6 +63,26 @@ function normalizarGrupoUsuario(grupo) {
 function usuarioEhLogisticaOuNoc() {
     const grupo = normalizarGrupoUsuario(window.grupoUsuarioLogado || '');
     return grupo.includes('LOGISTICA') || grupo.includes('NOC') || grupo.includes('FIBRA') || grupo.includes('ADMIN');
+}
+
+function usuarioPodeAbrirConfiguracoesLogistica(grupoNormalizado = normalizarGrupoUsuario(window.grupoUsuarioLogado || '')) {
+    return ['LOGISTICA', 'FIBRA', 'NOC', 'ADMIN', 'QUALIDADE', 'RECOLHIMENTO', 'AGENDAMENTO', 'AGENDAMENTOS']
+        .some(grupo => grupoNormalizado.includes(grupo));
+}
+
+function usuarioTemConfiguracaoCompleta(grupoNormalizado = normalizarGrupoUsuario(window.grupoUsuarioLogado || '')) {
+    return ['LOGISTICA', 'FIBRA', 'NOC', 'ADMIN']
+        .some(grupo => grupoNormalizado.includes(grupo));
+}
+
+function usuarioTemConfiguracaoSomenteRecolhimento(grupoNormalizado = normalizarGrupoUsuario(window.grupoUsuarioLogado || '')) {
+    return usuarioPodeAbrirConfiguracoesLogistica(grupoNormalizado)
+        && !usuarioTemConfiguracaoCompleta(grupoNormalizado);
+}
+
+function usuarioNaoEditaCapacidadeRecolhimento(grupoNormalizado = normalizarGrupoUsuario(window.grupoUsuarioLogado || '')) {
+    if (grupoNormalizado.includes('ADMIN') || grupoNormalizado.includes('NOC')) return false;
+    return grupoNormalizado.includes('LOGISTICA') || grupoNormalizado.includes('FIBRA');
 }
 
 function obterModoAtendimentoPainel() {
@@ -361,14 +386,80 @@ async function verificarPermissoes() {
         }
         ajustarFiltrosPorModo();
         
+        usuarioConfiguracaoSomenteRecolhimento = usuarioTemConfiguracaoSomenteRecolhimento(grupo);
+
+        if (usuarioPodeAbrirConfiguracoesLogistica(grupo)) {
+            document.getElementById('area-admin-logistica')?.classList.remove('d-none');
+        }
+
         if (grupo.includes('LOGISTICA') || grupo.includes('ADMIN') || grupo.includes('NOC') || grupo.includes('FIBRA')) {
             usuarioPodeEditar = true;
-            document.getElementById('area-admin-logistica')?.classList.remove('d-none');
         }
         if (grupo.includes('QUALIDADE') || grupo.includes('RECOLHIMENTO')) {
             usuarioPodeEditar = true;
         }
     } catch (e) { console.error("Erro ao checar permissões", e); }
+}
+
+function aplicarVisibilidadeConfiguracaoLogistica() {
+    const somenteRecolhimento = usuarioConfiguracaoSomenteRecolhimento;
+    const ocultarRecolhimento = usuarioNaoEditaCapacidadeRecolhimento();
+    const configCompleta = !somenteRecolhimento;
+
+    ['escala-tab', 'duplas-tab', 'tags-tab'].forEach(id => {
+        document.getElementById(id)?.closest('li')?.classList.toggle('d-none', somenteRecolhimento);
+    });
+    document.getElementById('escala-tab')?.classList.toggle('active', configCompleta);
+    document.getElementById('duplas-tab')?.classList.remove('active');
+    document.getElementById('tags-tab')?.classList.remove('active');
+
+    ['escala-panel', 'duplas-panel', 'tags-panel'].forEach(id => {
+        const panel = document.getElementById(id);
+        panel?.classList.toggle('show', configCompleta && id === 'escala-panel');
+        panel?.classList.toggle('active', configCompleta && id === 'escala-panel');
+    });
+
+    const capacidadeTab = document.getElementById('capacidade-tab');
+    const capacidadePanel = document.getElementById('capacidade-panel');
+    capacidadeTab?.classList.toggle('active', somenteRecolhimento);
+    capacidadePanel?.classList.toggle('show', somenteRecolhimento);
+    capacidadePanel?.classList.toggle('active', somenteRecolhimento);
+
+    document.querySelectorAll('.capacidade-card-manutencao, .capacidade-card-instalacao, .capacidade-template-area')
+        .forEach(el => el.classList.toggle('d-none', somenteRecolhimento));
+
+    document.querySelectorAll('.capacidade-card-recolhimento')
+        .forEach(el => {
+            el.classList.toggle('d-none', ocultarRecolhimento);
+            el.classList.toggle('col-md-6', !somenteRecolhimento);
+            el.classList.toggle('col-md-8', somenteRecolhimento);
+            el.classList.toggle('mx-auto', somenteRecolhimento);
+        });
+
+    ajustarLayoutRecolhimentoUnificado();
+}
+
+function ajustarLayoutRecolhimentoUnificado() {
+    const inputManha = document.getElementById('cap-recolhimento-serra-m');
+    const inputTarde = document.getElementById('cap-recolhimento-serra-t');
+    const inputOutrosManha = document.getElementById('cap-recolhimento-outros-m');
+    const inputOutrosTarde = document.getElementById('cap-recolhimento-outros-t');
+
+    const rowPrincipal = inputManha?.closest('.row');
+    const tituloPrincipal = rowPrincipal?.previousElementSibling;
+    if (tituloPrincipal) tituloPrincipal.textContent = 'Todos os municípios';
+
+    const labelManha = inputManha?.closest('.col-6')?.querySelector('label');
+    const labelTarde = inputTarde?.closest('.col-6')?.querySelector('label');
+    if (labelManha) labelManha.textContent = 'Manhã - 08:00 as 12:00';
+    if (labelTarde) labelTarde.textContent = 'Tarde - 13:00 as 18:00';
+
+    const rowOutros = inputOutrosManha?.closest('.row');
+    const tituloOutros = rowOutros?.previousElementSibling;
+    rowOutros?.classList.add('d-none');
+    tituloOutros?.classList.add('d-none');
+    if (inputOutrosManha) inputOutrosManha.value = '0';
+    if (inputOutrosTarde) inputOutrosTarde.value = '0';
 }
 
 function ajustarFiltrosPorModo() {
@@ -476,20 +567,8 @@ function colunaCapacidadePermitida(chave, filtroSetor, filtroMunicipio) {
 }
 
 function obterChavesCapacidadeColuna(corpoId, filtroMunicipio) {
-    if (corpoId === 'col-inst-serra-matutino') return ['instalacao_casa_serra_m', 'instalacao_predio_serra_m'];
-    if (corpoId === 'col-inst-serra-vespertino') return ['instalacao_casa_serra_t', 'instalacao_predio_serra_t'];
-    if (corpoId === 'col-inst-outros-matutino') return ['instalacao_casa_outros_m', 'instalacao_predio_outros_m'];
-    if (corpoId === 'col-inst-outros-vespertino') return ['instalacao_casa_outros_t', 'instalacao_predio_outros_t'];
-    if (corpoId === 'col-recolhimento-matutino') {
-        if (filtroMunicipio === 'SERRA') return ['recolhimento_serra_m'];
-        if (filtroMunicipio === 'VV_VIX_CCA') return ['recolhimento_outros_m'];
-        return ['recolhimento_serra_m', 'recolhimento_outros_m'];
-    }
-    if (corpoId === 'col-recolhimento-vespertino') {
-        if (filtroMunicipio === 'SERRA') return ['recolhimento_serra_t'];
-        if (filtroMunicipio === 'VV_VIX_CCA') return ['recolhimento_outros_t'];
-        return ['recolhimento_serra_t', 'recolhimento_outros_t'];
-    }
+    if (corpoId === 'col-recolhimento-matutino') return ['recolhimento_m'];
+    if (corpoId === 'col-recolhimento-vespertino') return ['recolhimento_t'];
     const chave = CHAVE_CAPACIDADE_POR_COLUNA[corpoId || ''];
     return chave ? [chave] : [];
 }
@@ -594,7 +673,11 @@ function renderizarQuadro() {
         if (isRecolhimento) {
             baseDivId = `col-recolhimento-${turnoId}`;
         } else if (isInstalacao) {
-            baseDivId = isSerra ? `col-inst-serra-${turnoId}` : `col-inst-outros-${turnoId}`;
+            const tipoImovelInstalacao = normalizarGrupoUsuario(os.tipo_imovel || '');
+            const imovelInstalacao = tipoImovelInstalacao.includes('PREDIO') ? 'predio' : 'casa';
+            baseDivId = isSerra
+                ? `col-inst-${imovelInstalacao}-serra-${turnoId}`
+                : `col-inst-${imovelInstalacao}-outros-${turnoId}`;
         } else {
             if (os.tipo_imovel === 'CASA' || os.tipo_imovel === 'CORPORATIVO') baseDivId = `col-manut-casa-${turnoId}`;
             else baseDivId = isSerra ? `col-manut-predio-serra-${turnoId}` : `col-manut-predio-outros-${turnoId}`;
@@ -1233,8 +1316,20 @@ async function carregarFilaLogistica() {
             if (os.retornou_fila) {
                 const motivoRetorno = escapeHtmlLogistica(os.retornou_fila_motivo || 'OS retornada para tratamento da logística.');
                 badgeRetornoFila = `
-                    <span class="badge badge-retorno-fila mt-1 d-block" title="Motivo: ${motivoRetorno}">
-                        <i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>Retornou para fila
+                    <span class="badge badge-retorno-fila mt-1 d-block bg-info" title="Motivo: ${motivoRetorno}">
+                        <i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>Reagendar
+                    </span>`;
+            }
+
+            let badgeDuplicada = '';
+            if (os.duplicada) {
+                const totalDuplicadas = Number(os.duplicada_total || 0);
+                const tituloDuplicada = totalDuplicadas > 0
+                    ? `Cliente possui ${totalDuplicadas} OSs agendadas.`
+                    : 'Cliente possui mais de uma OS agendada.';
+                badgeDuplicada = `
+                    <span class="badge badge-duplicada-fila mt-1 d-block bg-warning" title="${escapeHtmlLogistica(tituloDuplicada)}">
+                        <i class="bi bi-copy me-1" aria-hidden="true"></i>Duplicada
                     </span>`;
             }
 
@@ -1244,6 +1339,7 @@ async function carregarFilaLogistica() {
                         <span class="fw-bold text-primary">#${os.id}</span>
                         ${badgeAtraso}
                         ${badgeRetornoFila}
+                        ${badgeDuplicada}
                     </td>
                     <td class="align-middle"><span class="badge bg-secondary">${os.nome_setor}</span></td>
                     <td class="align-middle">
@@ -1294,10 +1390,65 @@ function removerOsFilaAtualDaUi() {
     return true;
 }
 
+function numeroCapacidade(valor) {
+    const numero = Number(valor || 0);
+    return Number.isFinite(numero) ? numero : 0;
+}
+
+function obterRecolhimentoUnificado(dados, turno) {
+    if (!dados) return 0;
+    const chaveUnificada = turno === 't' ? 'recolhimento_t' : 'recolhimento_m';
+    if (dados[chaveUnificada] !== undefined && dados[chaveUnificada] !== null) {
+        return numeroCapacidade(dados[chaveUnificada]);
+    }
+    return numeroCapacidade(dados[`recolhimento_serra_${turno}`])
+        + numeroCapacidade(dados[`recolhimento_outros_${turno}`]);
+}
+
+function preencherCamposRecolhimentoUnificado(dados) {
+    const inputManha = document.getElementById('cap-recolhimento-serra-m');
+    const inputTarde = document.getElementById('cap-recolhimento-serra-t');
+    if (inputManha) inputManha.value = String(obterRecolhimentoUnificado(dados, 'm') || 0);
+    if (inputTarde) inputTarde.value = String(obterRecolhimentoUnificado(dados, 't') || 0);
+}
+
+async function carregarCapacidadeConfiguracao(data, carregarTemplates = true) {
+    const resCap = await fetch(`/api/v5/painel-logistica/capacidade-dia?data=${data}`);
+    const capData = await resCap.json();
+    if (capData && capData.encontrado) {
+        CAMPOS_CAPACIDADE_LOGISTICA.forEach(campo => {
+            const input = document.getElementById('cap-' + campo.replace(/_/g, '-'));
+            if (input) input.value = capData[campo] ?? 0;
+        });
+        preencherCamposRecolhimentoUnificado(capData);
+    } else {
+        preencherCamposRecolhimentoUnificado({ recolhimento_m: 6, recolhimento_t: 6 });
+    }
+
+    if (!carregarTemplates) return;
+
+    const resTemp = await fetch('/api/v5/painel-logistica/capacidade-templates');
+    window.templatesCapacidade = await resTemp.json();
+    const selectTemp = document.getElementById('select-template-capacidade');
+    selectTemp.innerHTML = '<option value="">Selecione um modelo salvo...</option>';
+    window.templatesCapacidade.forEach(t => selectTemp.add(new Option(t.nome, t.id)));
+}
+
 async function abrirModalConfiguracoes() {
     showModalNativo('modalConfiguracoes');
     const data = document.getElementById('filtro-data').value;
     document.getElementById('display-data-escala').textContent = data.split('-').reverse().join('/');
+    aplicarVisibilidadeConfiguracaoLogistica();
+
+    if (usuarioConfiguracaoSomenteRecolhimento) {
+        try {
+            await carregarCapacidadeConfiguracao(data, false);
+        } catch (e) {
+            showInfoModal('Erro ao carregar capacidade de recolhimento.');
+        }
+        return;
+    }
+
     carregarTagsConfiguracao();
 
     const containerIndiv = document.getElementById('lista-checkbox-tecnicos');
@@ -1370,20 +1521,7 @@ async function abrirModalConfiguracoes() {
         configurarBuscaTecnicosEscala();
         atualizarResumoTecnicosSelecionados();
 
-        const resCap = await fetch(`/api/v5/painel-logistica/capacidade-dia?data=${data}`);
-        const capData = await resCap.json();
-        if (capData && capData.encontrado) {
-            CAMPOS_CAPACIDADE_LOGISTICA.forEach(campo => {
-                const input = document.getElementById('cap-' + campo.replace(/_/g, '-'));
-                if (input) input.value = capData[campo] ?? 0;
-            });
-        }
-
-        const resTemp = await fetch('/api/v5/painel-logistica/capacidade-templates');
-        window.templatesCapacidade = await resTemp.json();
-        const selectTemp = document.getElementById('select-template-capacidade');
-        selectTemp.innerHTML = '<option value="">Selecione um modelo salvo...</option>';
-        window.templatesCapacidade.forEach(t => selectTemp.add(new Option(t.nome, t.id)));
+        await carregarCapacidadeConfiguracao(data, true);
         
     } catch (e) { containerIndiv.innerHTML = '<div class="text-danger mt-3">Erro ao carregar.</div>'; }
 }
@@ -1394,9 +1532,13 @@ function aplicarTemplateCapacidade() {
     if (!t) return;
 
     CAMPOS_CAPACIDADE_LOGISTICA.forEach(campo => {
+        if (usuarioNaoEditaCapacidadeRecolhimento() && campo.startsWith('recolhimento_')) return;
         const input = document.getElementById('cap-' + campo.replace(/_/g, '-'));
         if (input) input.value = t[campo] ?? 0;
     });
+    if (!usuarioNaoEditaCapacidadeRecolhimento()) {
+        preencherCamposRecolhimentoUnificado(t);
+    }
     showInfoModal(`Modelo carregado! Clique em 'Salvar Tudo'.`);
 }
 
@@ -1472,6 +1614,12 @@ function getValoresCapacidade() {
     valores.inst_serra_t = Number(valores.inst_casa_serra_t || 0) + Number(valores.inst_predio_serra_t || 0);
     valores.inst_outros_m = Number(valores.inst_casa_outros_m || 0) + Number(valores.inst_predio_outros_m || 0);
     valores.inst_outros_t = Number(valores.inst_casa_outros_t || 0) + Number(valores.inst_predio_outros_t || 0);
+    valores.recolhimento_serra_m = Number(document.getElementById('cap-recolhimento-serra-m')?.value || 0);
+    valores.recolhimento_serra_t = Number(document.getElementById('cap-recolhimento-serra-t')?.value || 0);
+    valores.recolhimento_outros_m = 0;
+    valores.recolhimento_outros_t = 0;
+    valores.recolhimento_m = valores.recolhimento_serra_m;
+    valores.recolhimento_t = valores.recolhimento_serra_t;
     return valores;
 }
 
@@ -1651,34 +1799,36 @@ async function salvarConfiguracoes() {
     const tecnicosArr = [];
     const idsUsados = new Set(); 
 
-    document.querySelectorAll('.dupla-row').forEach((row, index) => {
-        const t1 = row.querySelector('.sel-tec1-dupla').value;
-        const t2 = row.querySelector('.sel-tec2-dupla').value;
-        const baseObj = {
-            equipe: row.querySelector('.sel-equipe-dupla').value,
-            regiao: normalizarRegiaoEscala(row.querySelector('.sel-regiao').value),
-            turno: normalizarTurnoEscala(row.querySelector('.sel-turno').value),
-            tipo_imovel: normalizarImovelEscala(row.querySelector('.sel-imovel').value),
-            dupla_id: `D_DYN_${index + 1}`
-        };
-        
-        if (t1) { tecnicosArr.push({ id: t1, ...baseObj }); idsUsados.add(t1); }
-        if (t2 && t2 !== t1) { tecnicosArr.push({ id: t2, ...baseObj }); idsUsados.add(t2); }
-    });
+    if (!usuarioConfiguracaoSomenteRecolhimento) {
+        document.querySelectorAll('.dupla-row').forEach((row, index) => {
+            const t1 = row.querySelector('.sel-tec1-dupla').value;
+            const t2 = row.querySelector('.sel-tec2-dupla').value;
+            const baseObj = {
+                equipe: row.querySelector('.sel-equipe-dupla').value,
+                regiao: normalizarRegiaoEscala(row.querySelector('.sel-regiao').value),
+                turno: normalizarTurnoEscala(row.querySelector('.sel-turno').value),
+                tipo_imovel: normalizarImovelEscala(row.querySelector('.sel-imovel').value),
+                dupla_id: `D_DYN_${index + 1}`
+            };
+            
+            if (t1) { tecnicosArr.push({ id: t1, ...baseObj }); idsUsados.add(t1); }
+            if (t2 && t2 !== t1) { tecnicosArr.push({ id: t2, ...baseObj }); idsUsados.add(t2); }
+        });
 
-    document.querySelectorAll('.chk-escala:checked').forEach(chk => {
-        const id = chk.value;
-        if (!idsUsados.has(id)) {
-            tecnicosArr.push({
-                id,
-                equipe: document.getElementById(`equipe-${id}`).value,
-                regiao: normalizarRegiaoEscala(document.getElementById(`regiao-${id}`).value),
-                turno: normalizarTurnoEscala(document.getElementById(`turno-${id}`).value),
-                tipo_imovel: normalizarImovelEscala(document.getElementById(`imovel-${id}`).value),
-                dupla_id: null
-            });
-        }
-    });
+        document.querySelectorAll('.chk-escala:checked').forEach(chk => {
+            const id = chk.value;
+            if (!idsUsados.has(id)) {
+                tecnicosArr.push({
+                    id,
+                    equipe: document.getElementById(`equipe-${id}`).value,
+                    regiao: normalizarRegiaoEscala(document.getElementById(`regiao-${id}`).value),
+                    turno: normalizarTurnoEscala(document.getElementById(`turno-${id}`).value),
+                    tipo_imovel: normalizarImovelEscala(document.getElementById(`imovel-${id}`).value),
+                    dupla_id: null
+                });
+            }
+        });
+    }
 
     const btn = document.getElementById('btn-salvar-config');
     btn.innerHTML = 'Salvando...'; btn.disabled = true;
@@ -1686,7 +1836,11 @@ async function salvarConfiguracoes() {
     try {
         await fetch('/api/v5/painel-logistica/salvar-configuracoes', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ data: data, tecnicos: tecnicosArr, capacidades: getValoresCapacidade() })
+            body: JSON.stringify({
+                data: data,
+                tecnicos: usuarioConfiguracaoSomenteRecolhimento ? null : tecnicosArr,
+                capacidades: getValoresCapacidade()
+            })
         });
         hideModalNativo('modalConfiguracoes');
         carregarAgenda();
