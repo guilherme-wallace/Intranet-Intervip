@@ -70,6 +70,33 @@ function normalizarModoPainel(valor: any): 'RECOLHIMENTO' | 'OPERACIONAL' {
     return modo.includes('RECOLHIMENTO') ? 'RECOLHIMENTO' : 'OPERACIONAL';
 }
 
+function numeroCapacidade(valor: any, padrao = 0): number {
+    const numero = Number(valor ?? padrao);
+    return Number.isFinite(numero) ? Math.max(0, numero) : padrao;
+}
+
+function normalizarCapacidadeRecolhimento(capacidades: any) {
+    const temManha = capacidades?.recolhimento_m !== undefined
+        || capacidades?.recolhimento_serra_m !== undefined
+        || capacidades?.recolhimento_outros_m !== undefined;
+    const temTarde = capacidades?.recolhimento_t !== undefined
+        || capacidades?.recolhimento_serra_t !== undefined
+        || capacidades?.recolhimento_outros_t !== undefined;
+    const manha = capacidades?.recolhimento_m !== undefined
+        ? numeroCapacidade(capacidades.recolhimento_m, 6)
+        : (temManha ? numeroCapacidade(capacidades?.recolhimento_serra_m, 0) + numeroCapacidade(capacidades?.recolhimento_outros_m, 0) : 6);
+    const tarde = capacidades?.recolhimento_t !== undefined
+        ? numeroCapacidade(capacidades.recolhimento_t, 6)
+        : (temTarde ? numeroCapacidade(capacidades?.recolhimento_serra_t, 0) + numeroCapacidade(capacidades?.recolhimento_outros_t, 0) : 6);
+
+    return {
+        recolhimento_serra_m: manha,
+        recolhimento_serra_t: tarde,
+        recolhimento_outros_m: 0,
+        recolhimento_outros_t: 0
+    };
+}
+
 function grupoPodeVerModo(grupoNormalizado: string, modo: 'RECOLHIMENTO' | 'OPERACIONAL'): boolean {
     if (grupoNormalizado.includes('ADMIN') || grupoNormalizado.includes('NOC')) return true;
     if (modo === 'RECOLHIMENTO') {
@@ -565,6 +592,7 @@ router.post('/capacidade-templates/salvar', async (req, res) => {
     const { nome, capacidades } = req.body;
     try {
         await AgendaService.garantirSchemaRecolhimento();
+        const recolhimento = normalizarCapacidadeRecolhimento(capacidades || {});
         await AgendaService.executeDb(
             `INSERT INTO ivp_agenda_capacidade_templates
                 (nome, casa_m, casa_t, predio_serra_m, predio_serra_t, predio_outros_m, predio_outros_t, inst_serra_m, inst_serra_t, inst_outros_m, inst_outros_t, inst_casa_serra_m, inst_casa_serra_t, inst_predio_serra_m, inst_predio_serra_t, inst_casa_outros_m, inst_casa_outros_t, inst_predio_outros_m, inst_predio_outros_t, recolhimento_serra_m, recolhimento_serra_t, recolhimento_outros_m, recolhimento_outros_t)
@@ -589,10 +617,10 @@ router.post('/capacidade-templates/salvar', async (req, res) => {
                 capacidades.inst_casa_outros_t ?? capacidades.inst_outros_t ?? 3,
                 capacidades.inst_predio_outros_m ?? capacidades.inst_outros_m ?? 3,
                 capacidades.inst_predio_outros_t ?? capacidades.inst_outros_t ?? 3,
-                capacidades.recolhimento_serra_m ?? 3,
-                capacidades.recolhimento_serra_t ?? 3,
-                capacidades.recolhimento_outros_m ?? 3,
-                capacidades.recolhimento_outros_t ?? 3
+                recolhimento.recolhimento_serra_m,
+                recolhimento.recolhimento_serra_t,
+                recolhimento.recolhimento_outros_m,
+                recolhimento.recolhimento_outros_t
             ]
         );
         res.json({ success: true });
@@ -602,23 +630,26 @@ router.post('/capacidade-templates/salvar', async (req, res) => {
 router.post('/salvar-configuracoes', async (req, res) => {
     const { data, tecnicos, capacidades } = req.body;
     try {
-        await AgendaService.executeDb('DELETE FROM ivp_agenda_escala WHERE data_escala = ?', [data]);
-        for (const tec of tecnicos) {
-            await AgendaService.executeDb(
-                'INSERT INTO ivp_agenda_escala (data_escala, id_funcionario_ixc, equipe, dupla_id, regiao, turno_escala, tipo_imovel) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                [
-                    data,
-                    tec.id,
-                    tec.equipe,
-                    tec.dupla_id || null,
-                    normalizarRegiaoEscala(tec.regiao),
-                    normalizarTurnoEscala(tec.turno_escala || tec.turno),
-                    normalizarImovelEscala(tec.tipo_imovel)
-                ]
-            );
+        if (Array.isArray(tecnicos)) {
+            await AgendaService.executeDb('DELETE FROM ivp_agenda_escala WHERE data_escala = ?', [data]);
+            for (const tec of tecnicos) {
+                await AgendaService.executeDb(
+                    'INSERT INTO ivp_agenda_escala (data_escala, id_funcionario_ixc, equipe, dupla_id, regiao, turno_escala, tipo_imovel) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    [
+                        data,
+                        tec.id,
+                        tec.equipe,
+                        tec.dupla_id || null,
+                        normalizarRegiaoEscala(tec.regiao),
+                        normalizarTurnoEscala(tec.turno_escala || tec.turno),
+                        normalizarImovelEscala(tec.tipo_imovel)
+                    ]
+                );
+            }
         }
         if (capacidades) {
             await AgendaService.garantirSchemaRecolhimento();
+            const recolhimento = normalizarCapacidadeRecolhimento(capacidades || {});
             await AgendaService.executeDb('DELETE FROM ivp_agenda_capacidade WHERE data = ?', [data]);
             await AgendaService.executeDb(
                 `INSERT INTO ivp_agenda_capacidade
@@ -644,10 +675,10 @@ router.post('/salvar-configuracoes', async (req, res) => {
                     capacidades.inst_casa_outros_t ?? capacidades.inst_outros_t ?? 3,
                     capacidades.inst_predio_outros_m ?? capacidades.inst_outros_m ?? 3,
                     capacidades.inst_predio_outros_t ?? capacidades.inst_outros_t ?? 3,
-                    capacidades.recolhimento_serra_m ?? 3,
-                    capacidades.recolhimento_serra_t ?? 3,
-                    capacidades.recolhimento_outros_m ?? 3,
-                    capacidades.recolhimento_outros_t ?? 3
+                    recolhimento.recolhimento_serra_m,
+                    recolhimento.recolhimento_serra_t,
+                    recolhimento.recolhimento_outros_m,
+                    recolhimento.recolhimento_outros_t
                 ]
             );
         }
@@ -1523,6 +1554,7 @@ router.put('/capacidade-templates/:id', async (req, res) => {
     const { nome, capacidades } = req.body;
     try {
         await AgendaService.garantirSchemaRecolhimento();
+        const recolhimento = normalizarCapacidadeRecolhimento(capacidades || {});
         await AgendaService.executeDb(
             `
             UPDATE ivp_agenda_capacidade_templates
@@ -1554,10 +1586,10 @@ router.put('/capacidade-templates/:id', async (req, res) => {
                 capacidades.inst_casa_outros_t ?? capacidades.inst_outros_t ?? 3,
                 capacidades.inst_predio_outros_m ?? capacidades.inst_outros_m ?? 3,
                 capacidades.inst_predio_outros_t ?? capacidades.inst_outros_t ?? 3,
-                capacidades.recolhimento_serra_m ?? 3,
-                capacidades.recolhimento_serra_t ?? 3,
-                capacidades.recolhimento_outros_m ?? 3,
-                capacidades.recolhimento_outros_t ?? 3,
+                recolhimento.recolhimento_serra_m,
+                recolhimento.recolhimento_serra_t,
+                recolhimento.recolhimento_outros_m,
+                recolhimento.recolhimento_outros_t,
                 req.params.id
             ]
         );

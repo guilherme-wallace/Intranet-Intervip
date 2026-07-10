@@ -66,6 +66,30 @@ function normalizarModoPainel(valor) {
     const modo = normalizarTextoEscala(valor, 'OPERACIONAL');
     return modo.includes('RECOLHIMENTO') ? 'RECOLHIMENTO' : 'OPERACIONAL';
 }
+function numeroCapacidade(valor, padrao = 0) {
+    const numero = Number(valor !== null && valor !== void 0 ? valor : padrao);
+    return Number.isFinite(numero) ? Math.max(0, numero) : padrao;
+}
+function normalizarCapacidadeRecolhimento(capacidades) {
+    const temManha = (capacidades === null || capacidades === void 0 ? void 0 : capacidades.recolhimento_m) !== undefined
+        || (capacidades === null || capacidades === void 0 ? void 0 : capacidades.recolhimento_serra_m) !== undefined
+        || (capacidades === null || capacidades === void 0 ? void 0 : capacidades.recolhimento_outros_m) !== undefined;
+    const temTarde = (capacidades === null || capacidades === void 0 ? void 0 : capacidades.recolhimento_t) !== undefined
+        || (capacidades === null || capacidades === void 0 ? void 0 : capacidades.recolhimento_serra_t) !== undefined
+        || (capacidades === null || capacidades === void 0 ? void 0 : capacidades.recolhimento_outros_t) !== undefined;
+    const manha = (capacidades === null || capacidades === void 0 ? void 0 : capacidades.recolhimento_m) !== undefined
+        ? numeroCapacidade(capacidades.recolhimento_m, 6)
+        : (temManha ? numeroCapacidade(capacidades === null || capacidades === void 0 ? void 0 : capacidades.recolhimento_serra_m, 0) + numeroCapacidade(capacidades === null || capacidades === void 0 ? void 0 : capacidades.recolhimento_outros_m, 0) : 6);
+    const tarde = (capacidades === null || capacidades === void 0 ? void 0 : capacidades.recolhimento_t) !== undefined
+        ? numeroCapacidade(capacidades.recolhimento_t, 6)
+        : (temTarde ? numeroCapacidade(capacidades === null || capacidades === void 0 ? void 0 : capacidades.recolhimento_serra_t, 0) + numeroCapacidade(capacidades === null || capacidades === void 0 ? void 0 : capacidades.recolhimento_outros_t, 0) : 6);
+    return {
+        recolhimento_serra_m: manha,
+        recolhimento_serra_t: tarde,
+        recolhimento_outros_m: 0,
+        recolhimento_outros_t: 0
+    };
+}
 function grupoPodeVerModo(grupoNormalizado, modo) {
     if (grupoNormalizado.includes('ADMIN') || grupoNormalizado.includes('NOC'))
         return true;
@@ -480,10 +504,11 @@ router.get('/capacidade-templates', (req, res) => __awaiter(void 0, void 0, void
     }
 }));
 router.post('/capacidade-templates/salvar', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _0, _1, _2, _3, _4, _5, _6, _7, _8;
+    var _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _0, _1, _2, _3, _4;
     const { nome, capacidades } = req.body;
     try {
         yield agendaService_1.AgendaService.garantirSchemaRecolhimento();
+        const recolhimento = normalizarCapacidadeRecolhimento(capacidades || {});
         yield agendaService_1.AgendaService.executeDb(`INSERT INTO ivp_agenda_capacidade_templates
                 (nome, casa_m, casa_t, predio_serra_m, predio_serra_t, predio_outros_m, predio_outros_t, inst_serra_m, inst_serra_t, inst_outros_m, inst_outros_t, inst_casa_serra_m, inst_casa_serra_t, inst_predio_serra_m, inst_predio_serra_t, inst_casa_outros_m, inst_casa_outros_t, inst_predio_outros_m, inst_predio_outros_t, recolhimento_serra_m, recolhimento_serra_t, recolhimento_outros_m, recolhimento_outros_t)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
@@ -506,10 +531,10 @@ router.post('/capacidade-templates/salvar', (req, res) => __awaiter(void 0, void
             (_0 = (_z = capacidades.inst_casa_outros_t) !== null && _z !== void 0 ? _z : capacidades.inst_outros_t) !== null && _0 !== void 0 ? _0 : 3,
             (_2 = (_1 = capacidades.inst_predio_outros_m) !== null && _1 !== void 0 ? _1 : capacidades.inst_outros_m) !== null && _2 !== void 0 ? _2 : 3,
             (_4 = (_3 = capacidades.inst_predio_outros_t) !== null && _3 !== void 0 ? _3 : capacidades.inst_outros_t) !== null && _4 !== void 0 ? _4 : 3,
-            (_5 = capacidades.recolhimento_serra_m) !== null && _5 !== void 0 ? _5 : 3,
-            (_6 = capacidades.recolhimento_serra_t) !== null && _6 !== void 0 ? _6 : 3,
-            (_7 = capacidades.recolhimento_outros_m) !== null && _7 !== void 0 ? _7 : 3,
-            (_8 = capacidades.recolhimento_outros_t) !== null && _8 !== void 0 ? _8 : 3
+            recolhimento.recolhimento_serra_m,
+            recolhimento.recolhimento_serra_t,
+            recolhimento.recolhimento_outros_m,
+            recolhimento.recolhimento_outros_t
         ]);
         res.json({ success: true });
     }
@@ -518,23 +543,26 @@ router.post('/capacidade-templates/salvar', (req, res) => __awaiter(void 0, void
     }
 }));
 router.post('/salvar-configuracoes', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27, _28;
+    var _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20;
     const { data, tecnicos, capacidades } = req.body;
     try {
-        yield agendaService_1.AgendaService.executeDb('DELETE FROM ivp_agenda_escala WHERE data_escala = ?', [data]);
-        for (const tec of tecnicos) {
-            yield agendaService_1.AgendaService.executeDb('INSERT INTO ivp_agenda_escala (data_escala, id_funcionario_ixc, equipe, dupla_id, regiao, turno_escala, tipo_imovel) VALUES (?, ?, ?, ?, ?, ?, ?)', [
-                data,
-                tec.id,
-                tec.equipe,
-                tec.dupla_id || null,
-                normalizarRegiaoEscala(tec.regiao),
-                normalizarTurnoEscala(tec.turno_escala || tec.turno),
-                normalizarImovelEscala(tec.tipo_imovel)
-            ]);
+        if (Array.isArray(tecnicos)) {
+            yield agendaService_1.AgendaService.executeDb('DELETE FROM ivp_agenda_escala WHERE data_escala = ?', [data]);
+            for (const tec of tecnicos) {
+                yield agendaService_1.AgendaService.executeDb('INSERT INTO ivp_agenda_escala (data_escala, id_funcionario_ixc, equipe, dupla_id, regiao, turno_escala, tipo_imovel) VALUES (?, ?, ?, ?, ?, ?, ?)', [
+                    data,
+                    tec.id,
+                    tec.equipe,
+                    tec.dupla_id || null,
+                    normalizarRegiaoEscala(tec.regiao),
+                    normalizarTurnoEscala(tec.turno_escala || tec.turno),
+                    normalizarImovelEscala(tec.tipo_imovel)
+                ]);
+            }
         }
         if (capacidades) {
             yield agendaService_1.AgendaService.garantirSchemaRecolhimento();
+            const recolhimento = normalizarCapacidadeRecolhimento(capacidades || {});
             yield agendaService_1.AgendaService.executeDb('DELETE FROM ivp_agenda_capacidade WHERE data = ?', [data]);
             yield agendaService_1.AgendaService.executeDb(`INSERT INTO ivp_agenda_capacidade
                     (data, casa_m, casa_t, predio_serra_m, predio_serra_t, predio_outros_m, predio_outros_t, inst_serra_m, inst_serra_t, inst_outros_m, inst_outros_t, inst_casa_serra_m, inst_casa_serra_t, inst_predio_serra_m, inst_predio_serra_t, inst_casa_outros_m, inst_casa_outros_t, inst_predio_outros_m, inst_predio_outros_t, recolhimento_serra_m, recolhimento_serra_t, recolhimento_outros_m, recolhimento_outros_t)
@@ -550,18 +578,18 @@ router.post('/salvar-configuracoes', (req, res) => __awaiter(void 0, void 0, voi
                 capacidades.inst_serra_t,
                 capacidades.inst_outros_m,
                 capacidades.inst_outros_t,
-                (_10 = (_9 = capacidades.inst_casa_serra_m) !== null && _9 !== void 0 ? _9 : capacidades.inst_serra_m) !== null && _10 !== void 0 ? _10 : 3,
-                (_12 = (_11 = capacidades.inst_casa_serra_t) !== null && _11 !== void 0 ? _11 : capacidades.inst_serra_t) !== null && _12 !== void 0 ? _12 : 3,
-                (_14 = (_13 = capacidades.inst_predio_serra_m) !== null && _13 !== void 0 ? _13 : capacidades.inst_serra_m) !== null && _14 !== void 0 ? _14 : 3,
-                (_16 = (_15 = capacidades.inst_predio_serra_t) !== null && _15 !== void 0 ? _15 : capacidades.inst_serra_t) !== null && _16 !== void 0 ? _16 : 3,
-                (_18 = (_17 = capacidades.inst_casa_outros_m) !== null && _17 !== void 0 ? _17 : capacidades.inst_outros_m) !== null && _18 !== void 0 ? _18 : 3,
-                (_20 = (_19 = capacidades.inst_casa_outros_t) !== null && _19 !== void 0 ? _19 : capacidades.inst_outros_t) !== null && _20 !== void 0 ? _20 : 3,
-                (_22 = (_21 = capacidades.inst_predio_outros_m) !== null && _21 !== void 0 ? _21 : capacidades.inst_outros_m) !== null && _22 !== void 0 ? _22 : 3,
-                (_24 = (_23 = capacidades.inst_predio_outros_t) !== null && _23 !== void 0 ? _23 : capacidades.inst_outros_t) !== null && _24 !== void 0 ? _24 : 3,
-                (_25 = capacidades.recolhimento_serra_m) !== null && _25 !== void 0 ? _25 : 3,
-                (_26 = capacidades.recolhimento_serra_t) !== null && _26 !== void 0 ? _26 : 3,
-                (_27 = capacidades.recolhimento_outros_m) !== null && _27 !== void 0 ? _27 : 3,
-                (_28 = capacidades.recolhimento_outros_t) !== null && _28 !== void 0 ? _28 : 3
+                (_6 = (_5 = capacidades.inst_casa_serra_m) !== null && _5 !== void 0 ? _5 : capacidades.inst_serra_m) !== null && _6 !== void 0 ? _6 : 3,
+                (_8 = (_7 = capacidades.inst_casa_serra_t) !== null && _7 !== void 0 ? _7 : capacidades.inst_serra_t) !== null && _8 !== void 0 ? _8 : 3,
+                (_10 = (_9 = capacidades.inst_predio_serra_m) !== null && _9 !== void 0 ? _9 : capacidades.inst_serra_m) !== null && _10 !== void 0 ? _10 : 3,
+                (_12 = (_11 = capacidades.inst_predio_serra_t) !== null && _11 !== void 0 ? _11 : capacidades.inst_serra_t) !== null && _12 !== void 0 ? _12 : 3,
+                (_14 = (_13 = capacidades.inst_casa_outros_m) !== null && _13 !== void 0 ? _13 : capacidades.inst_outros_m) !== null && _14 !== void 0 ? _14 : 3,
+                (_16 = (_15 = capacidades.inst_casa_outros_t) !== null && _15 !== void 0 ? _15 : capacidades.inst_outros_t) !== null && _16 !== void 0 ? _16 : 3,
+                (_18 = (_17 = capacidades.inst_predio_outros_m) !== null && _17 !== void 0 ? _17 : capacidades.inst_outros_m) !== null && _18 !== void 0 ? _18 : 3,
+                (_20 = (_19 = capacidades.inst_predio_outros_t) !== null && _19 !== void 0 ? _19 : capacidades.inst_outros_t) !== null && _20 !== void 0 ? _20 : 3,
+                recolhimento.recolhimento_serra_m,
+                recolhimento.recolhimento_serra_t,
+                recolhimento.recolhimento_outros_m,
+                recolhimento.recolhimento_outros_t
             ]);
         }
         res.json({ success: true });
@@ -571,7 +599,7 @@ router.post('/salvar-configuracoes', (req, res) => __awaiter(void 0, void 0, voi
     }
 }));
 router.put('/atribuir-tecnico', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _29, _30, _31, _32;
+    var _21, _22, _23, _24;
     const { id_agenda, ixc_tecnico_id, ixc_os_id, data_agendamento, turno, usuario_logado } = req.body;
     try {
         if (!ixc_os_id) {
@@ -584,7 +612,7 @@ router.put('/atribuir-tecnico', (req, res) => __awaiter(void 0, void 0, void 0, 
             ? 'AGUARDANDO_LOGISTICA'
             : 'ATRIBUIDO';
         const estadoAnterior = id_agenda && !String(id_agenda).startsWith('ixc-')
-            ? (_29 = (yield agendaService_1.AgendaService.executeDb('SELECT status_interno, ixc_tecnico_id FROM ivp_agenda_os WHERE id = ? LIMIT 1', [id_agenda]).catch(() => []))) === null || _29 === void 0 ? void 0 : _29[0]
+            ? (_21 = (yield agendaService_1.AgendaService.executeDb('SELECT status_interno, ixc_tecnico_id FROM ivp_agenda_os WHERE id = ? LIMIT 1', [id_agenda]).catch(() => []))) === null || _21 === void 0 ? void 0 : _21[0]
             : null;
         const janelaSegura = agendaService_1.AgendaService.obterJanelaAgendamentoSegura(data_agendamento, turno);
         const dataFormatada = janelaSegura.dataBr;
@@ -650,9 +678,9 @@ router.put('/atribuir-tecnico', (req, res) => __awaiter(void 0, void 0, void 0, 
         });
     }
     catch (error) {
-        console.error('[Logistica] Erro ao atribuir técnico:', ((_30 = error.response) === null || _30 === void 0 ? void 0 : _30.data) || error.message);
+        console.error('[Logistica] Erro ao atribuir técnico:', ((_22 = error.response) === null || _22 === void 0 ? void 0 : _22.data) || error.message);
         res.status(500).json({
-            error: ((_32 = (_31 = error.response) === null || _31 === void 0 ? void 0 : _31.data) === null || _32 === void 0 ? void 0 : _32.message) || error.message
+            error: ((_24 = (_23 = error.response) === null || _23 === void 0 ? void 0 : _23.data) === null || _24 === void 0 ? void 0 : _24.message) || error.message
         });
     }
 }));
@@ -672,7 +700,7 @@ router.put('/reagendar', (req, res) => __awaiter(void 0, void 0, void 0, functio
     }
 }));
 router.post('/cancelar-visita', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _33, _34, _35;
+    var _25, _26, _27;
     const { id_local, ixc_os_id, motivo, usuario_logado } = req.body;
     try {
         if (!ixc_os_id)
@@ -744,8 +772,8 @@ router.post('/cancelar-visita', (req, res) => __awaiter(void 0, void 0, void 0, 
         res.json({ success: true, status_interno: statusLocal, ixc_tecnico_id: tecnicoHub });
     }
     catch (error) {
-        console.error('[Painel Logistica][Cancelar Visita]', ((_33 = error.response) === null || _33 === void 0 ? void 0 : _33.data) || error.message);
-        res.status(500).json({ error: ((_35 = (_34 = error.response) === null || _34 === void 0 ? void 0 : _34.data) === null || _35 === void 0 ? void 0 : _35.message) || error.message });
+        console.error('[Painel Logistica][Cancelar Visita]', ((_25 = error.response) === null || _25 === void 0 ? void 0 : _25.data) || error.message);
+        res.status(500).json({ error: ((_27 = (_26 = error.response) === null || _26 === void 0 ? void 0 : _26.data) === null || _27 === void 0 ? void 0 : _27.message) || error.message });
     }
 }));
 router.put('/fechar-os', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -799,7 +827,7 @@ router.put('/fechar-os', (req, res) => __awaiter(void 0, void 0, void 0, functio
     }
 }));
 router.post('/tratar-prioridade', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _36, _37, _38;
+    var _28, _29, _30;
     const { id_local, acao, ixc_os_id, usuario_logado } = req.body;
     try {
         if (!(yield exigirLogisticaOuNoc(req, res)))
@@ -904,9 +932,9 @@ router.post('/tratar-prioridade', (req, res) => __awaiter(void 0, void 0, void 0
         return res.status(400).json({ error: 'Ação inválida. Use aceitar ou recusar.' });
     }
     catch (error) {
-        console.error('[Logistica] Erro ao tratar prioridade:', ((_36 = error.response) === null || _36 === void 0 ? void 0 : _36.data) || error.message);
+        console.error('[Logistica] Erro ao tratar prioridade:', ((_28 = error.response) === null || _28 === void 0 ? void 0 : _28.data) || error.message);
         return res.status(500).json({
-            error: ((_38 = (_37 = error.response) === null || _37 === void 0 ? void 0 : _37.data) === null || _38 === void 0 ? void 0 : _38.message) || error.message
+            error: ((_30 = (_29 = error.response) === null || _29 === void 0 ? void 0 : _29.data) === null || _30 === void 0 ? void 0 : _30.message) || error.message
         });
     }
 }));
@@ -1037,7 +1065,7 @@ router.get('/os-detalhes/:id', (req, res) => __awaiter(void 0, void 0, void 0, f
     }
 }));
 router.post('/contato-cliente', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _39, _40, _41;
+    var _31, _32, _33;
     const { id_local, ixc_os_id, status_contato, mensagem, usuario_logado } = req.body;
     try {
         if (!(yield exigirLogisticaOuNoc(req, res)))
@@ -1062,7 +1090,7 @@ router.post('/contato-cliente', (req, res) => __awaiter(void 0, void 0, void 0, 
         }
         catch (error) {
             aviso = 'Confirmação salva localmente. O IXC recusou o registro da mensagem.';
-            console.warn('[IXC Mensagem Simples] fallback local ativado:', ((_39 = error.response) === null || _39 === void 0 ? void 0 : _39.data) || error.message);
+            console.warn('[IXC Mensagem Simples] fallback local ativado:', ((_31 = error.response) === null || _31 === void 0 ? void 0 : _31.data) || error.message);
         }
         yield agendaService_1.AgendaService.executeDb(`UPDATE ivp_agenda_os SET contato_status = ?, contato_confirmado_em = ? WHERE id = ?`, [status, dataInteracao, id_local]);
         if (!registradoIxc) {
@@ -1071,7 +1099,7 @@ router.post('/contato-cliente', (req, res) => __awaiter(void 0, void 0, void 0, 
         res.json({ success: true, registrado_ixc: registradoIxc, aviso });
     }
     catch (error) {
-        res.status(500).json({ error: ((_41 = (_40 = error.response) === null || _40 === void 0 ? void 0 : _40.data) === null || _41 === void 0 ? void 0 : _41.message) || error.message });
+        res.status(500).json({ error: ((_33 = (_32 = error.response) === null || _32 === void 0 ? void 0 : _32.data) === null || _33 === void 0 ? void 0 : _33.message) || error.message });
     }
 }));
 router.post('/aguardar-cliente', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -1116,7 +1144,7 @@ router.post('/parar-espera-cliente', (req, res) => __awaiter(void 0, void 0, voi
     }
 }));
 router.post('/observacao-logistica', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _42, _43, _44;
+    var _34, _35, _36;
     const { id_local, ixc_os_id, mensagem, usuario_logado } = req.body;
     try {
         if (!id_local || !ixc_os_id || !mensagem || !String(mensagem).trim()) {
@@ -1133,13 +1161,13 @@ router.post('/observacao-logistica', (req, res) => __awaiter(void 0, void 0, voi
         }
         catch (error) {
             aviso = 'Observação salva localmente. O IXC recusou o registro da mensagem.';
-            console.warn('[IXC Mensagem Simples] fallback local ativado:', ((_42 = error.response) === null || _42 === void 0 ? void 0 : _42.data) || error.message);
+            console.warn('[IXC Mensagem Simples] fallback local ativado:', ((_34 = error.response) === null || _34 === void 0 ? void 0 : _34.data) || error.message);
         }
         yield agendaService_1.AgendaService.executeDb(`UPDATE ivp_agenda_os SET observacao_logistica = CONCAT(COALESCE(observacao_logistica, ''), ?, '\n') WHERE id = ?`, [`[${dataInteracao}] ${registradoIxc ? '[IXC]' : '[LOCAL]'} ${texto}`, id_local]);
         res.json({ success: true, registrado_ixc: registradoIxc, aviso });
     }
     catch (error) {
-        res.status(500).json({ error: ((_44 = (_43 = error.response) === null || _43 === void 0 ? void 0 : _43.data) === null || _44 === void 0 ? void 0 : _44.message) || error.message });
+        res.status(500).json({ error: ((_36 = (_35 = error.response) === null || _35 === void 0 ? void 0 : _35.data) === null || _36 === void 0 ? void 0 : _36.message) || error.message });
     }
 }));
 router.get('/tags', (_req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -1262,10 +1290,11 @@ router.post('/prioridade-logistica', (req, res) => __awaiter(void 0, void 0, voi
     }
 }));
 router.put('/capacidade-templates/:id', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _45, _46, _47, _48, _49, _50, _51, _52, _53, _54, _55, _56, _57, _58, _59, _60, _61, _62, _63, _64;
+    var _37, _38, _39, _40, _41, _42, _43, _44, _45, _46, _47, _48, _49, _50, _51, _52;
     const { nome, capacidades } = req.body;
     try {
         yield agendaService_1.AgendaService.garantirSchemaRecolhimento();
+        const recolhimento = normalizarCapacidadeRecolhimento(capacidades || {});
         yield agendaService_1.AgendaService.executeDb(`
             UPDATE ivp_agenda_capacidade_templates
             SET nome = ?, casa_m = ?, casa_t = ?, predio_serra_m = ?, predio_serra_t = ?,
@@ -1287,18 +1316,18 @@ router.put('/capacidade-templates/:id', (req, res) => __awaiter(void 0, void 0, 
             capacidades.inst_serra_t,
             capacidades.inst_outros_m,
             capacidades.inst_outros_t,
-            (_46 = (_45 = capacidades.inst_casa_serra_m) !== null && _45 !== void 0 ? _45 : capacidades.inst_serra_m) !== null && _46 !== void 0 ? _46 : 3,
-            (_48 = (_47 = capacidades.inst_casa_serra_t) !== null && _47 !== void 0 ? _47 : capacidades.inst_serra_t) !== null && _48 !== void 0 ? _48 : 3,
-            (_50 = (_49 = capacidades.inst_predio_serra_m) !== null && _49 !== void 0 ? _49 : capacidades.inst_serra_m) !== null && _50 !== void 0 ? _50 : 3,
-            (_52 = (_51 = capacidades.inst_predio_serra_t) !== null && _51 !== void 0 ? _51 : capacidades.inst_serra_t) !== null && _52 !== void 0 ? _52 : 3,
-            (_54 = (_53 = capacidades.inst_casa_outros_m) !== null && _53 !== void 0 ? _53 : capacidades.inst_outros_m) !== null && _54 !== void 0 ? _54 : 3,
-            (_56 = (_55 = capacidades.inst_casa_outros_t) !== null && _55 !== void 0 ? _55 : capacidades.inst_outros_t) !== null && _56 !== void 0 ? _56 : 3,
-            (_58 = (_57 = capacidades.inst_predio_outros_m) !== null && _57 !== void 0 ? _57 : capacidades.inst_outros_m) !== null && _58 !== void 0 ? _58 : 3,
-            (_60 = (_59 = capacidades.inst_predio_outros_t) !== null && _59 !== void 0 ? _59 : capacidades.inst_outros_t) !== null && _60 !== void 0 ? _60 : 3,
-            (_61 = capacidades.recolhimento_serra_m) !== null && _61 !== void 0 ? _61 : 3,
-            (_62 = capacidades.recolhimento_serra_t) !== null && _62 !== void 0 ? _62 : 3,
-            (_63 = capacidades.recolhimento_outros_m) !== null && _63 !== void 0 ? _63 : 3,
-            (_64 = capacidades.recolhimento_outros_t) !== null && _64 !== void 0 ? _64 : 3,
+            (_38 = (_37 = capacidades.inst_casa_serra_m) !== null && _37 !== void 0 ? _37 : capacidades.inst_serra_m) !== null && _38 !== void 0 ? _38 : 3,
+            (_40 = (_39 = capacidades.inst_casa_serra_t) !== null && _39 !== void 0 ? _39 : capacidades.inst_serra_t) !== null && _40 !== void 0 ? _40 : 3,
+            (_42 = (_41 = capacidades.inst_predio_serra_m) !== null && _41 !== void 0 ? _41 : capacidades.inst_serra_m) !== null && _42 !== void 0 ? _42 : 3,
+            (_44 = (_43 = capacidades.inst_predio_serra_t) !== null && _43 !== void 0 ? _43 : capacidades.inst_serra_t) !== null && _44 !== void 0 ? _44 : 3,
+            (_46 = (_45 = capacidades.inst_casa_outros_m) !== null && _45 !== void 0 ? _45 : capacidades.inst_outros_m) !== null && _46 !== void 0 ? _46 : 3,
+            (_48 = (_47 = capacidades.inst_casa_outros_t) !== null && _47 !== void 0 ? _47 : capacidades.inst_outros_t) !== null && _48 !== void 0 ? _48 : 3,
+            (_50 = (_49 = capacidades.inst_predio_outros_m) !== null && _49 !== void 0 ? _49 : capacidades.inst_outros_m) !== null && _50 !== void 0 ? _50 : 3,
+            (_52 = (_51 = capacidades.inst_predio_outros_t) !== null && _51 !== void 0 ? _51 : capacidades.inst_outros_t) !== null && _52 !== void 0 ? _52 : 3,
+            recolhimento.recolhimento_serra_m,
+            recolhimento.recolhimento_serra_t,
+            recolhimento.recolhimento_outros_m,
+            recolhimento.recolhimento_outros_t,
             req.params.id
         ]);
         res.json({ success: true });
