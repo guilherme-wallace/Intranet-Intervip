@@ -65,6 +65,19 @@ function normalizarTextoOpcao(valor: any, padrao: string): string {
         .replace(/_+/g, '_');
 }
 
+function normalizarModoPainel(valor: any): 'RECOLHIMENTO' | 'OPERACIONAL' {
+    const modo = normalizarTextoEscala(valor, 'OPERACIONAL');
+    return modo.includes('RECOLHIMENTO') ? 'RECOLHIMENTO' : 'OPERACIONAL';
+}
+
+function grupoPodeVerModo(grupoNormalizado: string, modo: 'RECOLHIMENTO' | 'OPERACIONAL'): boolean {
+    if (grupoNormalizado.includes('ADMIN') || grupoNormalizado.includes('NOC')) return true;
+    if (modo === 'RECOLHIMENTO') {
+        return grupoNormalizado.includes('QUALIDADE') || grupoNormalizado.includes('RECOLHIMENTO');
+    }
+    return grupoNormalizado.includes('LOGISTICA') || grupoNormalizado.includes('FIBRA');
+}
+
 function normalizarTurnoEscala(valor: any): string {
     const turno = normalizarTextoEscala(valor, 'INTEGRAL');
     if (turno === 'MANHA') return 'MATUTINO';
@@ -224,12 +237,14 @@ router.get('/agendamentos', async (req, res) => {
     const data = req.query.data as string;
     const municipio = req.query.municipio as string;
     const status = req.query.status as string;
-    const cacheKey = `${data || ''}|${municipio || 'TODOS'}|${status || 'PENDENTES'}`;
+    const modoPainel = normalizarModoPainel(req.query.modo);
+    const cacheKey = `${data || ''}|${municipio || 'TODOS'}|${status || 'PENDENTES'}|${modoPainel}`;
     const metaBase = {
         requestId,
         data,
         municipio,
         status,
+        modo: modoPainel,
         method: req.method,
         url: req.originalUrl,
         ip: req.ip,
@@ -243,10 +258,13 @@ router.get('/agendamentos', async (req, res) => {
         logInfo('PainelLogistica.agendamentos', 'Inicio da consulta de agendamentos.', metaBase);
         await AgendaService.garantirCapacidadeDia(data);
         
-        const agendamentos = await AgendaService.obterAgendamentos(data, municipio, status, {
+        const agendamentosCompletos = await AgendaService.obterAgendamentos(data, municipio, status, {
             requestId,
             usuario: metaBase.usuario
         });
+        const agendamentos = modoPainel === 'RECOLHIMENTO'
+            ? agendamentosCompletos.filter((os: any) => AgendaService.isOsRecolhimento(os))
+            : agendamentosCompletos.filter((os: any) => !AgendaService.isOsRecolhimento(os));
         cacheAgendamentos.set(cacheKey, {
             updatedAt: new Date().toISOString(),
             payload: agendamentos
@@ -266,7 +284,10 @@ router.get('/agendamentos', async (req, res) => {
 
             if (!cache) {
                 try {
-                    agendamentos = await AgendaService.obterAgendamentosLocaisFallback(data, municipio, status);
+                    const locais = await AgendaService.obterAgendamentosLocaisFallback(data, municipio, status);
+                    agendamentos = modoPainel === 'RECOLHIMENTO'
+                        ? locais.filter((os: any) => AgendaService.isOsRecolhimento(os))
+                        : locais.filter((os: any) => !AgendaService.isOsRecolhimento(os));
                     fallbackLocal = true;
                 } catch (fallbackError: any) {
                     logError('PainelLogistica.agendamentos.fallbackLocal', fallbackError, {
@@ -398,8 +419,10 @@ router.get('/fila-pendentes', async (req, res) => {
         grupo = usuarios?.[0]?.grupo || '';
     }
     const grupoNormalizado = normalizarGrupoPermissao(grupo);
-    const deveOcultarSetor19 = grupoNormalizado.includes('LOGISTICA') || grupoNormalizado.includes('FIBRA');
-    const cacheKey = deveOcultarSetor19 ? 'oculta-setor-19' : 'todos-setores';
+    const modoPainel = normalizarModoPainel(req.query.modo);
+    const podeVerModo = grupoPodeVerModo(grupoNormalizado, modoPainel);
+    const deveOcultarSetor19 = modoPainel !== 'RECOLHIMENTO' || grupoNormalizado.includes('LOGISTICA') || grupoNormalizado.includes('FIBRA');
+    const cacheKey = `${modoPainel}|${deveOcultarSetor19 ? 'oculta-setor-19' : 'setor-19'}`;
     const obterSetor = (os: any) => [
         os?.setor,
         os?.id_setor,
@@ -408,10 +431,23 @@ router.get('/fila-pendentes', async (req, res) => {
     ].map(valor => String(valor || '').trim()).find(Boolean) || '';
 
     try {
+        if (!podeVerModo) {
+            logWarn('PainelLogistica.filaPendentes', '[Painel Logistica][Recolhimento] grupo sem permissao para o modo solicitado.', {
+                requestId,
+                usuario,
+                grupo: grupoNormalizado,
+                modo: modoPainel
+            });
+            return res.json([]);
+        }
+
         const filaCompleta = await AgendaService.obterFilaPendentes({ requestId, usuario });
-        const fila = deveOcultarSetor19
-            ? filaCompleta.filter((os: any) => obterSetor(os) !== '19')
-            : filaCompleta;
+        let fila = modoPainel === 'RECOLHIMENTO'
+            ? filaCompleta.filter((os: any) => obterSetor(os) === '19' || AgendaService.isOsRecolhimento(os))
+            : filaCompleta.filter((os: any) => obterSetor(os) !== '19' && !AgendaService.isOsRecolhimento(os));
+        if (deveOcultarSetor19) {
+            fila = fila.filter((os: any) => obterSetor(os) !== '19');
+        }
 
         cacheFilaPendentes.set(cacheKey, {
             updatedAt: new Date().toISOString(),
@@ -426,6 +462,7 @@ router.get('/fila-pendentes', async (req, res) => {
                     requestId,
                     usuario,
                     grupo: grupoNormalizado,
+                    modo: modoPainel,
                     totalAntes: filaCompleta.length,
                     totalDepois: fila.length,
                     totalOcultado: filaCompleta.length - fila.length
@@ -496,10 +533,25 @@ router.get('/todos-tecnicos', async (req, res) => {
 });
 
 router.get('/capacidade-dia', async (req, res) => {
+    const reqAny = req as any;
+    const data = String(req.query.data || '').trim();
     try {
-        const result = await AgendaService.executeDb('SELECT * FROM ivp_agenda_capacidade WHERE data = ?', [req.query.data]);
-        res.json(result.length > 0 ? { encontrado: true, ...result[0] } : { encontrado: false });
-    } catch (e: any) { res.status(500).json({ error: e.message }); }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+            return res.status(400).json({ error: 'Informe uma data válida no formato YYYY-MM-DD.' });
+        }
+        const { resumoPorData } = await AgendaService.obterResumoVagasPeriodo(data, data, 'TODOS', 'TODOS');
+        const result = await AgendaService.executeDb('SELECT * FROM ivp_agenda_capacidade WHERE data = ?', [data]);
+        res.json(result.length > 0
+            ? { encontrado: true, ...result[0], capacidadeResumo: resumoPorData[data] || {} }
+            : { encontrado: false, capacidadeResumo: resumoPorData[data] || {} });
+    } catch (e: any) {
+        logError('PainelLogistica.capacidadeDia', e, {
+            requestId: reqAny.requestId,
+            data,
+            usuario: reqAny.user?.username || reqAny.session?.username || 'Visitante'
+        });
+        res.status(500).json({ error: 'Erro ao consultar capacidade do dia.', requestId: reqAny.requestId });
+    }
 });
 
 router.get('/capacidade-templates', async (req, res) => {
@@ -512,9 +564,36 @@ router.get('/capacidade-templates', async (req, res) => {
 router.post('/capacidade-templates/salvar', async (req, res) => {
     const { nome, capacidades } = req.body;
     try {
+        await AgendaService.garantirSchemaRecolhimento();
         await AgendaService.executeDb(
-            `INSERT INTO ivp_agenda_capacidade_templates (nome, casa_m, casa_t, predio_serra_m, predio_serra_t, predio_outros_m, predio_outros_t, inst_serra_m, inst_serra_t, inst_outros_m, inst_outros_t) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [nome, capacidades.casa_m, capacidades.casa_t, capacidades.predio_serra_m, capacidades.predio_serra_t, capacidades.predio_outros_m, capacidades.predio_outros_t, capacidades.inst_serra_m, capacidades.inst_serra_t, capacidades.inst_outros_m, capacidades.inst_outros_t]
+            `INSERT INTO ivp_agenda_capacidade_templates
+                (nome, casa_m, casa_t, predio_serra_m, predio_serra_t, predio_outros_m, predio_outros_t, inst_serra_m, inst_serra_t, inst_outros_m, inst_outros_t, inst_casa_serra_m, inst_casa_serra_t, inst_predio_serra_m, inst_predio_serra_t, inst_casa_outros_m, inst_casa_outros_t, inst_predio_outros_m, inst_predio_outros_t, recolhimento_serra_m, recolhimento_serra_t, recolhimento_outros_m, recolhimento_outros_t)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                nome,
+                capacidades.casa_m,
+                capacidades.casa_t,
+                capacidades.predio_serra_m,
+                capacidades.predio_serra_t,
+                capacidades.predio_outros_m,
+                capacidades.predio_outros_t,
+                capacidades.inst_serra_m,
+                capacidades.inst_serra_t,
+                capacidades.inst_outros_m,
+                capacidades.inst_outros_t,
+                capacidades.inst_casa_serra_m ?? capacidades.inst_serra_m ?? 3,
+                capacidades.inst_casa_serra_t ?? capacidades.inst_serra_t ?? 3,
+                capacidades.inst_predio_serra_m ?? capacidades.inst_serra_m ?? 3,
+                capacidades.inst_predio_serra_t ?? capacidades.inst_serra_t ?? 3,
+                capacidades.inst_casa_outros_m ?? capacidades.inst_outros_m ?? 3,
+                capacidades.inst_casa_outros_t ?? capacidades.inst_outros_t ?? 3,
+                capacidades.inst_predio_outros_m ?? capacidades.inst_outros_m ?? 3,
+                capacidades.inst_predio_outros_t ?? capacidades.inst_outros_t ?? 3,
+                capacidades.recolhimento_serra_m ?? 3,
+                capacidades.recolhimento_serra_t ?? 3,
+                capacidades.recolhimento_outros_m ?? 3,
+                capacidades.recolhimento_outros_t ?? 3
+            ]
         );
         res.json({ success: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -539,10 +618,37 @@ router.post('/salvar-configuracoes', async (req, res) => {
             );
         }
         if (capacidades) {
+            await AgendaService.garantirSchemaRecolhimento();
             await AgendaService.executeDb('DELETE FROM ivp_agenda_capacidade WHERE data = ?', [data]);
             await AgendaService.executeDb(
-                `INSERT INTO ivp_agenda_capacidade (data, casa_m, casa_t, predio_serra_m, predio_serra_t, predio_outros_m, predio_outros_t, inst_serra_m, inst_serra_t, inst_outros_m, inst_outros_t) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [data, capacidades.casa_m, capacidades.casa_t, capacidades.predio_serra_m, capacidades.predio_serra_t, capacidades.predio_outros_m, capacidades.predio_outros_t, capacidades.inst_serra_m, capacidades.inst_serra_t, capacidades.inst_outros_m, capacidades.inst_outros_t]
+                `INSERT INTO ivp_agenda_capacidade
+                    (data, casa_m, casa_t, predio_serra_m, predio_serra_t, predio_outros_m, predio_outros_t, inst_serra_m, inst_serra_t, inst_outros_m, inst_outros_t, inst_casa_serra_m, inst_casa_serra_t, inst_predio_serra_m, inst_predio_serra_t, inst_casa_outros_m, inst_casa_outros_t, inst_predio_outros_m, inst_predio_outros_t, recolhimento_serra_m, recolhimento_serra_t, recolhimento_outros_m, recolhimento_outros_t)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    data,
+                    capacidades.casa_m,
+                    capacidades.casa_t,
+                    capacidades.predio_serra_m,
+                    capacidades.predio_serra_t,
+                    capacidades.predio_outros_m,
+                    capacidades.predio_outros_t,
+                    capacidades.inst_serra_m,
+                    capacidades.inst_serra_t,
+                    capacidades.inst_outros_m,
+                    capacidades.inst_outros_t,
+                    capacidades.inst_casa_serra_m ?? capacidades.inst_serra_m ?? 3,
+                    capacidades.inst_casa_serra_t ?? capacidades.inst_serra_t ?? 3,
+                    capacidades.inst_predio_serra_m ?? capacidades.inst_serra_m ?? 3,
+                    capacidades.inst_predio_serra_t ?? capacidades.inst_serra_t ?? 3,
+                    capacidades.inst_casa_outros_m ?? capacidades.inst_outros_m ?? 3,
+                    capacidades.inst_casa_outros_t ?? capacidades.inst_outros_t ?? 3,
+                    capacidades.inst_predio_outros_m ?? capacidades.inst_outros_m ?? 3,
+                    capacidades.inst_predio_outros_t ?? capacidades.inst_outros_t ?? 3,
+                    capacidades.recolhimento_serra_m ?? 3,
+                    capacidades.recolhimento_serra_t ?? 3,
+                    capacidades.recolhimento_outros_m ?? 3,
+                    capacidades.recolhimento_outros_t ?? 3
+                ]
             );
         }
         res.json({ success: true });
@@ -573,6 +679,12 @@ router.put('/atribuir-tecnico', async (req, res) => {
             tecnicoFinal === '138'
                 ? 'AGUARDANDO_LOGISTICA'
                 : 'ATRIBUIDO';
+        const estadoAnterior = id_agenda && !String(id_agenda).startsWith('ixc-')
+            ? (await AgendaService.executeDb(
+                'SELECT status_interno, ixc_tecnico_id FROM ivp_agenda_os WHERE id = ? LIMIT 1',
+                [id_agenda]
+            ).catch(() => []))?.[0]
+            : null;
 
         const janelaSegura = AgendaService.obterJanelaAgendamentoSegura(data_agendamento, turno);
         const dataFormatada = janelaSegura.dataBr;
@@ -634,6 +746,23 @@ router.put('/atribuir-tecnico', async (req, res) => {
             );
         }
 
+        const tecnicoAnterior = String(estadoAnterior?.ixc_tecnico_id || '').trim();
+        const estavaAtribuida = String(estadoAnterior?.status_interno || '').toUpperCase() === 'ATRIBUIDO'
+            || (!!tecnicoAnterior && !['0', '138'].includes(tecnicoAnterior));
+        if (tecnicoFinal === '138' && estavaAtribuida) {
+            await AgendaService.registrarRetornoFila(
+                ixc_os_id,
+                'OS devolvida manualmente para o Hub 138.',
+                usuario_logado,
+                estadoAnterior?.status_interno,
+                statusLocal
+            ).catch((error: any) => logWarn('[Painel Logistica][Retorno Fila]', 'Não foi possível registrar a devolução manual.', {
+                os: String(ixc_os_id),
+                code: error?.code,
+                message: error?.message
+            }));
+        }
+
         res.json({
             success: true,
             message: 'Técnico atribuído com sucesso no IXC.',
@@ -692,6 +821,7 @@ router.post('/cancelar-visita', async (req, res) => {
         const statusLocal = 'AGUARDANDO_LOGISTICA';
         const tecnicoHub = '138';
         const params = [statusLocal, tecnicoHub, usuario_logado || null, String(motivo).trim(), id_local || 0, ixc_os_id];
+        let retornoDetalhadoRegistrado = false;
         try {
             await AgendaService.executeDb(
                 `UPDATE ivp_agenda_os
@@ -706,6 +836,7 @@ router.post('/cancelar-visita', async (req, res) => {
                  WHERE id = ? OR ixc_os_id = ?`,
                 params
             );
+            retornoDetalhadoRegistrado = true;
             /* console.log('[Cancelar Visita Debug] Limpeza local concluída:', {
                 osId: ixc_os_id,
                 statusLocal,
@@ -728,6 +859,19 @@ router.post('/cancelar-visita', async (req, res) => {
                 campos: ['data_agendamento', 'turno', 'ixc_tecnico_id=138']
             }); */
         }
+
+        await AgendaService.registrarRetornoFila(
+            ixc_os_id,
+            String(motivo).trim(),
+            usuario_logado,
+            'ATRIBUIDO',
+            statusLocal
+        ).catch((error: any) => logWarn('[Painel Logistica][Retorno Fila]', 'Não foi possível registrar o histórico dedicado do cancelamento.', {
+            os: String(ixc_os_id),
+            code: error?.code,
+            message: error?.message,
+            retornoDetalhadoRegistrado
+        }));
 
         res.json({ success: true, status_interno: statusLocal, ixc_tecnico_id: tecnicoHub });
     } catch (error: any) {
@@ -806,7 +950,7 @@ router.post('/tratar-prioridade', async (req, res) => {
 
         const rows = await AgendaService.executeDb(
             `
-            SELECT id, turno, data_agendamento, ixc_tecnico_id, solicita_prioridade
+            SELECT id, turno, data_agendamento, ixc_tecnico_id, status_interno, solicita_prioridade
             FROM ivp_agenda_os
             WHERE id = ?
             LIMIT 1
@@ -887,6 +1031,23 @@ router.post('/tratar-prioridade', async (req, res) => {
                 `,
                 [hojeYmd, turnoNormalizado, id_local]
             );
+
+            const tecnicoAnterior = String(osLocal.ixc_tecnico_id || '').trim();
+            const estavaAtribuida = String(osLocal.status_interno || '').toUpperCase() === 'ATRIBUIDO'
+                || (!!tecnicoAnterior && !['0', '138'].includes(tecnicoAnterior));
+            if (estavaAtribuida) {
+                await AgendaService.registrarRetornoFila(
+                    ixc_os_id,
+                    'Aceite de prioridade devolveu a OS para distribuição da logística.',
+                    usuario_logado,
+                    osLocal.status_interno,
+                    'AGUARDANDO_LOGISTICA'
+                ).catch((error: any) => logWarn('[Painel Logistica][Retorno Fila]', 'Não foi possível registrar o retorno ao aceitar prioridade.', {
+                    os: String(ixc_os_id),
+                    code: error?.code,
+                    message: error?.message
+                }));
+            }
 
             return res.json({
                 success: true,
@@ -1361,15 +1522,44 @@ router.post('/prioridade-logistica', async (req, res) => {
 router.put('/capacidade-templates/:id', async (req, res) => {
     const { nome, capacidades } = req.body;
     try {
+        await AgendaService.garantirSchemaRecolhimento();
         await AgendaService.executeDb(
             `
             UPDATE ivp_agenda_capacidade_templates
             SET nome = ?, casa_m = ?, casa_t = ?, predio_serra_m = ?, predio_serra_t = ?,
                 predio_outros_m = ?, predio_outros_t = ?, inst_serra_m = ?, inst_serra_t = ?,
-                inst_outros_m = ?, inst_outros_t = ?
+                inst_outros_m = ?, inst_outros_t = ?, inst_casa_serra_m = ?, inst_casa_serra_t = ?,
+                inst_predio_serra_m = ?, inst_predio_serra_t = ?, inst_casa_outros_m = ?, inst_casa_outros_t = ?,
+                inst_predio_outros_m = ?, inst_predio_outros_t = ?, recolhimento_serra_m = ?, recolhimento_serra_t = ?,
+                recolhimento_outros_m = ?, recolhimento_outros_t = ?
             WHERE id = ?
             `,
-            [nome, capacidades.casa_m, capacidades.casa_t, capacidades.predio_serra_m, capacidades.predio_serra_t, capacidades.predio_outros_m, capacidades.predio_outros_t, capacidades.inst_serra_m, capacidades.inst_serra_t, capacidades.inst_outros_m, capacidades.inst_outros_t, req.params.id]
+            [
+                nome,
+                capacidades.casa_m,
+                capacidades.casa_t,
+                capacidades.predio_serra_m,
+                capacidades.predio_serra_t,
+                capacidades.predio_outros_m,
+                capacidades.predio_outros_t,
+                capacidades.inst_serra_m,
+                capacidades.inst_serra_t,
+                capacidades.inst_outros_m,
+                capacidades.inst_outros_t,
+                capacidades.inst_casa_serra_m ?? capacidades.inst_serra_m ?? 3,
+                capacidades.inst_casa_serra_t ?? capacidades.inst_serra_t ?? 3,
+                capacidades.inst_predio_serra_m ?? capacidades.inst_serra_m ?? 3,
+                capacidades.inst_predio_serra_t ?? capacidades.inst_serra_t ?? 3,
+                capacidades.inst_casa_outros_m ?? capacidades.inst_outros_m ?? 3,
+                capacidades.inst_casa_outros_t ?? capacidades.inst_outros_t ?? 3,
+                capacidades.inst_predio_outros_m ?? capacidades.inst_outros_m ?? 3,
+                capacidades.inst_predio_outros_t ?? capacidades.inst_outros_t ?? 3,
+                capacidades.recolhimento_serra_m ?? 3,
+                capacidades.recolhimento_serra_t ?? 3,
+                capacidades.recolhimento_outros_m ?? 3,
+                capacidades.recolhimento_outros_t ?? 3,
+                req.params.id
+            ]
         );
         res.json({ success: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }

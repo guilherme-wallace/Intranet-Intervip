@@ -62,6 +62,18 @@ function normalizarTextoOpcao(valor, padrao) {
         .replace(/[\/\s-]+/g, '_')
         .replace(/_+/g, '_');
 }
+function normalizarModoPainel(valor) {
+    const modo = normalizarTextoEscala(valor, 'OPERACIONAL');
+    return modo.includes('RECOLHIMENTO') ? 'RECOLHIMENTO' : 'OPERACIONAL';
+}
+function grupoPodeVerModo(grupoNormalizado, modo) {
+    if (grupoNormalizado.includes('ADMIN') || grupoNormalizado.includes('NOC'))
+        return true;
+    if (modo === 'RECOLHIMENTO') {
+        return grupoNormalizado.includes('QUALIDADE') || grupoNormalizado.includes('RECOLHIMENTO');
+    }
+    return grupoNormalizado.includes('LOGISTICA') || grupoNormalizado.includes('FIBRA');
+}
 function normalizarTurnoEscala(valor) {
     const turno = normalizarTextoEscala(valor, 'INTEGRAL');
     if (turno === 'MANHA')
@@ -200,12 +212,14 @@ router.get('/agendamentos', (req, res) => __awaiter(void 0, void 0, void 0, func
     const data = req.query.data;
     const municipio = req.query.municipio;
     const status = req.query.status;
-    const cacheKey = `${data || ''}|${municipio || 'TODOS'}|${status || 'PENDENTES'}`;
+    const modoPainel = normalizarModoPainel(req.query.modo);
+    const cacheKey = `${data || ''}|${municipio || 'TODOS'}|${status || 'PENDENTES'}|${modoPainel}`;
     const metaBase = {
         requestId,
         data,
         municipio,
         status,
+        modo: modoPainel,
         method: req.method,
         url: req.originalUrl,
         ip: req.ip,
@@ -217,10 +231,13 @@ router.get('/agendamentos', (req, res) => __awaiter(void 0, void 0, void 0, func
     try {
         (0, logger_1.logInfo)('PainelLogistica.agendamentos', 'Inicio da consulta de agendamentos.', metaBase);
         yield agendaService_1.AgendaService.garantirCapacidadeDia(data);
-        const agendamentos = yield agendaService_1.AgendaService.obterAgendamentos(data, municipio, status, {
+        const agendamentosCompletos = yield agendaService_1.AgendaService.obterAgendamentos(data, municipio, status, {
             requestId,
             usuario: metaBase.usuario
         });
+        const agendamentos = modoPainel === 'RECOLHIMENTO'
+            ? agendamentosCompletos.filter((os) => agendaService_1.AgendaService.isOsRecolhimento(os))
+            : agendamentosCompletos.filter((os) => !agendaService_1.AgendaService.isOsRecolhimento(os));
         cacheAgendamentos.set(cacheKey, {
             updatedAt: new Date().toISOString(),
             payload: agendamentos
@@ -236,7 +253,10 @@ router.get('/agendamentos', (req, res) => __awaiter(void 0, void 0, void 0, func
             let fallbackLocal = false;
             if (!cache) {
                 try {
-                    agendamentos = yield agendaService_1.AgendaService.obterAgendamentosLocaisFallback(data, municipio, status);
+                    const locais = yield agendaService_1.AgendaService.obterAgendamentosLocaisFallback(data, municipio, status);
+                    agendamentos = modoPainel === 'RECOLHIMENTO'
+                        ? locais.filter((os) => agendaService_1.AgendaService.isOsRecolhimento(os))
+                        : locais.filter((os) => !agendaService_1.AgendaService.isOsRecolhimento(os));
                     fallbackLocal = true;
                 }
                 catch (fallbackError) {
@@ -331,8 +351,10 @@ router.get('/fila-pendentes', (req, res) => __awaiter(void 0, void 0, void 0, fu
         grupo = ((_l = usuarios === null || usuarios === void 0 ? void 0 : usuarios[0]) === null || _l === void 0 ? void 0 : _l.grupo) || '';
     }
     const grupoNormalizado = normalizarGrupoPermissao(grupo);
-    const deveOcultarSetor19 = grupoNormalizado.includes('LOGISTICA') || grupoNormalizado.includes('FIBRA');
-    const cacheKey = deveOcultarSetor19 ? 'oculta-setor-19' : 'todos-setores';
+    const modoPainel = normalizarModoPainel(req.query.modo);
+    const podeVerModo = grupoPodeVerModo(grupoNormalizado, modoPainel);
+    const deveOcultarSetor19 = modoPainel !== 'RECOLHIMENTO' || grupoNormalizado.includes('LOGISTICA') || grupoNormalizado.includes('FIBRA');
+    const cacheKey = `${modoPainel}|${deveOcultarSetor19 ? 'oculta-setor-19' : 'setor-19'}`;
     const obterSetor = (os) => [
         os === null || os === void 0 ? void 0 : os.setor,
         os === null || os === void 0 ? void 0 : os.id_setor,
@@ -340,10 +362,22 @@ router.get('/fila-pendentes', (req, res) => __awaiter(void 0, void 0, void 0, fu
         os === null || os === void 0 ? void 0 : os.id_setor_atual
     ].map(valor => String(valor || '').trim()).find(Boolean) || '';
     try {
+        if (!podeVerModo) {
+            (0, logger_1.logWarn)('PainelLogistica.filaPendentes', '[Painel Logistica][Recolhimento] grupo sem permissao para o modo solicitado.', {
+                requestId,
+                usuario,
+                grupo: grupoNormalizado,
+                modo: modoPainel
+            });
+            return res.json([]);
+        }
         const filaCompleta = yield agendaService_1.AgendaService.obterFilaPendentes({ requestId, usuario });
-        const fila = deveOcultarSetor19
-            ? filaCompleta.filter((os) => obterSetor(os) !== '19')
-            : filaCompleta;
+        let fila = modoPainel === 'RECOLHIMENTO'
+            ? filaCompleta.filter((os) => obterSetor(os) === '19' || agendaService_1.AgendaService.isOsRecolhimento(os))
+            : filaCompleta.filter((os) => obterSetor(os) !== '19' && !agendaService_1.AgendaService.isOsRecolhimento(os));
+        if (deveOcultarSetor19) {
+            fila = fila.filter((os) => obterSetor(os) !== '19');
+        }
         cacheFilaPendentes.set(cacheKey, {
             updatedAt: new Date().toISOString(),
             payload: fila
@@ -353,6 +387,7 @@ router.get('/fila-pendentes', (req, res) => __awaiter(void 0, void 0, void 0, fu
                 requestId,
                 usuario,
                 grupo: grupoNormalizado,
+                modo: modoPainel,
                 totalAntes: filaCompleta.length,
                 totalDepois: fila.length,
                 totalOcultado: filaCompleta.length - fila.length
@@ -414,12 +449,25 @@ router.get('/todos-tecnicos', (req, res) => __awaiter(void 0, void 0, void 0, fu
     }
 }));
 router.get('/capacidade-dia', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _m, _o;
+    const reqAny = req;
+    const data = String(req.query.data || '').trim();
     try {
-        const result = yield agendaService_1.AgendaService.executeDb('SELECT * FROM ivp_agenda_capacidade WHERE data = ?', [req.query.data]);
-        res.json(result.length > 0 ? Object.assign({ encontrado: true }, result[0]) : { encontrado: false });
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+            return res.status(400).json({ error: 'Informe uma data válida no formato YYYY-MM-DD.' });
+        }
+        const { resumoPorData } = yield agendaService_1.AgendaService.obterResumoVagasPeriodo(data, data, 'TODOS', 'TODOS');
+        const result = yield agendaService_1.AgendaService.executeDb('SELECT * FROM ivp_agenda_capacidade WHERE data = ?', [data]);
+        res.json(result.length > 0
+            ? Object.assign(Object.assign({ encontrado: true }, result[0]), { capacidadeResumo: resumoPorData[data] || {} }) : { encontrado: false, capacidadeResumo: resumoPorData[data] || {} });
     }
     catch (e) {
-        res.status(500).json({ error: e.message });
+        (0, logger_1.logError)('PainelLogistica.capacidadeDia', e, {
+            requestId: reqAny.requestId,
+            data,
+            usuario: ((_m = reqAny.user) === null || _m === void 0 ? void 0 : _m.username) || ((_o = reqAny.session) === null || _o === void 0 ? void 0 : _o.username) || 'Visitante'
+        });
+        res.status(500).json({ error: 'Erro ao consultar capacidade do dia.', requestId: reqAny.requestId });
     }
 }));
 router.get('/capacidade-templates', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -432,9 +480,37 @@ router.get('/capacidade-templates', (req, res) => __awaiter(void 0, void 0, void
     }
 }));
 router.post('/capacidade-templates/salvar', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _0, _1, _2, _3, _4, _5, _6, _7, _8;
     const { nome, capacidades } = req.body;
     try {
-        yield agendaService_1.AgendaService.executeDb(`INSERT INTO ivp_agenda_capacidade_templates (nome, casa_m, casa_t, predio_serra_m, predio_serra_t, predio_outros_m, predio_outros_t, inst_serra_m, inst_serra_t, inst_outros_m, inst_outros_t) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [nome, capacidades.casa_m, capacidades.casa_t, capacidades.predio_serra_m, capacidades.predio_serra_t, capacidades.predio_outros_m, capacidades.predio_outros_t, capacidades.inst_serra_m, capacidades.inst_serra_t, capacidades.inst_outros_m, capacidades.inst_outros_t]);
+        yield agendaService_1.AgendaService.garantirSchemaRecolhimento();
+        yield agendaService_1.AgendaService.executeDb(`INSERT INTO ivp_agenda_capacidade_templates
+                (nome, casa_m, casa_t, predio_serra_m, predio_serra_t, predio_outros_m, predio_outros_t, inst_serra_m, inst_serra_t, inst_outros_m, inst_outros_t, inst_casa_serra_m, inst_casa_serra_t, inst_predio_serra_m, inst_predio_serra_t, inst_casa_outros_m, inst_casa_outros_t, inst_predio_outros_m, inst_predio_outros_t, recolhimento_serra_m, recolhimento_serra_t, recolhimento_outros_m, recolhimento_outros_t)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
+            nome,
+            capacidades.casa_m,
+            capacidades.casa_t,
+            capacidades.predio_serra_m,
+            capacidades.predio_serra_t,
+            capacidades.predio_outros_m,
+            capacidades.predio_outros_t,
+            capacidades.inst_serra_m,
+            capacidades.inst_serra_t,
+            capacidades.inst_outros_m,
+            capacidades.inst_outros_t,
+            (_q = (_p = capacidades.inst_casa_serra_m) !== null && _p !== void 0 ? _p : capacidades.inst_serra_m) !== null && _q !== void 0 ? _q : 3,
+            (_s = (_r = capacidades.inst_casa_serra_t) !== null && _r !== void 0 ? _r : capacidades.inst_serra_t) !== null && _s !== void 0 ? _s : 3,
+            (_u = (_t = capacidades.inst_predio_serra_m) !== null && _t !== void 0 ? _t : capacidades.inst_serra_m) !== null && _u !== void 0 ? _u : 3,
+            (_w = (_v = capacidades.inst_predio_serra_t) !== null && _v !== void 0 ? _v : capacidades.inst_serra_t) !== null && _w !== void 0 ? _w : 3,
+            (_y = (_x = capacidades.inst_casa_outros_m) !== null && _x !== void 0 ? _x : capacidades.inst_outros_m) !== null && _y !== void 0 ? _y : 3,
+            (_0 = (_z = capacidades.inst_casa_outros_t) !== null && _z !== void 0 ? _z : capacidades.inst_outros_t) !== null && _0 !== void 0 ? _0 : 3,
+            (_2 = (_1 = capacidades.inst_predio_outros_m) !== null && _1 !== void 0 ? _1 : capacidades.inst_outros_m) !== null && _2 !== void 0 ? _2 : 3,
+            (_4 = (_3 = capacidades.inst_predio_outros_t) !== null && _3 !== void 0 ? _3 : capacidades.inst_outros_t) !== null && _4 !== void 0 ? _4 : 3,
+            (_5 = capacidades.recolhimento_serra_m) !== null && _5 !== void 0 ? _5 : 3,
+            (_6 = capacidades.recolhimento_serra_t) !== null && _6 !== void 0 ? _6 : 3,
+            (_7 = capacidades.recolhimento_outros_m) !== null && _7 !== void 0 ? _7 : 3,
+            (_8 = capacidades.recolhimento_outros_t) !== null && _8 !== void 0 ? _8 : 3
+        ]);
         res.json({ success: true });
     }
     catch (e) {
@@ -442,6 +518,7 @@ router.post('/capacidade-templates/salvar', (req, res) => __awaiter(void 0, void
     }
 }));
 router.post('/salvar-configuracoes', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27, _28;
     const { data, tecnicos, capacidades } = req.body;
     try {
         yield agendaService_1.AgendaService.executeDb('DELETE FROM ivp_agenda_escala WHERE data_escala = ?', [data]);
@@ -457,8 +534,35 @@ router.post('/salvar-configuracoes', (req, res) => __awaiter(void 0, void 0, voi
             ]);
         }
         if (capacidades) {
+            yield agendaService_1.AgendaService.garantirSchemaRecolhimento();
             yield agendaService_1.AgendaService.executeDb('DELETE FROM ivp_agenda_capacidade WHERE data = ?', [data]);
-            yield agendaService_1.AgendaService.executeDb(`INSERT INTO ivp_agenda_capacidade (data, casa_m, casa_t, predio_serra_m, predio_serra_t, predio_outros_m, predio_outros_t, inst_serra_m, inst_serra_t, inst_outros_m, inst_outros_t) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [data, capacidades.casa_m, capacidades.casa_t, capacidades.predio_serra_m, capacidades.predio_serra_t, capacidades.predio_outros_m, capacidades.predio_outros_t, capacidades.inst_serra_m, capacidades.inst_serra_t, capacidades.inst_outros_m, capacidades.inst_outros_t]);
+            yield agendaService_1.AgendaService.executeDb(`INSERT INTO ivp_agenda_capacidade
+                    (data, casa_m, casa_t, predio_serra_m, predio_serra_t, predio_outros_m, predio_outros_t, inst_serra_m, inst_serra_t, inst_outros_m, inst_outros_t, inst_casa_serra_m, inst_casa_serra_t, inst_predio_serra_m, inst_predio_serra_t, inst_casa_outros_m, inst_casa_outros_t, inst_predio_outros_m, inst_predio_outros_t, recolhimento_serra_m, recolhimento_serra_t, recolhimento_outros_m, recolhimento_outros_t)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
+                data,
+                capacidades.casa_m,
+                capacidades.casa_t,
+                capacidades.predio_serra_m,
+                capacidades.predio_serra_t,
+                capacidades.predio_outros_m,
+                capacidades.predio_outros_t,
+                capacidades.inst_serra_m,
+                capacidades.inst_serra_t,
+                capacidades.inst_outros_m,
+                capacidades.inst_outros_t,
+                (_10 = (_9 = capacidades.inst_casa_serra_m) !== null && _9 !== void 0 ? _9 : capacidades.inst_serra_m) !== null && _10 !== void 0 ? _10 : 3,
+                (_12 = (_11 = capacidades.inst_casa_serra_t) !== null && _11 !== void 0 ? _11 : capacidades.inst_serra_t) !== null && _12 !== void 0 ? _12 : 3,
+                (_14 = (_13 = capacidades.inst_predio_serra_m) !== null && _13 !== void 0 ? _13 : capacidades.inst_serra_m) !== null && _14 !== void 0 ? _14 : 3,
+                (_16 = (_15 = capacidades.inst_predio_serra_t) !== null && _15 !== void 0 ? _15 : capacidades.inst_serra_t) !== null && _16 !== void 0 ? _16 : 3,
+                (_18 = (_17 = capacidades.inst_casa_outros_m) !== null && _17 !== void 0 ? _17 : capacidades.inst_outros_m) !== null && _18 !== void 0 ? _18 : 3,
+                (_20 = (_19 = capacidades.inst_casa_outros_t) !== null && _19 !== void 0 ? _19 : capacidades.inst_outros_t) !== null && _20 !== void 0 ? _20 : 3,
+                (_22 = (_21 = capacidades.inst_predio_outros_m) !== null && _21 !== void 0 ? _21 : capacidades.inst_outros_m) !== null && _22 !== void 0 ? _22 : 3,
+                (_24 = (_23 = capacidades.inst_predio_outros_t) !== null && _23 !== void 0 ? _23 : capacidades.inst_outros_t) !== null && _24 !== void 0 ? _24 : 3,
+                (_25 = capacidades.recolhimento_serra_m) !== null && _25 !== void 0 ? _25 : 3,
+                (_26 = capacidades.recolhimento_serra_t) !== null && _26 !== void 0 ? _26 : 3,
+                (_27 = capacidades.recolhimento_outros_m) !== null && _27 !== void 0 ? _27 : 3,
+                (_28 = capacidades.recolhimento_outros_t) !== null && _28 !== void 0 ? _28 : 3
+            ]);
         }
         res.json({ success: true });
     }
@@ -467,7 +571,7 @@ router.post('/salvar-configuracoes', (req, res) => __awaiter(void 0, void 0, voi
     }
 }));
 router.put('/atribuir-tecnico', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _m, _o, _p;
+    var _29, _30, _31, _32;
     const { id_agenda, ixc_tecnico_id, ixc_os_id, data_agendamento, turno, usuario_logado } = req.body;
     try {
         if (!ixc_os_id) {
@@ -479,6 +583,9 @@ router.put('/atribuir-tecnico', (req, res) => __awaiter(void 0, void 0, void 0, 
         const statusLocal = tecnicoFinal === '138'
             ? 'AGUARDANDO_LOGISTICA'
             : 'ATRIBUIDO';
+        const estadoAnterior = id_agenda && !String(id_agenda).startsWith('ixc-')
+            ? (_29 = (yield agendaService_1.AgendaService.executeDb('SELECT status_interno, ixc_tecnico_id FROM ivp_agenda_os WHERE id = ? LIMIT 1', [id_agenda]).catch(() => []))) === null || _29 === void 0 ? void 0 : _29[0]
+            : null;
         const janelaSegura = agendaService_1.AgendaService.obterJanelaAgendamentoSegura(data_agendamento, turno);
         const dataFormatada = janelaSegura.dataBr;
         const turnoNormalizado = janelaSegura.turnoNormalizado;
@@ -525,6 +632,16 @@ router.put('/atribuir-tecnico', (req, res) => __awaiter(void 0, void 0, void 0, 
                 WHERE id = ?
                 `, [tecnicoFinal, statusLocal, id_agenda]);
         }
+        const tecnicoAnterior = String((estadoAnterior === null || estadoAnterior === void 0 ? void 0 : estadoAnterior.ixc_tecnico_id) || '').trim();
+        const estavaAtribuida = String((estadoAnterior === null || estadoAnterior === void 0 ? void 0 : estadoAnterior.status_interno) || '').toUpperCase() === 'ATRIBUIDO'
+            || (!!tecnicoAnterior && !['0', '138'].includes(tecnicoAnterior));
+        if (tecnicoFinal === '138' && estavaAtribuida) {
+            yield agendaService_1.AgendaService.registrarRetornoFila(ixc_os_id, 'OS devolvida manualmente para o Hub 138.', usuario_logado, estadoAnterior === null || estadoAnterior === void 0 ? void 0 : estadoAnterior.status_interno, statusLocal).catch((error) => (0, logger_1.logWarn)('[Painel Logistica][Retorno Fila]', 'Não foi possível registrar a devolução manual.', {
+                os: String(ixc_os_id),
+                code: error === null || error === void 0 ? void 0 : error.code,
+                message: error === null || error === void 0 ? void 0 : error.message
+            }));
+        }
         res.json({
             success: true,
             message: 'Técnico atribuído com sucesso no IXC.',
@@ -533,9 +650,9 @@ router.put('/atribuir-tecnico', (req, res) => __awaiter(void 0, void 0, void 0, 
         });
     }
     catch (error) {
-        console.error('[Logistica] Erro ao atribuir técnico:', ((_m = error.response) === null || _m === void 0 ? void 0 : _m.data) || error.message);
+        console.error('[Logistica] Erro ao atribuir técnico:', ((_30 = error.response) === null || _30 === void 0 ? void 0 : _30.data) || error.message);
         res.status(500).json({
-            error: ((_p = (_o = error.response) === null || _o === void 0 ? void 0 : _o.data) === null || _p === void 0 ? void 0 : _p.message) || error.message
+            error: ((_32 = (_31 = error.response) === null || _31 === void 0 ? void 0 : _31.data) === null || _32 === void 0 ? void 0 : _32.message) || error.message
         });
     }
 }));
@@ -555,7 +672,7 @@ router.put('/reagendar', (req, res) => __awaiter(void 0, void 0, void 0, functio
     }
 }));
 router.post('/cancelar-visita', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _q, _r, _s;
+    var _33, _34, _35;
     const { id_local, ixc_os_id, motivo, usuario_logado } = req.body;
     try {
         if (!ixc_os_id)
@@ -585,6 +702,7 @@ router.post('/cancelar-visita', (req, res) => __awaiter(void 0, void 0, void 0, 
         const statusLocal = 'AGUARDANDO_LOGISTICA';
         const tecnicoHub = '138';
         const params = [statusLocal, tecnicoHub, usuario_logado || null, String(motivo).trim(), id_local || 0, ixc_os_id];
+        let retornoDetalhadoRegistrado = false;
         try {
             yield agendaService_1.AgendaService.executeDb(`UPDATE ivp_agenda_os
                  SET status_interno = ?,
@@ -596,6 +714,7 @@ router.post('/cancelar-visita', (req, res) => __awaiter(void 0, void 0, void 0, 
                      visita_cancelada_por = ?,
                      visita_cancelada_motivo = ?
                  WHERE id = ? OR ixc_os_id = ?`, params);
+            retornoDetalhadoRegistrado = true;
             /* console.log('[Cancelar Visita Debug] Limpeza local concluída:', {
                 osId: ixc_os_id,
                 statusLocal,
@@ -616,11 +735,17 @@ router.post('/cancelar-visita', (req, res) => __awaiter(void 0, void 0, void 0, 
                 campos: ['data_agendamento', 'turno', 'ixc_tecnico_id=138']
             }); */
         }
+        yield agendaService_1.AgendaService.registrarRetornoFila(ixc_os_id, String(motivo).trim(), usuario_logado, 'ATRIBUIDO', statusLocal).catch((error) => (0, logger_1.logWarn)('[Painel Logistica][Retorno Fila]', 'Não foi possível registrar o histórico dedicado do cancelamento.', {
+            os: String(ixc_os_id),
+            code: error === null || error === void 0 ? void 0 : error.code,
+            message: error === null || error === void 0 ? void 0 : error.message,
+            retornoDetalhadoRegistrado
+        }));
         res.json({ success: true, status_interno: statusLocal, ixc_tecnico_id: tecnicoHub });
     }
     catch (error) {
-        console.error('[Painel Logistica][Cancelar Visita]', ((_q = error.response) === null || _q === void 0 ? void 0 : _q.data) || error.message);
-        res.status(500).json({ error: ((_s = (_r = error.response) === null || _r === void 0 ? void 0 : _r.data) === null || _s === void 0 ? void 0 : _s.message) || error.message });
+        console.error('[Painel Logistica][Cancelar Visita]', ((_33 = error.response) === null || _33 === void 0 ? void 0 : _33.data) || error.message);
+        res.status(500).json({ error: ((_35 = (_34 = error.response) === null || _34 === void 0 ? void 0 : _34.data) === null || _35 === void 0 ? void 0 : _35.message) || error.message });
     }
 }));
 router.put('/fechar-os', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -674,7 +799,7 @@ router.put('/fechar-os', (req, res) => __awaiter(void 0, void 0, void 0, functio
     }
 }));
 router.post('/tratar-prioridade', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _t, _u, _v;
+    var _36, _37, _38;
     const { id_local, acao, ixc_os_id, usuario_logado } = req.body;
     try {
         if (!(yield exigirLogisticaOuNoc(req, res)))
@@ -686,7 +811,7 @@ router.post('/tratar-prioridade', (req, res) => __awaiter(void 0, void 0, void 0
             return res.status(400).json({ error: 'ixc_os_id é obrigatório.' });
         }
         const rows = yield agendaService_1.AgendaService.executeDb(`
-            SELECT id, turno, data_agendamento, ixc_tecnico_id, solicita_prioridade
+            SELECT id, turno, data_agendamento, ixc_tecnico_id, status_interno, solicita_prioridade
             FROM ivp_agenda_os
             WHERE id = ?
             LIMIT 1
@@ -748,6 +873,16 @@ router.post('/tratar-prioridade', (req, res) => __awaiter(void 0, void 0, void 0
                     status_interno = 'AGUARDANDO_LOGISTICA'
                 WHERE id = ?
                 `, [hojeYmd, turnoNormalizado, id_local]);
+            const tecnicoAnterior = String(osLocal.ixc_tecnico_id || '').trim();
+            const estavaAtribuida = String(osLocal.status_interno || '').toUpperCase() === 'ATRIBUIDO'
+                || (!!tecnicoAnterior && !['0', '138'].includes(tecnicoAnterior));
+            if (estavaAtribuida) {
+                yield agendaService_1.AgendaService.registrarRetornoFila(ixc_os_id, 'Aceite de prioridade devolveu a OS para distribuição da logística.', usuario_logado, osLocal.status_interno, 'AGUARDANDO_LOGISTICA').catch((error) => (0, logger_1.logWarn)('[Painel Logistica][Retorno Fila]', 'Não foi possível registrar o retorno ao aceitar prioridade.', {
+                    os: String(ixc_os_id),
+                    code: error === null || error === void 0 ? void 0 : error.code,
+                    message: error === null || error === void 0 ? void 0 : error.message
+                }));
+            }
             return res.json({
                 success: true,
                 message: 'Prioridade aceita. OS puxada para hoje no IXC e no painel.',
@@ -769,9 +904,9 @@ router.post('/tratar-prioridade', (req, res) => __awaiter(void 0, void 0, void 0
         return res.status(400).json({ error: 'Ação inválida. Use aceitar ou recusar.' });
     }
     catch (error) {
-        console.error('[Logistica] Erro ao tratar prioridade:', ((_t = error.response) === null || _t === void 0 ? void 0 : _t.data) || error.message);
+        console.error('[Logistica] Erro ao tratar prioridade:', ((_36 = error.response) === null || _36 === void 0 ? void 0 : _36.data) || error.message);
         return res.status(500).json({
-            error: ((_v = (_u = error.response) === null || _u === void 0 ? void 0 : _u.data) === null || _v === void 0 ? void 0 : _v.message) || error.message
+            error: ((_38 = (_37 = error.response) === null || _37 === void 0 ? void 0 : _37.data) === null || _38 === void 0 ? void 0 : _38.message) || error.message
         });
     }
 }));
@@ -902,7 +1037,7 @@ router.get('/os-detalhes/:id', (req, res) => __awaiter(void 0, void 0, void 0, f
     }
 }));
 router.post('/contato-cliente', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _w, _x, _y;
+    var _39, _40, _41;
     const { id_local, ixc_os_id, status_contato, mensagem, usuario_logado } = req.body;
     try {
         if (!(yield exigirLogisticaOuNoc(req, res)))
@@ -927,7 +1062,7 @@ router.post('/contato-cliente', (req, res) => __awaiter(void 0, void 0, void 0, 
         }
         catch (error) {
             aviso = 'Confirmação salva localmente. O IXC recusou o registro da mensagem.';
-            console.warn('[IXC Mensagem Simples] fallback local ativado:', ((_w = error.response) === null || _w === void 0 ? void 0 : _w.data) || error.message);
+            console.warn('[IXC Mensagem Simples] fallback local ativado:', ((_39 = error.response) === null || _39 === void 0 ? void 0 : _39.data) || error.message);
         }
         yield agendaService_1.AgendaService.executeDb(`UPDATE ivp_agenda_os SET contato_status = ?, contato_confirmado_em = ? WHERE id = ?`, [status, dataInteracao, id_local]);
         if (!registradoIxc) {
@@ -936,7 +1071,7 @@ router.post('/contato-cliente', (req, res) => __awaiter(void 0, void 0, void 0, 
         res.json({ success: true, registrado_ixc: registradoIxc, aviso });
     }
     catch (error) {
-        res.status(500).json({ error: ((_y = (_x = error.response) === null || _x === void 0 ? void 0 : _x.data) === null || _y === void 0 ? void 0 : _y.message) || error.message });
+        res.status(500).json({ error: ((_41 = (_40 = error.response) === null || _40 === void 0 ? void 0 : _40.data) === null || _41 === void 0 ? void 0 : _41.message) || error.message });
     }
 }));
 router.post('/aguardar-cliente', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -981,7 +1116,7 @@ router.post('/parar-espera-cliente', (req, res) => __awaiter(void 0, void 0, voi
     }
 }));
 router.post('/observacao-logistica', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _z, _0, _1;
+    var _42, _43, _44;
     const { id_local, ixc_os_id, mensagem, usuario_logado } = req.body;
     try {
         if (!id_local || !ixc_os_id || !mensagem || !String(mensagem).trim()) {
@@ -998,13 +1133,13 @@ router.post('/observacao-logistica', (req, res) => __awaiter(void 0, void 0, voi
         }
         catch (error) {
             aviso = 'Observação salva localmente. O IXC recusou o registro da mensagem.';
-            console.warn('[IXC Mensagem Simples] fallback local ativado:', ((_z = error.response) === null || _z === void 0 ? void 0 : _z.data) || error.message);
+            console.warn('[IXC Mensagem Simples] fallback local ativado:', ((_42 = error.response) === null || _42 === void 0 ? void 0 : _42.data) || error.message);
         }
         yield agendaService_1.AgendaService.executeDb(`UPDATE ivp_agenda_os SET observacao_logistica = CONCAT(COALESCE(observacao_logistica, ''), ?, '\n') WHERE id = ?`, [`[${dataInteracao}] ${registradoIxc ? '[IXC]' : '[LOCAL]'} ${texto}`, id_local]);
         res.json({ success: true, registrado_ixc: registradoIxc, aviso });
     }
     catch (error) {
-        res.status(500).json({ error: ((_1 = (_0 = error.response) === null || _0 === void 0 ? void 0 : _0.data) === null || _1 === void 0 ? void 0 : _1.message) || error.message });
+        res.status(500).json({ error: ((_44 = (_43 = error.response) === null || _43 === void 0 ? void 0 : _43.data) === null || _44 === void 0 ? void 0 : _44.message) || error.message });
     }
 }));
 router.get('/tags', (_req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -1127,15 +1262,45 @@ router.post('/prioridade-logistica', (req, res) => __awaiter(void 0, void 0, voi
     }
 }));
 router.put('/capacidade-templates/:id', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _45, _46, _47, _48, _49, _50, _51, _52, _53, _54, _55, _56, _57, _58, _59, _60, _61, _62, _63, _64;
     const { nome, capacidades } = req.body;
     try {
+        yield agendaService_1.AgendaService.garantirSchemaRecolhimento();
         yield agendaService_1.AgendaService.executeDb(`
             UPDATE ivp_agenda_capacidade_templates
             SET nome = ?, casa_m = ?, casa_t = ?, predio_serra_m = ?, predio_serra_t = ?,
                 predio_outros_m = ?, predio_outros_t = ?, inst_serra_m = ?, inst_serra_t = ?,
-                inst_outros_m = ?, inst_outros_t = ?
+                inst_outros_m = ?, inst_outros_t = ?, inst_casa_serra_m = ?, inst_casa_serra_t = ?,
+                inst_predio_serra_m = ?, inst_predio_serra_t = ?, inst_casa_outros_m = ?, inst_casa_outros_t = ?,
+                inst_predio_outros_m = ?, inst_predio_outros_t = ?, recolhimento_serra_m = ?, recolhimento_serra_t = ?,
+                recolhimento_outros_m = ?, recolhimento_outros_t = ?
             WHERE id = ?
-            `, [nome, capacidades.casa_m, capacidades.casa_t, capacidades.predio_serra_m, capacidades.predio_serra_t, capacidades.predio_outros_m, capacidades.predio_outros_t, capacidades.inst_serra_m, capacidades.inst_serra_t, capacidades.inst_outros_m, capacidades.inst_outros_t, req.params.id]);
+            `, [
+            nome,
+            capacidades.casa_m,
+            capacidades.casa_t,
+            capacidades.predio_serra_m,
+            capacidades.predio_serra_t,
+            capacidades.predio_outros_m,
+            capacidades.predio_outros_t,
+            capacidades.inst_serra_m,
+            capacidades.inst_serra_t,
+            capacidades.inst_outros_m,
+            capacidades.inst_outros_t,
+            (_46 = (_45 = capacidades.inst_casa_serra_m) !== null && _45 !== void 0 ? _45 : capacidades.inst_serra_m) !== null && _46 !== void 0 ? _46 : 3,
+            (_48 = (_47 = capacidades.inst_casa_serra_t) !== null && _47 !== void 0 ? _47 : capacidades.inst_serra_t) !== null && _48 !== void 0 ? _48 : 3,
+            (_50 = (_49 = capacidades.inst_predio_serra_m) !== null && _49 !== void 0 ? _49 : capacidades.inst_serra_m) !== null && _50 !== void 0 ? _50 : 3,
+            (_52 = (_51 = capacidades.inst_predio_serra_t) !== null && _51 !== void 0 ? _51 : capacidades.inst_serra_t) !== null && _52 !== void 0 ? _52 : 3,
+            (_54 = (_53 = capacidades.inst_casa_outros_m) !== null && _53 !== void 0 ? _53 : capacidades.inst_outros_m) !== null && _54 !== void 0 ? _54 : 3,
+            (_56 = (_55 = capacidades.inst_casa_outros_t) !== null && _55 !== void 0 ? _55 : capacidades.inst_outros_t) !== null && _56 !== void 0 ? _56 : 3,
+            (_58 = (_57 = capacidades.inst_predio_outros_m) !== null && _57 !== void 0 ? _57 : capacidades.inst_outros_m) !== null && _58 !== void 0 ? _58 : 3,
+            (_60 = (_59 = capacidades.inst_predio_outros_t) !== null && _59 !== void 0 ? _59 : capacidades.inst_outros_t) !== null && _60 !== void 0 ? _60 : 3,
+            (_61 = capacidades.recolhimento_serra_m) !== null && _61 !== void 0 ? _61 : 3,
+            (_62 = capacidades.recolhimento_serra_t) !== null && _62 !== void 0 ? _62 : 3,
+            (_63 = capacidades.recolhimento_outros_m) !== null && _63 !== void 0 ? _63 : 3,
+            (_64 = capacidades.recolhimento_outros_t) !== null && _64 !== void 0 ? _64 : 3,
+            req.params.id
+        ]);
         res.json({ success: true });
     }
     catch (e) {

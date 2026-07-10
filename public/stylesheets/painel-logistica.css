@@ -272,6 +272,43 @@ body {
     font-weight: 400;
 }
 
+.task-count-resumo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.task-count-resumo .task-count {
+    margin-left: 0;
+}
+
+.task-count-vagas {
+    background-color: #e9f2ff;
+    color: #234b7a;
+    border: 1px solid #bfd6f2;
+    font-size: 0.72rem;
+}
+
+.task-count-livres {
+    color: #4b6355;
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.task-count-lotado {
+    color: #9b3b43;
+}
+
+.badge-retorno-fila {
+    background-color: #e8f0fb;
+    color: #34577c;
+    border: 1px solid #bdd0e6;
+    font-size: 0.68rem;
+    font-weight: 600;
+}
+
 .column-body {
     padding: 0 16px 16px 16px;
     overflow-y: auto;
@@ -687,6 +724,21 @@ body.dark-mode,
 .dark-mode .badge-encaixe {
     background-color: rgba(248,113,113,.16) !important;
     color: #fca5a5 !important;
+}
+
+.dark-mode .task-count-vagas,
+.dark-mode .badge-retorno-fila {
+    background-color: #26364c;
+    color: #c8dcf5;
+    border-color: #405774;
+}
+
+.dark-mode .task-count-livres {
+    color: #b8c8ba;
+}
+
+.dark-mode .task-count-lotado {
+    color: #f2a7ad;
 }
 
 .dark-mode .asana-badge[style*="background-color"] {

@@ -5,6 +5,48 @@ let mapaTecnicoColuna = {};
 let allTechsGlobal = [];
 let duplaCounter = 0;
 let tagsLogisticaGlobal = [];
+let capacidadeResumoDiaGlobal = null;
+let capacidadeResumoDataGlobal = '';
+
+const CHAVE_CAPACIDADE_POR_COLUNA = {
+    'col-manut-casa-matutino': 'manutencao_casa_m',
+    'col-manut-casa-vespertino': 'manutencao_casa_t',
+    'col-manut-predio-serra-matutino': 'manutencao_predio_serra_m',
+    'col-manut-predio-serra-vespertino': 'manutencao_predio_serra_t',
+    'col-manut-predio-outros-matutino': 'manutencao_predio_outros_m',
+    'col-manut-predio-outros-vespertino': 'manutencao_predio_outros_t',
+    'col-inst-serra-matutino': 'instalacao_serra_m',
+    'col-inst-serra-vespertino': 'instalacao_serra_t',
+    'col-inst-outros-matutino': 'instalacao_outros_m',
+    'col-inst-outros-vespertino': 'instalacao_outros_t',
+    'col-recolhimento-matutino': 'recolhimento_serra_m',
+    'col-recolhimento-vespertino': 'recolhimento_serra_t'
+};
+
+const CAMPOS_CAPACIDADE_LOGISTICA = [
+    'casa_m',
+    'casa_t',
+    'predio_serra_m',
+    'predio_serra_t',
+    'predio_outros_m',
+    'predio_outros_t',
+    'inst_serra_m',
+    'inst_serra_t',
+    'inst_outros_m',
+    'inst_outros_t',
+    'inst_casa_serra_m',
+    'inst_casa_serra_t',
+    'inst_predio_serra_m',
+    'inst_predio_serra_t',
+    'inst_casa_outros_m',
+    'inst_casa_outros_t',
+    'inst_predio_outros_m',
+    'inst_predio_outros_t',
+    'recolhimento_serra_m',
+    'recolhimento_serra_t',
+    'recolhimento_outros_m',
+    'recolhimento_outros_t'
+];
 
 function normalizarGrupoUsuario(grupo) {
     return String(grupo || '')
@@ -16,6 +58,14 @@ function normalizarGrupoUsuario(grupo) {
 function usuarioEhLogisticaOuNoc() {
     const grupo = normalizarGrupoUsuario(window.grupoUsuarioLogado || '');
     return grupo.includes('LOGISTICA') || grupo.includes('NOC') || grupo.includes('FIBRA') || grupo.includes('ADMIN');
+}
+
+function obterModoAtendimentoPainel() {
+    return document.getElementById('filtro-modo-atendimento')?.value || 'OPERACIONAL';
+}
+
+function modoPainelRecolhimento() {
+    return obterModoAtendimentoPainel() === 'RECOLHIMENTO';
 }
 
 const PRIORIDADE_LOGISTICA_LABELS = {
@@ -120,6 +170,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('filtro-municipio').addEventListener('change', renderizarQuadro);
     document.getElementById('filtro-setor').addEventListener('change', renderizarQuadro);
     document.getElementById('filtro-status').addEventListener('change', carregarAgenda);
+    document.getElementById('filtro-modo-atendimento')?.addEventListener('change', () => {
+        ajustarFiltrosPorModo();
+        carregarFilaLogistica();
+        carregarAgenda();
+    });
 
     document.getElementById('btn-data-ontem')?.addEventListener('click', () => mudarData(-1));
     document.getElementById('btn-data-hoje')?.addEventListener('click', () => mudarData(0));
@@ -298,12 +353,34 @@ async function verificarPermissoes() {
         const data = await response.json();
         const grupo = normalizarGrupoUsuario(data.group || '');
         window.grupoUsuarioLogado = data.group || '';
+        const selectModo = document.getElementById('filtro-modo-atendimento');
+        if (selectModo) {
+            selectModo.value = (grupo.includes('QUALIDADE') || grupo.includes('RECOLHIMENTO')) && !grupo.includes('ADMIN') && !grupo.includes('NOC')
+                ? 'RECOLHIMENTO'
+                : 'OPERACIONAL';
+        }
+        ajustarFiltrosPorModo();
         
         if (grupo.includes('LOGISTICA') || grupo.includes('ADMIN') || grupo.includes('NOC') || grupo.includes('FIBRA')) {
             usuarioPodeEditar = true;
             document.getElementById('area-admin-logistica')?.classList.remove('d-none');
         }
+        if (grupo.includes('QUALIDADE') || grupo.includes('RECOLHIMENTO')) {
+            usuarioPodeEditar = true;
+        }
     } catch (e) { console.error("Erro ao checar permissões", e); }
+}
+
+function ajustarFiltrosPorModo() {
+    const selectSetor = document.getElementById('filtro-setor');
+    if (!selectSetor) return;
+    if (modoPainelRecolhimento()) {
+        selectSetor.value = 'RECOLHIMENTO';
+        selectSetor.disabled = true;
+    } else {
+        selectSetor.disabled = false;
+        if (selectSetor.value === 'RECOLHIMENTO') selectSetor.value = 'TODOS';
+    }
 }
 
 async function carregarAgenda() {
@@ -321,8 +398,9 @@ async function carregarAgenda() {
     }
 
     try {
-        const response = await fetch(`/api/v5/painel-logistica/agendamentos?data=${data}&municipio=TODOS&status=${encodeURIComponent(statusFiltro)}`);
+        const response = await fetch(`/api/v5/painel-logistica/agendamentos?data=${data}&municipio=TODOS&status=${encodeURIComponent(statusFiltro)}&modo=${encodeURIComponent(obterModoAtendimentoPainel())}`);
         const payload = await response.json().catch(() => ({}));
+        await carregarCapacidadeResumoDia(data);
 
         if (!response.ok) {
             console.error('Erro ao carregar agenda:', payload);
@@ -364,6 +442,110 @@ async function carregarAgenda() {
     }
 }
 
+async function carregarCapacidadeResumoDia(data) {
+    const resumoAnterior = capacidadeResumoDataGlobal === data
+        ? JSON.stringify(capacidadeResumoDiaGlobal || {})
+        : '';
+    try {
+        const response = await fetch(`/api/v5/painel-logistica/capacidade-dia?data=${encodeURIComponent(data)}`);
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || 'Erro ao consultar capacidade do dia.');
+        capacidadeResumoDiaGlobal = payload.capacidadeResumo || null;
+        capacidadeResumoDataGlobal = data;
+    } catch (error) {
+        console.warn('[Painel Logistica] Não foi possível carregar o resumo de capacidade:', error.message);
+        if (capacidadeResumoDataGlobal !== data) {
+            capacidadeResumoDiaGlobal = null;
+            capacidadeResumoDataGlobal = data;
+        }
+    }
+    return resumoAnterior !== JSON.stringify(capacidadeResumoDiaGlobal || {});
+}
+
+function colunaCapacidadePermitida(chave, filtroSetor, filtroMunicipio) {
+    const chaves = Array.isArray(chave) ? chave : [chave];
+    const instalacao = chaves.some(item => String(item).startsWith('instalacao_'));
+    const recolhimento = chaves.some(item => String(item).startsWith('recolhimento_'));
+    if (filtroSetor === 'RECOLHIMENTO') return recolhimento;
+    if (recolhimento) return false;
+    if (filtroSetor === 'MANUTENCAO' && instalacao) return false;
+    if (filtroSetor === 'INSTALACAO' && !instalacao) return false;
+    if (filtroMunicipio === 'SERRA' && chaves.every(item => String(item).includes('_outros_'))) return false;
+    if (filtroMunicipio === 'VV_VIX_CCA' && chaves.every(item => String(item).includes('_serra_'))) return false;
+    return true;
+}
+
+function obterChavesCapacidadeColuna(corpoId, filtroMunicipio) {
+    if (corpoId === 'col-inst-serra-matutino') return ['instalacao_casa_serra_m', 'instalacao_predio_serra_m'];
+    if (corpoId === 'col-inst-serra-vespertino') return ['instalacao_casa_serra_t', 'instalacao_predio_serra_t'];
+    if (corpoId === 'col-inst-outros-matutino') return ['instalacao_casa_outros_m', 'instalacao_predio_outros_m'];
+    if (corpoId === 'col-inst-outros-vespertino') return ['instalacao_casa_outros_t', 'instalacao_predio_outros_t'];
+    if (corpoId === 'col-recolhimento-matutino') {
+        if (filtroMunicipio === 'SERRA') return ['recolhimento_serra_m'];
+        if (filtroMunicipio === 'VV_VIX_CCA') return ['recolhimento_outros_m'];
+        return ['recolhimento_serra_m', 'recolhimento_outros_m'];
+    }
+    if (corpoId === 'col-recolhimento-vespertino') {
+        if (filtroMunicipio === 'SERRA') return ['recolhimento_serra_t'];
+        if (filtroMunicipio === 'VV_VIX_CCA') return ['recolhimento_outros_t'];
+        return ['recolhimento_serra_t', 'recolhimento_outros_t'];
+    }
+    const chave = CHAVE_CAPACIDADE_POR_COLUNA[corpoId || ''];
+    return chave ? [chave] : [];
+}
+
+function obterSlotCapacidadeColuna(corpoId, filtroMunicipio) {
+    if (capacidadeResumoDataGlobal !== document.getElementById('filtro-data')?.value) return null;
+    const chaves = obterChavesCapacidadeColuna(corpoId, filtroMunicipio);
+    const slots = chaves.map(chave => capacidadeResumoDiaGlobal?.[chave]).filter(Boolean);
+    if (slots.length === 0) return null;
+    return slots.reduce((acc, slot) => ({
+        usadas: acc.usadas + Number(slot.usadas || 0),
+        total: acc.total + Number(slot.total || 0),
+        disponiveis: acc.disponiveis + Math.max(0, Number(slot.disponiveis || 0)),
+        encerrado: acc.encerrado && Boolean(slot.encerrado)
+    }), { usadas: 0, total: 0, disponiveis: 0, encerrado: true });
+}
+
+function atualizarTaskCountComVagas(coluna, totalCards, filtroSetor, filtroMunicipio) {
+    const spanCount = coluna.querySelector('.task-count');
+    if (!spanCount) return { possuiResumo: false, permitida: true };
+
+    const corpo = coluna.querySelector('.column-body');
+    const chaves = obterChavesCapacidadeColuna(corpo?.id || '', filtroMunicipio);
+    const slot = obterSlotCapacidadeColuna(corpo?.id || '', filtroMunicipio);
+    const permitida = chaves.length === 0 || colunaCapacidadePermitida(chaves, filtroSetor, filtroMunicipio);
+    const container = spanCount.closest('.task-count-resumo') || spanCount.parentElement;
+
+    container.replaceChildren();
+    container.className = 'task-count-resumo mt-1';
+
+    const qtd = document.createElement('span');
+    qtd.className = 'badge bg-secondary rounded-pill task-count-qtd';
+    const novoCount = document.createElement('span');
+    novoCount.className = 'task-count';
+    novoCount.textContent = String(totalCards);
+    qtd.append(novoCount, document.createTextNode(` OS`));
+    container.appendChild(qtd);
+
+    if (slot) {
+        const usadas = Number(slot.usadas || 0);
+        const total = Number(slot.total || 0);
+        const livres = Math.max(0, Number(slot.disponiveis || 0));
+        const vagas = document.createElement('span');
+        vagas.className = 'badge rounded-pill task-count-vagas';
+        vagas.textContent = `${usadas}/${total} vagas`;
+        const disponiveis = document.createElement('span');
+        disponiveis.className = `task-count-livres ${livres === 0 ? 'task-count-lotado' : ''}`;
+        disponiveis.textContent = slot.encerrado
+            ? 'Encerrado'
+            : (livres === 0 ? 'Lotado' : `${livres} livre${livres === 1 ? '' : 's'}`);
+        container.append(vagas, disponiveis);
+    }
+
+    return { possuiResumo: !!slot, permitida };
+}
+
 function renderizarQuadro() {
     document.querySelectorAll('.column-body').forEach(col => col.innerHTML = '');
     document.querySelectorAll('.swimlane-container').forEach(lane => lane.classList.remove('d-none'));
@@ -378,13 +560,25 @@ function renderizarQuadro() {
         const isFalha = (statusIxc === 'RAG');
         
         const isInstalacao = (os.tipo_servico === 'INSTALACAO') || (os.nome_setor && os.nome_setor.toUpperCase().includes('INSTALA')) || (os.setor === '5');
+        const textoRecolhimento = [
+            os.nome_processo,
+            os.sintoma_relatado,
+            os.assunto,
+            os.titulo,
+            os.mensagem
+        ].filter(Boolean).join(' ').toUpperCase();
+        const isRecolhimento = String(os.tipo_servico || '').toUpperCase().includes('RECOLHIMENTO') || String(os.setor || '') === '19' || textoRecolhimento.includes('CANCELAMENTO - INTERNET BANDA LARGA') || textoRecolhimento.includes('RECOLHER EQUIPAMENTOS');
+
+        if (modoPainelRecolhimento() && !isRecolhimento) return;
+        if (!modoPainelRecolhimento() && isRecolhimento) return;
 
         if (statusFiltro === 'OCULTAR_CONCLUIDOS' && isConcluido) return; 
         if (statusFiltro === 'PENDENTES' && (isConcluido || isFalha)) return;
         if (statusFiltro === 'FALHAS' && !isFalha) return;
         
-        if (filtroSetor === 'MANUTENCAO' && isInstalacao) return;
-        if (filtroSetor === 'INSTALACAO' && !isInstalacao) return;
+        if (filtroSetor === 'RECOLHIMENTO' && !isRecolhimento) return;
+        if (filtroSetor === 'MANUTENCAO' && (isInstalacao || isRecolhimento)) return;
+        if (filtroSetor === 'INSTALACAO' && (!isInstalacao || isRecolhimento)) return;
 
         const cidadeUpper = (os.cidade_real || '').toUpperCase();
         const isSerra = cidadeUpper.includes('SERRA');
@@ -397,7 +591,9 @@ function renderizarQuadro() {
         let turnoId = (os.turno === 'MATUTINO') ? 'matutino' : 'vespertino';
         
         let baseDivId = '';
-        if (isInstalacao) {
+        if (isRecolhimento) {
+            baseDivId = `col-recolhimento-${turnoId}`;
+        } else if (isInstalacao) {
             baseDivId = isSerra ? `col-inst-serra-${turnoId}` : `col-inst-outros-${turnoId}`;
         } else {
             if (os.tipo_imovel === 'CASA' || os.tipo_imovel === 'CORPORATIVO') baseDivId = `col-manut-casa-${turnoId}`;
@@ -423,18 +619,17 @@ function renderizarQuadro() {
 
     document.querySelectorAll('.kanban-column').forEach(col => {
         const totalCards = col.querySelectorAll('.asana-card').length;
-        const spanCount = col.querySelector('.task-count');
-        if (spanCount) spanCount.textContent = totalCards;
-        
-        col.style.display = totalCards === 0 ? 'none' : 'block';
+        const estado = atualizarTaskCountComVagas(col, totalCards, filtroSetor, filtroMun);
+        col.style.display = estado.permitida && totalCards > 0 ? 'block' : 'none';
     });
 
     ['matutino', 'vespertino'].forEach(turno => {
         const laneBody = document.getElementById(`swimlane-${turno}`);
         const lane = laneBody ? laneBody.closest('.swimlane-container') : null;
         if (!laneBody || !lane) return;
-        const totalTurno = laneBody.querySelectorAll('.asana-card').length;
-        lane.classList.toggle('d-none', totalTurno === 0);
+        const possuiColunaVisivel = Array.from(laneBody.querySelectorAll('.kanban-column'))
+            .some(coluna => coluna.style.display !== 'none');
+        lane.classList.toggle('d-none', !possuiColunaVisivel);
     });
 
     atualizarTimers();
@@ -822,7 +1017,8 @@ async function autoRefreshSilencioso() {
     const statusFiltro = document.getElementById('filtro-status').value;
 
     try {
-        const response = await fetch(`/api/v5/painel-logistica/agendamentos?data=${data}&municipio=TODOS&status=${encodeURIComponent(statusFiltro)}`);
+        const capacidadeAlterada = await carregarCapacidadeResumoDia(data);
+        const response = await fetch(`/api/v5/painel-logistica/agendamentos?data=${data}&municipio=TODOS&status=${encodeURIComponent(statusFiltro)}&modo=${encodeURIComponent(obterModoAtendimentoPainel())}`);
         const payload = await response.json().catch(() => ({}));
 
         if (!response.ok) {
@@ -846,13 +1042,15 @@ async function autoRefreshSilencioso() {
             if (todosAgendamentosGlobais.length === 0 && listaParcial.length > 0) {
                 todosAgendamentosGlobais = listaParcial;
                 renderizarQuadro();
+            } else if (capacidadeAlterada) {
+                renderizarQuadro();
             }
             return;
         }
 
         const novaLista = Array.isArray(payload) ? payload : [];
         
-        if (JSON.stringify(novaLista) !== JSON.stringify(todosAgendamentosGlobais)) {
+        if (capacidadeAlterada || JSON.stringify(novaLista) !== JSON.stringify(todosAgendamentosGlobais)) {
             todosAgendamentosGlobais = novaLista;
             limparAvisoAgenda();
             renderizarQuadro();
@@ -968,7 +1166,7 @@ async function carregarFilaLogistica() {
     const possuiaFilaAnterior = !!tbody?.querySelector('[data-fila-os-id]');
 
     try {
-        const res = await fetch('/api/v5/painel-logistica/fila-pendentes');
+        const res = await fetch(`/api/v5/painel-logistica/fila-pendentes?modo=${encodeURIComponent(obterModoAtendimentoPainel())}`);
         const payload = await res.json().catch(() => ({}));
         if (!res.ok && !payload?.partial) {
             const erro = new Error(payload.error || 'Erro ao carregar a fila de O.S.');
@@ -992,13 +1190,13 @@ async function carregarFilaLogistica() {
             limparAvisoFilaLogistica();
         }
         const grupoNormalizado = normalizarGrupoUsuario(window.grupoUsuarioLogado || '');
-        const deveOcultarSetor19 = grupoNormalizado.includes('LOGISTICA') || grupoNormalizado.includes('FIBRA');
+        const deveOcultarSetor19 = !modoPainelRecolhimento() || grupoNormalizado.includes('LOGISTICA') || grupoNormalizado.includes('FIBRA');
         const obterSetorFila = os => [os.setor, os.id_setor, os.id_ticket_setor, os.id_setor_atual]
             .map(valor => String(valor || '').trim())
             .find(Boolean) || '';
-        const fila = deveOcultarSetor19
-            ? filaRecebida.filter(os => obterSetorFila(os) !== '19')
-            : filaRecebida;
+        const fila = modoPainelRecolhimento()
+            ? filaRecebida.filter(os => obterSetorFila(os) === '19' || String(os.tipo_servico || '').toUpperCase().includes('RECOLHIMENTO'))
+            : (deveOcultarSetor19 ? filaRecebida.filter(os => obterSetorFila(os) !== '19') : filaRecebida);
 
         contador.textContent = fila.length;
 
@@ -1028,7 +1226,16 @@ async function carregarFilaLogistica() {
 
             let badgeAtraso = '';
             if (os._is_atrasada_com_tecnico) {
-                badgeAtraso = `<span class="badge bg-danger mt-1 d-block shadow-sm" style="font-size: 0.7rem;"><i class="bi bi-clock-history me-1"></i>Atrasada / Puxar</span>`;
+                badgeAtraso = `<span class="badge bg-danger mt-1 d-block shadow-sm" style="font-size: 0.7rem;"><i class="bi bi-clock-history me-1"></i>Atrasada</span>`;
+            }
+
+            let badgeRetornoFila = '';
+            if (os.retornou_fila) {
+                const motivoRetorno = escapeHtmlLogistica(os.retornou_fila_motivo || 'OS retornada para tratamento da logística.');
+                badgeRetornoFila = `
+                    <span class="badge badge-retorno-fila mt-1 d-block" title="Motivo: ${motivoRetorno}">
+                        <i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>Retornou para fila
+                    </span>`;
             }
 
             html += `
@@ -1036,6 +1243,7 @@ async function carregarFilaLogistica() {
                     <td class="align-middle">
                         <span class="fw-bold text-primary">#${os.id}</span>
                         ${badgeAtraso}
+                        ${badgeRetornoFila}
                     </td>
                     <td class="align-middle"><span class="badge bg-secondary">${os.nome_setor}</span></td>
                     <td class="align-middle">
@@ -1144,6 +1352,7 @@ async function abrirModalConfiguracoes() {
                         <select class="form-select form-select-sm sel-equipe" id="equipe-${tec.id}" style="width: 100px;">
                             <option value="MANUTENCAO" ${equipe === 'MANUTENCAO' ? 'selected' : ''}>Manut</option>
                             <option value="INSTALACAO" ${equipe === 'INSTALACAO' ? 'selected' : ''}>Instal</option>
+                            <option value="RECOLHIMENTO" ${equipe === 'RECOLHIMENTO' ? 'selected' : ''}>Recolh</option>
                         </select>
                         <select class="form-select form-select-sm sel-regiao" id="regiao-${tec.id}" style="width: 100px;">
                             ${montarOptionsEscala(OPCOES_REGIAO_ESCALA, regiao)}
@@ -1164,8 +1373,9 @@ async function abrirModalConfiguracoes() {
         const resCap = await fetch(`/api/v5/painel-logistica/capacidade-dia?data=${data}`);
         const capData = await resCap.json();
         if (capData && capData.encontrado) {
-            ['casa_m', 'casa_t', 'predio_serra_m', 'predio_serra_t', 'predio_outros_m', 'predio_outros_t', 'inst_serra_m', 'inst_serra_t', 'inst_outros_m', 'inst_outros_t'].forEach(campo => {
-                document.getElementById('cap-' + campo.replace(/_/g, '-')).value = capData[campo];
+            CAMPOS_CAPACIDADE_LOGISTICA.forEach(campo => {
+                const input = document.getElementById('cap-' + campo.replace(/_/g, '-'));
+                if (input) input.value = capData[campo] ?? 0;
             });
         }
 
@@ -1183,8 +1393,9 @@ function aplicarTemplateCapacidade() {
     const t = window.templatesCapacidade?.find(x => String(x.id) === selectTemp.value);
     if (!t) return;
 
-    ['casa_m', 'casa_t', 'predio_serra_m', 'predio_serra_t', 'predio_outros_m', 'predio_outros_t', 'inst_serra_m', 'inst_serra_t', 'inst_outros_m', 'inst_outros_t'].forEach(campo => {
-        document.getElementById('cap-' + campo.replace(/_/g, '-')).value = t[campo];
+    CAMPOS_CAPACIDADE_LOGISTICA.forEach(campo => {
+        const input = document.getElementById('cap-' + campo.replace(/_/g, '-'));
+        if (input) input.value = t[campo] ?? 0;
     });
     showInfoModal(`Modelo carregado! Clique em 'Salvar Tudo'.`);
 }
@@ -1237,6 +1448,7 @@ function adicionarLinhaDupla(tec1 = '', tec2 = '', equipe = 'MANUTENCAO', regiao
         <select class="form-select form-select-sm sel-equipe-dupla border-primary fw-bold" style="width: 100px;">
             <option value="MANUTENCAO" ${equipe === 'MANUTENCAO' ? 'selected' : ''}>Manut</option>
             <option value="INSTALACAO" ${equipe === 'INSTALACAO' ? 'selected' : ''}>Instal</option>
+            <option value="RECOLHIMENTO" ${equipe === 'RECOLHIMENTO' ? 'selected' : ''}>Recolh</option>
         </select>
         <select class="form-select form-select-sm sel-regiao border-secondary" style="width: 100px;">${montarOptionsEscala(OPCOES_REGIAO_ESCALA, regiaoSelecionada)}</select>
         <select class="form-select form-select-sm sel-turno border-secondary" style="width: 90px;">${montarOptionsEscala(OPCOES_TURNO_ESCALA, turnoSelecionado)}</select>
@@ -1252,13 +1464,15 @@ function adicionarLinhaDupla(tec1 = '', tec2 = '', equipe = 'MANUTENCAO', regiao
 }
 
 function getValoresCapacidade() {
-    return {
-        casa_m: document.getElementById('cap-casa-m').value, casa_t: document.getElementById('cap-casa-t').value,
-        predio_serra_m: document.getElementById('cap-predio-serra-m').value, predio_serra_t: document.getElementById('cap-predio-serra-t').value,
-        predio_outros_m: document.getElementById('cap-predio-outros-m').value, predio_outros_t: document.getElementById('cap-predio-outros-t').value,
-        inst_serra_m: document.getElementById('cap-inst-serra-m').value, inst_serra_t: document.getElementById('cap-inst-serra-t').value,
-        inst_outros_m: document.getElementById('cap-inst-outros-m').value, inst_outros_t: document.getElementById('cap-inst-outros-t').value
-    };
+    const valores = CAMPOS_CAPACIDADE_LOGISTICA.reduce((acc, campo) => {
+        acc[campo] = document.getElementById('cap-' + campo.replace(/_/g, '-'))?.value || 0;
+        return acc;
+    }, {});
+    valores.inst_serra_m = Number(valores.inst_casa_serra_m || 0) + Number(valores.inst_predio_serra_m || 0);
+    valores.inst_serra_t = Number(valores.inst_casa_serra_t || 0) + Number(valores.inst_predio_serra_t || 0);
+    valores.inst_outros_m = Number(valores.inst_casa_outros_m || 0) + Number(valores.inst_predio_outros_m || 0);
+    valores.inst_outros_t = Number(valores.inst_casa_outros_t || 0) + Number(valores.inst_predio_outros_t || 0);
+    return valores;
 }
 
 async function salvarNovoTemplate() {

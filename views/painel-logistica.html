@@ -46,6 +46,13 @@
                     </div>
                 </div>
                 <div class="col-md-3">
+                    <label class="form-label fw-bold">Tipo de atendimento</label>
+                    <select id="filtro-modo-atendimento" class="form-select border-primary">
+                        <option value="OPERACIONAL" selected>Manutenção / Instalação</option>
+                        <option value="RECOLHIMENTO">Recolhimento</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
                     <label class="form-label fw-bold">Município / Região</label>
                     <select id="filtro-municipio" class="form-select border-primary">
                         <option value="TODOS">Todas as Regiões</option>
@@ -87,7 +94,7 @@
 
         <div id="container-fila-logistica" class="mb-5 p-3 bg-white rounded shadow-sm border-top border-4 border-danger d-none">
             <h5 class="fw-bold mb-3 d-flex justify-content-between align-items-center" style="color: #dc3545;">
-                <span><i class="bi bi-inboxes-fill me-2"></i>Fila de O.S. Pendentes (Logística)</span>
+                <span><i class="bi bi-inboxes-fill me-2"></i>Fila de O.S. Pendentes</span>
                 <span class="badge bg-danger rounded-pill fs-6" id="contador-fila">0</span>
             </h5>
             <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
@@ -155,6 +162,14 @@
                     </div>
                     <div class="column-body" id="col-inst-outros-matutino"></div>
                 </div>
+
+                <div class="kanban-column border-top border-3 border-danger bg-light" style="min-width: 280px;">
+                    <div class="column-header text-center border-bottom mb-2 pb-2">
+                        <div class="fw-bold text-dark"><i class="bi bi-box-arrow-down me-1 text-danger"></i>Recolhimento</div>
+                        <div class="badge bg-secondary rounded-pill mt-1"><span class="task-count">0</span> OS</div>
+                    </div>
+                    <div class="column-body" id="col-recolhimento-matutino"></div>
+                </div>
             </div>
         </div>
 
@@ -203,6 +218,14 @@
                         <div class="badge bg-secondary rounded-pill mt-1"><span class="task-count">0</span> OS</div>
                     </div>
                     <div class="column-body" id="col-inst-outros-vespertino"></div>
+                </div>
+
+                <div class="kanban-column border-top border-3 border-danger bg-light" style="min-width: 280px;">
+                    <div class="column-header text-center border-bottom mb-2 pb-2">
+                        <div class="fw-bold text-dark"><i class="bi bi-box-arrow-down me-1 text-danger"></i>Recolhimento</div>
+                        <div class="badge bg-secondary rounded-pill mt-1"><span class="task-count">0</span> OS</div>
+                    </div>
+                    <div class="column-body" id="col-recolhimento-vespertino"></div>
                 </div>
             </div>
         </div>
@@ -529,18 +552,48 @@
                                         <div class="card-header bg-success text-white fw-bold"><i class="bi bi-router-fill me-2"></i>Instalação</div>
                                         <div class="card-body small">
                                             
+                                            <h6 class="fw-bold text-dark border-bottom pb-1">Casas - Serra</h6>
+                                            <div class="row g-2 mb-3">
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Manhã - 08:00 as 12:00</label><input type="number" class="form-control form-control-sm" id="cap-inst-casa-serra-m" value="3"></div>
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Tarde - 13:00 as 18:00</label><input type="number" class="form-control form-control-sm" id="cap-inst-casa-serra-t" value="3"></div>
+                                            </div>
+
+                                            <h6 class="fw-bold text-dark border-bottom pb-1">Prédio - Serra</h6>
+                                            <div class="row g-2 mb-3">
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Manhã - 08:00 as 12:00</label><input type="number" class="form-control form-control-sm" id="cap-inst-predio-serra-m" value="3"></div>
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Tarde - 13:00 as 18:00</label><input type="number" class="form-control form-control-sm" id="cap-inst-predio-serra-t" value="3"></div>
+                                            </div>
+
+                                            <h6 class="fw-bold text-dark border-bottom pb-1">Casas - VV / VIX / CAR</h6>
+                                            <div class="row g-2 mb-3">
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Manhã - 08:00 as 12:00</label><input type="number" class="form-control form-control-sm" id="cap-inst-casa-outros-m" value="3"></div>
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Tarde - 13:00 as 18:00</label><input type="number" class="form-control form-control-sm" id="cap-inst-casa-outros-t" value="3"></div>
+                                            </div>
+
+                                            <h6 class="fw-bold text-dark border-bottom pb-1">Prédio - VV / VIX / CAR</h6>
+                                            <div class="row g-2 mb-1">
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Manhã - 08:00 as 12:00</label><input type="number" class="form-control form-control-sm" id="cap-inst-predio-outros-m" value="3"></div>
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Tarde - 13:00 as 18:00</label><input type="number" class="form-control form-control-sm" id="cap-inst-predio-outros-t" value="3"></div>
+                                            </div>
+
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="card border-danger shadow-sm h-100">
+                                        <div class="card-header bg-danger text-white fw-bold"><i class="bi bi-box-arrow-down me-2"></i>Recolhimento</div>
+                                        <div class="card-body small">
                                             <h6 class="fw-bold text-dark border-bottom pb-1">Serra</h6>
                                             <div class="row g-2 mb-3">
-                                                <div class="col-6"><label class="form-label text-muted mb-0">Manhã - 08:00 as 12:00</label><input type="number" class="form-control form-control-sm" id="cap-inst-serra-m" value="5"></div>
-                                                <div class="col-6"><label class="form-label text-muted mb-0">Tarde - 12:00 as 17:00</label><input type="number" class="form-control form-control-sm" id="cap-inst-serra-t" value="5"></div>
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Manhã - 08:00 as 12:00</label><input type="number" class="form-control form-control-sm" id="cap-recolhimento-serra-m" value="3"></div>
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Tarde - 13:00 as 18:00</label><input type="number" class="form-control form-control-sm" id="cap-recolhimento-serra-t" value="3"></div>
                                             </div>
-
                                             <h6 class="fw-bold text-dark border-bottom pb-1">VV / VIX / CAR</h6>
                                             <div class="row g-2 mb-1">
-                                                <div class="col-6"><label class="form-label text-muted mb-0">Manhã - 08:00 as 12:00</label><input type="number" class="form-control form-control-sm" id="cap-inst-outros-m" value="3"></div>
-                                                <div class="col-6"><label class="form-label text-muted mb-0">Tarde - 12:00 as 17:00</label><input type="number" class="form-control form-control-sm" id="cap-inst-outros-t" value="2"></div>
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Manhã - 08:00 as 12:00</label><input type="number" class="form-control form-control-sm" id="cap-recolhimento-outros-m" value="3"></div>
+                                                <div class="col-6"><label class="form-label text-muted mb-0">Tarde - 13:00 as 18:00</label><input type="number" class="form-control form-control-sm" id="cap-recolhimento-outros-t" value="3"></div>
                                             </div>
-
                                         </div>
                                     </div>
                                 </div>
