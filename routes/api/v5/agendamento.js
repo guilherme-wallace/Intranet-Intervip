@@ -1049,9 +1049,7 @@ router.get('/vagas-semana', (req, res) => __awaiter(void 0, void 0, void 0, func
         };
         let countFilter = (os) => false;
         if (isRecolhimento) {
-            countFilter = isSerra
-                ? (os) => String(os.tipo_servico).toUpperCase().includes('RECOLHIMENTO') && String(os.municipio_base).toUpperCase().includes('SERRA')
-                : (os) => String(os.tipo_servico).toUpperCase().includes('RECOLHIMENTO') && !String(os.municipio_base).toUpperCase().includes('SERRA');
+            countFilter = (os) => String(os.tipo_servico).toUpperCase().includes('RECOLHIMENTO');
         }
         else if (isInstalacao) {
             countFilter = isSerra
@@ -1086,14 +1084,8 @@ router.get('/vagas-semana', (req, res) => __awaiter(void 0, void 0, void 0, func
                 return;
             let cap_m = 0, cap_t = 0;
             if (isRecolhimento) {
-                if (isSerra) {
-                    cap_m = capacidade.recolhimento_serra_m || 0;
-                    cap_t = capacidade.recolhimento_serra_t || 0;
-                }
-                else {
-                    cap_m = capacidade.recolhimento_outros_m || 0;
-                    cap_t = capacidade.recolhimento_outros_t || 0;
-                }
+                cap_m = Number(capacidade.recolhimento_serra_m || 0) + Number(capacidade.recolhimento_outros_m || 0);
+                cap_t = Number(capacidade.recolhimento_serra_t || 0) + Number(capacidade.recolhimento_outros_t || 0);
             }
             else if (isInstalacao) {
                 if (isSerra && isPredio) {
