@@ -13,10 +13,18 @@
         ['manutencao_predio_serra_t', 'Prédio Serra - Tarde'],
         ['manutencao_predio_outros_m', 'Prédio VV/VIX/CCA - Manhã'],
         ['manutencao_predio_outros_t', 'Prédio VV/VIX/CCA - Tarde'],
-        ['instalacao_serra_m', 'Instalação Serra - Manhã'],
-        ['instalacao_serra_t', 'Instalação Serra - Tarde'],
-        ['instalacao_outros_m', 'Instalação VV/VIX/CCA - Manhã'],
-        ['instalacao_outros_t', 'Instalação VV/VIX/CCA - Tarde']
+        ['instalacao_casa_serra_m', 'Instalação Casa Serra - Manhã'],
+        ['instalacao_casa_serra_t', 'Instalação Casa Serra - Tarde'],
+        ['instalacao_predio_serra_m', 'Instalação Prédio Serra - Manhã'],
+        ['instalacao_predio_serra_t', 'Instalação Prédio Serra - Tarde'],
+        ['instalacao_casa_outros_m', 'Instalação Casa VV/VIX/CCA - Manhã'],
+        ['instalacao_casa_outros_t', 'Instalação Casa VV/VIX/CCA - Tarde'],
+        ['instalacao_predio_outros_m', 'Instalação Prédio VV/VIX/CCA - Manhã'],
+        ['instalacao_predio_outros_t', 'Instalação Prédio VV/VIX/CCA - Tarde'],
+        ['recolhimento_serra_m', 'Recolhimento Serra - Manhã'],
+        ['recolhimento_serra_t', 'Recolhimento Serra - Tarde'],
+        ['recolhimento_outros_m', 'Recolhimento VV/VIX/CCA - Manhã'],
+        ['recolhimento_outros_t', 'Recolhimento VV/VIX/CCA - Tarde']
     ];
 
     function ymdLocal(date) {
@@ -122,6 +130,7 @@
                                         <option value="TODOS">Todos</option>
                                         <option value="SUPORTE">Manutenção / Suporte</option>
                                         <option value="INSTALACAO">Instalação</option>
+                                        <option value="RECOLHIMENTO">Recolhimento</option>
                                     </select>
                                 </div>
                             </div>
@@ -167,6 +176,7 @@
     }
 
     function textoDisponivel(slot) {
+        if (slot?.encerrado) return 'Encerrado';
         if (!slot || Number(slot.total || 0) <= 0) return 'Fechado';
         if (Number(slot.disponiveis || 0) <= 0) return 'Lotado';
         return `${slot.disponiveis} vaga${Number(slot.disponiveis) === 1 ? '' : 's'}`;
