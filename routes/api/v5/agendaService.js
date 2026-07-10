@@ -1345,10 +1345,10 @@ class AgendaService {
                         inst_casa_outros_t: diaSemana === 6 ? 0 : 3,
                         inst_predio_outros_m: diaSemana === 6 ? 2 : 3,
                         inst_predio_outros_t: diaSemana === 6 ? 0 : 3,
-                        recolhimento_serra_m: diaSemana === 6 ? 2 : 3,
-                        recolhimento_serra_t: diaSemana === 6 ? 0 : 3,
-                        recolhimento_outros_m: diaSemana === 6 ? 2 : 3,
-                        recolhimento_outros_t: diaSemana === 6 ? 0 : 3
+                        recolhimento_serra_m: 6,
+                        recolhimento_serra_t: 6,
+                        recolhimento_outros_m: 0,
+                        recolhimento_outros_t: 0
                     }];
             }
             const t = template[0];
@@ -1374,10 +1374,10 @@ class AgendaService {
                 (_m = (_l = t.inst_casa_outros_t) !== null && _l !== void 0 ? _l : t.inst_outros_t) !== null && _m !== void 0 ? _m : 3,
                 (_p = (_o = t.inst_predio_outros_m) !== null && _o !== void 0 ? _o : t.inst_outros_m) !== null && _p !== void 0 ? _p : 3,
                 (_r = (_q = t.inst_predio_outros_t) !== null && _q !== void 0 ? _q : t.inst_outros_t) !== null && _r !== void 0 ? _r : 3,
-                (_s = t.recolhimento_serra_m) !== null && _s !== void 0 ? _s : 3,
-                (_t = t.recolhimento_serra_t) !== null && _t !== void 0 ? _t : 3,
-                (_u = t.recolhimento_outros_m) !== null && _u !== void 0 ? _u : 3,
-                (_v = t.recolhimento_outros_t) !== null && _v !== void 0 ? _v : 3
+                (_s = t.recolhimento_serra_m) !== null && _s !== void 0 ? _s : 6,
+                (_t = t.recolhimento_serra_t) !== null && _t !== void 0 ? _t : 6,
+                (_u = t.recolhimento_outros_m) !== null && _u !== void 0 ? _u : 0,
+                (_v = t.recolhimento_outros_t) !== null && _v !== void 0 ? _v : 0
             ]);
         });
     }
@@ -1400,10 +1400,10 @@ class AgendaService {
                         ADD COLUMN IF NOT EXISTS inst_casa_outros_t INT(11) DEFAULT 3,
                         ADD COLUMN IF NOT EXISTS inst_predio_outros_m INT(11) DEFAULT 3,
                         ADD COLUMN IF NOT EXISTS inst_predio_outros_t INT(11) DEFAULT 3,
-                        ADD COLUMN IF NOT EXISTS recolhimento_serra_m INT(11) DEFAULT 3,
-                        ADD COLUMN IF NOT EXISTS recolhimento_serra_t INT(11) DEFAULT 3,
-                        ADD COLUMN IF NOT EXISTS recolhimento_outros_m INT(11) DEFAULT 3,
-                        ADD COLUMN IF NOT EXISTS recolhimento_outros_t INT(11) DEFAULT 3`).catch((error) => {
+                    ADD COLUMN IF NOT EXISTS recolhimento_serra_m INT(11) DEFAULT 6,
+                    ADD COLUMN IF NOT EXISTS recolhimento_serra_t INT(11) DEFAULT 6,
+                    ADD COLUMN IF NOT EXISTS recolhimento_outros_m INT(11) DEFAULT 0,
+                    ADD COLUMN IF NOT EXISTS recolhimento_outros_t INT(11) DEFAULT 0`).catch((error) => {
                     (0, logger_1.logWarn)('[Vagas Agenda][Recolhimento]', 'Nao foi possivel criar colunas de recolhimento automaticamente.', {
                         code: error === null || error === void 0 ? void 0 : error.code,
                         message: error === null || error === void 0 ? void 0 : error.message
@@ -1418,10 +1418,10 @@ class AgendaService {
                         ADD COLUMN IF NOT EXISTS inst_casa_outros_t INT(11) DEFAULT 3,
                         ADD COLUMN IF NOT EXISTS inst_predio_outros_m INT(11) DEFAULT 3,
                         ADD COLUMN IF NOT EXISTS inst_predio_outros_t INT(11) DEFAULT 3,
-                        ADD COLUMN IF NOT EXISTS recolhimento_serra_m INT(11) DEFAULT 3,
-                        ADD COLUMN IF NOT EXISTS recolhimento_serra_t INT(11) DEFAULT 3,
-                        ADD COLUMN IF NOT EXISTS recolhimento_outros_m INT(11) DEFAULT 3,
-                        ADD COLUMN IF NOT EXISTS recolhimento_outros_t INT(11) DEFAULT 3`).catch((error) => {
+                    ADD COLUMN IF NOT EXISTS recolhimento_serra_m INT(11) DEFAULT 6,
+                    ADD COLUMN IF NOT EXISTS recolhimento_serra_t INT(11) DEFAULT 6,
+                    ADD COLUMN IF NOT EXISTS recolhimento_outros_m INT(11) DEFAULT 0,
+                    ADD COLUMN IF NOT EXISTS recolhimento_outros_t INT(11) DEFAULT 0`).catch((error) => {
                     (0, logger_1.logWarn)('[Vagas Agenda][Recolhimento]', 'Nao foi possivel criar colunas de recolhimento nos modelos automaticamente.', {
                         code: error === null || error === void 0 ? void 0 : error.code,
                         message: error === null || error === void 0 ? void 0 : error.message
@@ -1457,7 +1457,7 @@ class AgendaService {
         const tipoImovel = this.normalizarFiltroVagas(os.tipo_imovel || '');
         const regiao = municipio.includes('SERRA') ? 'serra' : 'outros';
         if (tipoServico.includes('RECOLHIMENTO'))
-            return `recolhimento_${regiao}_${sufixo}`;
+            return `recolhimento_${sufixo}`;
         if (tipoServico.includes('INSTALA')) {
             const imovelInstalacao = tipoImovel.includes('PREDIO') ? 'predio' : 'casa';
             return `instalacao_${imovelInstalacao}_${regiao}_${sufixo}`;
@@ -1475,6 +1475,8 @@ class AgendaService {
             return false;
         if (tipo === 'RECOLHIMENTO' && !isRecolhimento)
             return false;
+        if (isRecolhimento)
+            return true;
         if (municipio === 'SERRA')
             return !chave.includes('_outros_');
         if (municipio === 'VV_VIX_CCA')
@@ -1523,7 +1525,7 @@ class AgendaService {
             const capacidadePorData = new Map((capacidades || []).map((cap) => [this.dataParaYmdSaoPaulo(cap.data), cap]));
             const resumoPorData = {};
             datas.forEach(data => {
-                var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _0, _1, _2, _3;
+                var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _0, _1, _2, _3, _4, _5, _6, _7;
                 const cap = capacidadePorData.get(data) || {};
                 resumoPorData[data] = {
                     manutencao_casa_m: this.criarSlotVaga(cap.casa_m),
@@ -1544,10 +1546,12 @@ class AgendaService {
                     instalacao_serra_t: this.criarSlotVaga(Number((_p = (_o = cap.inst_casa_serra_t) !== null && _o !== void 0 ? _o : cap.inst_serra_t) !== null && _p !== void 0 ? _p : 0) + Number((_r = (_q = cap.inst_predio_serra_t) !== null && _q !== void 0 ? _q : cap.inst_serra_t) !== null && _r !== void 0 ? _r : 0)),
                     instalacao_outros_m: this.criarSlotVaga(Number((_t = (_s = cap.inst_casa_outros_m) !== null && _s !== void 0 ? _s : cap.inst_outros_m) !== null && _t !== void 0 ? _t : 0) + Number((_v = (_u = cap.inst_predio_outros_m) !== null && _u !== void 0 ? _u : cap.inst_outros_m) !== null && _v !== void 0 ? _v : 0)),
                     instalacao_outros_t: this.criarSlotVaga(Number((_x = (_w = cap.inst_casa_outros_t) !== null && _w !== void 0 ? _w : cap.inst_outros_t) !== null && _x !== void 0 ? _x : 0) + Number((_z = (_y = cap.inst_predio_outros_t) !== null && _y !== void 0 ? _y : cap.inst_outros_t) !== null && _z !== void 0 ? _z : 0)),
-                    recolhimento_serra_m: this.criarSlotVaga((_0 = cap.recolhimento_serra_m) !== null && _0 !== void 0 ? _0 : 3),
-                    recolhimento_serra_t: this.criarSlotVaga((_1 = cap.recolhimento_serra_t) !== null && _1 !== void 0 ? _1 : 3),
-                    recolhimento_outros_m: this.criarSlotVaga((_2 = cap.recolhimento_outros_m) !== null && _2 !== void 0 ? _2 : 3),
-                    recolhimento_outros_t: this.criarSlotVaga((_3 = cap.recolhimento_outros_t) !== null && _3 !== void 0 ? _3 : 3)
+                    recolhimento_m: this.criarSlotVaga(Number((_0 = cap.recolhimento_serra_m) !== null && _0 !== void 0 ? _0 : 3) + Number((_1 = cap.recolhimento_outros_m) !== null && _1 !== void 0 ? _1 : 3)),
+                    recolhimento_t: this.criarSlotVaga(Number((_2 = cap.recolhimento_serra_t) !== null && _2 !== void 0 ? _2 : 3) + Number((_3 = cap.recolhimento_outros_t) !== null && _3 !== void 0 ? _3 : 3)),
+                    recolhimento_serra_m: this.criarSlotVaga((_4 = cap.recolhimento_serra_m) !== null && _4 !== void 0 ? _4 : 3),
+                    recolhimento_serra_t: this.criarSlotVaga((_5 = cap.recolhimento_serra_t) !== null && _5 !== void 0 ? _5 : 3),
+                    recolhimento_outros_m: this.criarSlotVaga((_6 = cap.recolhimento_outros_m) !== null && _6 !== void 0 ? _6 : 3),
+                    recolhimento_outros_t: this.criarSlotVaga((_7 = cap.recolhimento_outros_t) !== null && _7 !== void 0 ? _7 : 3)
                 };
             });
             (agendamentos || []).forEach((os) => {
@@ -1749,10 +1753,36 @@ class AgendaService {
                 rp: '500'
             }).catch(() => ({ registros: [] }));
             const dictSetores = new Map((setoresData.registros || []).map((s) => [String(s.id), s.descricao || s.setor || `Setor ${s.id}`]));
+            const idsClientesFila = [...new Set(fila.map(os => String(os.id_cliente || '').trim()).filter(Boolean))];
+            const duplicidadePorCliente = new Map();
+            if (idsClientesFila.length > 0) {
+                const duplicidades = yield this.executeDb(`
+                SELECT ixc_cliente_id, COUNT(DISTINCT ixc_os_id) AS total_agendadas
+                FROM ivp_agenda_os
+                WHERE ixc_cliente_id IN (${idsClientesFila.map(() => '?').join(',')})
+                  AND data_agendamento IS NOT NULL
+                  AND data_agendamento <> ''
+                  AND turno IN ('MATUTINO', 'VESPERTINO')
+                  AND ixc_os_id IS NOT NULL
+                  AND (status_interno IS NULL OR status_interno NOT IN ('CANCELADO', 'VISITA_CANCELADA'))
+                GROUP BY ixc_cliente_id
+                HAVING total_agendadas > 1
+                `, idsClientesFila).catch((error) => {
+                    (0, logger_1.logWarn)('[Painel Logistica][Fila Pendentes]', 'Nao foi possivel calcular OSs duplicadas por cliente.', {
+                        code: error === null || error === void 0 ? void 0 : error.code,
+                        message: error === null || error === void 0 ? void 0 : error.message
+                    });
+                    return [];
+                });
+                (duplicidades || []).forEach((row) => {
+                    duplicidadePorCliente.set(String(row.ixc_cliente_id), Number(row.total_agendadas || 0));
+                });
+            }
             return fila.map(os => {
                 const cliente = dictClientes.get(String(os.id_cliente));
                 const retorno = retornoPorOs.get(String(os.id));
-                return Object.assign(Object.assign({}, os), { nome_cliente: cliente ? (cliente.razao || cliente.nome) : 'Desconhecido', nome_setor: dictSetores.get(String(os.setor)) || os.tipo_servico || 'Desconhecido', endereco_formatado: cliente ? `${cliente.endereco || ''}, ${cliente.numero || 'S/N'} - ${cliente.bairro || ''}` : '', cidade_real: (cliente === null || cliente === void 0 ? void 0 : cliente.cidade) || os.municipio_base || '', municipio_base: os.municipio_base || (cliente === null || cliente === void 0 ? void 0 : cliente.cidade) || '', retornou_fila: !!retorno, retornou_fila_em: (retorno === null || retorno === void 0 ? void 0 : retorno.em) || null, retornou_fila_motivo: (retorno === null || retorno === void 0 ? void 0 : retorno.motivo) || '' });
+                const totalDuplicadas = duplicidadePorCliente.get(String(os.id_cliente)) || 0;
+                return Object.assign(Object.assign({}, os), { nome_cliente: cliente ? (cliente.razao || cliente.nome) : 'Desconhecido', nome_setor: dictSetores.get(String(os.setor)) || os.tipo_servico || 'Desconhecido', endereco_formatado: cliente ? `${cliente.endereco || ''}, ${cliente.numero || 'S/N'} - ${cliente.bairro || ''}` : '', cidade_real: (cliente === null || cliente === void 0 ? void 0 : cliente.cidade) || os.municipio_base || '', municipio_base: os.municipio_base || (cliente === null || cliente === void 0 ? void 0 : cliente.cidade) || '', retornou_fila: !!retorno, retornou_fila_em: (retorno === null || retorno === void 0 ? void 0 : retorno.em) || null, retornou_fila_motivo: (retorno === null || retorno === void 0 ? void 0 : retorno.motivo) || '', duplicada: totalDuplicadas > 1, duplicada_total: totalDuplicadas });
             });
         });
     }

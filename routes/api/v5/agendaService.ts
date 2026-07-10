@@ -1534,10 +1534,10 @@ export class AgendaService {
                 inst_casa_outros_t: diaSemana === 6 ? 0 : 3,
                 inst_predio_outros_m: diaSemana === 6 ? 2 : 3,
                 inst_predio_outros_t: diaSemana === 6 ? 0 : 3,
-                recolhimento_serra_m: diaSemana === 6 ? 2 : 3,
-                recolhimento_serra_t: diaSemana === 6 ? 0 : 3,
-                recolhimento_outros_m: diaSemana === 6 ? 2 : 3,
-                recolhimento_outros_t: diaSemana === 6 ? 0 : 3
+            recolhimento_serra_m: 6,
+            recolhimento_serra_t: 6,
+            recolhimento_outros_m: 0,
+            recolhimento_outros_t: 0
             }];
         }
 
@@ -1566,10 +1566,10 @@ export class AgendaService {
                 t.inst_casa_outros_t ?? t.inst_outros_t ?? 3,
                 t.inst_predio_outros_m ?? t.inst_outros_m ?? 3,
                 t.inst_predio_outros_t ?? t.inst_outros_t ?? 3,
-                t.recolhimento_serra_m ?? 3,
-                t.recolhimento_serra_t ?? 3,
-                t.recolhimento_outros_m ?? 3,
-                t.recolhimento_outros_t ?? 3
+                t.recolhimento_serra_m ?? 6,
+                t.recolhimento_serra_t ?? 6,
+                t.recolhimento_outros_m ?? 0,
+                t.recolhimento_outros_t ?? 0
             ]
         );
     }
@@ -1597,10 +1597,10 @@ export class AgendaService {
                         ADD COLUMN IF NOT EXISTS inst_casa_outros_t INT(11) DEFAULT 3,
                         ADD COLUMN IF NOT EXISTS inst_predio_outros_m INT(11) DEFAULT 3,
                         ADD COLUMN IF NOT EXISTS inst_predio_outros_t INT(11) DEFAULT 3,
-                        ADD COLUMN IF NOT EXISTS recolhimento_serra_m INT(11) DEFAULT 3,
-                        ADD COLUMN IF NOT EXISTS recolhimento_serra_t INT(11) DEFAULT 3,
-                        ADD COLUMN IF NOT EXISTS recolhimento_outros_m INT(11) DEFAULT 3,
-                        ADD COLUMN IF NOT EXISTS recolhimento_outros_t INT(11) DEFAULT 3`
+                    ADD COLUMN IF NOT EXISTS recolhimento_serra_m INT(11) DEFAULT 6,
+                    ADD COLUMN IF NOT EXISTS recolhimento_serra_t INT(11) DEFAULT 6,
+                    ADD COLUMN IF NOT EXISTS recolhimento_outros_m INT(11) DEFAULT 0,
+                    ADD COLUMN IF NOT EXISTS recolhimento_outros_t INT(11) DEFAULT 0`
                 ).catch((error: any) => {
                     logWarn('[Vagas Agenda][Recolhimento]', 'Nao foi possivel criar colunas de recolhimento automaticamente.', {
                         code: error?.code,
@@ -1618,10 +1618,10 @@ export class AgendaService {
                         ADD COLUMN IF NOT EXISTS inst_casa_outros_t INT(11) DEFAULT 3,
                         ADD COLUMN IF NOT EXISTS inst_predio_outros_m INT(11) DEFAULT 3,
                         ADD COLUMN IF NOT EXISTS inst_predio_outros_t INT(11) DEFAULT 3,
-                        ADD COLUMN IF NOT EXISTS recolhimento_serra_m INT(11) DEFAULT 3,
-                        ADD COLUMN IF NOT EXISTS recolhimento_serra_t INT(11) DEFAULT 3,
-                        ADD COLUMN IF NOT EXISTS recolhimento_outros_m INT(11) DEFAULT 3,
-                        ADD COLUMN IF NOT EXISTS recolhimento_outros_t INT(11) DEFAULT 3`
+                    ADD COLUMN IF NOT EXISTS recolhimento_serra_m INT(11) DEFAULT 6,
+                    ADD COLUMN IF NOT EXISTS recolhimento_serra_t INT(11) DEFAULT 6,
+                    ADD COLUMN IF NOT EXISTS recolhimento_outros_m INT(11) DEFAULT 0,
+                    ADD COLUMN IF NOT EXISTS recolhimento_outros_t INT(11) DEFAULT 0`
                 ).catch((error: any) => {
                     logWarn('[Vagas Agenda][Recolhimento]', 'Nao foi possivel criar colunas de recolhimento nos modelos automaticamente.', {
                         code: error?.code,
@@ -1662,7 +1662,7 @@ export class AgendaService {
         const tipoImovel = this.normalizarFiltroVagas(os.tipo_imovel || '');
         const regiao = municipio.includes('SERRA') ? 'serra' : 'outros';
 
-        if (tipoServico.includes('RECOLHIMENTO')) return `recolhimento_${regiao}_${sufixo}`;
+        if (tipoServico.includes('RECOLHIMENTO')) return `recolhimento_${sufixo}`;
         if (tipoServico.includes('INSTALA')) {
             const imovelInstalacao = tipoImovel.includes('PREDIO') ? 'predio' : 'casa';
             return `instalacao_${imovelInstalacao}_${regiao}_${sufixo}`;
@@ -1677,6 +1677,7 @@ export class AgendaService {
         if (tipo === 'SUPORTE' && (isInstalacao || isRecolhimento)) return false;
         if (tipo === 'INSTALACAO' && !isInstalacao) return false;
         if (tipo === 'RECOLHIMENTO' && !isRecolhimento) return false;
+        if (isRecolhimento) return true;
         if (municipio === 'SERRA') return !chave.includes('_outros_');
         if (municipio === 'VV_VIX_CCA') return !chave.includes('_serra_');
         return true;
@@ -1765,6 +1766,12 @@ export class AgendaService {
                 ),
                 instalacao_outros_t: this.criarSlotVaga(
                     Number(cap.inst_casa_outros_t ?? cap.inst_outros_t ?? 0) + Number(cap.inst_predio_outros_t ?? cap.inst_outros_t ?? 0)
+                ),
+                recolhimento_m: this.criarSlotVaga(
+                    Number(cap.recolhimento_serra_m ?? 3) + Number(cap.recolhimento_outros_m ?? 3)
+                ),
+                recolhimento_t: this.criarSlotVaga(
+                    Number(cap.recolhimento_serra_t ?? 3) + Number(cap.recolhimento_outros_t ?? 3)
                 ),
                 recolhimento_serra_m: this.criarSlotVaga(cap.recolhimento_serra_m ?? 3),
                 recolhimento_serra_t: this.criarSlotVaga(cap.recolhimento_serra_t ?? 3),
@@ -2007,10 +2014,41 @@ export class AgendaService {
         }).catch(() => ({ registros: [] }));
         
         const dictSetores = new Map((setoresData.registros || []).map((s:any) => [String(s.id), s.descricao || s.setor || `Setor ${s.id}`]));
+        const idsClientesFila = [...new Set(fila.map(os => String(os.id_cliente || '').trim()).filter(Boolean))];
+        const duplicidadePorCliente = new Map<string, number>();
+
+        if (idsClientesFila.length > 0) {
+            const duplicidades = await this.executeDb(
+                `
+                SELECT ixc_cliente_id, COUNT(DISTINCT ixc_os_id) AS total_agendadas
+                FROM ivp_agenda_os
+                WHERE ixc_cliente_id IN (${idsClientesFila.map(() => '?').join(',')})
+                  AND data_agendamento IS NOT NULL
+                  AND data_agendamento <> ''
+                  AND turno IN ('MATUTINO', 'VESPERTINO')
+                  AND ixc_os_id IS NOT NULL
+                  AND (status_interno IS NULL OR status_interno NOT IN ('CANCELADO', 'VISITA_CANCELADA'))
+                GROUP BY ixc_cliente_id
+                HAVING total_agendadas > 1
+                `,
+                idsClientesFila
+            ).catch((error: any) => {
+                logWarn('[Painel Logistica][Fila Pendentes]', 'Nao foi possivel calcular OSs duplicadas por cliente.', {
+                    code: error?.code,
+                    message: error?.message
+                });
+                return [];
+            });
+
+            (duplicidades || []).forEach((row: any) => {
+                duplicidadePorCliente.set(String(row.ixc_cliente_id), Number(row.total_agendadas || 0));
+            });
+        }
 
         return fila.map(os => {
             const cliente = dictClientes.get(String(os.id_cliente));
             const retorno = retornoPorOs.get(String(os.id));
+            const totalDuplicadas = duplicidadePorCliente.get(String(os.id_cliente)) || 0;
             return {
                 ...os,
                 nome_cliente: cliente ? (cliente.razao || cliente.nome) : 'Desconhecido',
@@ -2020,7 +2058,9 @@ export class AgendaService {
                 municipio_base: os.municipio_base || cliente?.cidade || '',
                 retornou_fila: !!retorno,
                 retornou_fila_em: retorno?.em || null,
-                retornou_fila_motivo: retorno?.motivo || ''
+                retornou_fila_motivo: retorno?.motivo || '',
+                duplicada: totalDuplicadas > 1,
+                duplicada_total: totalDuplicadas
             };
         });
     }

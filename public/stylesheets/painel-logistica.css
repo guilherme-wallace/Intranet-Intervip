@@ -309,6 +309,14 @@ body {
     font-weight: 600;
 }
 
+.badge-duplicada-fila {
+    background-color: #fff3cd;
+    color: #7a5a00;
+    border: 1px solid #f1d277;
+    font-size: 0.68rem;
+    font-weight: 700;
+}
+
 .column-body {
     padding: 0 16px 16px 16px;
     overflow-y: auto;
@@ -731,6 +739,12 @@ body.dark-mode,
     background-color: #26364c;
     color: #c8dcf5;
     border-color: #405774;
+}
+
+.dark-mode .badge-duplicada-fila {
+    background-color: #4a3b16;
+    color: #ffe9a3;
+    border-color: #735c23;
 }
 
 .dark-mode .task-count-livres {
