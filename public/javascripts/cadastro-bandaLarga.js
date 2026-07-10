@@ -5,6 +5,12 @@ let currentBlocks = [];
 let selectedBlock = null;
 let bsSuporteModal = null;
 let bsModalMudanca = null;
+let bsCancelamentoModal = null;
+let bsTramitacaoCancelamentoModal = null;
+let cancelamentoClienteEmAndamento = false;
+let tramitacaoCancelamentoEmAndamento = false;
+let usuarioIntranetLogado = '';
+let dadosCancelamentoAberto = null;
 
 let tipoConsulta = 'cpf';
 let clienteConsultado = null;
@@ -40,6 +46,10 @@ document.addEventListener('DOMContentLoaded', function() {
     if (complementoModalElement) complementoModal = new bootstrap.Modal(complementoModalElement);
     const suporteModalElement = document.getElementById('suporteModal');
     if (suporteModalElement) bsSuporteModal = new bootstrap.Modal(suporteModalElement);
+    const cancelamentoModalElement = document.getElementById('modalCancelamentoCliente');
+    if (cancelamentoModalElement) bsCancelamentoModal = new bootstrap.Modal(cancelamentoModalElement);
+    const tramitacaoCancelamentoModalElement = document.getElementById('modalTramitacaoCancelamento');
+    if (tramitacaoCancelamentoModalElement) bsTramitacaoCancelamentoModal = new bootstrap.Modal(tramitacaoCancelamentoModalElement);
 
     initializeThemeAndUserInfo();
     loadSellers();
@@ -48,6 +58,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupFormValidation();
     setupFieldValidation();
     carregarLocalidades();
+    configurarCancelamentoCliente();
 
     $('#uf').on('change blur input', function() {
         const valorCorrigido = corrigirUfParaSigla(this.value);
@@ -245,7 +256,7 @@ function descartarTooltipSeguro(elemento) {
 function atualizarBotoesMudancaContrato() {
     const contratoSelecionado = $('input[name="contratoSelecionado"]:checked').val();
     const podeUsar = Boolean(clienteConsultado && clienteConsultado.id && contratoSelecionado);
-    $('#btn-mudanca-titularidade, #btn-mudanca-endereco').prop('disabled', !podeUsar).css('pointer-events', podeUsar ? 'auto' : 'none');
+    $('#btn-mudanca-titularidade, #btn-mudanca-endereco, #btn-cancelar-cliente').prop('disabled', !podeUsar).css('pointer-events', podeUsar ? 'auto' : 'none');
 
     if (podeUsar) {
         $('.wrapper-tooltip-mudanca').each(function() {
@@ -257,6 +268,7 @@ function atualizarBotoesMudancaContrato() {
 function esconderBotoesMudancaContrato() {
     $('#btn-mudanca-titularidade').closest('.wrapper-tooltip-mudanca').hide();
     $('#btn-mudanca-endereco').closest('.wrapper-tooltip-mudanca').hide();
+    $('#btn-cancelar-cliente').closest('.wrapper-tooltip-mudanca').hide();
 }
 
 function setupModalListeners() {
@@ -398,6 +410,11 @@ async function consultarClientePorDocumento() {
                             <i class="bi bi-geo-alt-fill"></i> Mudança de endereço
                         </button>
                     </span>
+                    <span class="d-inline-block me-2 wrapper-tooltip-mudanca" tabindex="0" data-bs-toggle="tooltip" title="Selecione um contrato na lista acima para solicitar cancelamento e recolhimento.">
+                        <button type="button" id="btn-cancelar-cliente" class="btn btn-outline-danger" disabled style="pointer-events: none;">
+                            <i class="bi bi-x-octagon-fill"></i> Cancelar Cliente
+                        </button>
+                    </span>
                 `);
                 
                 $('[data-bs-toggle="tooltip"]').tooltip();
@@ -471,9 +488,13 @@ async function consultarClientePorDocumento() {
 
                     iniciarMudancaEndereco(contratoSelecionado, contrato);
                 });
+
+                $('#btn-cancelar-cliente').on('click', function() {
+                    abrirModalCancelamentoCliente();
+                });
             }
-            $('#btn-mudanca-titularidade, #btn-mudanca-endereco').closest('.wrapper-tooltip-mudanca').show();
-            $('#btn-mudanca-titularidade, #btn-mudanca-endereco').prop('disabled', true).css('pointer-events', 'none');
+            $('#btn-mudanca-titularidade, #btn-mudanca-endereco, #btn-cancelar-cliente').closest('.wrapper-tooltip-mudanca').show();
+            $('#btn-mudanca-titularidade, #btn-mudanca-endereco, #btn-cancelar-cliente').prop('disabled', true).css('pointer-events', 'none');
 
             if (contratosClienteConsultado.length > 0) {
                 contratosClienteConsultado.forEach(contrato => {
@@ -1021,6 +1042,249 @@ async function redirecionarParaAgendamentoInstalacao(resultadoCadastro) {
 
     window.location.href = `/agendamento?os=${encodeURIComponent(osId)}&origem=cadastro-bandaLarga`;
     return true;
+}
+
+function preencherSelectCancelamento(select, items, placeholder) {
+    select.replaceChildren();
+    const opcaoInicial = document.createElement('option');
+    opcaoInicial.value = '';
+    opcaoInicial.textContent = placeholder;
+    opcaoInicial.selected = true;
+    opcaoInicial.disabled = true;
+    select.appendChild(opcaoInicial);
+
+    (items || []).forEach(item => {
+        const option = document.createElement('option');
+        option.value = item.answerId;
+        option.textContent = item.answer || '';
+        option.dataset.answer = item.answer || '';
+        select.appendChild(option);
+    });
+}
+
+async function carregarOpcoesCancelamento() {
+    const motivoSelect = document.getElementById('cancelamento-motivo');
+    const operadoraSelect = document.getElementById('cancelamento-operadora');
+    if (!motivoSelect || !operadoraSelect) return;
+
+    preencherSelectCancelamento(motivoSelect, [], 'Carregando motivos...');
+    preencherSelectCancelamento(operadoraSelect, [], 'Carregando operadoras...');
+
+    const [motivosResp, operadorasResp] = await Promise.all([
+        fetch('/api/v5/ixc/cancelamento/opcoes/2'),
+        fetch('/api/v5/ixc/cancelamento/opcoes/3')
+    ]);
+    const motivosPayload = await motivosResp.json().catch(() => ({}));
+    const operadorasPayload = await operadorasResp.json().catch(() => ({}));
+
+    if (!motivosResp.ok || motivosPayload.success === false) {
+        throw new Error(motivosPayload.error || 'Nao foi possivel carregar os motivos de cancelamento.');
+    }
+    if (!operadorasResp.ok || operadorasPayload.success === false) {
+        throw new Error(operadorasPayload.error || 'Nao foi possivel carregar as operadoras.');
+    }
+
+    preencherSelectCancelamento(motivoSelect, motivosPayload.items || [], 'Selecione o motivo...');
+    preencherSelectCancelamento(operadoraSelect, operadorasPayload.items || [], 'Selecione a operadora...');
+}
+
+function atualizarCampoOperadoraCancelamento() {
+    const motivoSelect = document.getElementById('cancelamento-motivo');
+    const wrapperOperadora = document.getElementById('cancelamento-operadora-wrapper');
+    const operadoraSelect = document.getElementById('cancelamento-operadora');
+    const motivoTexto = motivoSelect?.selectedOptions?.[0]?.dataset?.answer || '';
+    const exigeOperadora = motivoTexto.trim().toUpperCase() === 'CONTRATOU OUTRA OPERADORA';
+    wrapperOperadora?.classList.toggle('d-none', !exigeOperadora);
+    if (operadoraSelect) {
+        operadoraSelect.required = exigeOperadora;
+        if (!exigeOperadora) operadoraSelect.value = '';
+    }
+}
+
+async function abrirModalCancelamentoCliente() {
+    const contratoSelecionado = $('input[name="contratoSelecionado"]:checked').val();
+    if (!clienteConsultado || !clienteConsultado.id || !contratoSelecionado) {
+        showModal('Atenção', 'Selecione um contrato antes de solicitar o cancelamento.', 'warning');
+        return;
+    }
+
+    document.getElementById('cancelamento-motivo').value = '';
+    document.getElementById('cancelamento-operadora').value = '';
+    document.getElementById('cancelamento-observacao').value = '';
+    document.getElementById('cancelamento-feedback').classList.add('d-none');
+    atualizarCampoOperadoraCancelamento();
+
+    try {
+        await carregarOpcoesCancelamento();
+        atualizarCampoOperadoraCancelamento();
+        bsCancelamentoModal?.show();
+    } catch (error) {
+        console.error('[Cadastro Banda Larga][Cancelamento] Falha ao carregar opções:', error);
+        showModal('Erro', error.message || 'Nao foi possivel carregar o cancelamento.', 'danger');
+    }
+}
+
+async function confirmarCancelamentoCliente() {
+    if (cancelamentoClienteEmAndamento) return;
+
+    const contratoSelecionado = $('input[name="contratoSelecionado"]:checked').val();
+    const motivoSelect = document.getElementById('cancelamento-motivo');
+    const operadoraSelect = document.getElementById('cancelamento-operadora');
+    const observacao = document.getElementById('cancelamento-observacao')?.value.trim() || '';
+    const feedback = document.getElementById('cancelamento-feedback');
+    const btn = document.getElementById('btn-confirmar-cancelamento-cliente');
+
+    const motivoTexto = motivoSelect?.selectedOptions?.[0]?.dataset?.answer || '';
+    const exigeOperadora = motivoTexto.trim().toUpperCase() === 'CONTRATOU OUTRA OPERADORA';
+
+    if (!motivoSelect?.value) {
+        feedback.textContent = 'Selecione o motivo do cancelamento.';
+        feedback.classList.remove('d-none');
+        return;
+    }
+    if (exigeOperadora && !operadoraSelect?.value) {
+        feedback.textContent = 'Informe qual operadora o cliente contratou.';
+        feedback.classList.remove('d-none');
+        return;
+    }
+
+    cancelamentoClienteEmAndamento = true;
+    const textoOriginal = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Abrindo atendimento...';
+    feedback.classList.add('d-none');
+
+    try {
+        const response = await fetch('/api/v5/ixc/cancelamento-cliente', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                clienteId: clienteConsultado.id,
+                contratoId: contratoSelecionado,
+                motivoAnswerId: motivoSelect.value,
+                operadoraAnswerId: exigeOperadora ? operadoraSelect.value : '',
+                observacao,
+                usuario_intranet: usuarioIntranetLogado || document.querySelector('.user-info span')?.textContent || ''
+            })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || result.success === false) {
+            throw new Error(result.error || 'Nao foi possivel abrir o atendimento de cancelamento.');
+        }
+
+        bsCancelamentoModal?.hide();
+        if (result.partial && !result.osInicialId) {
+            showModal('Cancelamento solicitado', result.message || `Atendimento #${result.ticketId || ''} aberto, mas a OS inicial ainda nao foi localizada.`, 'warning');
+            return;
+        }
+
+        abrirModalTramitacaoCancelamento(result);
+    } catch (error) {
+        console.error('[Cadastro Banda Larga][Cancelamento] Erro:', error);
+        showModal('Erro no cancelamento', `Nao foi possivel solicitar o cancelamento.<br><strong>Motivo:</strong> ${error.message}`, 'danger');
+    } finally {
+        cancelamentoClienteEmAndamento = false;
+        btn.disabled = false;
+        btn.innerHTML = textoOriginal;
+    }
+}
+
+function abrirModalTramitacaoCancelamento(resultado) {
+    dadosCancelamentoAberto = {
+        ticketId: resultado.ticketId || '',
+        osInicialId: resultado.osInicialId || ''
+    };
+
+    document.getElementById('tramitacao-cancelamento-ticket').textContent = dadosCancelamentoAberto.ticketId || '-';
+    document.getElementById('tramitacao-cancelamento-os').textContent = dadosCancelamentoAberto.osInicialId || 'OS inicial localizada no IXC';
+    document.getElementById('tramitacao-cancelamento-feedback')?.classList.add('d-none');
+    const opcaoPadrao = document.querySelector('input[name="tarefa_cancelamento"][value="29"]');
+    if (opcaoPadrao) opcaoPadrao.checked = true;
+    bsTramitacaoCancelamentoModal?.show();
+}
+
+async function confirmarTramitacaoCancelamento() {
+    if (tramitacaoCancelamentoEmAndamento) return;
+
+    const tarefaSelecionada = document.querySelector('input[name="tarefa_cancelamento"]:checked');
+    const feedback = document.getElementById('tramitacao-cancelamento-feedback');
+    if (!dadosCancelamentoAberto?.ticketId) {
+        if (feedback) {
+            feedback.textContent = 'Atendimento de cancelamento nao encontrado para tramitar.';
+            feedback.classList.remove('d-none');
+        }
+        return;
+    }
+    if (!tarefaSelecionada?.value) {
+        if (feedback) {
+            feedback.textContent = 'Selecione para onde o atendimento deve seguir.';
+            feedback.classList.remove('d-none');
+        }
+        return;
+    }
+
+    const nomeTarefa = tarefaSelecionada.dataset.nome || 'tramitação selecionada';
+    const btn = document.getElementById('btn-confirmar-tramitacao-cancelamento');
+    const textoOriginal = btn.innerHTML;
+    tramitacaoCancelamentoEmAndamento = true;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Tramitando...';
+    feedback?.classList.add('d-none');
+
+    try {
+        const response = await fetch('/api/v5/ixc/cancelamento-cliente/tramitar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ticketId: dadosCancelamentoAberto.ticketId,
+                idTarefa: tarefaSelecionada.value,
+                mensagem: `Cancelamento encaminhado para: ${nomeTarefa}`,
+                usuario_intranet: usuarioIntranetLogado || document.querySelector('.user-info span')?.textContent || ''
+            })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok && !result.partial) {
+            throw new Error(result.error || 'Nao foi possivel tramitar o atendimento de cancelamento.');
+        }
+
+        bsTramitacaoCancelamentoModal?.hide();
+
+        if (String(tarefaSelecionada.value) === '29' && result.osId) {
+            window.location.href = `/agendamento?os=${encodeURIComponent(result.osId)}&origem=cadastro-bandaLarga&tipo=RECOLHIMENTO`;
+            return;
+        }
+
+        if (String(tarefaSelecionada.value) === '29') {
+            showModal('Atendimento tramitado', result.message || 'Atendimento tramitado para recolhimento, mas a OS ainda nao foi localizada. Verifique no IXC.', 'warning');
+            return;
+        }
+
+        showModal('Atendimento tramitado', result.message || `Atendimento encaminhado para ${nomeTarefa}.`, 'info');
+    } catch (error) {
+        console.error('[Cadastro Banda Larga][Cancelamento] Erro ao tramitar:', error);
+        if (feedback) {
+            feedback.textContent = error.message || 'Nao foi possivel tramitar o atendimento.';
+            feedback.classList.remove('d-none');
+        } else {
+            showModal('Erro na tramitação', error.message || 'Nao foi possivel tramitar o atendimento.', 'danger');
+        }
+    } finally {
+        tramitacaoCancelamentoEmAndamento = false;
+        btn.disabled = false;
+        btn.innerHTML = textoOriginal;
+    }
+}
+
+function configurarCancelamentoCliente() {
+    document.getElementById('cancelamento-motivo')?.addEventListener('change', atualizarCampoOperadoraCancelamento);
+    document.getElementById('btn-confirmar-cancelamento-cliente')?.addEventListener('click', confirmarCancelamentoCliente);
+    document.getElementById('btn-confirmar-tramitacao-cancelamento')?.addEventListener('click', confirmarTramitacaoCancelamento);
+    document.getElementById('lista-tramitacao-cancelamento')?.addEventListener('click', (event) => {
+        const item = event.target.closest('.card-tarefa-cancelamento');
+        if (!item) return;
+        const radio = item.querySelector('input[type="radio"]');
+        if (radio) radio.checked = true;
+    });
 }
 
 function showModal(title, message, type = 'info') {
@@ -1923,6 +2187,7 @@ function initializeThemeAndUserInfo() {
         .then(data => {
             const username = data.username || 'Visitante';
             const group = data.group || 'Sem grupo';
+            usuarioIntranetLogado = username;
             if (username === 'Visitante') {
                 showModal('Sessão Expirada', 'Será necessário refazer o login!', 'warning');
                 setTimeout(() => { window.location = "/"; }, 300);

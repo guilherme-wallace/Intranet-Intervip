@@ -2,7 +2,7 @@
 import * as Express from 'express';
 import axios, { Method } from 'axios';
 import { LOCALHOST } from '../../../api/database';
-import { logError, logInfo } from '../../../api/logger';
+import { logError, logInfo, logWarn } from '../../../api/logger';
 
 function formatarNomePlano(nomeOriginal: string): string {
     if (!nomeOriginal) return 'Não informado';
@@ -27,6 +27,9 @@ function formatarNomePlano(nomeOriginal: string): string {
 
 const router = Express.Router();
 const ID_ASSUNTO_MUDANCA_TITULARIDADE = '218';
+const ID_ASSUNTO_CANCELAMENTO_BANDA_LARGA = '14';
+const ID_PROCESSO_CANCELAMENTO_BANDA_LARGA = '6';
+const TITULO_CANCELAMENTO_BANDA_LARGA = 'CANCELAMENTO - INTERNET BANDA LARGA';
 
 const makeIxcRequest = async (method: Method, endpoint: string, data: any = null, operationType: 'listar' | 'incluir' | 'alterar' | null = null) => {
     const url = `${process.env.IXC_API_URL}/webservice/v1${endpoint}`;
@@ -98,6 +101,107 @@ const getIxcDateDMY = () => {
     const year = now.getFullYear();
     return `${day}/${month}/${year}`;
 };
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+function executeDbLocal(query: string, params: any[] = []): Promise<any[]> {
+    return new Promise((resolve, reject) => {
+        LOCALHOST.query(query, params, (err: any, results: any[]) => {
+            if (err) return reject(err);
+            resolve(results || []);
+        });
+    });
+}
+
+function valorTextoIxc(valor: any): string {
+    return String(valor || '').trim();
+}
+
+async function obterUsuarioIxcCadastro(usuarioIntranet: string, fallbackFuncionario = '302'): Promise<{ idFuncionarioIxc: string; idUsuarioIxc: string }> {
+    const usuario = valorTextoIxc(usuarioIntranet);
+    if (!usuario || usuario === 'Visitante') {
+        return { idFuncionarioIxc: fallbackFuncionario, idUsuarioIxc: '61' };
+    }
+
+    const rows = await executeDbLocal(
+        `SELECT id_funcionario_ixc, id_usuario_ixc
+         FROM usuarios_intranet
+         WHERE ativo = 1
+           AND (usuario = ? OR nome = ?)
+         LIMIT 1`,
+        [usuario, usuario]
+    ).catch(() => []);
+
+    const row = rows?.[0] || {};
+    const funcionario = valorTextoIxc(row.id_funcionario_ixc);
+    return {
+        idFuncionarioIxc: funcionario && funcionario !== '138' ? funcionario : fallbackFuncionario,
+        idUsuarioIxc: valorTextoIxc(row.id_usuario_ixc) || '61'
+    };
+}
+
+async function buscarRespostaPesquisa(questionId: number, answerId: any): Promise<any | null> {
+    const id = valorTextoIxc(answerId);
+    if (!/^\d+$/.test(id)) return null;
+    const rows = await executeDbLocal(
+        `SELECT answerId, answer
+         FROM saleResearchAnswer
+         WHERE questionId = ? AND answerId = ?
+         LIMIT 1`,
+        [questionId, id]
+    );
+    return rows?.[0] || null;
+}
+
+function montarMensagemCancelamento(motivo: string, operadora: string, observacao: string): string {
+    return [
+        'Solicitação de cancelamento de contrato.',
+        '',
+        `Motivo do cancelamento: ${motivo || 'Nao informado'}`,
+        operadora ? `Operadora contratada: ${operadora}` : '',
+        observacao ? `Observação: ${observacao}` : ''
+    ].filter(linha => linha !== '').join('\r\n');
+}
+
+async function localizarOsRecolhimentoPorTicket(ticketId: string): Promise<any | null> {
+    const delays = [0, 800, 1500];
+    for (const delay of delays) {
+        if (delay) await sleep(delay);
+        const osResp = await makeIxcRequest('POST', '/su_oss_chamado', {
+            qtype: 'su_oss_chamado.id_ticket',
+            query: ticketId,
+            oper: '=',
+            rp: '20',
+            sortname: 'su_oss_chamado.id',
+            sortorder: 'desc'
+        }).catch(() => ({ registros: [] }));
+
+        const registros = Array.isArray(osResp?.registros) ? osResp.registros : [];
+        const osRecolhimento = registros.find((os: any) => {
+            const setor19 = String(os?.setor || '').trim() === '19';
+            const texto = String(os?.mensagem || '').toUpperCase();
+            const recolhimento = texto.includes('CANCELAR - RECOLHER EQUIPAMENTOS') || texto.includes(TITULO_CANCELAMENTO_BANDA_LARGA);
+            const aberta = !['F', 'C'].includes(String(os?.status || '').toUpperCase());
+            return aberta && (setor19 || recolhimento);
+        });
+        if (osRecolhimento) return osRecolhimento;
+    }
+    return null;
+}
+
+async function localizarOsAbertaCancelamentoPorTicket(ticketId: string): Promise<any | null> {
+    const osResp = await makeIxcRequest('POST', '/su_oss_chamado', {
+        qtype: 'su_oss_chamado.id_ticket',
+        query: ticketId,
+        oper: '=',
+        rp: '20',
+        sortname: 'su_oss_chamado.id',
+        sortorder: 'desc'
+    }).catch(() => ({ registros: [] }));
+
+    const registros = Array.isArray(osResp?.registros) ? osResp.registros : [];
+    return registros.find((os: any) => ['A', 'EN'].includes(String(os?.status || '').toUpperCase())) || registros[0] || null;
+}
 
 const getModeloPlano = (idPlano: string): string => {
     const map: Record<string, string> = {
@@ -682,8 +786,8 @@ async function fecharTarefaOS(ticketId: string, idWflTarefaProxima: string, mens
         "latitude": "",
         "longitude": "",
         "gps_time": "",
-        "id_processo": osAberta.id_wfl_processo || "46",
-        "id_tarefa_atual": osAberta.id_wfl_tarefa,
+        "id_processo": osAberta.id_wfl_param_os || osAberta.id_wfl_processo || osAberta.id_processo || "46",
+        "id_tarefa_atual": osAberta.id_wfl_tarefa || osAberta.id_tarefa_atual || osAberta.id_tarefa || "",
         "eh_tarefa_decisao": "N",
         "sequencia_atual": "",
         "proxima_sequencia_forcada": "",
@@ -1940,6 +2044,253 @@ ${observacoes || 'Nao informado'}
         throw error;
     }
 }
+
+router.get('/cancelamento/opcoes/:questionId', async (req, res) => {
+    try {
+        const questionId = Number(req.params.questionId);
+        if (![2, 3].includes(questionId)) {
+            return res.status(400).json({ success: false, error: 'Pergunta de pesquisa inválida.' });
+        }
+
+        const respostas = await executeDbLocal(
+            `SELECT answerId, answer
+             FROM saleResearchAnswer
+             WHERE questionId = ?
+             ORDER BY answer`,
+            [questionId]
+        );
+
+        res.json({ success: true, items: respostas });
+    } catch (error: any) {
+        logError('Cadastro Banda Larga.Cancelamento.Opcoes', error, {
+            questionId: req.params.questionId
+        });
+        res.status(500).json({ success: false, error: 'Erro ao carregar opções de cancelamento.' });
+    }
+});
+
+router.post('/cancelamento-cliente', async (req, res) => {
+    const logContext = 'Cadastro Banda Larga.Cancelamento';
+    const {
+        clienteId,
+        contratoId,
+        motivoAnswerId,
+        operadoraAnswerId,
+        observacao,
+        usuario_intranet
+    } = req.body || {};
+
+    let ticketIdLog = '';
+    let enderecoAtualizado = false;
+
+    try {
+        if (!valorTextoIxc(clienteId) || !valorTextoIxc(contratoId)) {
+            return res.status(400).json({ success: false, error: 'Cliente e contrato são obrigatórios.' });
+        }
+
+        const motivo = await buscarRespostaPesquisa(2, motivoAnswerId);
+        if (!motivo) {
+            return res.status(400).json({ success: false, error: 'Informe o motivo do cancelamento.' });
+        }
+
+        const exigeOperadora = String(motivo.answer || '').trim().toUpperCase() === 'CONTRATOU OUTRA OPERADORA';
+        const operadora = exigeOperadora ? await buscarRespostaPesquisa(3, operadoraAnswerId) : null;
+        if (exigeOperadora && !operadora) {
+            return res.status(400).json({ success: false, error: 'Informe qual operadora o cliente contratou.' });
+        }
+
+        const contrato = await buscarContratoIxcPorId(String(contratoId));
+        if (String(contrato.id_cliente) !== String(clienteId)) {
+            return res.status(400).json({ success: false, error: 'Contrato não pertence ao cliente informado.' });
+        }
+
+        const login = await buscarLoginContratoMudancaEndereco(String(contratoId));
+        const loginId = valorTextoIxc(login?.id);
+        if (!loginId) {
+            return res.status(400).json({
+                success: false,
+                error: 'Não foi encontrado login vinculado ao contrato selecionado.'
+            });
+        }
+
+        const autorIxc = await obterUsuarioIxcCadastro(usuario_intranet, '302');
+        const mensagem = montarMensagemCancelamento(
+            motivo.answer,
+            operadora?.answer || '',
+            valorTextoIxc(observacao)
+        );
+
+        const atendimentoPayload = {
+            tipo: 'C',
+            id_cliente: String(clienteId),
+            id_assunto: ID_ASSUNTO_CANCELAMENTO_BANDA_LARGA,
+            titulo: TITULO_CANCELAMENTO_BANDA_LARGA,
+            su_status: 'EP',
+            prioridade: 'M',
+            id_ticket_setor: '4',
+            id_ticket_origem: 'I',
+            id_usuarios: autorIxc.idUsuarioIxc,
+            id_wfl_processo: ID_PROCESSO_CANCELAMENTO_BANDA_LARGA,
+            origem_endereco: 'C',
+            menssagem: mensagem,
+            id_filial: contrato.id_filial || '1',
+            id_responsavel_tecnico: autorIxc.idFuncionarioIxc,
+            interacao_pendente: 'N',
+            melhor_horario_reserva: 'Q',
+            id_login: loginId,
+            id_contrato: String(contratoId),
+            origem_cadastro: 'P'
+        };
+
+        logInfo(logContext, '[Cadastro Banda Larga][Cancelamento] abrindo atendimento', {
+            usuario: usuario_intranet || 'Nao informado',
+            clienteId: String(clienteId),
+            contratoId: String(contratoId),
+            loginId,
+            motivo: motivo.answer,
+            operadora: operadora?.answer || null,
+            id_assunto: atendimentoPayload.id_assunto,
+            id_wfl_processo: atendimentoPayload.id_wfl_processo,
+            id_responsavel_tecnico: atendimentoPayload.id_responsavel_tecnico,
+            id_usuarios: atendimentoPayload.id_usuarios
+        });
+
+        const response = await makeIxcRequest('POST', '/su_ticket', atendimentoPayload, 'incluir');
+        const ticketId = response?.id || response?.id_su_ticket || response?.ticket_id;
+        ticketIdLog = String(ticketId || '');
+        if (!ticketId || response?.type === 'error') {
+            throw new Error(response?.message || response?.msg || 'IXC não retornou o atendimento de cancelamento.');
+        }
+
+        const osInicial = await localizarOsAbertaCancelamentoPorTicket(String(ticketId));
+        if (!osInicial?.id) {
+            logWarn(logContext, '[Cadastro Banda Larga][Cancelamento] OS inicial ainda nao localizada.', {
+                clienteId: String(clienteId),
+                contratoId: String(contratoId),
+                ticketId: String(ticketId),
+                etapa: 'aguardando_tramitacao'
+            });
+            return res.status(202).json({
+                success: true,
+                partial: true,
+                ticketId: String(ticketId),
+                message: 'Atendimento aberto, mas ainda não foi possível localizar a OS de recolhimento. Verifique no IXC.'
+            });
+        }
+
+        logInfo(logContext, '[Cadastro Banda Larga][Cancelamento] atendimento aberto aguardando tramitacao', {
+            clienteId: String(clienteId),
+            contratoId: String(contratoId),
+            loginId,
+            ticketId: String(ticketId),
+            osInicialId: osInicial?.id ? String(osInicial.id) : null,
+            tarefaAtual: osInicial?.id_wfl_tarefa || null
+        });
+
+        res.json({
+            success: true,
+            ticketId: String(ticketId),
+            osInicialId: osInicial?.id ? String(osInicial.id) : '',
+            modo: 'CANCELAMENTO_AGUARDANDO_TRAMITACAO'
+        });
+    } catch (error: any) {
+        logError(logContext, error, {
+            etapa: 'cancelamento_cliente',
+            clienteId: valorTextoIxc(clienteId),
+            contratoId: valorTextoIxc(contratoId),
+            ticketId: ticketIdLog || null,
+            enderecoAtualizado
+        });
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Erro ao abrir atendimento de cancelamento.'
+        });
+    }
+});
+
+router.post('/cancelamento-cliente/tramitar', async (req, res) => {
+    const logContext = 'Cadastro Banda Larga.Cancelamento.Tramitar';
+    const {
+        ticketId,
+        idTarefa,
+        mensagem,
+        usuario_intranet
+    } = req.body || {};
+
+    try {
+        const ticketIdFinal = valorTextoIxc(ticketId);
+        const idTarefaFinal = valorTextoIxc(idTarefa);
+        if (!ticketIdFinal) {
+            return res.status(400).json({ success: false, error: 'Atendimento de cancelamento nÃ£o informado.' });
+        }
+        if (!['29', '129', '147'].includes(idTarefaFinal)) {
+            return res.status(400).json({ success: false, error: 'Selecione uma tramitaÃ§Ã£o vÃ¡lida para o cancelamento.' });
+        }
+
+        const autorIxc = await obterUsuarioIxcCadastro(usuario_intranet, '302');
+        const mensagemFinal = valorTextoIxc(mensagem) || 'Atendimento de cancelamento tramitado via Intranet Hub.';
+
+        logInfo(logContext, '[Cadastro Banda Larga][Cancelamento] tramitando atendimento', {
+            usuario: usuario_intranet || 'Nao informado',
+            ticketId: ticketIdFinal,
+            idTarefa: idTarefaFinal,
+            id_responsavel_tecnico: autorIxc.idFuncionarioIxc
+        });
+
+        await fecharTarefaOS(ticketIdFinal, idTarefaFinal, mensagemFinal, autorIxc.idFuncionarioIxc);
+
+        if (idTarefaFinal !== '29') {
+            return res.json({
+                success: true,
+                encaminhado: true,
+                agendar: false,
+                ticketId: ticketIdFinal,
+                message: 'Atendimento encaminhado com sucesso. Nenhum agendamento Ã© necessÃ¡rio nesta etapa.'
+            });
+        }
+
+        const osRecolhimento = await localizarOsRecolhimentoPorTicket(ticketIdFinal);
+        if (!osRecolhimento?.id) {
+            logWarn(logContext, '[Cadastro Banda Larga][Cancelamento] OS de recolhimento ainda nao localizada apos tramitacao.', {
+                ticketId: ticketIdFinal,
+                idTarefa: idTarefaFinal,
+                setorEsperado: '19'
+            });
+            return res.status(202).json({
+                success: true,
+                partial: true,
+                agendar: true,
+                ticketId: ticketIdFinal,
+                message: 'Atendimento tramitado para recolhimento, mas ainda nÃ£o foi possÃ­vel localizar a OS. Verifique no IXC.'
+            });
+        }
+
+        logInfo(logContext, '[Cadastro Banda Larga][Cancelamento] OS de recolhimento localizada apos tramitacao', {
+            ticketId: ticketIdFinal,
+            osId: String(osRecolhimento.id),
+            setor: osRecolhimento.setor
+        });
+
+        res.json({
+            success: true,
+            agendar: true,
+            ticketId: ticketIdFinal,
+            osId: String(osRecolhimento.id),
+            modo: 'RECOLHIMENTO'
+        });
+    } catch (error: any) {
+        logError(logContext, error, {
+            ticketId: valorTextoIxc(ticketId),
+            idTarefa: valorTextoIxc(idTarefa),
+            usuario: usuario_intranet || 'Nao informado'
+        });
+        res.status(500).json({
+            success: false,
+            error: 'NÃ£o foi possÃ­vel tramitar o atendimento de cancelamento.',
+            detail: error.message
+        });
+    }
+});
 
 router.post('/mudanca-endereco', async (req, res) => {
     const logPrefix = '[Cadastro Banda Larga][Mudanca Endereco]';

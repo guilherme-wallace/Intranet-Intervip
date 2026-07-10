@@ -486,6 +486,96 @@
       </div>
     </div>
 
+    <div class="modal fade" id="modalCancelamentoCliente" tabindex="-1" aria-labelledby="modalCancelamentoClienteLabel" aria-hidden="true" data-bs-backdrop="static">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header bg-danger text-white">
+            <h5 class="modal-title" id="modalCancelamentoClienteLabel"><i class="bi bi-x-octagon-fill me-2"></i>Cancelar Cliente</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="alert alert-warning small">
+                Esta ação abre o atendimento de cancelamento e recolhimento no IXC. O contrato não será cancelado automaticamente pelo Hub Intervip.
+            </div>
+            <div class="row g-3">
+                <div class="col-md-12">
+                    <label for="cancelamento-motivo" class="form-label fw-bold">Motivo do cancelamento *</label>
+                    <select class="form-select" id="cancelamento-motivo" required>
+                        <option value="">Carregando motivos...</option>
+                    </select>
+                </div>
+                <div class="col-md-12 d-none" id="cancelamento-operadora-wrapper">
+                    <label for="cancelamento-operadora" class="form-label fw-bold">Qual operadora contratou? *</label>
+                    <select class="form-select" id="cancelamento-operadora">
+                        <option value="">Carregando operadoras...</option>
+                    </select>
+                </div>
+                <div class="col-md-12">
+                    <label for="cancelamento-observacao" class="form-label fw-bold">Observação</label>
+                    <textarea class="form-control" id="cancelamento-observacao" rows="3" placeholder="Informação opcional para o atendimento."></textarea>
+                </div>
+            </div>
+            <div id="cancelamento-feedback" class="alert alert-danger small mt-3 d-none"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            <button type="button" class="btn btn-danger fw-bold" id="btn-confirmar-cancelamento-cliente">
+                Abrir atendimento <i class="bi bi-arrow-right-circle ms-1"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="modalTramitacaoCancelamento" tabindex="-1" aria-labelledby="modalTramitacaoCancelamentoLabel" aria-hidden="true" data-bs-backdrop="static">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header bg-primary text-white">
+            <h5 class="modal-title" id="modalTramitacaoCancelamentoLabel"><i class="bi bi-diagram-3-fill me-2"></i>Tramitar cancelamento</h5>
+          </div>
+          <div class="modal-body">
+            <div class="alert alert-info small">
+                Atendimento #<strong id="tramitacao-cancelamento-ticket">-</strong> aberto no IXC.
+                O.S.: <strong id="tramitacao-cancelamento-os">-</strong>.
+                Selecione a próxima etapa do fluxo.
+            </div>
+            <div id="lista-tramitacao-cancelamento" class="d-flex flex-column gap-2">
+                <div class="form-check border rounded p-3 bg-white shadow-sm d-flex align-items-center card-tarefa-cancelamento">
+                    <input class="form-check-input ms-1 me-3 fs-5" type="radio" name="tarefa_cancelamento" id="tarefa-cancelamento-29" value="29" data-nome="VISITA TÉCNICA - CANCELAR - RECOLHER EQUIPAMENTOS" checked>
+                    <label class="form-check-label w-100 fw-bold text-dark m-0" for="tarefa-cancelamento-29">
+                        <i class="bi bi-box-arrow-down fs-4 me-2 text-danger"></i>
+                        VISITA TÉCNICA - CANCELAR - RECOLHER EQUIPAMENTOS
+                        <span class="d-block small text-muted fw-normal">Envia para Recolhimento e abre a tela de agendamento.</span>
+                    </label>
+                </div>
+                <div class="form-check border rounded p-3 bg-white shadow-sm d-flex align-items-center card-tarefa-cancelamento">
+                    <input class="form-check-input ms-1 me-3 fs-5" type="radio" name="tarefa_cancelamento" id="tarefa-cancelamento-129" value="129" data-nome="CANCELAR - NÃO RECOLHER EQUIPAMENTOS">
+                    <label class="form-check-label w-100 fw-bold text-dark m-0" for="tarefa-cancelamento-129">
+                        <i class="bi bi-diagram-3 fs-4 me-2 text-primary"></i>
+                        CANCELAR - NÃO RECOLHER EQUIPAMENTOS
+                        <span class="d-block small text-muted fw-normal">Encaminha para o próximo setor sem abrir agendamento agora.</span>
+                    </label>
+                </div>
+                <div class="form-check border rounded p-3 bg-white shadow-sm d-flex align-items-center card-tarefa-cancelamento">
+                    <input class="form-check-input ms-1 me-3 fs-5" type="radio" name="tarefa_cancelamento" id="tarefa-cancelamento-147" value="147" data-nome="CLIENTE RETIDO">
+                    <label class="form-check-label w-100 fw-bold text-dark m-0" for="tarefa-cancelamento-147">
+                        <i class="bi bi-shield-check fs-4 me-2 text-success"></i>
+                        CLIENTE RETIDO
+                        <span class="d-block small text-muted fw-normal">Encaminha para Qualidade sem abrir agendamento agora.</span>
+                    </label>
+                </div>
+            </div>
+            <div id="tramitacao-cancelamento-feedback" class="alert alert-danger small mt-3 d-none"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-primary fw-bold" id="btn-confirmar-tramitacao-cancelamento">
+                Confirmar tramitação <i class="bi bi-arrow-right-circle ms-1"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script src="javascripts/jquery.js"></script>
     <script src="javascripts/bootstrap.bundle.min.js"></script>
     <script src="javascripts/bootstrap-autocomplete.min.js"></script> 
