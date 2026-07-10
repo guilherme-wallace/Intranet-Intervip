@@ -3,7 +3,7 @@ import * as Express from 'express';
 import axios, { Method } from 'axios';
 import { LOCALHOST } from '../../../api/database';
 import { AgendaService } from './agendaService';
-import { logError, logInfo } from '../../../api/logger';
+import { logError, logInfo, logWarn } from '../../../api/logger';
 
 const router = Express.Router();
 
@@ -272,43 +272,7 @@ async function marcarDuplicatasLocaisMesmaOs(registros: any[], idPrincipal: any)
 }
 
 const garantirCapacidadeDiaLocal = async (data: string) => {
-    const existe = await executeDb('SELECT data FROM ivp_agenda_capacidade WHERE data = ?', [data]);
-    if (existe.length > 0) return;
-
-    const dataObj = new Date(`${data}T12:00:00`);
-    const diaSemana = dataObj.getDay();
-
-    if (diaSemana === 0) {
-        await executeDb(
-            `INSERT INTO ivp_agenda_capacidade (data, casa_m, casa_t, predio_serra_m, predio_serra_t, predio_outros_m, predio_outros_t, inst_serra_m, inst_serra_t, inst_outros_m, inst_outros_t) VALUES (?, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)`,
-            [data]
-        );
-        return;
-    }
-
-    const templateId = diaSemana === 6 ? 2 : 1;
-    let template = await executeDb('SELECT * FROM ivp_agenda_capacidade_templates WHERE id = ?', [templateId]);
-
-    if (template.length === 0) {
-        template = [{
-            casa_m: diaSemana === 6 ? 3 : 5,
-            casa_t: diaSemana === 6 ? 0 : 5,
-            predio_serra_m: diaSemana === 6 ? 3 : 5,
-            predio_serra_t: diaSemana === 6 ? 0 : 5,
-            predio_outros_m: diaSemana === 6 ? 3 : 5,
-            predio_outros_t: diaSemana === 6 ? 0 : 5,
-            inst_serra_m: diaSemana === 6 ? 2 : 3,
-            inst_serra_t: diaSemana === 6 ? 0 : 3,
-            inst_outros_m: diaSemana === 6 ? 2 : 3,
-            inst_outros_t: diaSemana === 6 ? 0 : 3
-        }];
-    }
-
-    const t = template[0];
-    await executeDb(
-        `INSERT INTO ivp_agenda_capacidade (data, casa_m, casa_t, predio_serra_m, predio_serra_t, predio_outros_m, predio_outros_t, inst_serra_m, inst_serra_t, inst_outros_m, inst_outros_t) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [data, t.casa_m, t.casa_t, t.predio_serra_m, t.predio_serra_t, t.predio_outros_m, t.predio_outros_t, t.inst_serra_m, t.inst_serra_t, t.inst_outros_m, t.inst_outros_t]
-    );
+    await AgendaService.garantirCapacidadeDia(data);
 };
     
 router.get('/triagem/busca-cliente/:termo', async (req, res) => {
@@ -358,6 +322,7 @@ router.get('/triagem/busca-cliente/:termo', async (req, res) => {
 router.get('/detalhes-os/:id_ticket', async (req, res) => {
     const { id_ticket } = req.params;
     const { origem } = req.query;
+    const tipoUrl = String(req.query.tipo || '').toUpperCase();
 
     try {
         let osAberta = null;
@@ -487,10 +452,17 @@ router.get('/detalhes-os/:id_ticket', async (req, res) => {
         if (nomeCondominio) endCompleto += ` | Cond: ${nomeCondominio}`;
 
         const origemInstalacao = ['venda', 'cadastro-bandalarga', 'cadastro-banda-larga'].includes(origemNormalizada);
-        const tipoServico = origemInstalacao ? 'INSTALAÇÃO' : 'SUPORTE TÉCNICO';
         let mensagem = 'Sem descrição.';
         if (osAberta && osAberta.mensagem) mensagem = osAberta.mensagem;
         else if (ticket && ticket.menssagem) mensagem = ticket.menssagem;
+        const ehRecolhimento = tipoUrl === 'RECOLHIMENTO' || AgendaService.isOsRecolhimento({
+            ...(osAberta || {}),
+            mensagem,
+            setor: osAberta?.setor,
+            id_ticket_setor: ticket?.id_ticket_setor,
+            titulo: ticket?.titulo
+        });
+        const tipoServico = ehRecolhimento ? 'RECOLHIMENTO' : (origemInstalacao ? 'INSTALAÇÃO' : 'SUPORTE TÉCNICO');
 
         res.json({
             id_ticket: ticket?.id || osAberta?.id_ticket || id_ticket,
@@ -570,7 +542,9 @@ router.post('/confirmar', async (req, res) => {
         validarPreferenciaHorario(req.body);
 
         let tipoServicoDb = 'SUPORTE';
-        if (String(tipo_servico).toUpperCase().includes('INSTALA')) {
+        if (String(tipo_servico).toUpperCase().includes('RECOLHIMENTO')) {
+            tipoServicoDb = 'RECOLHIMENTO';
+        } else if (String(tipo_servico).toUpperCase().includes('INSTALA')) {
             tipoServicoDb = 'INSTALACAO';
         }
 
@@ -953,6 +927,23 @@ router.post('/confirmar', async (req, res) => {
                 [data_agendamento, turnoNormalizadoAgenda, aceita_encaixe ? 1 : 0, preferenciaHorarioTipo, preferenciaHorarioInicio || null, preferenciaHorarioFim || null, preferenciaHorarioObs || null, idAgendaLocal]
             );
             await marcarDuplicatasLocaisMesmaOs(registrosLocaisMesmaOs || [], idAgendaLocal);
+
+            const tecnicoAnterior = String(agendamentoLocalAtual?.ixc_tecnico_id || '').trim();
+            const estavaAtribuida = String(agendamentoLocalAtual?.status_interno || '').toUpperCase() === 'ATRIBUIDO'
+                || (!!tecnicoAnterior && !['0', '138'].includes(tecnicoAnterior));
+            if (estavaAtribuida) {
+                await AgendaService.registrarRetornoFila(
+                    ixc_os_id,
+                    'Novo agendamento devolveu a OS para distribuição da logística.',
+                    usuario_logado,
+                    agendamentoLocalAtual?.status_interno,
+                    'AGUARDANDO_LOGISTICA'
+                ).catch((error: any) => logWarn('[Painel Logistica][Retorno Fila]', 'Não foi possível registrar o retorno no agendamento.', {
+                    os: String(ixc_os_id),
+                    code: error?.code,
+                    message: error?.message
+                }));
+            }
         } else {
             const insertAgenda = await executeDb(
                 `INSERT INTO ivp_agenda_os
@@ -1080,136 +1071,47 @@ function labelDiaSemana(ymd: string): string {
     }).format(data);
 }
 
-function normalizarFiltroVagas(valor: any, padrao = 'TODOS'): string {
-    return String(valor || padrao)
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toUpperCase();
-}
-
-function criarSlotVaga(total: any) {
-    const totalNum = Number(total || 0);
-    return {
-        usadas: 0,
-        total: totalNum,
-        disponiveis: Math.max(0, totalNum)
-    };
-}
-
-function aplicarUsoSlot(slot: any) {
-    slot.usadas += 1;
-    slot.disponiveis = Math.max(0, Number(slot.total || 0) - slot.usadas);
-}
-
-function deveExibirCategoriaVagas(chave: string, municipio: string, tipo: string): boolean {
-    const isInstalacao = chave.startsWith('instalacao_');
-    if (tipo === 'SUPORTE' && isInstalacao) return false;
-    if (tipo === 'INSTALACAO' && !isInstalacao) return false;
-    if (municipio === 'SERRA') return !chave.includes('_outros_');
-    if (municipio === 'VV_VIX_CCA') return !chave.includes('_serra_');
-    return true;
-}
-
-function classificarOsParaVaga(os: any): string | null {
-    const turno = AgendaService.normalizarTurnoAgenda(os.turno);
-    const sufixo = turno === 'MATUTINO' ? 'm' : 't';
-    const municipio = normalizarFiltroVagas(os.municipio_base || os.cidade_real || '');
-    const tipoServico = normalizarFiltroVagas(os.tipo_servico || '');
-    const tipoImovel = normalizarFiltroVagas(os.tipo_imovel || '');
-    const isSerra = municipio.includes('SERRA');
-    const isInstalacao = tipoServico.includes('INSTALA');
-    const isPredio = tipoImovel.includes('PREDIO');
-
-    if (isInstalacao) return `instalacao_${isSerra ? 'serra' : 'outros'}_${sufixo}`;
-    if (isPredio) return `manutencao_predio_${isSerra ? 'serra' : 'outros'}_${sufixo}`;
-    return `manutencao_casa_${sufixo}`;
-}
-
 async function responderVagasSemanaCompleta(req: Express.Request, res: Express.Response) {
     const reqAny = req as any;
     const inicio = obterInicioSemanaYmd(req.query.inicio);
     const fim = addDiasYmd(inicio, 6);
-    const municipio = normalizarFiltroVagas(req.query.municipio, 'TODOS');
-    const tipo = normalizarFiltroVagas(req.query.tipo, 'TODOS');
+    const municipioSolicitado = String(req.query.municipio || 'TODOS');
+    const tipoSolicitado = String(req.query.tipo || 'TODOS');
 
     try {
         logInfo('[Vagas Agenda]', 'Consulta semanal iniciada.', {
             requestId: reqAny.requestId,
             inicio,
             fim,
-            municipio,
-            tipo,
+            municipio: municipioSolicitado,
+            tipo: tipoSolicitado,
             usuario: reqAny.user?.username || reqAny.session?.username || 'Visitante'
         });
-
-        for (let i = 0; i < 7; i++) {
-            await AgendaService.garantirCapacidadeDia(addDiasYmd(inicio, i));
-        }
-
-        const capacidades = await executeDb(
-            `SELECT * FROM ivp_agenda_capacidade WHERE data >= ? AND data <= ? ORDER BY data ASC`,
-            [inicio, fim]
-        );
-        const agendamentos = await executeDb(
-            `SELECT data_agendamento, turno, tipo_servico, tipo_imovel, municipio_base, status_interno, ixc_tecnico_id
-             FROM ivp_agenda_os
-             WHERE data_agendamento >= ?
-               AND data_agendamento <= ?
-               AND data_agendamento IS NOT NULL
-               AND turno IN ('MATUTINO', 'VESPERTINO')
-               AND (status_interno IS NULL OR status_interno NOT IN ('CANCELADO', 'FINALIZADO', 'VISITA_CANCELADA'))`,
-            [inicio, fim]
+        const { municipio, tipo, resumoPorData } = await AgendaService.obterResumoVagasPeriodo(
+            inicio,
+            fim,
+            municipioSolicitado,
+            tipoSolicitado
         );
 
-        const formatDbDate = (valor: any) => String(valor instanceof Date ? ymdFromDateLocal(valor) : valor).substring(0, 10);
-        const mapaCapacidade = new Map((capacidades || []).map((cap: any) => [formatDbDate(cap.data), cap]));
         const dias = [];
 
         for (let i = 0; i < 7; i++) {
             const data = addDiasYmd(inicio, i);
-            const cap: any = mapaCapacidade.get(data) || {};
             dias.push({
                 data,
                 label: labelDiaSemana(data),
                 passado: data < dataHojeSaoPaulo(),
-                capacidades: {
-                    manutencao_casa_m: criarSlotVaga(cap.casa_m),
-                    manutencao_casa_t: criarSlotVaga(cap.casa_t),
-                    manutencao_predio_serra_m: criarSlotVaga(cap.predio_serra_m),
-                    manutencao_predio_serra_t: criarSlotVaga(cap.predio_serra_t),
-                    manutencao_predio_outros_m: criarSlotVaga(cap.predio_outros_m),
-                    manutencao_predio_outros_t: criarSlotVaga(cap.predio_outros_t),
-                    instalacao_serra_m: criarSlotVaga(cap.inst_serra_m),
-                    instalacao_serra_t: criarSlotVaga(cap.inst_serra_t),
-                    instalacao_outros_m: criarSlotVaga(cap.inst_outros_m),
-                    instalacao_outros_t: criarSlotVaga(cap.inst_outros_t)
-                }
+                capacidades: resumoPorData[data] || {}
             });
         }
-
-        const diasPorData = new Map(dias.map((dia: any) => [dia.data, dia]));
-        for (const os of agendamentos || []) {
-            const data = formatDbDate(os.data_agendamento);
-            const dia: any = diasPorData.get(data);
-            if (!dia) continue;
-            const chave = classificarOsParaVaga(os);
-            if (chave && dia.capacidades[chave]) aplicarUsoSlot(dia.capacidades[chave]);
-        }
-
-        dias.forEach((dia: any) => {
-            Object.keys(dia.capacidades).forEach(chave => {
-                if (!deveExibirCategoriaVagas(chave, municipio, tipo)) {
-                    delete dia.capacidades[chave];
-                }
-            });
-        });
 
         logInfo('[Vagas Agenda]', 'Consulta semanal concluida.', {
             requestId: reqAny.requestId,
             inicio,
             fim,
-            municipio,
-            tipo,
+            municipio: municipioSolicitado,
+            tipo: tipoSolicitado,
             dias: dias.length
         });
 
@@ -1219,8 +1121,8 @@ async function responderVagasSemanaCompleta(req: Express.Request, res: Express.R
             requestId: reqAny.requestId,
             inicio,
             fim,
-            municipio,
-            tipo,
+            municipio: municipioSolicitado,
+            tipo: tipoSolicitado,
             usuario: reqAny.user?.username || reqAny.session?.username || 'Visitante'
         });
         res.status(500).json({
@@ -1254,13 +1156,19 @@ router.get('/vagas-semana', async (req, res) => {
              FROM ivp_agenda_os
              WHERE data_agendamento >= ? AND data_agendamento <= ?
                AND turno IN ('MATUTINO', 'VESPERTINO')
-               AND (status_interno IS NULL OR status_interno NOT IN ('CANCELADO', 'FINALIZADO', 'VISITA_CANCELADA'))`,
+               AND (status_interno IS NULL OR status_interno NOT IN ('CANCELADO', 'VISITA_CANCELADA'))`,
             [data_inicio, data_fim]
         );
 
-        const isInstalacao = String(tipo_servico).toUpperCase().includes('INSTALA');
-        const isSerra = String(municipio).toUpperCase().includes('SERRA');
-        const isPredio = String(tipo_imovel).toUpperCase() === 'PRÉDIO' || String(tipo_imovel).toUpperCase() === 'PREDIO';
+        const tipoServicoSolicitado = String(tipo_servico).toUpperCase();
+        const isRecolhimento = tipoServicoSolicitado.includes('RECOLHIMENTO');
+        const isInstalacao = tipoServicoSolicitado.includes('INSTALA');
+        const normalizarTextoVaga = (valor: any) => String(valor || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toUpperCase();
+        const isSerra = normalizarTextoVaga(municipio).includes('SERRA');
+        const isPredio = normalizarTextoVaga(tipo_imovel) === 'PREDIO';
 
         const formatDbDate = (d: Date) => {
             const offset = d.getTimezoneOffset() * 60000;
@@ -1268,22 +1176,26 @@ router.get('/vagas-semana', async (req, res) => {
         };
 
         const isPredioStr = (str: string) => {
-            const s = String(str).toUpperCase();
-            return s.includes('PRÉDIO') || s.includes('PREDIO');
+            const s = normalizarTextoVaga(str);
+            return s.includes('PREDIO');
         };
 
         let countFilter = (os: any) => false;
-        if (isInstalacao) {
+        if (isRecolhimento) {
             countFilter = isSerra
-                ? (os: any) => String(os.tipo_servico).toUpperCase().includes('INSTALA') && String(os.municipio_base).toUpperCase().includes('SERRA')
-                : (os: any) => String(os.tipo_servico).toUpperCase().includes('INSTALA') && !String(os.municipio_base).toUpperCase().includes('SERRA');
+                ? (os: any) => String(os.tipo_servico).toUpperCase().includes('RECOLHIMENTO') && String(os.municipio_base).toUpperCase().includes('SERRA')
+                : (os: any) => String(os.tipo_servico).toUpperCase().includes('RECOLHIMENTO') && !String(os.municipio_base).toUpperCase().includes('SERRA');
+        } else if (isInstalacao) {
+            countFilter = isSerra
+                ? (os: any) => String(os.tipo_servico).toUpperCase().includes('INSTALA') && String(os.municipio_base).toUpperCase().includes('SERRA') && (isPredio ? isPredioStr(os.tipo_imovel) : !isPredioStr(os.tipo_imovel))
+                : (os: any) => String(os.tipo_servico).toUpperCase().includes('INSTALA') && !String(os.municipio_base).toUpperCase().includes('SERRA') && (isPredio ? isPredioStr(os.tipo_imovel) : !isPredioStr(os.tipo_imovel));
         } else {
             if (!isPredio) {
-                countFilter = (os: any) => !String(os.tipo_servico).toUpperCase().includes('INSTALA') && !isPredioStr(os.tipo_imovel);
+                countFilter = (os: any) => !String(os.tipo_servico).toUpperCase().includes('INSTALA') && !String(os.tipo_servico).toUpperCase().includes('RECOLHIMENTO') && !isPredioStr(os.tipo_imovel);
             } else {
                 countFilter = isSerra
-                    ? (os: any) => !String(os.tipo_servico).toUpperCase().includes('INSTALA') && isPredioStr(os.tipo_imovel) && String(os.municipio_base).toUpperCase().includes('SERRA')
-                    : (os: any) => !String(os.tipo_servico).toUpperCase().includes('INSTALA') && isPredioStr(os.tipo_imovel) && !String(os.municipio_base).toUpperCase().includes('SERRA');
+                    ? (os: any) => !String(os.tipo_servico).toUpperCase().includes('INSTALA') && !String(os.tipo_servico).toUpperCase().includes('RECOLHIMENTO') && isPredioStr(os.tipo_imovel) && String(os.municipio_base).toUpperCase().includes('SERRA')
+                    : (os: any) => !String(os.tipo_servico).toUpperCase().includes('INSTALA') && !String(os.tipo_servico).toUpperCase().includes('RECOLHIMENTO') && isPredioStr(os.tipo_imovel) && !String(os.municipio_base).toUpperCase().includes('SERRA');
             }
         }
 
@@ -1305,9 +1217,14 @@ router.get('/vagas-semana', async (req, res) => {
             if (!result[dStr]) return;
 
             let cap_m = 0, cap_t = 0;
-            if (isInstalacao) {
-                if (isSerra) { cap_m = capacidade.inst_serra_m; cap_t = capacidade.inst_serra_t; }
-                else { cap_m = capacidade.inst_outros_m; cap_t = capacidade.inst_outros_t; }
+            if (isRecolhimento) {
+                if (isSerra) { cap_m = capacidade.recolhimento_serra_m || 0; cap_t = capacidade.recolhimento_serra_t || 0; }
+                else { cap_m = capacidade.recolhimento_outros_m || 0; cap_t = capacidade.recolhimento_outros_t || 0; }
+            } else if (isInstalacao) {
+                if (isSerra && isPredio) { cap_m = capacidade.inst_predio_serra_m ?? capacidade.inst_serra_m; cap_t = capacidade.inst_predio_serra_t ?? capacidade.inst_serra_t; }
+                else if (isSerra) { cap_m = capacidade.inst_casa_serra_m ?? capacidade.inst_serra_m; cap_t = capacidade.inst_casa_serra_t ?? capacidade.inst_serra_t; }
+                else if (isPredio) { cap_m = capacidade.inst_predio_outros_m ?? capacidade.inst_outros_m; cap_t = capacidade.inst_predio_outros_t ?? capacidade.inst_outros_t; }
+                else { cap_m = capacidade.inst_casa_outros_m ?? capacidade.inst_outros_m; cap_t = capacidade.inst_casa_outros_t ?? capacidade.inst_outros_t; }
             } else {
                 if (!isPredio) { cap_m = capacidade.casa_m; cap_t = capacidade.casa_t; }
                 else {
@@ -1328,6 +1245,10 @@ router.get('/vagas-semana', async (req, res) => {
             }
         });
 
+        const agoraSaoPaulo = AgendaService.dataHoraAtualSaoPaulo();
+        const hojeSaoPaulo = agoraSaoPaulo.substring(0, 10);
+        const horaSaoPaulo = agoraSaoPaulo.substring(11, 19);
+
         for (const dStr in result) {
             if (!result[dStr].matutino.msg) {
                 result[dStr].matutino.vagas = Math.max(0, result[dStr].matutino.vagas);
@@ -1338,6 +1259,16 @@ router.get('/vagas-semana', async (req, res) => {
                 result[dStr].vespertino.vagas = Math.max(0, result[dStr].vespertino.vagas);
                 result[dStr].vespertino.disponivel = result[dStr].vespertino.vagas > 0;
                 if(result[dStr].vespertino.vagas === 0) result[dStr].vespertino.msg = "Esgotado";
+            }
+
+            const encerrarMatutino = dStr < hojeSaoPaulo || (dStr === hojeSaoPaulo && horaSaoPaulo >= '11:30:00');
+            const encerrarVespertino = dStr < hojeSaoPaulo || (dStr === hojeSaoPaulo && horaSaoPaulo >= '17:30:00');
+
+            if (encerrarMatutino) {
+                result[dStr].matutino = { vagas: 0, disponivel: false, msg: 'Turno encerrado' };
+            }
+            if (encerrarVespertino) {
+                result[dStr].vespertino = { vagas: 0, disponivel: false, msg: 'Turno encerrado' };
             }
         }
 

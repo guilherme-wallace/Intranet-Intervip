@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const urlParams = new URLSearchParams(window.location.search);
     const osId = urlParams.get('os');
     const origem = urlParams.get('origem');
+    const tipo = urlParams.get('tipo') || '';
 
     if (!osId) {
         await showInfoModal("Nenhuma OS informada na URL.", "Agendamento", "warning");
@@ -18,7 +19,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     prepararPreferenciaHorario();
 
     carregarTagsAgendamento();
-    await carregarDadosOS(osId, origem);
+    await carregarDadosOS(osId, origem, tipo);
 
     document.getElementById('form-agendamento').addEventListener('submit', confirmarAgendamento);
 });
@@ -130,9 +131,13 @@ async function carregarTagsAgendamento() {
     }
 }
 
-async function carregarDadosOS(id_ticket, origem) {
+async function carregarDadosOS(id_ticket, origem, tipo) {
     try {
-        const response = await fetch(`/api/v5/agendamento/detalhes-os/${id_ticket}?origem=${origem}`);
+        const params = new URLSearchParams({
+            origem: origem || '',
+            tipo: tipo || ''
+        });
+        const response = await fetch(`/api/v5/agendamento/detalhes-os/${id_ticket}?${params.toString()}`);
         const data = await response.json();
 
         if (!response.ok) throw new Error(data.error);
@@ -168,7 +173,7 @@ async function carregarDadosOS(id_ticket, origem) {
         document.getElementById('form-agendamento').dataset.clienteId = data.cliente_id;
         document.getElementById('form-agendamento').dataset.tipoImovel = data.tipo_imovel;
 
-        document.getElementById('badge-tipo-os').textContent = data.tipo_imovel;
+        document.getElementById('badge-tipo-os').textContent = data.tipo_servico;
         initCalendar();
 
     } catch (error) {
