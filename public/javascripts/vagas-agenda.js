@@ -7,6 +7,8 @@
     };
 
     const categorias = [
+        ['recolhimento_m', 'Recolhimento - Manhã'],
+        ['recolhimento_t', 'Recolhimento - Tarde'],
         ['manutencao_casa_m', 'Casa - Manhã'],
         ['manutencao_casa_t', 'Casa - Tarde'],
         ['manutencao_predio_serra_m', 'Prédio Serra - Manhã'],
@@ -199,7 +201,10 @@
 
         conteudo.innerHTML = diasVisiveis.map(dia => {
             const slots = categorias
-                .filter(([chave]) => dia.capacidades && dia.capacidades[chave])
+                .filter(([chave]) => {
+                    const recolhimentoAntigo = /^recolhimento_(serra|outros)_/.test(chave);
+                    return !recolhimentoAntigo && dia.capacidades && dia.capacidades[chave];
+                })
                 .map(([chave, label]) => {
                     const slot = dia.capacidades[chave];
                     return `
