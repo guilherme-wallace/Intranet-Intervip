@@ -1953,7 +1953,7 @@ function prepararFormularioMudancaEndereco() {
 
     $('#input-condominio-venda, #cep, #endereco, #numero, #bairro, #cidade, #uf, #complemento').prop('required', true);
     $('#btn-complemento').attr('required', true).show().prop('disabled', false).text('Selecione o complemento...');
-    $('#chk-sem-condominio').prop('disabled', false).closest('.form-check').show();
+    $('#chk-sem-condominio').prop('checked', false).prop('disabled', true).closest('.form-check').hide();
     $('#input-complemento-livre').hide().prop('disabled', true).val('');
     $('#plano').prop('disabled', true).prop('required', false);
 
