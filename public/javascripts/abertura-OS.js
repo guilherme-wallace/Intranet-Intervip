@@ -122,7 +122,7 @@ async function carregarAssuntosIXC() {
         
         select.innerHTML = '<option value="">Selecione o assunto...</option>';
 
-        assuntos.filter(a => !deveOcultarAssuntoAbertura(a)).forEach(a => {
+        assuntos.filter(a => a.id_wfl_processo && !deveOcultarAssuntoAbertura(a)).forEach(a => {
             const nome = a.titulo || a.assunto || a.descricao || a.nome || `Assunto #${a.id}`;
             const option = document.createElement('option');
             option.value = a.id;

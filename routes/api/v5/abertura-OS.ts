@@ -1125,7 +1125,7 @@ router.get('/assuntos', async (req, res) => {
                     permitido_abertura: !ocultarCancelamento && assuntoPermitidoNaAbertura(assunto) && processoPermitidoNaAbertura(idProcesso, processo)
                 };
             })
-            .filter((assunto: any) => assunto.id && assunto.permitido_abertura)
+            .filter((assunto: any) => assunto.id && assunto.id_wfl_processo && assunto.permitido_abertura)
             .map(({ permitido_abertura, ...assunto }: any) => assunto);
 
         logInfo('[Abertura OS][Assuntos]', 'Assuntos ativos carregados do IXC.', {

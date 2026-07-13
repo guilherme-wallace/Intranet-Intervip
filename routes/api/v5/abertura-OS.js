@@ -1052,7 +1052,7 @@ router.get('/assuntos', (req, res) => __awaiter(void 0, void 0, void 0, function
                 permitido_abertura: !ocultarCancelamento && assuntoPermitidoNaAbertura(assunto) && processoPermitidoNaAbertura(idProcesso, processo)
             };
         })
-            .filter((assunto) => assunto.id && assunto.permitido_abertura)
+            .filter((assunto) => assunto.id && assunto.id_wfl_processo && assunto.permitido_abertura)
             .map((_a) => {
             var { permitido_abertura } = _a, assunto = __rest(_a, ["permitido_abertura"]);
             return assunto;
