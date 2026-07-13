@@ -48,6 +48,7 @@ export class AgendaService {
     private static ultimoLogErroIxc = new Map<string, number>();
     private static tabelaRetornoFilaPromise: Promise<void> | null = null;
     private static schemaRecolhimentoPromise: Promise<void> | null = null;
+    private static readonly DATA_INICIO_CAPACIDADE_ZERO_NAO_RECOLHIMENTO = '2026-07-20';
     
     public static executeDb(query: string, params: any[] = []): Promise<any> {
         return new Promise((resolve, reject) => {
@@ -1541,7 +1542,7 @@ export class AgendaService {
             }];
         }
 
-        const t = template[0];
+        const t = this.aplicarCapacidadePadraoZeroNaoRecolhimento(data, template[0]);
         await this.executeDb(
             `INSERT INTO ivp_agenda_capacidade
                 (data, casa_m, casa_t, predio_serra_m, predio_serra_t, predio_outros_m, predio_outros_t, inst_serra_m, inst_serra_t, inst_outros_m, inst_outros_t, inst_casa_serra_m, inst_casa_serra_t, inst_predio_serra_m, inst_predio_serra_t, inst_casa_outros_m, inst_casa_outros_t, inst_predio_outros_m, inst_predio_outros_t, recolhimento_serra_m, recolhimento_serra_t, recolhimento_outros_m, recolhimento_outros_t)
@@ -1572,6 +1573,34 @@ export class AgendaService {
                 t.recolhimento_outros_t ?? 0
             ]
         );
+    }
+
+    private static aplicarCapacidadePadraoZeroNaoRecolhimento(data: string, capacidade: any): any {
+        if (String(data || '') < this.DATA_INICIO_CAPACIDADE_ZERO_NAO_RECOLHIMENTO) {
+            return capacidade;
+        }
+
+        return {
+            ...capacidade,
+            casa_m: 0,
+            casa_t: 0,
+            predio_serra_m: 0,
+            predio_serra_t: 0,
+            predio_outros_m: 0,
+            predio_outros_t: 0,
+            inst_serra_m: 0,
+            inst_serra_t: 0,
+            inst_outros_m: 0,
+            inst_outros_t: 0,
+            inst_casa_serra_m: 0,
+            inst_casa_serra_t: 0,
+            inst_predio_serra_m: 0,
+            inst_predio_serra_t: 0,
+            inst_casa_outros_m: 0,
+            inst_casa_outros_t: 0,
+            inst_predio_outros_m: 0,
+            inst_predio_outros_t: 0
+        };
     }
 
     public static garantirSchemaRecolhimento(): Promise<void> {

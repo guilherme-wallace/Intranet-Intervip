@@ -1351,7 +1351,7 @@ class AgendaService {
                         recolhimento_outros_t: 0
                     }];
             }
-            const t = template[0];
+            const t = this.aplicarCapacidadePadraoZeroNaoRecolhimento(data, template[0]);
             yield this.executeDb(`INSERT INTO ivp_agenda_capacidade
                 (data, casa_m, casa_t, predio_serra_m, predio_serra_t, predio_outros_m, predio_outros_t, inst_serra_m, inst_serra_t, inst_outros_m, inst_outros_t, inst_casa_serra_m, inst_casa_serra_t, inst_predio_serra_m, inst_predio_serra_t, inst_casa_outros_m, inst_casa_outros_t, inst_predio_outros_m, inst_predio_outros_t, recolhimento_serra_m, recolhimento_serra_t, recolhimento_outros_m, recolhimento_outros_t)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
@@ -1380,6 +1380,12 @@ class AgendaService {
                 (_v = t.recolhimento_outros_t) !== null && _v !== void 0 ? _v : 0
             ]);
         });
+    }
+    static aplicarCapacidadePadraoZeroNaoRecolhimento(data, capacidade) {
+        if (String(data || '') < this.DATA_INICIO_CAPACIDADE_ZERO_NAO_RECOLHIMENTO) {
+            return capacidade;
+        }
+        return Object.assign(Object.assign({}, capacidade), { casa_m: 0, casa_t: 0, predio_serra_m: 0, predio_serra_t: 0, predio_outros_m: 0, predio_outros_t: 0, inst_serra_m: 0, inst_serra_t: 0, inst_outros_m: 0, inst_outros_t: 0, inst_casa_serra_m: 0, inst_casa_serra_t: 0, inst_predio_serra_m: 0, inst_predio_serra_t: 0, inst_casa_outros_m: 0, inst_casa_outros_t: 0, inst_predio_outros_m: 0, inst_predio_outros_t: 0 });
     }
     static garantirSchemaRecolhimento() {
         if (!this.schemaRecolhimentoPromise) {
@@ -1791,3 +1797,4 @@ exports.AgendaService = AgendaService;
 AgendaService.ultimoLogErroIxc = new Map();
 AgendaService.tabelaRetornoFilaPromise = null;
 AgendaService.schemaRecolhimentoPromise = null;
+AgendaService.DATA_INICIO_CAPACIDADE_ZERO_NAO_RECOLHIMENTO = '2026-07-20';
