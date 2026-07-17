@@ -5,7 +5,8 @@
   "scripts": {
     "build": "tsc --build",
     "clean": "tsc --build --clean",
-    "start": "node app"
+    "start": "node app",
+    "test:spc": "node scripts/test-spc.js"
   },
   "description": "NodejsWebApp1",
   "author": {
