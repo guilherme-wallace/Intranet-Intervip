@@ -826,6 +826,8 @@ function setupFormValidation() {
         event.stopPropagation();
 
         let isFormFullyValid = true;
+        const clienteConcordouConsulta = window.obterConcordanciaConsultaCredito?.() === 'SIM';
+        if (!clienteConcordouConsulta) isFormFullyValid = false;
         
         form.querySelectorAll('input[required]:not(:disabled), select[required]:not(:disabled)').forEach(field => {
             if (!validateField(field)) {
@@ -916,10 +918,15 @@ function setupFormValidation() {
                 let existingId = null;
                 if (clienteConsultado && clienteConsultado.id) { existingId = clienteConsultado.id; }
                 if (typeof window.executarAnaliseCreditoAntesCadastro === 'function') {
+                    const planoSelecionado = document.getElementById('plano');
                     const analiseCredito = await window.executarAnaliseCreditoAntesCadastro({
                         documento: clientData.cnpj_cpf,
                         tipoCadastro: 'BANDA_LARGA',
                         clienteId: existingId,
+                        nomeCliente: clientData.nome,
+                        planoNome: planoSelecionado?.options?.[planoSelecionado.selectedIndex]?.textContent?.trim() || `Plano ${clientData.id_plano_ixc}`,
+                        diaVencimento: clientData.data_vencimento,
+                        clienteConcordouConsulta,
                         botao: document.getElementById('btn-finalizar-venda')
                     });
                     if (!analiseCredito?.permitir) {
@@ -927,6 +934,7 @@ function setupFormValidation() {
                         return;
                     }
                     clientData.analise_credito_id = analiseCredito.payload?.analiseId || '';
+                    clientData.ciencia_consulta_credito_confirmada = analiseCredito.cienciaConfirmada === true;
                 }
                 cadastrarClienteNoIXC(clientData, existingId);
             }
@@ -1709,6 +1717,11 @@ function checkFormValidity() {
     const submitButton = document.getElementById('btn-finalizar-venda');
     const validityMessage = document.getElementById('form-validity-message');
     let isFormValid = true;
+
+    window.atualizarTermoAceiteConsultaCredito?.();
+    if (window.obterConcordanciaConsultaCredito?.() !== 'SIM') {
+        isFormValid = false;
+    }
 
     fieldsToValidate.forEach(field => {
         let fieldIsValid = false;

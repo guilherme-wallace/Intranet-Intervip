@@ -184,6 +184,7 @@ function selecionarPlano(id, nome, valor) {
     const valorContratoInput = $('#valor_contrato');
     
     planoHidden.value = id;
+    planoHidden.dataset.nome = nome;
     planoDisplayBtn.textContent = `${nome} (R$ ${parseFloat(valor).toFixed(2).replace('.', ',')})`;
     valorContratoInput.val('').trigger('input');
     
@@ -580,7 +581,7 @@ function preencherFormularioComCliente() {
         const documentoConsultado = $('#input-documento').val();
         $('#cpf').val(documentoConsultado);
         $('#plano-display-btn').text('Selecionar Plano...').removeClass('is-valid is-invalid');
-        $('#plano').val('');
+        $('#plano').val('').removeAttr('data-nome');
     }
     
     checkFormValidity();
@@ -611,7 +612,7 @@ function resetFormularioCompleto() {
     $('#input-condominio-venda').val('Corporativo');
     $('#hidden-condominio-id').val('10010');
     
-    $('#plano').val('');
+    $('#plano').val('').removeAttr('data-nome');
     $('#plano-display-btn').text('Selecionar Plano...').removeClass('is-valid is-invalid');
     
     currentBlocks = [];
@@ -625,6 +626,8 @@ function setupFormValidation() {
         event.stopPropagation();
 
         let isFormFullyValid = true;
+        const clienteConcordouConsulta = window.obterConcordanciaConsultaCredito?.() === 'SIM';
+        if (!clienteConcordouConsulta) isFormFullyValid = false;
         form.querySelectorAll('input[required]:not(:disabled), select[required]:not(:disabled)').forEach(field => {
             if (!validateField(field)) {
                 isFormFullyValid = false;
@@ -708,6 +711,10 @@ function setupFormValidation() {
                     documento: clientData.cnpj_cpf,
                     tipoCadastro: 'CORPORATIVO',
                     clienteId: existingId,
+                    nomeCliente: clientData.nome,
+                    planoNome: document.getElementById('plano')?.dataset?.nome || document.getElementById('plano-display-btn')?.textContent?.trim() || `Plano ${clientData.id_plano_ixc}`,
+                    diaVencimento: clientData.data_vencimento,
+                    clienteConcordouConsulta,
                     botao: document.getElementById('btn-finalizar-venda')
                 });
                 if (!analiseCredito?.permitir) {
@@ -715,6 +722,7 @@ function setupFormValidation() {
                     return;
                 }
                 clientData.analise_credito_id = analiseCredito.payload?.analiseId || '';
+                clientData.ciencia_consulta_credito_confirmada = analiseCredito.cienciaConfirmada === true;
             }
             cadastrarClienteNoIXC(clientData, existingId);
             
@@ -738,6 +746,8 @@ async function cadastrarClienteNoIXC(clientData, existingClientId = null) {
     }
 
     let success = false;
+    let redirecionandoAgendamento = false;
+    let cadastroCriado = null;
 
     try {
         console.log("Enviando dados para a API:", payload);
@@ -757,6 +767,7 @@ async function cadastrarClienteNoIXC(clientData, existingClientId = null) {
         }
         
         success = true;
+        cadastroCriado = result;
         const statusFaturamento = result.statusFaturamentoAtivacao;
         const faturamentoPendente = statusFaturamento === 'PENDENTE_FATURAR_ATIVACAO';
         const faturamentoComErro = statusFaturamento === 'ERRO_FATURAR_ATIVACAO'
@@ -775,14 +786,19 @@ async function cadastrarClienteNoIXC(clientData, existingClientId = null) {
                     : vendaAtivacaoGerada
                         ? '<strong>Contrato criado e taxa de ativação gerada no IXC. A venda está vinculada ao contrato e protegida contra duplicidade.</strong><br><br>'
                         : 'Venda finalizada com sucesso!';
-        showModal(faturamentoPendente || faturamentoComErro ? 'Contrato criado — verifique a ativação' : 'Sucesso!',
-            `${mensagemFaturamento}${mensagemVencimento}
-             <br><strong>Cliente ID:</strong> ${result.clienteId}
-             <br><strong>Contrato ID:</strong> ${result.contratoId}
-             <br><strong>Login ID:</strong> ${result.loginId}
-             <br><strong>Atendimento ID:</strong> ${result.ticketId}`,
-            faturamentoPendente || faturamentoComErro ? 'warning' : 'success'
-        );
+        if (faturamentoPendente || faturamentoComErro) {
+            showModal('Contrato criado — verifique a ativação',
+                `${mensagemFaturamento}${mensagemVencimento}
+                 <br><strong>Cliente ID:</strong> ${result.clienteId}
+                 <br><strong>Contrato ID:</strong> ${result.contratoId}
+                 <br><strong>Login ID:</strong> ${result.loginId}
+                 <br><strong>Atendimento ID:</strong> ${result.ticketId}`,
+                'warning'
+            );
+        } else {
+            submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Abrindo agendamento...';
+            redirecionandoAgendamento = await redirecionarParaAgendamentoCorporativo(result);
+        }
         
     } catch (error) {
         console.error("Erro ao cadastrar cliente:", error);
@@ -815,11 +831,13 @@ async function cadastrarClienteNoIXC(clientData, existingClientId = null) {
         }
 
     } finally {
+        if (redirecionandoAgendamento) return;
+
         if (!bsConfirmModal || !bsConfirmModal._isShown) {
             submitButton.disabled = false;
 
             if (success) {
-                submitButton.innerHTML = '<i class="bi bi-arrow-clockwise me-2"></i>Cliente Cadastrado!';
+                submitButton.innerHTML = '<i class="bi bi-calendar-check me-2"></i>Agendar Instalação';
                 submitButton.classList.remove('btn-primary', 'ivp-btn');
                 submitButton.classList.add('btn', 'btn-success');
                 submitButton.type = 'button';
@@ -827,7 +845,7 @@ async function cadastrarClienteNoIXC(clientData, existingClientId = null) {
                 submitButton.parentNode.replaceChild(newBtn, submitButton);
                 
                 newBtn.addEventListener('click', () => {
-                    window.location.reload();
+                    redirecionarParaAgendamentoCorporativo(cadastroCriado);
                 });
 
             } else {
@@ -840,6 +858,30 @@ async function cadastrarClienteNoIXC(clientData, existingClientId = null) {
             }
         }
     }
+}
+
+async function obterOsCorporativaParaAgendamento(resultadoCadastro) {
+    const osId = resultadoCadastro?.osId || resultadoCadastro?.id_os || resultadoCadastro?.os_id;
+    if (osId) return osId;
+
+    const ticketId = resultadoCadastro?.ticketId || resultadoCadastro?.ticket_id || resultadoCadastro?.id_ticket;
+    if (!ticketId) return null;
+
+    const response = await fetch(`/api/v5/agendamento/os-por-ticket/${encodeURIComponent(ticketId)}`);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.success === false || !data.osId) return null;
+    return data.osId;
+}
+
+async function redirecionarParaAgendamentoCorporativo(resultadoCadastro) {
+    const osId = await obterOsCorporativaParaAgendamento(resultadoCadastro);
+    if (!osId) {
+        showModal('Agendamento', 'Chamado criado, mas não foi possível localizar a OS para agendamento.', 'warning');
+        return false;
+    }
+
+    window.location.href = `/agendamento?os=${encodeURIComponent(osId)}&origem=cadastro-corporativo`;
+    return true;
 }
 
 function showModal(title, message, type = 'info') {
@@ -1037,6 +1079,11 @@ function checkFormValidity() {
     const submitButton = document.getElementById('btn-finalizar-venda');
     const validityMessage = document.getElementById('form-validity-message');
     let isFormValid = true;
+
+    window.atualizarTermoAceiteConsultaCredito?.();
+    if (window.obterConcordanciaConsultaCredito?.() !== 'SIM') {
+        isFormValid = false;
+    }
 
     fieldsToCheck.forEach(field => {
         if (field.id === 'plano-display-btn') {

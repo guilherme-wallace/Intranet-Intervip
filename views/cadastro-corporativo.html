@@ -342,6 +342,29 @@
                                         </div>
                                     </fieldset>
 
+                                    <fieldset class="form-section mt-4" id="secao-aceite-consulta-credito">
+                                        <legend class="section-legend">Aceite para consulta de crédito</legend>
+                                        <div id="termo-aceite-consulta-credito" class="alert alert-light border mb-3" role="note"></div>
+                                        <button type="button" id="btn-copiar-termo-consulta-credito" class="btn btn-outline-primary btn-sm mb-3">
+                                            <i class="bi bi-clipboard me-1"></i>Copiar termo de aceite de consulta
+                                        </button>
+                                        <div id="status-copia-termo-consulta-credito" class="small mb-3" aria-live="polite"></div>
+                                        <div class="fw-semibold mb-2">Cliente concordou com a consulta?</div>
+                                        <div class="d-flex gap-4" role="radiogroup" aria-label="Cliente concordou com a consulta de crédito">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="cliente_concordou_consulta_credito" id="cliente-concordou-consulta-sim" value="SIM">
+                                                <label class="form-check-label" for="cliente-concordou-consulta-sim">Sim</label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="cliente_concordou_consulta_credito" id="cliente-concordou-consulta-nao" value="NAO">
+                                                <label class="form-check-label" for="cliente-concordou-consulta-nao">Não</label>
+                                            </div>
+                                        </div>
+                                        <div id="mensagem-aceite-consulta-credito" class="form-text text-danger mt-2">
+                                            Marque “Sim” para autorizar a consulta e liberar o cadastro.
+                                        </div>
+                                    </fieldset>
+
                                     <div class="ivp-actions mt-5">
                                         <div id="form-validity-message" class="form-text text-danger mb-2 text-center" style="display: none; font-weight: 500;">
                                             Por favor, preencha todos os campos obrigatórios.
