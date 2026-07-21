@@ -11,6 +11,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 // routes/api/v5/rede_neutra.ts
 const Express = require("express");
+const ixcPendingOnuService_1 = require("../../../src/services/ixcPendingOnuService");
 const axios_1 = require("axios");
 const database_1 = require("../../../api/database");
 const router = Express.Router();
@@ -723,18 +724,8 @@ router.get('/onus-pendentes', (req, res) => __awaiter(void 0, void 0, void 0, fu
             "sortorder": "desc"
         };
         const response = yield makeIxcRequest('POST', '/fh_onu_nao_autorizadas', payload);
-        const lista = (response.rows || []).map((row) => {
-            const cells = row.cell;
-            return {
-                id_hash: row.id,
-                olt_name: cells[0],
-                frame: cells[1],
-                slot: cells[2],
-                pon: cells[3],
-                model: cells[4],
-                mac: cells[5]
-            };
-        });
+        const rows = response.rows || response.registros || [];
+        const lista = rows.map(ixcPendingOnuService_1.normalizeIxcPendingOnuRow);
         res.json(lista);
     }
     catch (error) {

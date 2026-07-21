@@ -1,5 +1,6 @@
 // routes/api/v5/rede_neutra.ts
 import * as Express from 'express';
+import { normalizeIxcPendingOnuRow } from '../../../src/services/ixcPendingOnuService';
 import axios, { Method } from 'axios';
 import { LOCALHOST } from '../../../api/database';
 
@@ -860,18 +861,8 @@ router.get('/onus-pendentes', async (req, res) => {
         
         const response = await makeIxcRequest('POST', '/fh_onu_nao_autorizadas', payload);
         
-        const lista = (response.rows || []).map((row: any) => {
-            const cells = row.cell;
-            return {
-                id_hash: row.id,
-                olt_name: cells[0],
-                frame: cells[1],
-                slot: cells[2],
-                pon: cells[3],
-                model: cells[4],
-                mac: cells[5]
-            };
-        });
+        const rows = response.rows || response.registros || [];
+        const lista = rows.map(normalizeIxcPendingOnuRow);
 
         res.json(lista);
     } catch (error) {
@@ -1380,4 +1371,4 @@ router.get('/parceiro-contratos-ixc', async (req, res) => {
     }
 });
 
-export default router; 
+export default router;

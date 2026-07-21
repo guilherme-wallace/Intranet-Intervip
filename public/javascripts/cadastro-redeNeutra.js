@@ -1486,11 +1486,13 @@ async function carregarListasONU() {
             selOnu.add(new Option("Nenhuma ONU pendente encontrada", ""));
         } else {
             onus.forEach(o => {
-                const text = `MAC: ${o.mac} | Modelo: ${o.modelo || '?'} | ${o.olt_info || ''}`;
+                const modelo = o.model || o.modelo || '?';
+                const olt = o.olt_name || o.olt_info || '';
+                const text = `MAC/SN: ${o.mac} | Modelo: ${modelo} | ${olt}`;
                 const option = new Option(text, o.id_hash);
                 option.dataset.mac = o.mac;
-                option.dataset.modelo = o.modelo;
-                option.dataset.olt = o.olt_info;
+                option.dataset.modelo = modelo;
+                option.dataset.olt = olt;
                 selOnu.add(option);
             });
         }
