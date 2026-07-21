@@ -15,7 +15,8 @@ import {
     loadCreditAnalysisForIxcContract,
     PersistedCreditAnalysis,
     resolveIxcContractDueDay,
-    startCreditContractAudit
+    startCreditContractAudit,
+    validateCreditConsultationAcknowledgement
 } from '../../../src/services/ixcCreditContractService';
 import {
     faturarAtivacaoContrato,
@@ -1299,6 +1300,7 @@ router.post('/cliente', async (req, res) => {
 
     try {
         const usuario = req.user?.username || req.session?.username || 'Visitante';
+        validateCreditConsultationAcknowledgement(clientData.ciencia_consulta_credito_confirmada);
         const analiseCredito = await loadCreditAnalysisForIxcContract({
             analiseCreditoId: clientData.analise_credito_id,
             documento: clientData.cnpj_cpf,
@@ -1321,7 +1323,8 @@ router.post('/cliente', async (req, res) => {
             decision: analiseCredito.decision,
             diaVencimento: clientData.data_vencimento,
             criadoPor: usuario,
-            requestId: req.requestId
+            requestId: req.requestId,
+            cienciaConsultaCreditoConfirmada: true
         });
 
         let nomePlano = `ID ${clientData.id_plano_ixc}`;
@@ -1448,6 +1451,7 @@ router.post('/cliente-corporativo', async (req, res) => {
 
     try {
         const usuario = req.user?.username || req.session?.username || 'Visitante';
+        validateCreditConsultationAcknowledgement(clientData.ciencia_consulta_credito_confirmada);
         const analiseCredito = await loadCreditAnalysisForIxcContract({
             analiseCreditoId: clientData.analise_credito_id,
             documento: clientData.cnpj_cpf,
@@ -1470,7 +1474,8 @@ router.post('/cliente-corporativo', async (req, res) => {
             decision: analiseCredito.decision,
             diaVencimento: clientData.data_vencimento,
             criadoPor: usuario,
-            requestId: req.requestId
+            requestId: req.requestId,
+            cienciaConsultaCreditoConfirmada: true
         });
 
         let nomePlano = `ID ${clientData.id_plano_ixc}`;
@@ -1531,6 +1536,7 @@ router.post('/cliente-corporativo', async (req, res) => {
         );
         const novoLoginId = await criarLogin(novoClienteId, novoContratoId, clientData, dataCadastro);
         const novoTicketId = await abrirAtendimentoOS(novoClienteId, clientData, nomePlano, novoLoginId, novoContratoId);
+        const osInstalacao = await buscarOsInstalacaoPorTicket(novoTicketId);
         
         await ajustarFinanceiroContrato(novoContratoId, clientData.valor_acordado, clientData.id_plano_ixc);
 
@@ -1541,6 +1547,7 @@ router.post('/cliente-corporativo', async (req, res) => {
             contratoId: novoContratoId,
             loginId: novoLoginId,
             ticketId: novoTicketId,
+            osId: osInstalacao?.id || null,
             modalidadeContrato,
             diaVencimentoContrato,
             statusFaturamentoAtivacao: faturamentoAtivacao.status,

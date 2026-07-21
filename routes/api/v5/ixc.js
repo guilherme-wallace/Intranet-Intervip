@@ -1163,6 +1163,7 @@ router.post('/cliente', (req, res) => __awaiter(void 0, void 0, void 0, function
     let auditoriaCreditoId = null;
     try {
         const usuario = ((_d = req.user) === null || _d === void 0 ? void 0 : _d.username) || ((_e = req.session) === null || _e === void 0 ? void 0 : _e.username) || 'Visitante';
+        (0, ixcCreditContractService_1.validateCreditConsultationAcknowledgement)(clientData.ciencia_consulta_credito_confirmada);
         const analiseCredito = yield (0, ixcCreditContractService_1.loadCreditAnalysisForIxcContract)({
             analiseCreditoId: clientData.analise_credito_id,
             documento: clientData.cnpj_cpf,
@@ -1181,7 +1182,8 @@ router.post('/cliente', (req, res) => __awaiter(void 0, void 0, void 0, function
             decision: analiseCredito.decision,
             diaVencimento: clientData.data_vencimento,
             criadoPor: usuario,
-            requestId: req.requestId
+            requestId: req.requestId,
+            cienciaConsultaCreditoConfirmada: true
         });
         let nomePlano = `ID ${clientData.id_plano_ixc}`;
         try {
@@ -1288,6 +1290,7 @@ router.post('/cliente-corporativo', (req, res) => __awaiter(void 0, void 0, void
     };
     try {
         const usuario = ((_g = req.user) === null || _g === void 0 ? void 0 : _g.username) || ((_h = req.session) === null || _h === void 0 ? void 0 : _h.username) || 'Visitante';
+        (0, ixcCreditContractService_1.validateCreditConsultationAcknowledgement)(clientData.ciencia_consulta_credito_confirmada);
         const analiseCredito = yield (0, ixcCreditContractService_1.loadCreditAnalysisForIxcContract)({
             analiseCreditoId: clientData.analise_credito_id,
             documento: clientData.cnpj_cpf,
@@ -1306,7 +1309,8 @@ router.post('/cliente-corporativo', (req, res) => __awaiter(void 0, void 0, void
             decision: analiseCredito.decision,
             diaVencimento: clientData.data_vencimento,
             criadoPor: usuario,
-            requestId: req.requestId
+            requestId: req.requestId,
+            cienciaConsultaCreditoConfirmada: true
         });
         let nomePlano = `ID ${clientData.id_plano_ixc}`;
         try {
@@ -1356,6 +1360,7 @@ router.post('/cliente-corporativo', (req, res) => __awaiter(void 0, void 0, void
         const faturamentoAtivacao = yield processarFaturamentoAtivacaoContrato(novoContratoId, novoClienteId, clientData, OPCOES_CONTRATO_CORP, contextoCredito);
         const novoLoginId = yield criarLogin(novoClienteId, novoContratoId, clientData, dataCadastro);
         const novoTicketId = yield abrirAtendimentoOS(novoClienteId, clientData, nomePlano, novoLoginId, novoContratoId);
+        const osInstalacao = yield buscarOsInstalacaoPorTicket(novoTicketId);
         yield ajustarFinanceiroContrato(novoContratoId, clientData.valor_acordado, clientData.id_plano_ixc);
         res.status(201).json({
             success: true,
@@ -1364,6 +1369,7 @@ router.post('/cliente-corporativo', (req, res) => __awaiter(void 0, void 0, void
             contratoId: novoContratoId,
             loginId: novoLoginId,
             ticketId: novoTicketId,
+            osId: (osInstalacao === null || osInstalacao === void 0 ? void 0 : osInstalacao.id) || null,
             modalidadeContrato,
             diaVencimentoContrato,
             statusFaturamentoAtivacao: faturamentoAtivacao.status,
