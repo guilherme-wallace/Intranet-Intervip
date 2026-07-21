@@ -2,7 +2,7 @@ import * as Express from 'express';
 import { AgendaService } from './agendaService';
 import {
     buildCreditDecision,
-    buildSpcRestrictionSummary,
+    clienteConcordouComConsultaCredito,
     consultarSpc,
     isSpcMockEnabled,
     limparDocumento,
@@ -15,8 +15,48 @@ import {
     validarDocumentoCredito
 } from '../../../src/services/spcService';
 import { logError, logInfo, logWarn } from '../../../api/logger';
+import {
+    getIxcCreditContractConfig,
+    resolveIxcContractDueDay
+} from '../../../src/services/ixcCreditContractService';
 
 const router = Express.Router();
+
+function montarDecisaoOperacional(decision: any): any {
+    return {
+        status: decision?.status || 'ANALISE_MANUAL',
+        modalidade: decision?.modalidade || null,
+        taxaHabilitacao: decision?.taxaHabilitacao ?? null
+    };
+}
+
+function montarOfertaOperacional(decision: any, diaVencimentoSelecionado: any, requestId?: string): any | null {
+    if (!['APROVADO', 'APROVADO_COM_CONDICAO'].includes(String(decision?.status || ''))) return null;
+
+    const modalidade = decision?.modalidade === 'PRE_PAGO' ? 'PRE_PAGO' : 'POS_PAGO';
+    let diaVencimento: number | null = null;
+    try {
+        diaVencimento = resolveIxcContractDueDay(
+            modalidade,
+            diaVencimentoSelecionado,
+            getIxcCreditContractConfig()
+        );
+    } catch (error: any) {
+        // A criacao do contrato continuara protegida pela validacao obrigatoria do backend.
+        // Aqui evitamos transformar uma falha de configuracao IXC em erro da consulta SPC.
+        logWarn('SPC.OfertaOperacional', 'Nao foi possivel antecipar o vencimento da oferta.', {
+            requestId,
+            modalidade,
+            error: error?.message
+        });
+    }
+
+    return {
+        modalidade,
+        taxaInstalacao: Number(decision?.taxaHabilitacao || 0),
+        diaVencimento
+    };
+}
 
 function formatarDocumentoIxc(documento: string): string {
     const limpo = limparDocumento(documento);
@@ -138,7 +178,7 @@ async function consultarSituacaoInternaIntervip(params: {
 }
 
 router.post('/consulta-credito', async (req, res) => {
-    const { documento, tipoCadastro, clienteId } = req.body || {};
+    const { documento, tipoCadastro, clienteId, diaVencimento, clienteConcordouConsulta } = req.body || {};
     const requestId = req.requestId;
     const usuario = usuarioDaRequest(req);
     const tipo = String(tipoCadastro || '').toUpperCase() as TipoCadastroCredito;
@@ -148,6 +188,15 @@ router.post('/consulta-credito', async (req, res) => {
         return res.status(400).json({
             success: false,
             error: 'Tipo de cadastro invalido.',
+            requestId
+        });
+    }
+
+    if (!clienteConcordouComConsultaCredito(clienteConcordouConsulta)) {
+        return res.status(422).json({
+            success: false,
+            code: 'SPC_CUSTOMER_CONSENT_REQUIRED',
+            error: 'A consulta de credito nao pode ser realizada sem a concordancia previa do cliente.',
             requestId
         });
     }
@@ -193,7 +242,6 @@ router.post('/consulta-credito', async (req, res) => {
             usuario: usuario.username
         });
         const normalizado = normalizeSpcResult(rawSpc);
-        const restrictionSummary = buildSpcRestrictionSummary(rawSpc);
         const decision = buildCreditDecision({
             spcClassification: normalizado.classification,
             hasActiveContract: situacaoInterna.hasActiveContract,
@@ -207,7 +255,8 @@ router.post('/consulta-credito', async (req, res) => {
             classificacao: normalizado.classification,
             decision,
             rawResponse: rawSpc,
-            criadoPor: usuario.username
+            criadoPor: usuario.username,
+            clienteConcordouConsulta: true
         });
 
         logFormatoSpcParaHomologacao(rawSpc, {
@@ -236,9 +285,8 @@ router.post('/consulta-credito', async (req, res) => {
         return res.json({
             success: true,
             documento: mascararDocumento(documento),
-            classification: normalizado.classification,
-            decision,
-            restrictionSummary,
+            decision: montarDecisaoOperacional(decision),
+            oferta: montarOfertaOperacional(decision, diaVencimento, requestId),
             analiseId,
             manualPermitido: false,
             requestId
@@ -274,16 +322,16 @@ router.post('/consulta-credito', async (req, res) => {
             decision,
             rawResponse: rawSpc,
             erro: erroSpc,
-            criadoPor: usuario.username
+            criadoPor: usuario.username,
+            clienteConcordouConsulta: true
         });
 
         const statusHttp = error?.statusCode === 400 ? 400 : 502;
         return res.status(statusHttp).json({
             success: false,
             error: error?.publicMessage || 'Nao foi possivel consultar o SPC Brasil neste momento.',
-            classification: 'ERRO_CONSULTA',
-            decision,
-            restrictionSummary: [],
+            decision: montarDecisaoOperacional(decision),
+            oferta: null,
             analiseId,
             manualPermitido: false,
             requestId

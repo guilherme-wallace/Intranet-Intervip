@@ -1,18 +1,6 @@
 (function () {
     const MODAL_ID = 'modal-analise-credito-spc';
-    const STATUS_LABELS = {
-        APROVADO: 'Aprovado',
-        APROVADO_COM_CONDICAO: 'Aprovado com condição',
-        BLOQUEADO: 'Bloqueado',
-        ANALISE_MANUAL: 'Análise manual'
-    };
-    const PERFIL_LABELS = {
-        SEM_RESTRICAO: 'Sem restrições de crédito',
-        RESTRICAO_FINANCEIRA: 'Com restrições financeiras',
-        RESTRICAO_TELECOM: 'Com restrições em telecomunicações',
-        ANALISE_MANUAL: 'Análise manual',
-        ERRO_CONSULTA: 'Erro na consulta'
-    };
+    const CONSENT_CHECKBOX_ID = `${MODAL_ID}-ciencia-cliente`;
 
     function escapeHtml(valor) {
         return String(valor || '')
@@ -28,35 +16,128 @@
         return Number(valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     }
 
-    function resumoCondicaoContrato(decision) {
-        if (decision?.perfil === 'SEM_RESTRICAO') return 'Pós-pago | Taxa de instalação isenta';
-        if (decision?.perfil === 'RESTRICAO_FINANCEIRA') return 'Pré-pago | Taxa de instalação R$ 150,00 em parcela única | Próximo vencimento definido automaticamente';
-        if (decision?.perfil === 'RESTRICAO_TELECOM') return 'Pré-pago | Taxa de instalação R$ 250,00 em parcela única | Próximo vencimento definido automaticamente';
-        return 'Condição contratual pendente de análise manual';
+    function montarTermoAceiteConsultaCredito() {
+        const nome = String(document.getElementById('nome')?.value || '').trim() || 'Cliente';
+        return `Sr(a). ${nome}, para darmos andamento à sua contratação e definirmos as melhores condições comerciais para o seu perfil, nosso procedimento padrão inclui a realização de uma análise de crédito. É um passo rápido e seguro, que fazemos em conformidade com a Lei Geral de Proteção de Dados. Podemos prosseguir com a consulta?`;
     }
 
-    function renderRestrictionSummary(payload) {
-        const itens = Array.isArray(payload?.restrictionSummary) ? payload.restrictionSummary : [];
-        const itensValidos = itens
-            .map(item => ({
-                label: String(item?.label || item?.tipo || 'ocorrencia').trim(),
-                quantidade: Number(item?.quantidade || 0)
-            }))
-            .filter(item => item.label && Number.isFinite(item.quantidade) && item.quantidade > 0);
+    function obterConcordanciaConsultaCredito() {
+        return document.querySelector('input[name="cliente_concordou_consulta_credito"]:checked')?.value || '';
+    }
 
-        if (!itensValidos.length) return '';
+    function atualizarTermoAceiteConsultaCredito() {
+        const termo = document.getElementById('termo-aceite-consulta-credito');
+        if (termo) termo.textContent = montarTermoAceiteConsultaCredito();
+    }
 
-        const textoItens = itensValidos
-            .map(item => `${item.quantidade} ${item.label}${item.quantidade === 1 ? '' : '(s)'}`)
-            .join(', ');
-        const classification = payload?.classification || payload?.decision?.perfil || '';
-        const titulo = classification === 'RESTRICAO_TELECOM'
-            ? 'Restricao em telecomunicacoes identificada'
-            : 'Restricao financeira identificada';
+    function atualizarEstadoAceiteConsultaCredito(revalidarFormulario = true) {
+        const concordancia = obterConcordanciaConsultaCredito();
+        const mensagem = document.getElementById('mensagem-aceite-consulta-credito');
+        if (mensagem) {
+            mensagem.classList.remove('text-danger', 'text-success');
+            if (concordancia === 'SIM') {
+                mensagem.textContent = 'Concordância registrada.';
+                mensagem.classList.add('text-success');
+            } else if (concordancia === 'NAO') {
+                mensagem.textContent = 'Cadastro não autorizado.';
+                mensagem.classList.add('text-danger');
+            } else {
+                mensagem.textContent = 'Opção de concordância não selecionada.';
+                mensagem.classList.add('text-danger');
+            }
+        }
+
+        if (revalidarFormulario && typeof window.checkFormValidity === 'function') {
+            window.checkFormValidity();
+        }
+    }
+
+    async function copiarTermoAceiteConsultaCredito() {
+        const status = document.getElementById('status-copia-termo-consulta-credito');
+        try {
+            const texto = montarTermoAceiteConsultaCredito();
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(texto);
+            } else {
+                const campoTemporario = document.createElement('textarea');
+                campoTemporario.value = texto;
+                campoTemporario.setAttribute('readonly', '');
+                campoTemporario.style.position = 'fixed';
+                campoTemporario.style.opacity = '0';
+                document.body.appendChild(campoTemporario);
+                campoTemporario.select();
+                const copiado = document.execCommand('copy');
+                campoTemporario.remove();
+                if (!copiado) throw new Error('Copia nao suportada pelo navegador.');
+            }
+            if (status) {
+                status.textContent = 'Termo copiado.';
+                status.className = 'small mb-3 text-success';
+            }
+        } catch (_error) {
+            if (status) {
+                status.textContent = 'Não foi possível copiar automaticamente. Selecione o texto acima e copie manualmente.';
+                status.className = 'small mb-3 text-danger';
+            }
+        }
+    }
+
+    function configurarAceiteConsultaCredito() {
+        const termo = document.getElementById('termo-aceite-consulta-credito');
+        if (!termo) return;
+
+        document.getElementById('nome')?.addEventListener('input', atualizarTermoAceiteConsultaCredito);
+        document.getElementById('nome')?.addEventListener('change', atualizarTermoAceiteConsultaCredito);
+        document.getElementById('btn-copiar-termo-consulta-credito')?.addEventListener('click', copiarTermoAceiteConsultaCredito);
+        document.querySelectorAll('input[name="cliente_concordou_consulta_credito"]').forEach(input => {
+            input.addEventListener('change', () => atualizarEstadoAceiteConsultaCredito(true));
+        });
+
+        atualizarTermoAceiteConsultaCredito();
+        atualizarEstadoAceiteConsultaCredito(false);
+    }
+
+    function resumoCondicaoContrato(decision, oferta) {
+        const modalidade = oferta?.modalidade || decision?.modalidade;
+        const taxa = Number(oferta?.taxaInstalacao ?? decision?.taxaHabilitacao ?? 0);
+        if (modalidade === 'POS_PAGO') return 'Pós-pago | Instalação isenta';
+        if (modalidade === 'PRE_PAGO') return `Pré-pago | Instalação ${formatarMoeda(taxa)} em parcela única`;
+        return 'Oferta indisponível';
+    }
+
+    function renderOferta(payload, options) {
+        const decision = payload?.decision || {};
+        const oferta = payload?.oferta || {};
+        const modalidade = oferta.modalidade === 'PRE_PAGO' ? 'Pré-pago' : 'Pós-pago';
+        const taxa = Number(oferta.taxaInstalacao ?? decision.taxaHabilitacao ?? 0);
+        const instalacao = taxa > 0 ? `${formatarMoeda(taxa)} em parcela única` : 'Isenta';
+        const plano = String(options?.planoNome || 'Não informado').trim();
+        const diaVencimento = oferta.modalidade === 'PRE_PAGO'
+            ? oferta.diaVencimento
+            : oferta.diaVencimento || options?.diaVencimento;
+        const vencimento = diaVencimento
+            ? `Dia ${diaVencimento}`
+            : oferta.modalidade === 'PRE_PAGO'
+                ? 'Próximo vencimento definido automaticamente'
+                : 'Não informado';
+        const nomeCliente = String(options?.nomeCliente || '').trim();
+        const referenciaCliente = nomeCliente ? ` o cliente ${escapeHtml(nomeCliente)}` : ' o cliente';
 
         return `
-            <div class="alert alert-warning small mb-3">
-                <strong>${escapeHtml(titulo)}:</strong> ${escapeHtml(textoItens)}.
+            <p class="mb-3">Segue a oferta disponível para este cliente:</p>
+            <div class="border rounded p-3 mb-3 bg-light text-dark">
+                <div class="row g-2">
+                    <div class="col-5 fw-semibold">Modalidade:</div><div class="col-7">${escapeHtml(modalidade)}</div>
+                    <div class="col-5 fw-semibold">Instalação:</div><div class="col-7">${escapeHtml(instalacao)}</div>
+                    <div class="col-5 fw-semibold">Plano escolhido:</div><div class="col-7">${escapeHtml(plano)}</div>
+                    <div class="col-5 fw-semibold">Vencimento:</div><div class="col-7">${escapeHtml(vencimento)}</div>
+                </div>
+            </div>
+            <div class="form-check border rounded p-3 ps-5 mb-0">
+                <input class="form-check-input" type="checkbox" id="${CONSENT_CHECKBOX_ID}">
+                <label class="form-check-label small" for="${CONSENT_CHECKBOX_ID}">
+                    Declaro que, antes desta análise, informei${referenciaCliente} e confirmei que está ciente de que a Intervip poderá consultar seu CPF/CNPJ em bases de análise de crédito, incluindo o SPC Brasil, exclusivamente para avaliação cadastral, contratação, modalidade de pagamento, taxa de instalação e condições comerciais aplicáveis.
+                </label>
             </div>
         `;
     }
@@ -87,24 +168,13 @@
         return modal;
     }
 
-    function renderDecision(decision, extraHtml, payload) {
-        const status = STATUS_LABELS[decision?.status] || decision?.status || 'Não informado';
-        const perfil = PERFIL_LABELS[decision?.perfil] || decision?.perfil || 'Não informado';
+    function renderMensagemOperacional(message) {
         return `
-            <div class="mb-3">
-                <div class="fw-bold">${escapeHtml(status)}</div>
-                <div class="text-muted small">${escapeHtml(perfil)}</div>
-            </div>
-            ${renderRestrictionSummary(payload)}
-            <div class="border rounded p-3 mb-3 bg-light text-dark">
-                <div><strong>Condição do contrato:</strong> ${escapeHtml(resumoCondicaoContrato(decision))}</div>
-            </div>
-            <p class="mb-0">${escapeHtml(decision?.motivo || 'Decisão de crédito recebida.')}</p>
-            ${extraHtml || ''}
+            <div class="alert alert-warning mb-0" role="alert">${escapeHtml(message)}</div>
         `;
     }
 
-    function showCreditoModal({ title, body, type = 'info', actions = [] }) {
+    function showCreditoModal({ title, body, type = 'info', actions = [], confirmationCheckboxId = null }) {
         return new Promise(resolve => {
             const modalEl = ensureModal();
             const titleEl = document.getElementById(`${MODAL_ID}-title`);
@@ -127,12 +197,27 @@
                 button.type = 'button';
                 button.className = `btn ${action.className || 'btn-secondary'}`;
                 button.textContent = action.label;
+                if (action.requiresConfirmation) button.disabled = true;
                 button.addEventListener('click', () => {
                     modalCompat.hide();
                     resolve(action.value);
                 }, { once: true });
                 footerEl.appendChild(button);
             });
+
+            if (confirmationCheckboxId) {
+                const checkbox = document.getElementById(confirmationCheckboxId);
+                const syncConfirmation = () => {
+                    footerEl.querySelectorAll('button[data-requires-confirmation="true"]').forEach(button => {
+                        button.disabled = !checkbox?.checked;
+                    });
+                };
+                footerEl.querySelectorAll('button').forEach((button, index) => {
+                    if (botoes[index]?.requiresConfirmation) button.dataset.requiresConfirmation = 'true';
+                });
+                checkbox?.addEventListener('change', syncConfirmation);
+                syncConfirmation();
+            }
 
             modalCompat.show();
         });
@@ -205,7 +290,7 @@
         });
     }
 
-    function exibirResumoCondicaoContrato(decision, submitButton) {
+    function exibirResumoCondicaoContrato(decision, oferta, submitButton) {
         const form = submitButton?.closest('form');
         if (!form) return;
         let summary = form.querySelector('[data-spc-credit-summary]');
@@ -217,14 +302,20 @@
             target.parentElement.insertBefore(summary, target);
         }
         summary.className = `alert ${decision?.status === 'APROVADO' ? 'alert-success' : 'alert-warning'} mt-3`;
-        summary.textContent = resumoCondicaoContrato(decision);
+        summary.textContent = resumoCondicaoContrato(decision, oferta);
     }
 
-    async function consultarCreditoNoBackend({ documento, tipoCadastro, clienteId }) {
+    async function consultarCreditoNoBackend({ documento, tipoCadastro, clienteId, diaVencimento, clienteConcordouConsulta }) {
         const response = await fetch('/api/spc/consulta-credito', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ documento, tipoCadastro, clienteId: clienteId || null })
+            body: JSON.stringify({
+                documento,
+                tipoCadastro,
+                clienteId: clienteId || null,
+                diaVencimento: diaVencimento || null,
+                clienteConcordouConsulta: clienteConcordouConsulta === true
+            })
         });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
@@ -255,26 +346,27 @@
             const payload = await consultarCreditoNoBackend(options || {});
             const decision = payload.decision || {};
             aplicarDecisaoCreditoEmCampos(decision);
-            exibirResumoCondicaoContrato(decision, submitButton);
+            exibirResumoCondicaoContrato(decision, payload.oferta, submitButton);
 
-            if (decision.status === 'APROVADO') {
-                window.ultimaAnaliseCreditoSpc = payload;
-                return { permitir: true, payload };
-            }
-
-            if (decision.status === 'APROVADO_COM_CONDICAO') {
+            if (decision.status === 'APROVADO' || decision.status === 'APROVADO_COM_CONDICAO') {
                 const escolha = await showCreditoModal({
-                    title: 'Cadastro aprovado com condição',
-                    type: 'warning',
-                    body: renderDecision(decision, '<p class="small text-muted mt-3 mb-0">Confirme para continuar o cadastro com a modalidade e taxa acima.</p>', payload),
+                    title: 'Oferta para o cliente',
+                    type: decision.status === 'APROVADO' ? 'success' : 'warning',
+                    body: renderOferta(payload, options),
+                    confirmationCheckboxId: CONSENT_CHECKBOX_ID,
                     actions: [
                         { label: 'Cancelar cadastro', value: 'cancelar', className: 'btn-outline-secondary' },
-                        { label: 'Continuar com condição', value: 'continuar', className: 'btn-warning' }
+                        {
+                            label: 'Continuar',
+                            value: 'continuar',
+                            className: decision.status === 'APROVADO' ? 'btn-success' : 'btn-warning',
+                            requiresConfirmation: true
+                        }
                     ]
                 });
                 if (escolha === 'continuar') {
                     window.ultimaAnaliseCreditoSpc = payload;
-                    return { permitir: true, payload };
+                    return { permitir: true, payload, cienciaConfirmada: true };
                 }
                 return { permitir: false, payload };
             }
@@ -283,7 +375,7 @@
                 await showCreditoModal({
                     title: 'Cadastro bloqueado',
                     type: 'danger',
-                    body: renderDecision(decision, '', payload),
+                    body: renderMensagemOperacional('Não foi possível liberar esta contratação. Verifique as pendências internas antes de continuar.'),
                     actions: [{ label: 'Entendi', value: 'fechar', className: 'btn-danger' }]
                 });
                 return { permitir: false, payload };
@@ -292,11 +384,7 @@
             await showCreditoModal({
                 title: 'Análise manual necessária',
                 type: 'warning',
-                body: renderDecision(
-                    decision,
-                    '<p class="small text-muted mt-3 mb-0">O contrato não será criado automaticamente. Encaminhe o cadastro para análise manual.</p>',
-                    payload
-                ),
+                body: renderMensagemOperacional('A contratação não pode continuar automaticamente. Encaminhe o cadastro para análise manual.'),
                 actions: [{ label: 'Fechar', value: 'fechar', className: 'btn-secondary' }]
             });
             return { permitir: false, payload };
@@ -314,7 +402,7 @@
             await showCreditoModal({
                 title: 'Análise de crédito indisponível',
                 type: 'warning',
-                body: renderDecision(decision, '<p class="small text-muted mt-3 mb-0">O contrato não será criado automaticamente. Não foram exibidos dados brutos da consulta.</p>'),
+                body: renderMensagemOperacional('Não foi possível concluir a análise neste momento. O contrato não será criado automaticamente.'),
                 actions: [{ label: 'Fechar', value: 'fechar', className: 'btn-secondary' }]
             });
             return { permitir: false, payload };
@@ -329,4 +417,12 @@
 
     window.executarAnaliseCreditoAntesCadastro = executarAnaliseCreditoAntesCadastro;
     window.aplicarDecisaoCreditoEmCampos = aplicarDecisaoCreditoEmCampos;
+    window.obterConcordanciaConsultaCredito = obterConcordanciaConsultaCredito;
+    window.atualizarTermoAceiteConsultaCredito = atualizarTermoAceiteConsultaCredito;
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', configurarAceiteConsultaCredito);
+    } else {
+        configurarAceiteConsultaCredito();
+    }
 })();
