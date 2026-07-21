@@ -9,10 +9,14 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.logErroSpc = exports.logFormatoSpcParaHomologacao = exports.registrarAnaliseCredito = exports.consultarSpc = exports.buildCreditDecision = exports.normalizeSpcResult = exports.buildSpcRestrictionSummary = exports.montarPayloadSpc = exports.obterConfigSpcSegura = exports.isSpcMockEnabled = exports.validarDocumentoCredito = exports.formatarTimestampSpcPtBr = exports.mascararDocumento = exports.limparDocumento = void 0;
+exports.logErroSpc = exports.logFormatoSpcParaHomologacao = exports.registrarAnaliseCredito = exports.consultarSpc = exports.buildCreditDecision = exports.normalizeSpcResult = exports.buildSpcRestrictionSummary = exports.montarPayloadSpc = exports.obterConfigSpcSegura = exports.isSpcMockEnabled = exports.validarDocumentoCredito = exports.formatarTimestampSpcPtBr = exports.mascararDocumento = exports.limparDocumento = exports.clienteConcordouComConsultaCredito = void 0;
 const axios_1 = require("axios");
 const database_1 = require("../../api/database");
 const logger_1 = require("../../api/logger");
+function clienteConcordouComConsultaCredito(value) {
+    return value === true || value === 'true' || value === 1 || value === '1';
+}
+exports.clienteConcordouComConsultaCredito = clienteConcordouComConsultaCredito;
 const SPC_TIMEOUT_MS = Number(process.env.SPC_TIMEOUT_MS || 90000);
 const BODY_ERRO_MAX_CHARS = 1000;
 function executeDb(query, params = []) {
@@ -636,8 +640,11 @@ function consultarSpc(documento, context = {}) {
     });
 }
 exports.consultarSpc = consultarSpc;
+let tabelaAnaliseCreditoPronta = false;
 function garantirTabelaAnaliseCredito() {
     return __awaiter(this, void 0, void 0, function* () {
+        if (tabelaAnaliseCreditoPronta)
+            return;
         yield executeDb(`
         CREATE TABLE IF NOT EXISTS ivp_analise_credito (
             id INT(11) NOT NULL AUTO_INCREMENT,
@@ -654,6 +661,8 @@ function garantirTabelaAnaliseCredito() {
             raw_response_json LONGTEXT NULL,
             erro_json LONGTEXT NULL,
             criado_por VARCHAR(120) NULL,
+            cliente_concordou_consulta TINYINT(1) NOT NULL DEFAULT 0,
+            cliente_concordou_consulta_em DATETIME NULL,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
@@ -661,6 +670,12 @@ function garantirTabelaAnaliseCredito() {
             KEY idx_cliente_created_at (cliente_id, created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
+        yield executeDb(`
+        ALTER TABLE ivp_analise_credito
+            ADD COLUMN IF NOT EXISTS cliente_concordou_consulta TINYINT(1) NOT NULL DEFAULT 0 AFTER criado_por,
+            ADD COLUMN IF NOT EXISTS cliente_concordou_consulta_em DATETIME NULL AFTER cliente_concordou_consulta
+    `);
+        tabelaAnaliseCreditoPronta = true;
     });
 }
 function registrarAnaliseCredito(input) {
@@ -668,8 +683,10 @@ function registrarAnaliseCredito(input) {
         try {
             yield garantirTabelaAnaliseCredito();
             const result = yield executeDb(`INSERT INTO ivp_analise_credito
-             (cliente_id, documento, tipo_cadastro, origem, ambiente, classificacao, status_decisao, modalidade, taxa_habilitacao, motivo, raw_response_json, erro_json, criado_por)
-             VALUES (?, ?, ?, 'SPC', ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
+             (cliente_id, documento, tipo_cadastro, origem, ambiente, classificacao, status_decisao, modalidade,
+              taxa_habilitacao, motivo, raw_response_json, erro_json, criado_por,
+              cliente_concordou_consulta, cliente_concordou_consulta_em)
+             VALUES (?, ?, ?, 'SPC', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`, [
                 input.clienteId || null,
                 limparDocumento(input.documento),
                 input.tipoCadastro,
@@ -681,7 +698,8 @@ function registrarAnaliseCredito(input) {
                 input.decision.motivo,
                 input.rawResponse ? jsonSeguro(input.rawResponse) : null,
                 input.erro ? jsonSeguro(input.erro) : null,
-                input.criadoPor || null
+                input.criadoPor || null,
+                input.clienteConcordouConsulta ? 1 : 0
             ]);
             return (result === null || result === void 0 ? void 0 : result.insertId) || null;
         }

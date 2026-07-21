@@ -23,11 +23,16 @@ export interface AuditCreditAnalysisInput {
     rawResponse?: any;
     erro?: any;
     criadoPor?: string | null;
+    clienteConcordouConsulta?: boolean;
 }
 
 export interface SpcConsultaContext {
     requestId?: string;
     usuario?: string;
+}
+
+export function clienteConcordouComConsultaCredito(value: any): boolean {
+    return value === true || value === 'true' || value === 1 || value === '1';
 }
 
 export interface SpcRestrictionSummaryItem {
@@ -693,7 +698,10 @@ export async function consultarSpc(documento: string, context: SpcConsultaContex
     }
 }
 
+let tabelaAnaliseCreditoPronta = false;
+
 async function garantirTabelaAnaliseCredito(): Promise<void> {
+    if (tabelaAnaliseCreditoPronta) return;
     await executeDb(`
         CREATE TABLE IF NOT EXISTS ivp_analise_credito (
             id INT(11) NOT NULL AUTO_INCREMENT,
@@ -710,6 +718,8 @@ async function garantirTabelaAnaliseCredito(): Promise<void> {
             raw_response_json LONGTEXT NULL,
             erro_json LONGTEXT NULL,
             criado_por VARCHAR(120) NULL,
+            cliente_concordou_consulta TINYINT(1) NOT NULL DEFAULT 0,
+            cliente_concordou_consulta_em DATETIME NULL,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
@@ -717,6 +727,12 @@ async function garantirTabelaAnaliseCredito(): Promise<void> {
             KEY idx_cliente_created_at (cliente_id, created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
+    await executeDb(`
+        ALTER TABLE ivp_analise_credito
+            ADD COLUMN IF NOT EXISTS cliente_concordou_consulta TINYINT(1) NOT NULL DEFAULT 0 AFTER criado_por,
+            ADD COLUMN IF NOT EXISTS cliente_concordou_consulta_em DATETIME NULL AFTER cliente_concordou_consulta
+    `);
+    tabelaAnaliseCreditoPronta = true;
 }
 
 export async function registrarAnaliseCredito(input: AuditCreditAnalysisInput): Promise<number | null> {
@@ -724,8 +740,10 @@ export async function registrarAnaliseCredito(input: AuditCreditAnalysisInput): 
         await garantirTabelaAnaliseCredito();
         const result = await executeDb(
             `INSERT INTO ivp_analise_credito
-             (cliente_id, documento, tipo_cadastro, origem, ambiente, classificacao, status_decisao, modalidade, taxa_habilitacao, motivo, raw_response_json, erro_json, criado_por)
-             VALUES (?, ?, ?, 'SPC', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             (cliente_id, documento, tipo_cadastro, origem, ambiente, classificacao, status_decisao, modalidade,
+              taxa_habilitacao, motivo, raw_response_json, erro_json, criado_por,
+              cliente_concordou_consulta, cliente_concordou_consulta_em)
+             VALUES (?, ?, ?, 'SPC', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
             [
                 input.clienteId || null,
                 limparDocumento(input.documento),
@@ -738,7 +756,8 @@ export async function registrarAnaliseCredito(input: AuditCreditAnalysisInput): 
                 input.decision.motivo,
                 input.rawResponse ? jsonSeguro(input.rawResponse) : null,
                 input.erro ? jsonSeguro(input.erro) : null,
-                input.criadoPor || null
+                input.criadoPor || null,
+                input.clienteConcordouConsulta ? 1 : 0
             ]
         );
         return result?.insertId || null;
