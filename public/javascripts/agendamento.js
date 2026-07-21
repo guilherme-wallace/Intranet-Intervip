@@ -147,8 +147,11 @@ async function carregarDadosOS(id_ticket, origem, tipo) {
 
         document.getElementById('badge-tipo-os').textContent = data.tipo_servico;
         document.getElementById('form-agendamento').dataset.contratoId = data.contrato_id;
+        document.getElementById('os-cliente-id').textContent = `Cliente IXC: #${data.cliente_id || '---'}`;
+        document.getElementById('os-contrato-id').textContent = `Contrato IXC: #${data.contrato_id || '---'}`;
         document.getElementById('os-cliente-nome').textContent = data.nome;
         document.getElementById('os-ticket-id').textContent = `Ticket IXC: #${data.id_ticket}`;
+        document.getElementById('os-protocolo').textContent = `Protocolo: ${data.protocolo || 'Não informado pelo IXC'}`;
         document.getElementById('os-endereco').textContent = data.endereco;
         document.getElementById('os-mensagem').textContent = data.mensagem;
         
@@ -416,6 +419,23 @@ async function confirmarAgendamento(event) {
             await showInfoModal(`${result.error || 'Foi encontrada outra OS agendada para este cliente.'}${detalhes}`, 'Duplicidade real de agendamento', 'warning');
             btnConfirmar.innerHTML = originalText;
             btnConfirmar.disabled = false;
+            return;
+        }
+
+        if (!response.ok && result.code === 'AGENDA_SEM_VAGA') {
+            selectedData = '';
+            selectedTurno = '';
+            document.getElementById('selected-data').value = '';
+            document.getElementById('selected-turno').value = '';
+            document.getElementById('selection-feedback').classList.add('d-none');
+            btnConfirmar.innerHTML = originalText;
+            btnConfirmar.disabled = true;
+            await loadWeekData();
+            await showInfoModal(
+                result.error || 'A última vaga deste horário foi ocupada por outro atendente. Selecione outra data ou turno.',
+                'Vaga não disponível',
+                'warning'
+            );
             return;
         }
 

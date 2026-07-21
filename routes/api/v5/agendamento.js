@@ -15,6 +15,7 @@ const axios_1 = require("axios");
 const database_1 = require("../../../api/database");
 const agendaService_1 = require("./agendaService");
 const logger_1 = require("../../../api/logger");
+const agendaCapacityReservationService_1 = require("../../../src/services/agendaCapacityReservationService");
 const router = Express.Router();
 const executeDb = (query, params = []) => {
     return new Promise((resolve, reject) => {
@@ -203,6 +204,124 @@ function osIxcContinuaAgendada(osData) {
         Boolean(dataAgenda) &&
         dataAgenda >= dataHojeSaoPauloYmd();
 }
+function aguardar(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+function osFechadaOuCancelada(osData) {
+    const status = String((osData === null || osData === void 0 ? void 0 : osData.status) || '').trim().toUpperCase();
+    return ['F', 'C', 'FINALIZADO', 'CANCELADO'].includes(status);
+}
+function tecnicoLivreParaAgendamento(osData) {
+    const tecnico = String((osData === null || osData === void 0 ? void 0 : osData.id_tecnico) || '').trim();
+    return !tecnico || tecnico === '0' || tecnico === '138';
+}
+function resumirOsIxc(osData) {
+    return {
+        id: osData === null || osData === void 0 ? void 0 : osData.id,
+        status: osData === null || osData === void 0 ? void 0 : osData.status,
+        setor: (osData === null || osData === void 0 ? void 0 : osData.setor) || (osData === null || osData === void 0 ? void 0 : osData.id_setor) || (osData === null || osData === void 0 ? void 0 : osData.id_ticket_setor),
+        id_tecnico: osData === null || osData === void 0 ? void 0 : osData.id_tecnico,
+        id_ticket: osData === null || osData === void 0 ? void 0 : osData.id_ticket,
+        id_assunto: osData === null || osData === void 0 ? void 0 : osData.id_assunto,
+        id_wfl_tarefa: (osData === null || osData === void 0 ? void 0 : osData.id_wfl_tarefa) || (osData === null || osData === void 0 ? void 0 : osData.id_tarefa_atual) || (osData === null || osData === void 0 ? void 0 : osData.id_tarefa),
+        data_abertura: osData === null || osData === void 0 ? void 0 : osData.data_abertura,
+        data_agenda: obterDataAgendaIxc(osData)
+    };
+}
+function pontuarOsAgendavel(osData) {
+    let score = 0;
+    if (tecnicoLivreParaAgendamento(osData))
+        score += 1000;
+    if (String((osData === null || osData === void 0 ? void 0 : osData.setor) || (osData === null || osData === void 0 ? void 0 : osData.id_setor) || (osData === null || osData === void 0 ? void 0 : osData.id_ticket_setor) || '').trim() === '9')
+        score += 100;
+    if (String((osData === null || osData === void 0 ? void 0 : osData.id_wfl_tarefa) || (osData === null || osData === void 0 ? void 0 : osData.id_tarefa_atual) || (osData === null || osData === void 0 ? void 0 : osData.id_tarefa) || '').trim() === '180')
+        score += 80;
+    if (String((osData === null || osData === void 0 ? void 0 : osData.id_assunto) || '').trim() === '13')
+        score += 60;
+    score += Math.min(Number((osData === null || osData === void 0 ? void 0 : osData.id) || 0) || 0, 999999) / 1000000;
+    return score;
+}
+function ordenarOsPorRecencia(a, b) {
+    const dataA = Date.parse(String((a === null || a === void 0 ? void 0 : a.data_abertura) || '').replace(' ', 'T'));
+    const dataB = Date.parse(String((b === null || b === void 0 ? void 0 : b.data_abertura) || '').replace(' ', 'T'));
+    if (!isNaN(dataA) && !isNaN(dataB) && dataA !== dataB)
+        return dataB - dataA;
+    return (Number((b === null || b === void 0 ? void 0 : b.id) || 0) || 0) - (Number((a === null || a === void 0 ? void 0 : a.id) || 0) || 0);
+}
+function escolherOsAgendavel(registros) {
+    const descartes = (registros || [])
+        .filter(os => osFechadaOuCancelada(os))
+        .map(os => (Object.assign(Object.assign({}, resumirOsIxc(os)), { motivo: 'OS fechada/cancelada ignorada para novo agendamento.' })));
+    const candidatas = (registros || [])
+        .filter(os => !osFechadaOuCancelada(os))
+        .sort((a, b) => {
+        const scoreDiff = pontuarOsAgendavel(b) - pontuarOsAgendavel(a);
+        if (scoreDiff !== 0)
+            return scoreDiff;
+        return ordenarOsPorRecencia(a, b);
+    });
+    const escolhida = candidatas[0] || null;
+    const motivoEscolha = escolhida
+        ? [
+            tecnicoLivreParaAgendamento(escolhida) ? 'tecnico_livre' : 'tecnico_atribuido',
+            String(escolhida.setor || escolhida.id_setor || escolhida.id_ticket_setor || '').trim() === '9' ? 'setor_9' : '',
+            String(escolhida.id_wfl_tarefa || escolhida.id_tarefa_atual || escolhida.id_tarefa || '').trim() === '180' ? 'tarefa_180' : '',
+            String(escolhida.id_assunto || '').trim() === '13' ? 'assunto_13' : '',
+            'mais_recente_por_score'
+        ].filter(Boolean).join('|')
+        : 'nenhuma_os_ativa_agendavel';
+    return { escolhida, descartes, motivoEscolha };
+}
+function buscarOsPorTicketIxc(idTicket) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const ticket = String(idTicket || '').trim();
+        if (!ticket)
+            return [];
+        const resposta = yield makeIxcRequest('POST', '/su_oss_chamado', {
+            qtype: 'su_oss_chamado.id_ticket',
+            query: ticket,
+            oper: '=',
+            page: '1',
+            rp: '50',
+            sortname: 'su_oss_chamado.id',
+            sortorder: 'desc'
+        });
+        return (resposta === null || resposta === void 0 ? void 0 : resposta.registros) || [];
+    });
+}
+function resolverOsAgendavelPorTicket(idTicket, contexto, opcoes = {}) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const tentativas = Math.max(1, opcoes.tentativas || 1);
+        const atrasoMs = opcoes.atrasoMs || 0;
+        let ultimoResultado = { osEscolhida: null, registros: [], descartes: [], motivoEscolha: 'nao_consultado' };
+        for (let tentativa = 1; tentativa <= tentativas; tentativa++) {
+            const registros = yield buscarOsPorTicketIxc(idTicket);
+            const escolha = escolherOsAgendavel(registros);
+            ultimoResultado = {
+                osEscolhida: escolha.escolhida,
+                registros,
+                descartes: escolha.descartes,
+                motivoEscolha: escolha.motivoEscolha
+            };
+            (0, logger_1.logInfo)('Agendamento.resolverOsAgendavel', 'Consulta de OS vinculadas ao atendimento.', {
+                contexto,
+                tentativa,
+                tentativas,
+                id_ticket: String(idTicket || ''),
+                total_os: registros.length,
+                os_encontradas: registros.map(resumirOsIxc),
+                descartes: escolha.descartes,
+                os_escolhida: escolha.escolhida ? resumirOsIxc(escolha.escolhida) : null,
+                motivo_escolha: escolha.motivoEscolha
+            });
+            if (escolha.escolhida || tentativa === tentativas)
+                break;
+            if (atrasoMs > 0)
+                yield aguardar(atrasoMs);
+        }
+        return ultimoResultado;
+    });
+}
 function buscarOsIxcPorIdSeguro(ixcOsId) {
     var _a;
     return __awaiter(this, void 0, void 0, function* () {
@@ -339,6 +458,16 @@ router.get('/detalhes-os/:id_ticket', (req, res) => __awaiter(void 0, void 0, vo
                 });
                 if (tResp.registros && tResp.registros.length > 0)
                     ticket = tResp.registros[0];
+                if (osFechadaOuCancelada(osAberta) && osAberta.id_ticket) {
+                    const resolucao = yield resolverOsAgendavelPorTicket(osAberta.id_ticket, 'detalhes-os-os-direta-fechada', { tentativas: 3, atrasoMs: 1000 });
+                    (0, logger_1.logWarn)('Agendamento.detalhesOs', 'OS direta fechada/cancelada recebida; tentando trocar por OS agendavel do atendimento.', {
+                        id_parametro: id_ticket,
+                        os_recebida: resumirOsIxc(osAberta),
+                        os_escolhida: resolucao.osEscolhida ? resumirOsIxc(resolucao.osEscolhida) : null,
+                        motivo_escolha: resolucao.motivoEscolha
+                    });
+                    osAberta = resolucao.osEscolhida || null;
+                }
             }
         }
         if (!osAberta) {
@@ -347,12 +476,16 @@ router.get('/detalhes-os/:id_ticket', (req, res) => __awaiter(void 0, void 0, vo
             });
             if (ticketResp.registros && ticketResp.registros.length > 0) {
                 ticket = ticketResp.registros[0];
-                const osResp = yield makeIxcRequest('POST', '/su_oss_chamado', {
-                    qtype: 'su_oss_chamado.id_ticket', query: id_ticket, oper: '=', rp: '10',
-                    sortname: 'su_oss_chamado.id', sortorder: 'desc'
-                });
-                if (osResp.registros && osResp.registros.length > 0)
-                    osAberta = osResp.registros[0];
+                const resolucao = yield resolverOsAgendavelPorTicket(id_ticket, 'detalhes-os-ticket', { tentativas: 3, atrasoMs: 1000 });
+                osAberta = resolucao.osEscolhida || null;
+                if (!osAberta && resolucao.registros.length > 0) {
+                    (0, logger_1.logWarn)('Agendamento.detalhesOs', 'Atendimento possui OS, mas nenhuma esta ativa para agendamento.', {
+                        id_ticket,
+                        os_encontradas: resolucao.registros.map(resumirOsIxc),
+                        descartes: resolucao.descartes,
+                        motivo_escolha: resolucao.motivoEscolha
+                    });
+                }
             }
             else {
                 const osResp = yield makeIxcRequest('POST', '/su_oss_chamado', {
@@ -365,14 +498,26 @@ router.get('/detalhes-os/:id_ticket', (req, res) => __awaiter(void 0, void 0, vo
                     });
                     if (tResp.registros && tResp.registros.length > 0)
                         ticket = tResp.registros[0];
+                    if (osFechadaOuCancelada(osAberta) && osAberta.id_ticket) {
+                        const resolucao = yield resolverOsAgendavelPorTicket(osAberta.id_ticket, 'detalhes-os-parametro-os-fechada', { tentativas: 3, atrasoMs: 1000 });
+                        (0, logger_1.logWarn)('Agendamento.detalhesOs', 'Parametro parecia OS fechada/cancelada; tentando trocar por OS agendavel do atendimento.', {
+                            id_parametro: id_ticket,
+                            os_recebida: resumirOsIxc(osAberta),
+                            os_escolhida: resolucao.osEscolhida ? resumirOsIxc(resolucao.osEscolhida) : null,
+                            motivo_escolha: resolucao.motivoEscolha
+                        });
+                        osAberta = resolucao.osEscolhida || null;
+                    }
                 }
             }
         }
         if (!osAberta && !ticket) {
             return res.status(404).json({ error: "Ordem de Serviço ou Atendimento não encontrado no IXC." });
         }
-        idCliente = osAberta ? osAberta.id_cliente : ticket.id_cliente;
-        idContrato = osAberta ? (osAberta.id_contrato_kit || osAberta.id_contrato) : ticket.id_contrato;
+        idCliente = (osAberta === null || osAberta === void 0 ? void 0 : osAberta.id_cliente) || (ticket === null || ticket === void 0 ? void 0 : ticket.id_cliente);
+        const contratoOs = [osAberta === null || osAberta === void 0 ? void 0 : osAberta.id_contrato_kit, osAberta === null || osAberta === void 0 ? void 0 : osAberta.id_contrato]
+            .find(valor => valor && String(valor) !== '0');
+        idContrato = contratoOs || (ticket === null || ticket === void 0 ? void 0 : ticket.id_contrato) || null;
         const cliResp = yield makeIxcRequest('POST', '/cliente', {
             qtype: 'cliente.id', query: idCliente, oper: '=', rp: '1'
         });
@@ -459,6 +604,13 @@ router.get('/detalhes-os/:id_ticket', (req, res) => __awaiter(void 0, void 0, vo
             id_atendimento: (ticket === null || ticket === void 0 ? void 0 : ticket.id) || (osAberta === null || osAberta === void 0 ? void 0 : osAberta.id_ticket) || null,
             cliente_id: cliente.id,
             contrato_id: idContrato || 0,
+            protocolo: (ticket === null || ticket === void 0 ? void 0 : ticket.protocolo)
+                || (ticket === null || ticket === void 0 ? void 0 : ticket.numero_protocolo)
+                || (ticket === null || ticket === void 0 ? void 0 : ticket.protocolo_atendimento)
+                || (osAberta === null || osAberta === void 0 ? void 0 : osAberta.protocolo)
+                || (osAberta === null || osAberta === void 0 ? void 0 : osAberta.numero_protocolo)
+                || (osAberta === null || osAberta === void 0 ? void 0 : osAberta.protocolo_atendimento)
+                || '',
             nome: cliente.razao,
             endereco: endCompleto,
             cidade: nomeCidade,
@@ -503,7 +655,9 @@ router.post('/confirmar', (req, res) => __awaiter(void 0, void 0, void 0, functi
     const preferenciaHorarioInicio = String(req.body.preferencia_horario_inicio || '').substring(0, 5);
     const preferenciaHorarioFim = String(req.body.preferencia_horario_fim || '').substring(0, 5);
     const preferenciaHorarioObs = String(req.body.preferencia_horario_obs || '').trim().substring(0, 255);
-    const solicitaPrioridadeAtiva = 0;
+    let capacityReservation = null;
+    let ixcSchedulingStarted = false;
+    let reservationConfirmed = false;
     console.log(`[DEBUG HUB AGENDAMENTO] Nova O.S. -> Ticket: ${id_ticket} | Contrato Capturado: ${contrato_id || 'VAZIO'} | Serviço: ${tipo_servico}`);
     try {
         (0, logger_1.logInfo)('Agendamento.confirmar', 'Inicio da confirmacao de agendamento.', {
@@ -541,28 +695,57 @@ router.post('/confirmar', (req, res) => __awaiter(void 0, void 0, void 0, functi
                 ixc_os_id = osData.id;
             }
         }
-        if (!osData || !osData.id) {
-            const osResp = yield makeIxcRequest('POST', '/su_oss_chamado', {
-                qtype: 'su_oss_chamado.id_ticket', query: id_ticket, oper: '=', rp: '10',
-                sortname: 'su_oss_chamado.id', sortorder: 'desc'
+        if ((osData === null || osData === void 0 ? void 0 : osData.id) && osFechadaOuCancelada(osData)) {
+            (0, logger_1.logWarn)('Agendamento.confirmar', 'OS recebida no body esta fechada/cancelada e sera ignorada para novo agendamento.', {
+                requestId: reqAny.requestId,
+                id_ticket,
+                id_os_recebido: id_os,
+                os_recebida: resumirOsIxc(osData)
             });
-            if (osResp.registros && osResp.registros.length > 0) {
-                osData = osResp.registros[0];
+            const ticketParaResolver = osData.id_ticket || id_ticket;
+            const resolucao = yield resolverOsAgendavelPorTicket(ticketParaResolver, 'confirmar-os-body-fechada', { tentativas: 2, atrasoMs: 1000 });
+            if (resolucao.osEscolhida) {
+                osData = resolucao.osEscolhida;
+                ixc_os_id = osData.id;
+            }
+            else {
+                osData = {};
+                ixc_os_id = '';
+            }
+        }
+        if (!osData || !osData.id) {
+            const resolucao = yield resolverOsAgendavelPorTicket(id_ticket, 'confirmar-ticket', { tentativas: 1 });
+            if (resolucao.osEscolhida) {
+                osData = resolucao.osEscolhida;
                 ixc_os_id = osData.id;
             }
             else {
                 const osResp2 = yield makeIxcRequest('POST', '/su_oss_chamado', {
                     qtype: 'su_oss_chamado.id', query: id_ticket, oper: '=', rp: '1'
                 });
-                if (osResp2.registros && osResp2.registros.length > 0) {
+                if (osResp2.registros && osResp2.registros.length > 0 && !osFechadaOuCancelada(osResp2.registros[0])) {
                     osData = osResp2.registros[0];
                     ixc_os_id = osData.id;
+                }
+                else if (osResp2.registros && osResp2.registros.length > 0) {
+                    (0, logger_1.logWarn)('Agendamento.confirmar', 'Parametro alternativo localizou OS fechada/cancelada; ela nao sera usada para validar tecnico.', {
+                        requestId: reqAny.requestId,
+                        id_ticket,
+                        id_os_recebido: id_os,
+                        os_encontrada: resumirOsIxc(osResp2.registros[0])
+                    });
                 }
             }
         }
         if (!osData || !osData.id) {
-            throw new Error('OS não localizada no IXC para agendamento.');
+            throw new Error('OS aberta/agendavel nao localizada no IXC para este atendimento.');
         }
+        (0, logger_1.logInfo)('Agendamento.confirmar', 'OS final selecionada para validacao/agendamento.', {
+            requestId: reqAny.requestId,
+            id_ticket_recebido: id_ticket,
+            id_os_recebido: id_os,
+            os_escolhida: resumirOsIxc(osData)
+        });
         const clienteIdEfetivo = String(osData.id_cliente || cliente_id || '').trim();
         const contratoIdEfetivo = String(osData.id_contrato_kit ||
             osData.id_contrato ||
@@ -775,13 +958,54 @@ router.post('/confirmar', (req, res) => __awaiter(void 0, void 0, void 0, functi
             });
         }
         const tecnicoAtual = String(osData.id_tecnico || '');
-        if (tecnicoAtual && tecnicoAtual !== '0' && tecnicoAtual !== '138' && !podeReagendarExistente) {
+        if (!osFechadaOuCancelada(osData) && tecnicoAtual && tecnicoAtual !== '0' && tecnicoAtual !== '138' && !podeReagendarExistente) {
+            (0, logger_1.logWarn)('Agendamento.confirmar', 'Agendamento bloqueado porque a OS final ativa ja possui tecnico atribuido.', {
+                requestId: reqAny.requestId,
+                id_ticket,
+                id_os_recebido: id_os,
+                os_escolhida: resumirOsIxc(osData),
+                id_tecnico: tecnicoAtual
+            });
             throw new Error('Esta OS já está atribuída a um técnico no IXC e não pode ser agendada novamente por esta tela.');
         }
         const janelaSegura = agendaService_1.AgendaService.obterJanelaAgendamentoSegura(data_agendamento, turno);
         const turnoNormalizadoAgenda = janelaSegura.turnoNormalizado;
         const dataFormatada = janelaSegura.dataBr;
         const usuarioIxc = yield agendaService_1.AgendaService.obterUsuarioIxcLogado(usuario_logado);
+        yield garantirCapacidadeDiaLocal(data_agendamento);
+        const agendaAnterior = agendamentoLocalAtual ? {
+            id: agendamentoLocalAtual.id,
+            data: agendamentoLocalAtual.data_agendamento,
+            turno: agendamentoLocalAtual.turno,
+            status: agendamentoLocalAtual.status_interno
+        } : null;
+        capacityReservation = yield (0, agendaCapacityReservationService_1.reserveAgendaCapacity)({
+            dataAgendamento: data_agendamento,
+            turno: turnoNormalizadoAgenda,
+            tipoServico: tipoServicoDb,
+            tipoImovel: tipo_imovel,
+            municipio,
+            ixcOsId: String(ixc_os_id),
+            clienteId: clienteIdEfetivo,
+            contratoId: contratoIdEfetivo,
+            aceitaEncaixe: Boolean(aceita_encaixe),
+            usuario: usuario_logado || usuarioIxc.nome || 'ATENDIMENTO',
+            existingAgendaId: (agendamentoLocalAtual === null || agendamentoLocalAtual === void 0 ? void 0 : agendamentoLocalAtual.id) || null,
+            preferenciaHorarioTipo,
+            preferenciaHorarioInicio: preferenciaHorarioInicio || null,
+            preferenciaHorarioFim: preferenciaHorarioFim || null,
+            preferenciaHorarioObs: preferenciaHorarioObs || null
+        });
+        const idAgendaLocal = capacityReservation.idAgendaLocal;
+        (0, logger_1.logInfo)('Agendamento.capacidade.reservada', 'Vaga reservada atomicamente antes da chamada ao IXC.', {
+            requestId: reqAny.requestId,
+            idAgendaLocal,
+            ixc_os_id,
+            bucket: capacityReservation.bucketKey,
+            capacidade: capacityReservation.capacity,
+            ocupadasAntes: capacityReservation.occupiedBefore,
+            usuario: usuario_logado || usuarioIxc.nome
+        });
         let protocoloDuvida = '';
         if (podeReagendarExistente && abrir_chamado_duvida) {
             const chamadoDuvida = yield agendaService_1.AgendaService.abrirFinalizarChamadoDuvidaReagendamento(String(ixc_os_id), usuario_logado, 'Reagendamento Duvida Agendamento');
@@ -812,25 +1036,17 @@ router.post('/confirmar', (req, res) => __awaiter(void 0, void 0, void 0, functi
         console.log('[DEBUG AGENDAMENTO IXC] Data/turno selecionados:', { data_agendamento, turno: turnoNormalizadoAgenda, turno_original: turno });
         console.log('[DEBUG AGENDAMENTO IXC] Janela segura calculada:', janelaSegura);
         console.log(`[DEBUG AGENDAMENTO IXC] Payload final:`, JSON.stringify(payloadAgendar, null, 2));
+        ixcSchedulingStarted = true;
         const respAgendar = yield makeIxcRequest('POST', `/su_oss_chamado_reagendar`, payloadAgendar, 'incluir');
         console.log('[DEBUG AGENDAMENTO IXC] Resposta IXC:', respAgendar);
         if (respAgendar && respAgendar.type === 'error') {
-            throw new Error(`IXC recusou o agendamento: ${respAgendar.message}`);
+            const ixcRefusal = new Error(`IXC recusou o agendamento: ${respAgendar.message}`);
+            ixcRefusal.ixcDefinitiveFailure = true;
+            throw ixcRefusal;
         }
-        let idAgendaLocal = 0;
-        const agendaAnterior = agendamentoLocalAtual ? {
-            id: agendamentoLocalAtual.id,
-            data: agendamentoLocalAtual.data_agendamento,
-            turno: agendamentoLocalAtual.turno,
-            status: agendamentoLocalAtual.status_interno
-        } : null;
+        yield (0, agendaCapacityReservationService_1.confirmAgendaReservation)(idAgendaLocal);
+        reservationConfirmed = true;
         if (agendamentoLocalExistente && agendamentoLocalExistente.length > 0) {
-            idAgendaLocal = agendamentoLocalExistente[0].id;
-            yield executeDb(`UPDATE ivp_agenda_os
-                 SET data_agendamento = ?, turno = ?, aceita_encaixe = ?, solicita_prioridade = 0, ixc_tecnico_id = 138, status_interno = 'AGUARDANDO_LOGISTICA',
-                     preferencia_horario_tipo = ?, preferencia_horario_inicio = ?, preferencia_horario_fim = ?, preferencia_horario_obs = ?,
-                     updated_at = CURRENT_TIMESTAMP
-                 WHERE id = ?`, [data_agendamento, turnoNormalizadoAgenda, aceita_encaixe ? 1 : 0, preferenciaHorarioTipo, preferenciaHorarioInicio || null, preferenciaHorarioFim || null, preferenciaHorarioObs || null, idAgendaLocal]);
             yield marcarDuplicatasLocaisMesmaOs(registrosLocaisMesmaOs || [], idAgendaLocal);
             const tecnicoAnterior = String((agendamentoLocalAtual === null || agendamentoLocalAtual === void 0 ? void 0 : agendamentoLocalAtual.ixc_tecnico_id) || '').trim();
             const estavaAtribuida = String((agendamentoLocalAtual === null || agendamentoLocalAtual === void 0 ? void 0 : agendamentoLocalAtual.status_interno) || '').toUpperCase() === 'ATRIBUIDO'
@@ -842,27 +1058,6 @@ router.post('/confirmar', (req, res) => __awaiter(void 0, void 0, void 0, functi
                     message: error === null || error === void 0 ? void 0 : error.message
                 }));
             }
-        }
-        else {
-            const insertAgenda = yield executeDb(`INSERT INTO ivp_agenda_os
-                (ixc_os_id, ixc_cliente_id, ixc_contrato_id, tipo_servico, tipo_imovel, municipio_base, aceita_encaixe, solicita_prioridade, data_agendamento, turno, ixc_tecnico_id, status_interno, criado_por, preferencia_horario_tipo, preferencia_horario_inicio, preferencia_horario_fim, preferencia_horario_obs)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 138, 'AGUARDANDO_LOGISTICA', 'ATENDIMENTO', ?, ?, ?, ?)`, [
-                ixc_os_id,
-                clienteIdEfetivo,
-                contratoIdEfetivo,
-                tipoServicoDb,
-                tipo_imovel,
-                municipio,
-                aceita_encaixe ? 1 : 0,
-                solicitaPrioridadeAtiva,
-                data_agendamento,
-                turnoNormalizadoAgenda,
-                preferenciaHorarioTipo,
-                preferenciaHorarioInicio || null,
-                preferenciaHorarioFim || null,
-                preferenciaHorarioObs || null
-            ]);
-            idAgendaLocal = insertAgenda.insertId;
         }
         console.log('[Agendamento Confirmar][Duplicidade]', {
             ambiente,
@@ -897,6 +1092,27 @@ router.post('/confirmar', (req, res) => __awaiter(void 0, void 0, void 0, functi
         res.json({ success: true, message: "Agendamento confirmado com sucesso!", requestId: reqAny.requestId });
     }
     catch (error) {
+        if (capacityReservation && !reservationConfirmed) {
+            const uncertainIxcResult = ixcSchedulingStarted && !(error === null || error === void 0 ? void 0 : error.ixcDefinitiveFailure);
+            try {
+                yield (0, agendaCapacityReservationService_1.rollbackOrHoldAgendaReservation)(capacityReservation, uncertainIxcResult);
+                (0, logger_1.logWarn)('Agendamento.capacidade.reservaFinalizadaComErro', uncertainIxcResult
+                    ? 'Retorno do IXC incerto; vaga mantida para conciliacao.'
+                    : 'Falha definitiva antes da confirmacao; reserva da vaga desfeita.', {
+                    requestId: reqAny.requestId,
+                    idAgendaLocal: capacityReservation.idAgendaLocal,
+                    bucket: capacityReservation.bucketKey,
+                    uncertainIxcResult
+                });
+            }
+            catch (reservationError) {
+                (0, logger_1.logError)('Agendamento.capacidade.rollbackErro', reservationError, {
+                    requestId: reqAny.requestId,
+                    idAgendaLocal: capacityReservation.idAgendaLocal,
+                    bucket: capacityReservation.bucketKey
+                });
+            }
+        }
         console.error("[Erro Agendamento Confirmar]:", error.message);
         console.error("[DEBUG AGENDAMENTO IXC] Erro completo:", ((_d = error.response) === null || _d === void 0 ? void 0 : _d.data) || error.message);
         (0, logger_1.logError)('Agendamento.confirmar', error, {
@@ -913,6 +1129,13 @@ router.post('/confirmar', (req, res) => __awaiter(void 0, void 0, void 0, functi
             turno,
             duracaoMs: Date.now() - startedAt
         });
+        if (error instanceof agendaCapacityReservationService_1.AgendaCapacityConflictError || (error === null || error === void 0 ? void 0 : error.code) === 'AGENDA_SEM_VAGA') {
+            return res.status(409).json({
+                code: 'AGENDA_SEM_VAGA',
+                error: error.message,
+                requestId: reqAny.requestId
+            });
+        }
         res.status(500).json({
             error: process.env.NODE_ENV === 'production' ? 'Erro interno ao processar solicitação.' : error.message,
             requestId: reqAny.requestId
