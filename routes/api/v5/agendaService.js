@@ -74,7 +74,7 @@ class AgendaService {
                 headers['ixcsoft'] = 'listar';
                 method = 'POST';
             }
-            const delaysRetry = [500, 1000];
+            const delaysRetry = context.disableRetry ? [] : [500, 1000];
             const maxTentativas = delaysRetry.length + 1;
             const inicioRequisicao = Date.now();
             for (let tentativa = 1; tentativa <= maxTentativas; tentativa++) {

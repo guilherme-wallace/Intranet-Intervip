@@ -7,7 +7,14 @@ import { LOCALHOST } from '../../../api/database';
 import { logError, logInfo, logWarn } from '../../../api/logger';
 
 interface IxcResponse { type?: string; message?: string; total?: string; registros?: any[]; }
-interface IxcRequestContext { requestId?: string; usuario?: string; }
+interface IxcRequestContext {
+    requestId?: string;
+    usuario?: string;
+    // Operacoes nao idempotentes, como inserir vd_saida, nao podem ser
+    // repetidas automaticamente: um timeout pode ocorrer depois de o IXC
+    // persistir a venda e uma nova tentativa geraria cobranca duplicada.
+    disableRetry?: boolean;
+}
 
 const timeoutIxcConfigurado = Number(process.env.IXC_TIMEOUT_MS || 15000);
 const timeoutIxc = Number.isFinite(timeoutIxcConfigurado) ? Math.max(1000, timeoutIxcConfigurado) : 15000;
@@ -77,7 +84,7 @@ export class AgendaService {
         if (operationType) headers['ixcsoft'] = operationType;
         else if (data && data.qtype) { headers['ixcsoft'] = 'listar'; method = 'POST'; }
 
-        const delaysRetry = [500, 1000];
+        const delaysRetry = context.disableRetry ? [] : [500, 1000];
         const maxTentativas = delaysRetry.length + 1;
         const inicioRequisicao = Date.now();
 
