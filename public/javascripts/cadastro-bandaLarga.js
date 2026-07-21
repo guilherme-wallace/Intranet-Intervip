@@ -821,7 +821,7 @@ function resetFormularioCompleto() {
 
 function setupFormValidation() {
     const form = document.getElementById('venda-form');
-    form.addEventListener('submit', event => {
+    form.addEventListener('submit', async event => {
         event.preventDefault();
         event.stopPropagation();
 
@@ -915,6 +915,19 @@ function setupFormValidation() {
             } else {
                 let existingId = null;
                 if (clienteConsultado && clienteConsultado.id) { existingId = clienteConsultado.id; }
+                if (typeof window.executarAnaliseCreditoAntesCadastro === 'function') {
+                    const analiseCredito = await window.executarAnaliseCreditoAntesCadastro({
+                        documento: clientData.cnpj_cpf,
+                        tipoCadastro: 'BANDA_LARGA',
+                        clienteId: existingId,
+                        botao: document.getElementById('btn-finalizar-venda')
+                    });
+                    if (!analiseCredito?.permitir) {
+                        form.classList.add('was-validated');
+                        return;
+                    }
+                    clientData.analise_credito_id = analiseCredito.payload?.analiseId || '';
+                }
                 cadastrarClienteNoIXC(clientData, existingId);
             }
             
@@ -953,17 +966,55 @@ async function cadastrarClienteNoIXC(clientData, existingClientId = null) {
         const result = await response.json();
 
         if (!response.ok) {
-            throw new Error(result.error || 'Erro desconhecido no servidor.');
+            const requestError = new Error(result.error || 'Erro desconhecido no servidor.');
+            requestError.code = result.code || '';
+            throw requestError;
         }
         
         success = true;
         cadastroCriado = result;
-        submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Abrindo agendamento...';
-        redirecionandoAgendamento = await redirecionarParaAgendamentoInstalacao(result);
+        const statusFaturamento = result.statusFaturamentoAtivacao;
+        const mensagemVencimento = result.modalidadeContrato === 'PRE_PAGO' && result.diaVencimentoContrato
+            ? ` Vencimento do contrato: dia ${result.diaVencimentoContrato}, selecionado automaticamente.`
+            : '';
+        if (statusFaturamento === 'PENDENTE_FATURAR_ATIVACAO') {
+            showModal(
+                'Contrato criado — faturamento pendente',
+                `Contrato criado com taxa de ativação. É necessário faturar a ativação/instalação manualmente no IXC.${mensagemVencimento}`,
+                'warning'
+            );
+        } else if (statusFaturamento === 'ERRO_FATURAR_ATIVACAO'
+            || statusFaturamento === 'PENDENTE_CONFIRMAR_FINANCEIRO') {
+            showModal(
+                'Contrato criado — verifique a ativação',
+                'Contrato criado, mas não foi possível faturar automaticamente a taxa de ativação. Verifique o contrato no IXC antes de tentar novamente para evitar cobrança duplicada.',
+                'warning'
+            );
+        } else {
+            if (statusFaturamento === 'FATURADO') {
+                showModal(
+                    'Ativação faturada',
+                    `Contrato criado e taxa de ativação faturada automaticamente no IXC.${mensagemVencimento}`,
+                    'success'
+                );
+            } else if (statusFaturamento === 'VENDA_ATIVACAO_GERADA') {
+                showModal(
+                    'Taxa de ativação gerada',
+                    `Contrato criado e taxa de ativação gerada no IXC. A venda está vinculada ao contrato e protegida contra duplicidade.${mensagemVencimento}`,
+                    'success'
+                );
+            }
+            submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Abrindo agendamento...';
+            redirecionandoAgendamento = await redirecionarParaAgendamentoInstalacao(result);
+        }
         
         
     } catch (error) {
         console.error("Erro ao cadastrar cliente:", error);
+
+        const mensagemErroCadastro = error.code === 'IXC_PREPAID_CONTRACT_TYPE_NOT_CONFIGURED'
+            ? 'Não existe tipo de contrato pré-pago configurado no IXC para o vencimento selecionado. Solicite a configuração ao financeiro antes de continuar.'
+            : error.message;
 
         const cpfErrorMessage = "Este CNPJ/CPF já está Cadastrado!";
         if (error.message && error.message.includes(cpfErrorMessage)) {
@@ -982,10 +1033,10 @@ async function cadastrarClienteNoIXC(clientData, existingClientId = null) {
                     }
                 );
             } else {
-                showModal('Erro ao Cadastrar', `Não foi possível finalizar o cadastro.<br><strong>Motivo:</strong> ${error.message}`, 'danger');
+                showModal('Erro ao Cadastrar', `Não foi possível finalizar o cadastro.<br><strong>Motivo:</strong> ${mensagemErroCadastro}`, 'danger');
             }
         } else {
-            showModal('Erro ao Cadastrar', `Não foi possível finalizar o cadastro.<br><strong>Motivo:</strong> ${error.message}`, 'danger');
+            showModal('Erro ao Cadastrar', `Não foi possível finalizar o cadastro.<br><strong>Motivo:</strong> ${mensagemErroCadastro}`, 'danger');
         }
 
     } finally {
