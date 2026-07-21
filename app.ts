@@ -33,6 +33,7 @@ import analise_de_riscoRoutes from './routes/api/v5/analise-de-risco';
 import abertura_OSRoutes from './routes/api/v5/abertura-OS';
 import agendamentoRoutes from './routes/api/v5/agendamento';
 import painel_logisticaRoutes from './routes/api/v5/painel-logistica';
+import spcRoutes from './routes/api/v5/spc';
 import { createRequestId, logError } from './api/logger';
 
 import * as jwt from 'jsonwebtoken';
@@ -474,6 +475,7 @@ APP.use('/api/v5/analise-de-risco', protectApi, analise_de_riscoRoutes);
 APP.use('/api/v5/abertura-OS', protectApi, abertura_OSRoutes);
 APP.use('/api/v5/agendamento', protectApi, agendamentoRoutes);
 APP.use('/api/v5/painel-logistica', protectApi, painel_logisticaRoutes);
+APP.use('/api/spc', protectApi, spcRoutes);
 
 
 

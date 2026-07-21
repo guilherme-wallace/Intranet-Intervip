@@ -6,7 +6,11 @@
     "build": "tsc --build",
     "clean": "tsc --build --clean",
     "start": "node app",
-    "test:spc": "node scripts/test-spc.js"
+    "test:spc": "node scripts/test-spc.js",
+    "test:ixc-credit": "node scripts/test-ixc-credit-contract.js",
+    "test:ixc-protocolo": "node scripts/test-ixc-attendance-protocol.js",
+    "test:ixc-ativacao": "node scripts/test-ixc-ativacao.js",
+    "test:agenda-capacidade": "node scripts/test-agenda-capacity.js"
   },
   "description": "NodejsWebApp1",
   "author": {

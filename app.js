@@ -38,6 +38,7 @@ const analise_de_risco_1 = require("./routes/api/v5/analise-de-risco");
 const abertura_OS_1 = require("./routes/api/v5/abertura-OS");
 const agendamento_1 = require("./routes/api/v5/agendamento");
 const painel_logistica_1 = require("./routes/api/v5/painel-logistica");
+const spc_1 = require("./routes/api/v5/spc");
 const logger_1 = require("./api/logger");
 const jwt = require("jsonwebtoken");
 process.on('uncaughtException', (error) => {
@@ -386,6 +387,7 @@ APP.use('/api/v5/analise-de-risco', protectApi, analise_de_risco_1.default);
 APP.use('/api/v5/abertura-OS', protectApi, abertura_OS_1.default);
 APP.use('/api/v5/agendamento', protectApi, agendamento_1.default);
 APP.use('/api/v5/painel-logistica', protectApi, painel_logistica_1.default);
+APP.use('/api/spc', protectApi, spc_1.default);
 APP.get('/api/username', protectApi, (req, res) => {
     if (req.user) {
         return res.json({ username: req.user.username, group: req.user.group });
