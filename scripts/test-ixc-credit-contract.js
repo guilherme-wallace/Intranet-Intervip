@@ -4,7 +4,8 @@ const {
     CreditContractRuleError,
     getActivationBillingResult,
     resolveIxcContractDueDay,
-    resolveIxcTipoContratoId
+    resolveIxcTipoContratoId,
+    validateCreditConsultationAcknowledgement
 } = require('../src/services/ixcCreditContractService');
 const {
     faturarAtivacaoContrato
@@ -42,6 +43,12 @@ function decision(status, perfil, modalidade, taxaHabilitacao, motivo = 'Teste')
 function assertCreditError(fn, expectedCode) {
     assert.throws(fn, error => error instanceof CreditContractRuleError && error.code === expectedCode);
 }
+
+assert.strictEqual(validateCreditConsultationAcknowledgement(true), true);
+assertCreditError(
+    () => validateCreditConsultationAcknowledgement(false),
+    'CREDIT_CONSULTATION_ACK_REQUIRED'
+);
 
 const approvedDecision = decision('APROVADO', 'SEM_RESTRICAO', 'POS_PAGO', 0);
 for (const [day, expectedId] of Object.entries({ '5': '5', '10': '10', '15': '15', '20': '20' })) {
@@ -428,7 +435,7 @@ async function runActivationBillingTests() {
         assert.strictEqual(creationCalls[0].data.data_vencimento_areceber, '17/07/2026');
     }
 
-    console.log('OK: regras de credito e faturamento da ativacao IXC validadas (25 cenarios).');
+    console.log('OK: regras de credito e faturamento da ativacao IXC validadas (27 cenarios).');
 }
 
 runActivationBillingTests().catch(error => {
