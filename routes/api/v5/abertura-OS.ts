@@ -4,6 +4,7 @@ import axios, { Method } from 'axios';
 import { LOCALHOST } from '../../../api/database';
 import { AgendaService } from './agendaService';
 import { logError, logInfo } from '../../../api/logger';
+import { gerarProtocoloAtendimentoIxc } from '../../../src/services/ixcAttendanceProtocolService';
 
 const router = Express.Router();
 
@@ -907,6 +908,10 @@ router.post('/criar-os', async (req, res) => {
             });
         }
 
+        const protocoloGerado = await gerarProtocoloAtendimentoIxc(makeIxcRequest, {
+            usuario: usuario_logado || usuario_intranet || 'abertura-os'
+        });
+
         const payloadTicket: any = {
             id_cliente: cliente_id,
             id_contrato: contrato_id,
@@ -924,6 +929,7 @@ router.post('/criar-os', async (req, res) => {
             origem_cadastro: "P",
             interacao_pendente: "N",
             melhor_horario_reserva: "Q",
+            protocolo: protocoloGerado,
             menssagem: mensagemInicialCampo,
             mensagem: mensagemInicialCampo
         };
@@ -977,7 +983,7 @@ router.post('/criar-os', async (req, res) => {
             osCriada = osCriadaResp.registros?.[0] || null;
         }
 
-        const protocolo = extrairProtocoloTicket(ixcResp) || extrairProtocoloTicket(ticketCriado) || extrairProtocoloTicket(osCriada) || 'Protocolo ainda não retornado pelo IXC';
+        const protocolo = extrairProtocoloTicket(ixcResp) || extrairProtocoloTicket(ticketCriado) || extrairProtocoloTicket(osCriada) || protocoloGerado;
         if (protocolo === 'Protocolo ainda não retornado pelo IXC') {
             console.warn('[Abertura OS][Protocolo] Protocolo não retornado pelo IXC:', {
                 respostaCriacao: ixcResp,
@@ -1049,6 +1055,12 @@ router.post('/criar-os', async (req, res) => {
             payload_ixc: payloadTicketLog,
             resposta_ixc: error.response?.data || error.respostaIxc
         });
+        if (error?.code === 'IXC_ATTENDANCE_PROTOCOL_ERROR') {
+            return res.status(502).json({
+                error: error.message,
+                code: error.code
+            });
+        }
         if (String(erroIxc || '').toLowerCase().includes('assunto')) {
             return res.status(400).json({ error: 'O IXC exige um assunto válido. Selecione um assunto do atendimento.' });
         }

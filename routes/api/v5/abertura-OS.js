@@ -26,6 +26,7 @@ const axios_1 = require("axios");
 const database_1 = require("../../../api/database");
 const agendaService_1 = require("./agendaService");
 const logger_1 = require("../../../api/logger");
+const ixcAttendanceProtocolService_1 = require("../../../src/services/ixcAttendanceProtocolService");
 const router = Express.Router();
 const makeIxcRequest = (method, endpoint, data = null, operationType = null) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
@@ -844,6 +845,9 @@ router.post('/criar-os', (req, res) => __awaiter(void 0, void 0, void 0, functio
                 protocolo: protocoloDuplicado
             });
         }
+        const protocoloGerado = yield (0, ixcAttendanceProtocolService_1.gerarProtocoloAtendimentoIxc)(makeIxcRequest, {
+            usuario: usuario_logado || usuario_intranet || 'abertura-os'
+        });
         const payloadTicket = {
             id_cliente: cliente_id,
             id_contrato: contrato_id,
@@ -861,6 +865,7 @@ router.post('/criar-os', (req, res) => __awaiter(void 0, void 0, void 0, functio
             origem_cadastro: "P",
             interacao_pendente: "N",
             melhor_horario_reserva: "Q",
+            protocolo: protocoloGerado,
             menssagem: mensagemInicialCampo,
             mensagem: mensagemInicialCampo
         };
@@ -907,7 +912,7 @@ router.post('/criar-os', (req, res) => __awaiter(void 0, void 0, void 0, functio
             }).catch(() => ({ registros: [] }));
             osCriada = ((_f = osCriadaResp.registros) === null || _f === void 0 ? void 0 : _f[0]) || null;
         }
-        const protocolo = extrairProtocoloTicket(ixcResp) || extrairProtocoloTicket(ticketCriado) || extrairProtocoloTicket(osCriada) || 'Protocolo ainda não retornado pelo IXC';
+        const protocolo = extrairProtocoloTicket(ixcResp) || extrairProtocoloTicket(ticketCriado) || extrairProtocoloTicket(osCriada) || protocoloGerado;
         if (protocolo === 'Protocolo ainda não retornado pelo IXC') {
             console.warn('[Abertura OS][Protocolo] Protocolo não retornado pelo IXC:', {
                 respostaCriacao: ixcResp,
@@ -978,6 +983,12 @@ router.post('/criar-os', (req, res) => __awaiter(void 0, void 0, void 0, functio
             payload_ixc: payloadTicketLog,
             resposta_ixc: ((_l = error.response) === null || _l === void 0 ? void 0 : _l.data) || error.respostaIxc
         });
+        if ((error === null || error === void 0 ? void 0 : error.code) === 'IXC_ATTENDANCE_PROTOCOL_ERROR') {
+            return res.status(502).json({
+                error: error.message,
+                code: error.code
+            });
+        }
         if (String(erroIxc || '').toLowerCase().includes('assunto')) {
             return res.status(400).json({ error: 'O IXC exige um assunto válido. Selecione um assunto do atendimento.' });
         }
