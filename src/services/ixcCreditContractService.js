@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.failCreditContractAudit = exports.finishCreditContractAudit = exports.associateCreditAnalysisClient = exports.startCreditContractAudit = exports.getActivationBillingResult = exports.ensureCreditContractAuditTable = exports.loadCreditAnalysisForIxcContract = exports.applyCreditDecisionToIxcContractPayload = exports.calculateIxcActivationDueDate = exports.resolveIxcContractDueDay = exports.resolveIxcTipoContratoId = exports.getIxcCreditContractConfig = exports.CreditContractRuleError = exports.MANUAL_ACTIVATION_BILLING_MESSAGE = void 0;
+exports.failCreditContractAudit = exports.finishCreditContractAudit = exports.associateCreditAnalysisClient = exports.startCreditContractAudit = exports.getActivationBillingResult = exports.ensureCreditContractAuditTable = exports.loadCreditAnalysisForIxcContract = exports.applyCreditDecisionToIxcContractPayload = exports.calculateIxcActivationDueDate = exports.resolveIxcContractDueDay = exports.resolveIxcTipoContratoId = exports.getIxcCreditContractConfig = exports.validateCreditConsultationAcknowledgement = exports.CreditContractRuleError = exports.MANUAL_ACTIVATION_BILLING_MESSAGE = void 0;
 const database_1 = require("../../api/database");
 const logger_1 = require("../../api/logger");
 const spcService_1 = require("./spcService");
@@ -25,6 +25,13 @@ class CreditContractRuleError extends Error {
     }
 }
 exports.CreditContractRuleError = CreditContractRuleError;
+function validateCreditConsultationAcknowledgement(value) {
+    if (value !== true && value !== 'true' && value !== 1 && value !== '1') {
+        throw new CreditContractRuleError('Confirme que o cliente foi informado sobre a consulta de credito antes de continuar.', 'CREDIT_CONSULTATION_ACK_REQUIRED', 422);
+    }
+    return true;
+}
+exports.validateCreditConsultationAcknowledgement = validateCreditConsultationAcknowledgement;
 function executeDb(query, params = []) {
     return new Promise((resolve, reject) => {
         database_1.LOCALHOST.query(query, params, (err, results) => {
@@ -273,6 +280,8 @@ function ensureCreditContractAuditTable() {
             status_processamento VARCHAR(20) NOT NULL DEFAULT 'PROCESSANDO',
             request_id VARCHAR(80) NULL,
             criado_por VARCHAR(120) NOT NULL,
+            ciencia_consulta_credito_confirmada TINYINT(1) NOT NULL DEFAULT 0,
+            ciencia_consulta_credito_confirmada_em DATETIME NULL,
             erro_resumo VARCHAR(500) NULL,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -295,7 +304,9 @@ function ensureCreditContractAuditTable() {
             ADD COLUMN IF NOT EXISTS id_vd_saida_ativacao VARCHAR(50) NULL AFTER mensagem_faturamento_ativacao,
             ADD COLUMN IF NOT EXISTS id_fn_areceber_ativacao VARCHAR(50) NULL AFTER id_vd_saida_ativacao,
             ADD COLUMN IF NOT EXISTS faturamento_ativacao_started_at DATETIME NULL AFTER id_fn_areceber_ativacao,
-            ADD COLUMN IF NOT EXISTS faturamento_ativacao_finished_at DATETIME NULL AFTER faturamento_ativacao_started_at
+            ADD COLUMN IF NOT EXISTS faturamento_ativacao_finished_at DATETIME NULL AFTER faturamento_ativacao_started_at,
+            ADD COLUMN IF NOT EXISTS ciencia_consulta_credito_confirmada TINYINT(1) NOT NULL DEFAULT 0 AFTER criado_por,
+            ADD COLUMN IF NOT EXISTS ciencia_consulta_credito_confirmada_em DATETIME NULL AFTER ciencia_consulta_credito_confirmada
     `);
         auditTableReady = true;
     });
@@ -323,8 +334,9 @@ function startCreditContractAudit(input) {
              (analise_credito_id, id_cliente, tipo_cadastro, modalidade, taxa_habilitacao,
               dia_vencimento, id_tipo_contrato, taxa_instalacao, ativacao_numero_parcelas,
               id_cond_pag_ativ, id_produto_ativ, id_tipo_doc_ativ, status_faturamento_ativacao,
-              mensagem_faturamento_ativacao, status_processamento, request_id, criado_por)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'NAO_APLICAVEL', NULL, 'PROCESSANDO', ?, ?)`, [
+              mensagem_faturamento_ativacao, status_processamento, request_id, criado_por,
+              ciencia_consulta_credito_confirmada, ciencia_consulta_credito_confirmada_em)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'NAO_APLICAVEL', NULL, 'PROCESSANDO', ?, ?, ?, CURRENT_TIMESTAMP)`, [
                 input.analiseCreditoId,
                 input.clienteId || null,
                 input.tipoCadastro,
@@ -338,7 +350,8 @@ function startCreditContractAudit(input) {
                 auditPayload.id_produto_ativ || null,
                 auditPayload.id_tipo_doc_ativ || null,
                 input.requestId || null,
-                input.criadoPor
+                input.criadoPor,
+                input.cienciaConsultaCreditoConfirmada ? 1 : 0
             ]);
             return Number(result.insertId);
         }
