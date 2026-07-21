@@ -25,6 +25,10 @@ const Express = require("express");
 const axios_1 = require("axios");
 const database_1 = require("../../../api/database");
 const logger_1 = require("../../../api/logger");
+const ixcCreditContractService_1 = require("../../../src/services/ixcCreditContractService");
+const ixcActivationBillingService_1 = require("../../../src/services/ixcActivationBillingService");
+const spcService_1 = require("../../../src/services/spcService");
+const ixcAttendanceProtocolService_1 = require("../../../src/services/ixcAttendanceProtocolService");
 function formatarNomePlano(nomeOriginal) {
     if (!nomeOriginal)
         return 'Não informado';
@@ -118,6 +122,25 @@ const getIxcDateDMY = () => {
     const year = now.getFullYear();
     return `${day}/${month}/${year}`;
 };
+function validateExistingIxcClientForCreditAnalysis(clienteId, documento) {
+    var _a;
+    return __awaiter(this, void 0, void 0, function* () {
+        const id = String(clienteId || '').trim();
+        if (!id)
+            return;
+        const response = yield makeIxcRequest('POST', '/cliente', {
+            qtype: 'cliente.id',
+            query: id,
+            oper: '=',
+            page: '1',
+            rp: '1'
+        });
+        const cliente = (_a = response === null || response === void 0 ? void 0 : response.registros) === null || _a === void 0 ? void 0 : _a[0];
+        if (!cliente || (0, spcService_1.limparDocumento)(cliente.cnpj_cpf) !== (0, spcService_1.limparDocumento)(documento)) {
+            throw new ixcCreditContractService_1.CreditContractRuleError('Cliente IXC nao corresponde ao documento da analise de credito.', 'CREDIT_ANALYSIS_CLIENT_MISMATCH', 409);
+        }
+    });
+}
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 function executeDbLocal(query, params = []) {
     return new Promise((resolve, reject) => {
@@ -394,16 +417,17 @@ function cadastrarCliente(clientData, dataCadastro, filialId = '3') {
         return clienteResponse.id;
     });
 }
-function criarContrato(novoClienteId, clientData, dataCadastro, nomePlano, options = { id_filial: '3', id_carteira_cobranca: '11', bloqueio_automatico: 'S' }) {
+function criarContrato(novoClienteId, clientData, dataCadastro, nomePlano, options = { id_filial: '3', id_carteira_cobranca: '11', bloqueio_automatico: 'S' }, contextoCredito) {
     return __awaiter(this, void 0, void 0, function* () {
         //console.log("Iniciando Etapa 2: Criação do Contrato...");
         const today = dataCadastro.split(' ')[0];
         const idTipoContrato = getTipoContratoPorVencimento(clientData.data_vencimento);
         const idModelo = getModeloPlano(clientData.id_plano_ixc);
-        const contratoPayload = {
+        const contratoPayloadBase = {
             'id_cliente': novoClienteId,
             'id_vd_contrato': clientData.id_plano_ixc,
             'id_vendedor': clientData.id_vendedor,
+            'id_vendedor_ativ': clientData.id_vendedor,
             'dia_fixo_vencimento': clientData.data_vencimento,
             'obs': clientData.obs,
             'endereco_padrao_cliente': 'N',
@@ -452,6 +476,26 @@ function criarContrato(novoClienteId, clientData, dataCadastro, nomePlano, optio
             'document_photo': 'P',
             'selfie_photo': 'P'
         };
+        const contratoPayload = contextoCredito
+            ? (0, ixcCreditContractService_1.applyCreditDecisionToIxcContractPayload)(contratoPayloadBase, contextoCredito.analise.decision, (0, ixcCreditContractService_1.getIxcCreditContractConfig)(), clientData.data_vencimento)
+            : contratoPayloadBase;
+        if (contextoCredito) {
+            (0, logger_1.logInfo)('IXC.Credito.PayloadContrato', 'Condicao de credito aplicada ao payload do contrato.', {
+                requestId: contextoCredito.requestId,
+                usuario: contextoCredito.usuario,
+                analiseCreditoId: contextoCredito.analise.id,
+                modalidade: contextoCredito.analise.decision.perfil === 'SEM_RESTRICAO' ? 'POS_PAGO' : 'PRE_PAGO',
+                dia_vencimento: clientData.data_vencimento,
+                taxa_instalacao: contratoPayload.taxa_instalacao,
+                ativacao_numero_parcelas: contratoPayload.ativacao_numero_parcelas || '0',
+                ativacao_valor_parcela: contratoPayload.ativacao_valor_parcela || '0.00',
+                id_tipo_contrato: contratoPayload.id_tipo_contrato,
+                id_cond_pag_ativ: contratoPayload.id_cond_pag_ativ || null,
+                id_produto_ativ: contratoPayload.id_produto_ativ || null,
+                id_tipo_doc_ativ: contratoPayload.id_tipo_doc_ativ || null,
+                status_faturamento_ativacao: (0, ixcCreditContractService_1.getActivationBillingResult)(contratoPayload.taxa_instalacao).status
+            });
+        }
         //console.log("Contrato Payload (Etapa 2):", JSON.stringify(contratoPayload, null, 2));
         const contratoResponse = yield makeIxcRequest('POST', '/cliente_contrato', contratoPayload);
         //console.log("Resposta da API IXC (Etapa 2):", contratoResponse);
@@ -459,8 +503,50 @@ function criarContrato(novoClienteId, clientData, dataCadastro, nomePlano, optio
             const errorMessage = contratoResponse.message || contratoResponse.msg || 'Resposta inválida do IXC.';
             throw new Error(`Falha ao criar contrato: ${errorMessage}`);
         }
+        if (contextoCredito) {
+            const faturamentoAtivacao = (0, ixcCreditContractService_1.getActivationBillingResult)(contratoPayload.taxa_instalacao);
+            try {
+                yield (0, ixcCreditContractService_1.finishCreditContractAudit)(contextoCredito.auditoriaId, String(contratoResponse.id), faturamentoAtivacao);
+            }
+            catch (auditError) {
+                // O contrato ja existe no IXC. Mantemos a reserva PROCESSANDO para
+                // impedir repeticao e registramos a falha para conciliacao manual.
+                (0, logger_1.logError)('IXC.Credito.AuditoriaContratoCriado', auditError, {
+                    requestId: contextoCredito.requestId,
+                    analiseCreditoId: contextoCredito.analise.id,
+                    contratoId: contratoResponse.id,
+                    auditoriaId: contextoCredito.auditoriaId
+                });
+            }
+        }
         //console.log(`Etapa 2 OK: Contrato ID ${contratoResponse.id} criado.`);
         return contratoResponse.id;
+    });
+}
+function processarFaturamentoAtivacaoContrato(contratoId, clienteId, clientData, options, contextoCredito) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const taxaAtivacao = Number(contextoCredito.analise.decision.taxaHabilitacao || 0);
+        if (taxaAtivacao <= 0)
+            return (0, ixcCreditContractService_1.getActivationBillingResult)(0);
+        if (!(0, ixcActivationBillingService_1.isAutomaticActivationBillingEnabled)())
+            return (0, ixcCreditContractService_1.getActivationBillingResult)(taxaAtivacao);
+        const config = (0, ixcCreditContractService_1.getIxcCreditContractConfig)();
+        return (0, ixcActivationBillingService_1.faturarAtivacaoContrato)({
+            auditoriaId: contextoCredito.auditoriaId,
+            idContrato: String(contratoId),
+            idCliente: String(clienteId),
+            taxaAtivacao,
+            idProdutoAtivacao: config.produtoTaxaAtivacaoId,
+            idTipoDocumentoAtivacao: config.tipoDocAtivacaoId,
+            idCondicaoPagamento: config.condPagAtivacaoUnicaId,
+            idFilial: String(options.id_filial || clientData.id_filial || ''),
+            idVendedor: String(clientData.id_vendedor_ativ || clientData.id_vendedor || ''),
+            idResponsavel: String(clientData.id_responsavel || clientData.id_responsavel_ativ || ''),
+            vencimento: (0, ixcCreditContractService_1.calculateIxcActivationDueDate)(config.ativacaoVencimentoDias),
+            requestId: contextoCredito.requestId,
+            analiseCreditoId: contextoCredito.analise.id,
+            usuario: contextoCredito.usuario
+        });
     });
 }
 //plano de venda -> ID plano
@@ -623,6 +709,9 @@ function abrirAtendimentoOS(novoClienteId, clientData, nomePlano, novoLoginId, n
     return __awaiter(this, void 0, void 0, function* () {
         //console.log("Iniciando Etapa 4: Abertura de Atendimento/OS Unificado...");
         const mensagem_padrao = buildMensagemAtendimento(clientData, nomePlano);
+        const protocolo = yield (0, ixcAttendanceProtocolService_1.gerarProtocoloAtendimentoIxc)(makeIxcRequest, {
+            usuario: clientData.usuario_intranet || 'cadastro'
+        });
         const atendimentoPayload = {
             "id_cliente": novoClienteId,
             "assunto_ticket": clientData.assunto_ticket,
@@ -640,7 +729,8 @@ function abrirAtendimentoOS(novoClienteId, clientData, nomePlano, novoLoginId, n
             "tipo": "C",
             "menssagem": mensagem_padrao,
             "id_login": novoLoginId,
-            "id_contrato": novoContratoId
+            "id_contrato": novoContratoId,
+            "protocolo": protocolo
         };
         //console.log("Atendimento/OS Payload (Etapa 4):", JSON.stringify(atendimentoPayload, null, 2));
         const atendimentoResponse = yield makeIxcRequest('POST', '/su_ticket', atendimentoPayload, 'incluir');
@@ -1065,10 +1155,34 @@ function ajustarFinanceiroContrato(contratoId, valorAcordadoStr, idPlano) {
     });
 }
 router.post('/cliente', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const _d = req.body, { existingClientId, condominio_novo_nome } = _d, clientData = __rest(_d, ["existingClientId", "condominio_novo_nome"]);
+    var _d, _e;
+    const _f = req.body, { existingClientId, condominio_novo_nome } = _f, clientData = __rest(_f, ["existingClientId", "condominio_novo_nome"]);
     const dataCadastro = getIxcDate();
     let novoClienteId;
+    let novoContratoId = null;
+    let auditoriaCreditoId = null;
     try {
+        const usuario = ((_d = req.user) === null || _d === void 0 ? void 0 : _d.username) || ((_e = req.session) === null || _e === void 0 ? void 0 : _e.username) || 'Visitante';
+        const analiseCredito = yield (0, ixcCreditContractService_1.loadCreditAnalysisForIxcContract)({
+            analiseCreditoId: clientData.analise_credito_id,
+            documento: clientData.cnpj_cpf,
+            tipoCadastro: 'BANDA_LARGA',
+            clienteId: existingClientId,
+            diaVencimento: clientData.data_vencimento
+        });
+        const modalidadeContrato = analiseCredito.decision.perfil === 'SEM_RESTRICAO' ? 'POS_PAGO' : 'PRE_PAGO';
+        const diaVencimentoContrato = (0, ixcCreditContractService_1.resolveIxcContractDueDay)(modalidadeContrato, clientData.data_vencimento, (0, ixcCreditContractService_1.getIxcCreditContractConfig)());
+        clientData.data_vencimento = String(diaVencimentoContrato);
+        yield validateExistingIxcClientForCreditAnalysis(existingClientId, clientData.cnpj_cpf);
+        auditoriaCreditoId = yield (0, ixcCreditContractService_1.startCreditContractAudit)({
+            analiseCreditoId: analiseCredito.id,
+            clienteId: analiseCredito.clienteId || existingClientId || null,
+            tipoCadastro: 'BANDA_LARGA',
+            decision: analiseCredito.decision,
+            diaVencimento: clientData.data_vencimento,
+            criadoPor: usuario,
+            requestId: req.requestId
+        });
         let nomePlano = `ID ${clientData.id_plano_ixc}`;
         try {
             const planoInfo = yield makeIxcRequest('POST', `/vd_contratos`, { qtype: 'vd_contratos.id', query: clientData.id_plano_ixc, oper: '=' });
@@ -1088,7 +1202,20 @@ router.post('/cliente', (req, res) => __awaiter(void 0, void 0, void 0, function
             //console.log("Nenhum Cliente ID fornecido. Executando Etapa 1 (Cadastro de Cliente)...");
             novoClienteId = yield cadastrarCliente(clientData, dataCadastro);
         }
-        const novoContratoId = yield criarContrato(novoClienteId, clientData, dataCadastro, nomePlano);
+        yield (0, ixcCreditContractService_1.associateCreditAnalysisClient)(analiseCredito, novoClienteId, auditoriaCreditoId);
+        const opcoesContratoBandaLarga = {
+            id_filial: '3',
+            id_carteira_cobranca: '11',
+            bloqueio_automatico: 'S'
+        };
+        const contextoCredito = {
+            analise: analiseCredito,
+            auditoriaId: auditoriaCreditoId,
+            requestId: req.requestId,
+            usuario
+        };
+        novoContratoId = yield criarContrato(novoClienteId, clientData, dataCadastro, nomePlano, opcoesContratoBandaLarga, contextoCredito);
+        const faturamentoAtivacao = yield processarFaturamentoAtivacaoContrato(novoContratoId, novoClienteId, clientData, opcoesContratoBandaLarga, contextoCredito);
         const novoLoginId = yield criarLogin(novoClienteId, novoContratoId, clientData, dataCadastro);
         const novoTicketId = yield abrirAtendimentoOS(novoClienteId, clientData, nomePlano, novoLoginId, novoContratoId);
         const osInstalacao = yield buscarOsInstalacaoPorTicket(novoTicketId);
@@ -1102,13 +1229,20 @@ router.post('/cliente', (req, res) => __awaiter(void 0, void 0, void 0, function
             contratoId: novoContratoId,
             loginId: novoLoginId,
             ticketId: novoTicketId,
-            osId: (osInstalacao === null || osInstalacao === void 0 ? void 0 : osInstalacao.id) || null
+            osId: (osInstalacao === null || osInstalacao === void 0 ? void 0 : osInstalacao.id) || null,
+            modalidadeContrato,
+            diaVencimentoContrato,
+            statusFaturamentoAtivacao: faturamentoAtivacao.status,
+            avisoFaturamentoAtivacao: faturamentoAtivacao.mensagem
         });
     }
     catch (error) {
         console.error('ERRO FATAL no cadastro BANDA LARGA:', error);
-        try {
-            const mensagemErroAutomatico = `
+        if (!novoContratoId)
+            yield (0, ixcCreditContractService_1.failCreditContractAudit)(auditoriaCreditoId, error);
+        if (!(error === null || error === void 0 ? void 0 : error.isCreditRuleError))
+            try {
+                const mensagemErroAutomatico = `
 ERRO AUTOMÁTICO - FALHA NO CADASTRO BANDA LARGA
 -------------------------------------------------------
 DATA/HORA: ${getIxcDate()}
@@ -1124,21 +1258,25 @@ Plano: ${clientData.id_plano_ixc}
 Endereço: ${clientData.endereco}, ${clientData.numero} - ${clientData.bairro}
 Condomínio ID: ${clientData.id_condominio}
             `.trim();
-            yield abrirChamadoSuporteInterno(mensagemErroAutomatico);
-        }
-        catch (supportError) {
-            console.error("Não foi possível abrir o chamado de erro automático:", supportError);
-        }
-        res.status(500).json({
+                yield abrirChamadoSuporteInterno(mensagemErroAutomatico);
+            }
+            catch (supportError) {
+                console.error("Não foi possível abrir o chamado de erro automático:", supportError);
+            }
+        res.status((error === null || error === void 0 ? void 0 : error.statusCode) || 500).json({
             success: false,
-            error: error.message
+            error: error.message,
+            code: (error === null || error === void 0 ? void 0 : error.code) || null
         });
     }
 }));
 router.post('/cliente-corporativo', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const _e = req.body, { existingClientId } = _e, clientData = __rest(_e, ["existingClientId"]);
+    var _g, _h;
+    const _j = req.body, { existingClientId } = _j, clientData = __rest(_j, ["existingClientId"]);
     const dataCadastro = getIxcDate();
     let novoClienteId;
+    let novoContratoId = null;
+    let auditoriaCreditoId = null;
     const FILIAL_CORPORATIVO = '1';
     const OPCOES_CONTRATO_CORP = {
         id_filial: '1',
@@ -1149,6 +1287,27 @@ router.post('/cliente-corporativo', (req, res) => __awaiter(void 0, void 0, void
         tipo_doc_opc2: '6'
     };
     try {
+        const usuario = ((_g = req.user) === null || _g === void 0 ? void 0 : _g.username) || ((_h = req.session) === null || _h === void 0 ? void 0 : _h.username) || 'Visitante';
+        const analiseCredito = yield (0, ixcCreditContractService_1.loadCreditAnalysisForIxcContract)({
+            analiseCreditoId: clientData.analise_credito_id,
+            documento: clientData.cnpj_cpf,
+            tipoCadastro: 'CORPORATIVO',
+            clienteId: existingClientId,
+            diaVencimento: clientData.data_vencimento
+        });
+        const modalidadeContrato = analiseCredito.decision.perfil === 'SEM_RESTRICAO' ? 'POS_PAGO' : 'PRE_PAGO';
+        const diaVencimentoContrato = (0, ixcCreditContractService_1.resolveIxcContractDueDay)(modalidadeContrato, clientData.data_vencimento, (0, ixcCreditContractService_1.getIxcCreditContractConfig)());
+        clientData.data_vencimento = String(diaVencimentoContrato);
+        yield validateExistingIxcClientForCreditAnalysis(existingClientId, clientData.cnpj_cpf);
+        auditoriaCreditoId = yield (0, ixcCreditContractService_1.startCreditContractAudit)({
+            analiseCreditoId: analiseCredito.id,
+            clienteId: analiseCredito.clienteId || existingClientId || null,
+            tipoCadastro: 'CORPORATIVO',
+            decision: analiseCredito.decision,
+            diaVencimento: clientData.data_vencimento,
+            criadoPor: usuario,
+            requestId: req.requestId
+        });
         let nomePlano = `ID ${clientData.id_plano_ixc}`;
         try {
             const planoInfo = yield makeIxcRequest('POST', `/vd_contratos`, { qtype: 'vd_contratos.id', query: clientData.id_plano_ixc, oper: '=' });
@@ -1186,7 +1345,15 @@ router.post('/cliente-corporativo', (req, res) => __awaiter(void 0, void 0, void
                 }
             }
         }
-        const novoContratoId = yield criarContrato(novoClienteId, clientData, dataCadastro, nomePlano, OPCOES_CONTRATO_CORP);
+        yield (0, ixcCreditContractService_1.associateCreditAnalysisClient)(analiseCredito, novoClienteId, auditoriaCreditoId);
+        const contextoCredito = {
+            analise: analiseCredito,
+            auditoriaId: auditoriaCreditoId,
+            requestId: req.requestId,
+            usuario
+        };
+        novoContratoId = yield criarContrato(novoClienteId, clientData, dataCadastro, nomePlano, OPCOES_CONTRATO_CORP, contextoCredito);
+        const faturamentoAtivacao = yield processarFaturamentoAtivacaoContrato(novoContratoId, novoClienteId, clientData, OPCOES_CONTRATO_CORP, contextoCredito);
         const novoLoginId = yield criarLogin(novoClienteId, novoContratoId, clientData, dataCadastro);
         const novoTicketId = yield abrirAtendimentoOS(novoClienteId, clientData, nomePlano, novoLoginId, novoContratoId);
         yield ajustarFinanceiroContrato(novoContratoId, clientData.valor_acordado, clientData.id_plano_ixc);
@@ -1196,13 +1363,20 @@ router.post('/cliente-corporativo', (req, res) => __awaiter(void 0, void 0, void
             clienteId: novoClienteId,
             contratoId: novoContratoId,
             loginId: novoLoginId,
-            ticketId: novoTicketId
+            ticketId: novoTicketId,
+            modalidadeContrato,
+            diaVencimentoContrato,
+            statusFaturamentoAtivacao: faturamentoAtivacao.status,
+            avisoFaturamentoAtivacao: faturamentoAtivacao.mensagem
         });
     }
     catch (error) {
         console.error('ERRO FATAL no cadastro corporativo:', error);
-        try {
-            const mensagemErroAutomatico = `
+        if (!novoContratoId)
+            yield (0, ixcCreditContractService_1.failCreditContractAudit)(auditoriaCreditoId, error);
+        if (!(error === null || error === void 0 ? void 0 : error.isCreditRuleError))
+            try {
+                const mensagemErroAutomatico = `
 ERRO AUTOMÁTICO - FALHA NO CADASTRO CORPORATIVO
 -------------------------------------------------------
 DATA/HORA: ${getIxcDate()}
@@ -1218,12 +1392,12 @@ Plano: ${clientData.id_plano_ixc}
 Valor: ${clientData.valor_acordado}
 Endereço Instalação: ${clientData.endereco}, ${clientData.numero} - ${clientData.bairro}
             `.trim();
-            yield abrirChamadoSuporteInterno(mensagemErroAutomatico);
-        }
-        catch (supportError) {
-            console.error("Não foi possível abrir o chamado de erro automático:", supportError);
-        }
-        res.status(500).json({ success: false, error: error.message });
+                yield abrirChamadoSuporteInterno(mensagemErroAutomatico);
+            }
+            catch (supportError) {
+                console.error("Não foi possível abrir o chamado de erro automático:", supportError);
+            }
+        res.status((error === null || error === void 0 ? void 0 : error.statusCode) || 500).json({ success: false, error: error.message, code: (error === null || error === void 0 ? void 0 : error.code) || null });
     }
 }));
 router.post('/consultar-cliente', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -2433,7 +2607,7 @@ function cancelarContratoAntigo(contratoId) {
     });
 }
 router.post('/mudanca-titularidade', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const _f = req.body, { contratoAntigoId, existingClientId, loginSelecionadoId, isTransferenciaParcial } = _f, clientData = __rest(_f, ["contratoAntigoId", "existingClientId", "loginSelecionadoId", "isTransferenciaParcial"]);
+    const _k = req.body, { contratoAntigoId, existingClientId, loginSelecionadoId, isTransferenciaParcial } = _k, clientData = __rest(_k, ["contratoAntigoId", "existingClientId", "loginSelecionadoId", "isTransferenciaParcial"]);
     const dataCadastro = getIxcDate();
     try {
         const { contratoAntigo, loginAntigo } = yield buscarDetalhesContratoELoginAntigo(contratoAntigoId, loginSelecionadoId);
